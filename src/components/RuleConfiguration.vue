@@ -111,6 +111,8 @@ export default defineComponent({
     overflow: hidden;
     border: var(--border-medium);
     border-radius: 16px;
+    max-width: 375px;
+    margin: auto;
   }
   .center-align {
     display: flex;

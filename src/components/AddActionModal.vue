@@ -16,15 +16,15 @@
     <ion-list>
       <ion-item>
         <ion-label>Route orders</ion-label>
-        <ion-button fill="outline" color="medium">{{ $t("Add") }}</ion-button>
+        <ion-button slot="end" fill="outline" color="medium">{{ $t("Add") }}</ion-button>
       </ion-item>
       <ion-item>
         <ion-label>Re-broker orders</ion-label>
-        <ion-button fill="outline" color="medium">{{ $t("Add") }}</ion-button>
+        <ion-button slot="end" fill="outline" color="medium">{{ $t("Add") }}</ion-button>
       </ion-item>
       <ion-item>
         <ion-label>Load pre-order category</ion-label>
-        <ion-button fill="outline" color="medium">{{ $t("Add") }}</ion-button>
+        <ion-button slot="end" fill="outline" color="medium">{{ $t("Add") }}</ion-button>
       </ion-item>
     </ion-list>
   </ion-content>

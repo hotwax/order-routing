@@ -3,22 +3,22 @@
     <ion-content>
       <main>
         <section>
-        <ion-label>{{ $t("FLOWS") }}</ion-label>
-        <ion-card>
-          <ion-card-content>  
-            <h2>Release Pre-orders</h2>
-            Scheduled: 7:30am <br>
-            Frequency: Every Day
-          </ion-card-content>  
-        </ion-card>
-  
-        <ion-card @click="viewRule">
-          <ion-card-content> 
-            <h2>Morning brokering</h2> 
-            Trigger: Release Pre-orders <ion-icon :icon="openOutline" /> <br>
-            Condition: Completion
-          </ion-card-content>  
-        </ion-card>
+          <ion-label>{{ $t("FLOWS") }}</ion-label>
+          <ion-card>
+            <ion-card-content>
+              <h2>Release Pre-orders</h2>
+              Scheduled: 7:30am <br>
+              Frequency: Every Day
+            </ion-card-content>
+          </ion-card>
+    
+          <ion-card @click="viewRule">
+            <ion-card-content>
+              <h2>Morning brokering</h2>
+              Trigger: Release Pre-orders <ion-icon :icon="openOutline" /> <br>
+              Condition: Completion
+            </ion-card-content>
+          </ion-card>
         </section>
         <aside class="desktop-only" v-if="isDesktop" >
           <RuleConfiguration />
@@ -95,65 +95,47 @@ export default defineComponent({
 </script>
 
 <style scoped>
-
-
-
-@media (min-width: 991px) {
-  main {
-    display: flex;
-    justify-content: center;
-    align-items: start;
-    gap: var(--spacer-2xl);
-    max-width: 990px;
-    margin: var(--spacer-base) auto 0;
+  ion-card h2 {
+    font-size: 22px;
   }
-  main section {
-    margin-top: var(--spacer-xl);
-    max-width: 50ch;
-    flex: auto;
+
+  ion-card {
+    margin: var(--spacer-base) 0px;
   }
-  
-  .desktop-only {
-    display: unset;
-  }
+
   aside {
-    width: 0px;
-    opacity: 0;
-  }
-}
-ion-card h2 {
-  font-size: 22px;
-}
-
-ion-card {
-  margin: var(--spacer-base) 0px;
-}
-
-/* @media (min-width: 991px) {
-  main {
-    display: flex;
-    justify-content: center;
-    align-items: start;
-    gap: var(--spacer-2xl);
-    max-width: 990px;
-    margin: var(--spacer-base) auto 0;
-  }
-
-  main > section {
-    max-width: 50ch;
+    position: sticky;
+    top: var(--spacer-lg);
   }
 
   .desktop-only {
-    display: unset;
-  }
-
-  .mobile-only {
     display: none;
   }
 
-  aside {
-    width: 0px;
-    opacity: 0;
+  @media (min-width: 991px) {
+    main {
+      display: flex;
+      justify-content: center;
+      align-items: start;
+      max-width: 990px;
+      margin: var(--spacer-base) auto 0;
+    }
+
+    main > section {
+      flex-basis: 370px;
+    }
+
+    .desktop-only {
+      display: unset;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+
+    aside {
+      width: 0px;
+      opacity: 0;
+    }
   }
-} */
 </style>

@@ -23,7 +23,7 @@
       <ion-accordion-group>
         <ion-item>
           <h3>Route Orders</h3>
-          <ion-button slot="end" fill="clear" color="medium" @click="ruleOptions">
+          <ion-button slot="end" fill="clear" color="medium" @click="ruleOptions($event)">
             <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
           </ion-button>
         </ion-item>
@@ -75,11 +75,12 @@ export default defineComponent({
     IonSelect
   },
   methods: {
-    async ruleOptions(){
+    async ruleOptions(ev: Event){
       const popover = await popoverController
         .create({
           component: RulePopover,
           translucent: true,
+          event: ev,
           showBackdrop: true,
         })
       return popover.present();

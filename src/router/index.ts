@@ -4,7 +4,6 @@ import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Settings from "@/views/Settings.vue"
 import store from '@/store'
-import Tabs from '@/views/Tabs.vue'
 
 const authGuard = (to: any, from: any, next: any) => {
   if (store.getters['user/isAuthenticated']) {
@@ -23,29 +22,6 @@ const loginGuard = (to: any, from: any, next: any) => {
 };
 
 const routes: Array<RouteRecordRaw> = [
-  {
-    path: '/',
-    redirect: '/tabs/home'
-  },
-  {
-    path: '/tabs',
-    component: Tabs,
-    children: [
-      {
-        path: '',
-        redirect: '/home'
-      },
-      {
-        path: 'home',
-        component: () => import('@/views/Home.vue')
-      },
-      {
-        path: 'settings',
-        component: () => import('@/views/Settings.vue')
-      },
-    ],
-    beforeEnter: authGuard
-  },
   {
     path: '/',
     redirect: '/settings'

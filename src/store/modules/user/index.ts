@@ -6,16 +6,16 @@ import UserState from './UserState'
 import RootState from '@/store/RootState'
 
 const userModule: Module<UserState, RootState> = {
-    namespaced: true,
-    state: {
-      token: '',
-      current: null,
-      currentFacility: {},
-      instanceUrl: '',
-    },
-    getters,
-    actions,
-    mutations,
+  namespaced: true,
+  state: {
+    token: '',
+    current: null,
+    currentFacility: {},
+    instanceUrl: '',
+  },
+  getters,
+  actions,
+  mutations,
 }
 
 // TODO

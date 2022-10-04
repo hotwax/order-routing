@@ -45,9 +45,9 @@ const checkPermission = async (payload: any): Promise <any>  => {
 }
 
 export const UserService = {
-    login,
-    getAvailableTimeZones,
-    getProfile,
-    setUserTimeZone,
-    checkPermission
+  login,
+  getAvailableTimeZones,
+  getProfile,
+  setUserTimeZone,
+  checkPermission
 }

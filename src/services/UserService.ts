@@ -13,10 +13,10 @@ const login = async (username: string, password: string): Promise <any> => {
 }
 
 const getProfile = async (): Promise <any>  => {
-    return api({
-      url: "user-profile", 
-      method: "get",
-    });
+  return api({
+    url: "user-profile",
+    method: "get",
+  });
 }
 const getAvailableTimeZones = async (): Promise <any>  => {
   return api({

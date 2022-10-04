@@ -9,7 +9,7 @@
       <ion-title>{{ $t("Select time zone") }}</ion-title>
     </ion-toolbar>
     <ion-toolbar>
-      <ion-searchbar @ionFocus="selectSearchBarText($event)" :placeholder="$t('Search time zones')"  v-model="queryString" v-on:keyup.enter="queryString = $event.target.value; findTimeZone()"></ion-searchbar>
+      <ion-searchbar @ionFocus="selectSearchBarText($event)" :placeholder="$t('Search time zones')"  v-model="queryString" v-on:keyup.enter="queryString = $event.target.value; findTimeZone()" />
     </ion-toolbar>
   </ion-header>
 
@@ -85,16 +85,16 @@ export default defineComponent({
         header: this.$t("Update time zone"),
         message,
         buttons: [
-            {
-              text: this.$t("Cancel"),
-            },
-            {
-              text: this.$t("Confirm"),
-              handler: () => {
-                this.setUserTimeZone();
-                }
-              }
-            ],
+          {
+            text: this.$t("Cancel"),
+          },
+          {
+            text: this.$t("Confirm"),
+            handler: () => {
+              this.setUserTimeZone();
+            }
+          }
+        ],
       });
       return alert.present();
     },
@@ -113,8 +113,8 @@ export default defineComponent({
     async getAvailableTimeZones() {
       UserService.getAvailableTimeZones().then((resp: any) => {
         if (resp.status === 200 && !hasError(resp)) {
-           this.timeZones = resp.data.filter((timeZone: any) => {
-              return DateTime.local().setZone(timeZone.id).isValid;
+          this.timeZones = resp.data.filter((timeZone: any) => {
+            return DateTime.local().setZone(timeZone.id).isValid;
           });
           this.findTimeZone();
         }
@@ -127,7 +127,7 @@ export default defineComponent({
     },
     async setUserTimeZone() {
       return this.store.dispatch("user/setUserTimeZone", {
-          "tzId": this.timeZoneId
+        "tzId": this.timeZoneId
       }).then(() => {
         this.closeModal()
       })
@@ -160,6 +160,6 @@ export default defineComponent({
     IonSearchbar,
     IonTitle,
     IonToolbar 
-    },
+  },
 });
 </script>

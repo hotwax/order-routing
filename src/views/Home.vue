@@ -3,22 +3,39 @@
     <ion-content>
       <main>
         <section>
-          <ion-label>{{ $t("FLOWS") }}</ion-label>
-          <ion-card>
-            <ion-card-content>
-              <h2>Release Pre-orders</h2>
-              Scheduled: 7:30am <br>
-              Frequency: Every Day
-            </ion-card-content>
-          </ion-card>
-    
-          <ion-card @click="viewRule">
-            <ion-card-content>
-              <h2>Morning brokering</h2>
-              Trigger: Release Pre-orders <ion-icon :icon="openOutline" /> <br>
-              Condition: Completion
-            </ion-card-content>
-          </ion-card>
+          <ion-list>
+            <ion-list-header lines="full">
+              <ion-label color="medium">{{ $t("FLOWS") }}</ion-label>
+              <ion-button>
+                {{ $t("Add") }}
+                <ion-icon :icon="addCircleOutline" />
+              </ion-button>
+            </ion-list-header>
+
+            <ion-card @click="viewRule">
+              <ion-item lines="none">
+                <h2>Release Pre-orders</h2>
+                <ion-toggle color="secondary" slot="end" :checked="true" />
+              </ion-item>
+              <ion-card-content>
+                {{ $t("Scheduled") }}: 7:30am <br>
+                {{ $t("Frequency") }}: Every Day
+                <ion-icon slot="end" :icon="ellipsisVerticalOutline" />
+              </ion-card-content>
+            </ion-card>
+      
+            <ion-card @click="viewRule">
+              <ion-item lines="none">
+                <h2>Morning brokering</h2>
+                <ion-toggle color="secondary" slot="end" :checked="true" />
+              </ion-item>
+              <ion-card-content>
+                {{ $t("Scheduled") }}: 8:00am <br>
+                {{ $t("Frequency") }}: Every Day
+                <ion-icon slot="end" :icon="ellipsisVerticalOutline" />
+              </ion-card-content>
+            </ion-card>
+          </ion-list>
         </section>
         <aside class="desktop-only" v-if="isDesktop" >
           <RuleConfiguration />
@@ -29,9 +46,9 @@
 </template>
 
 <script lang="ts">
-import { IonPage, IonCard, IonCardContent, IonContent, IonIcon, IonLabel, isPlatform, createAnimation } from '@ionic/vue';
+import { IonPage, IonButton, IonCard, IonCardContent, IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, isPlatform, IonToggle, createAnimation } from '@ionic/vue';
 import { defineComponent } from 'vue';
-import { openOutline } from "ionicons/icons";
+import { addCircleOutline, ellipsisVerticalOutline } from "ionicons/icons";
 import RuleConfiguration from '@/components/RuleConfiguration.vue'
 import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -40,11 +57,16 @@ export default defineComponent({
   name: 'Home',
   components: {
     IonPage,
+    IonButton,
     IonCard,
     IonCardContent,
     IonContent,
     IonIcon,
+    IonItem,
     IonLabel,
+    IonList,
+    IonListHeader,
+    IonToggle,
     RuleConfiguration,
   },
   data() {
@@ -88,7 +110,8 @@ export default defineComponent({
     return {
       store,
       router,
-      openOutline
+      addCircleOutline,
+      ellipsisVerticalOutline
     };
   }
 });
@@ -100,7 +123,14 @@ export default defineComponent({
   }
 
   ion-card {
-    margin: var(--spacer-base) 0px;
+    margin: var(--spacer-base) 0;
+  }
+
+  ion-card ion-icon {
+    position: absolute;
+    right: 10px;
+    bottom: var(--spacer-base);
+    font-size: var(--spacer-base);
   }
 
   aside {

@@ -1,22 +1,40 @@
 <template>
   <section>
+    <div class="center-align">
+      <ion-button fill="outline">
+        {{ $t("Save changes") }}
+      </ion-button>
+    </div>
     <ion-card>
       <ion-card-header>
         <ion-card-title>
           {{ $t("Start") }}
         </ion-card-title>
       </ion-card-header>
+
+      <ion-item>
+        <ion-label>{{ $t("Name") }}</ion-label>
+        <ion-input clear-input="true" value="Morning brokering" />
+      </ion-item>
+
       <ion-item>
         <ion-label>{{ $t("Run on") }}</ion-label>
-        <ion-select>Trigger</ion-select>
+        <ion-label class="ion-text-wrap" @click="() => isOpen = true" slot="end">8:00 am</ion-label>
+          <ion-modal class="date-time-modal" :is-open="isOpen" @didDismiss="() => isOpen = false">
+            <ion-content force-overscroll="false">
+              <ion-datetime
+                hour-cycle="h12"
+              />
+            </ion-content>
+          </ion-modal>
       </ion-item>
       <ion-item>
-        <ion-label>{{ $t("Trigger") }}</ion-label>
-        <ion-select>Release Pre-orders</ion-select>
-      </ion-item>
-      <ion-item>
-        <ion-label>{{ $t("Condition") }}</ion-label>
-        <ion-select>Completion</ion-select>
+        <ion-label>{{ $t("Frequency") }}</ion-label>
+        <ion-select value="Every Day">
+          <ion-select-option value="Every Day">
+            Every Day
+          </ion-select-option>
+        </ion-select>
       </ion-item>
     </ion-card>
     <ion-card>
@@ -52,7 +70,7 @@
 </template>
 
 <script lang="ts">
-import { IonAccordionGroup, IonAccordion, IonButton, IonCard, IonCardHeader, IonCardTitle, IonItem, IonLabel, IonSelect, IonIcon, popoverController, modalController  } from '@ionic/vue';
+import { IonAccordionGroup, IonAccordion, IonButton, IonCard, IonCardHeader, IonCardTitle, IonContent, IonDatetime, IonItem, IonInput, IonLabel, IonSelect, IonSelectOption, IonIcon, IonModal, popoverController, modalController  } from '@ionic/vue';
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons";
 import { defineComponent } from 'vue';
 import { useRouter } from 'vue-router';
@@ -69,10 +87,20 @@ export default defineComponent({
     IonCard,
     IonCardHeader,
     IonCardTitle,
+    IonContent,
+    IonDatetime,
     IonIcon,
     IonItem,
+    IonInput,
     IonLabel,
-    IonSelect
+    IonSelect,
+    IonSelectOption,
+    IonModal
+  },
+  data(){
+    return {
+      isOpen: false
+    }
   },
   methods: {
     async ruleOptions(ev: Event){
@@ -107,17 +135,24 @@ export default defineComponent({
 });
 </script>
 <style scoped>
-@media (min-width: 991px) {  
-  section {
-    overflow: hidden;
-    border: var(--border-medium);
-    border-radius: 16px;
-    max-width: 375px;
-    margin: auto;
+  .date-time-modal {
+    --width: 290px;
+    --height: 385px;
+    --border-radius: 8px;
   }
-  .center-align {
-    display: flex;
-    justify-content: center;
+
+  @media (min-width: 991px) {
+    section {
+      overflow: hidden;
+      border: var(--border-medium);
+      border-radius: 16px;
+      max-width: 375px;
+      margin: auto;
+    }
+
+    .center-align {
+      display: flex;
+      justify-content: center;
+    }
   }
-}  
 </style>

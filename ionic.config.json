@@ -1,0 +1,7 @@
+{
+  "name": "OrderRoutingRules",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue"
+}

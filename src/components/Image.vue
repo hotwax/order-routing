@@ -14,9 +14,7 @@ export default defineComponent({
     IonSkeletonText
   },
   created() {
-    if (
-      process.env.VUE_APP_RESOURCE_URL
-    ) {
+    if (process.env.VUE_APP_RESOURCE_URL) {
       this.resourceUrl = process.env.VUE_APP_RESOURCE_URL;
     }
   },

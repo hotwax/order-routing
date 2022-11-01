@@ -3,46 +3,44 @@ import { setupCache } from 'axios-cache-adapter'
 import OfflineHelper from '@/offline-helper'
 import emitter from "@/event-bus"
 import store from '@/store';
-import {
-    StatusCodes
-} from 'http-status-codes';
+import { StatusCodes } from 'http-status-codes';
 import router from '@/router'
 
 axios.interceptors.request.use((config: any) => {
-    const token = store.getters['user/getUserToken'];
-    if (token) {
-        config.headers.Authorization =  'Bearer ' + token;
-        config.headers['Content-Type'] = 'application/json';
-    }
-    return config;
+  const token = store.getters['user/getUserToken'];
+  if (token) {
+    config.headers.Authorization =  'Bearer ' + token;
+    config.headers['Content-Type'] = 'application/json';
+  }
+  return config;
 });
 
 axios.interceptors.response.use(function (response) {
-    // Any status code that lie within the range of 2xx cause this function to trigger
-    // Do something with response data
-    return response;
-  }, function (error) {
-    // TODO Handle it in a better way
-    // Currently when the app gets offline, the time between adding a loader and removing it is fractional due to which loader dismiss is called before loader present
-    // which cause loader to run indefinitely
-    // Following gives dismiss loader a delay of 100 microseconds to get both the actions in sync
-    setTimeout(() => emitter.emit("dismissLoader"), 100);
-    if (error.response) {
-        // TODO Handle case for failed queue request
-        const { status } = error.response;
-        if (status === StatusCodes.UNAUTHORIZED) {
-          store.dispatch("user/logout");
-          router.push('/login')
-        }
+  // Any status code that lie within the range of 2xx cause this function to trigger
+  // Do something with response data
+  return response;
+}, function (error) {
+  // TODO Handle it in a better way
+  // Currently when the app gets offline, the time between adding a loader and removing it is fractional due to which loader dismiss is called before loader present
+  // which cause loader to run indefinitely
+  // Following gives dismiss loader a delay of 100 microseconds to get both the actions in sync
+  setTimeout(() => emitter.emit("dismissLoader"), 100);
+  if (error.response) {
+    // TODO Handle case for failed queue request
+    const { status } = error.response;
+    if (status === StatusCodes.UNAUTHORIZED) {
+      store.dispatch("user/logout");
+      router.push('/login')
     }
-    // Any status codes that falls outside the range of 2xx cause this function to trigger
-    // Do something with response error
-    return Promise.reject(error);
-  });
+  }
+  // Any status codes that falls outside the range of 2xx cause this function to trigger
+  // Do something with response error
+  return Promise.reject(error);
+});
 
 const maxAge = process.env.VUE_APP_CACHE_MAX_AGE ? parseInt(process.env.VUE_APP_CACHE_MAX_AGE) : 0;
 const axiosCache = setupCache({
-    maxAge: maxAge * 1000
+  maxAge: maxAge * 1000
 })
 
 
@@ -62,30 +60,27 @@ const axiosCache = setupCache({
  * @return {Promise} Response from API as returned by Axios
  */
 const api = async (customConfig: any) => {
-    // Prepare configuration
-    const config: any = {
-        url: customConfig.url,
-        method: customConfig.method,
-        data: customConfig.data,
-        params: customConfig.params
-    }
+  // Prepare configuration
+  const config: any = {
+    url: customConfig.url,
+    method: customConfig.method,
+    data: customConfig.data,
+    params: customConfig.params
+  }
 
-    const baseURL = store.getters['user/getInstanceUrl'];
-    if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/api/`;
-
-    if(customConfig.cache) config.adapter = axiosCache.adapter;
-
-    const networkStatus =  await OfflineHelper.getNetworkStatus();
-    if (customConfig.queue && !networkStatus.connected) {
-        if (!config.headers) config.headers = { ...axios.defaults.headers.common, ...config.headers };
-
-        emitter.emit("queueTask", {
-            callbackEvent: customConfig.callbackEvent,
-            payload: config
-        });
-    } else {
-        return axios(config);
-    }
+  const baseURL = store.getters['user/getInstanceUrl'];
+  if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/api/`;
+  if(customConfig.cache) config.adapter = axiosCache.adapter;
+  const networkStatus =  await OfflineHelper.getNetworkStatus();
+  if (customConfig.queue && !networkStatus.connected) {
+    if (!config.headers) config.headers = { ...axios.defaults.headers.common, ...config.headers };
+    emitter.emit("queueTask", {
+      callbackEvent: customConfig.callbackEvent,
+      payload: config
+    });
+  } else {
+      return axios(config);
+  }
 }
 
 /**
@@ -95,7 +90,7 @@ const api = async (customConfig: any) => {
  * @return {Promise} Response from API as returned by Axios
  */
 const client = (config: any) => {
-    return axios.request(config);
+  return axios.request(config);
 }
 
 export { api as default, client, axios };

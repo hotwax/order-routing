@@ -3,13 +3,13 @@
     <ion-tabs>
       <ion-router-outlet></ion-router-outlet>
       <ion-tab-bar slot="bottom">
-        <ion-tab-button tab="home" href="/tabs/home">
-          <ion-icon :icon="cogOutline" />
-          <ion-label>{{ $t("Flows") }}</ion-label>
+        <ion-tab-button tab="brokering" href="/tabs/brokering">
+          <ion-icon :icon="shuffleOutline" />
+          <ion-label>{{ $t("Brokering") }}</ion-label>
         </ion-tab-button>
 
         <ion-tab-button tab="more" href="/tabs/settings">
-          <ion-icon :icon="menuOutline" />
+          <ion-icon :icon="settingsOutline" />
           <ion-label>{{ $t("Settings") }}</ion-label>
         </ion-tab-button>
       </ion-tab-bar>
@@ -17,23 +17,9 @@
   </ion-page>
 </template>
 
-<script lang="ts">
-import { IonIcon, IonLabel, IonPage, IonTabBar, IonTabButton, IonTabs, IonRouterOutlet } from "@ionic/vue";
-import {
-  cogOutline,
-  menuOutline,
-} from "ionicons/icons";
-
-export default {
-  name: "Tabs",
-  components: { IonIcon, IonLabel, IonPage, IonTabBar, IonTabButton, IonTabs, IonRouterOutlet },
-  setup () {
-    return {
-      cogOutline,
-      menuOutline,
-    };
-  }
-};
+<script setup lang="ts">
+import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs,  } from "@ionic/vue";
+import { cogOutline, settingsOutline, shuffleOutline } from "ionicons/icons";
 </script>
 
 <style scoped>

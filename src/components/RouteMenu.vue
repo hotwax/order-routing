@@ -1,6 +1,6 @@
 <template>
   <div class="route-menu">
-    <div v-if="isOnBrokeringRuleRoute">
+    <div v-if="isOnBrokeringRulePage">
       <ion-list>
         <ion-list-header>
           <ion-label>{{ "Order batches" }}</ion-label>
@@ -140,15 +140,12 @@
 <script setup lang="ts">
 import { IonBadge, IonButtons, IonButton, IonCard, IonChip, IonFooter, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonListHeader, IonSelect, IonSelectOption, IonToolbar, onIonViewWillEnter } from '@ionic/vue';
 import { addCircleOutline, archiveOutline } from "ionicons/icons";
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-const isOnBrokeringRuleRoute = ref(true)
 const router = useRouter();
 
-onIonViewWillEnter(() => {
-  isOnBrokeringRuleRoute.value = router.currentRoute.value.fullPath.includes('/brokering/route')
-})
+const isOnBrokeringRulePage = computed(() => router.currentRoute.value.fullPath.includes('/route'))
 </script>
 
 <style scoped>

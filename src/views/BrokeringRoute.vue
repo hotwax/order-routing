@@ -7,7 +7,7 @@
     </ion-header>
 
     <ion-content>
-      <section>
+      <section class="ion-padding">
         <main>
           <ion-item lines="none">
             {{ "Description" }}
@@ -15,9 +15,11 @@
               {{ "Edit" }}
             </ion-button>
           </ion-item>
-          <ion-label>
-            {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
-          </ion-label>
+          <ion-item lines="none">
+            <ion-label>
+              {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
+            </ion-label>
+          </ion-item>
         </main>
         <aside>
           <ion-card>
@@ -55,17 +57,12 @@ import { timeOutline, timerOutline } from "ionicons/icons"
 </script>
 
 <style scoped>
-ion-content {
-  display: grid;
-  grid-template-rows: repeat(2, 1fr);
-}
-
 section {
   display: flex;
   justify-content: space-between;
 }
 
 section > * {
-  max-width: 50ch;
+  min-width: 40ch;
 }
 </style>

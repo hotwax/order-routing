@@ -16,7 +16,7 @@
     <ion-content>
       <main>
         <section>
-          <ion-card>
+          <ion-card @click="router.push('brokering/route')">
             <ion-card-header>
               <ion-card-title>
                 {{ "Brokering run name" }}
@@ -36,7 +36,7 @@
               {{ "Updated at <time>" }}
             </ion-item>
           </ion-card>
-          <ion-card>
+          <ion-card @click="router.push('brokering/route')">
             <ion-card-header>
               <ion-card-title>
                 {{ "Brokering run name" }}
@@ -56,7 +56,7 @@
               {{ "Updated at <time>" }}
             </ion-item>
           </ion-card>
-          <ion-card>
+          <ion-card @click="router.push('brokering/route')">
             <ion-card-header>
               <ion-card-title>
                 {{ "Brokering run name" }}
@@ -76,7 +76,7 @@
               {{ "Updated at <time>" }}
             </ion-item>
           </ion-card>
-          <ion-card>
+          <ion-card @click="router.push('brokering/route')">
             <ion-card-header>
               <ion-card-title>
                 {{ "Brokering run name" }}
@@ -105,6 +105,9 @@
 <script setup lang="ts">
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 </script>
 
 <style scoped>

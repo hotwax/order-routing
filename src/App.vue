@@ -1,12 +1,14 @@
 <template>
   <ion-app>
-    <ion-router-outlet />
+    <ion-split-pane content-id="main-content">
+      <ion-router-outlet id="main-content" />
+    </ion-split-pane>
   </ion-app>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import { IonApp, IonRouterOutlet, loadingController } from '@ionic/vue';
+import { IonApp, IonRouterOutlet, IonSplitPane, loadingController } from '@ionic/vue';
 import { useStore } from "./store";
 import emitter from "@/event-bus"
 export default defineComponent({

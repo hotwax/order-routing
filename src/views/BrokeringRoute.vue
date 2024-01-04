@@ -1,59 +1,89 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/" />
+        </ion-buttons>
         <ion-title>{{ "Brokering run name" }}</ion-title>
       </ion-toolbar>
     </ion-header>
-
     <ion-content>
-      <section class="ion-padding">
-        <main>
-          <ion-item lines="none">
-            {{ "Description" }}
-            <ion-button fill="clear" slot="end">
-              {{ "Edit" }}
+      <div>
+        <ion-list>
+          <ion-list-header ref="listHeader">
+            <ion-label>{{ "Order batches" }}</ion-label>
+            <ion-button color="primary" fill="clear">
+              {{ "New" }}
+              <ion-icon :icon="addCircleOutline" />
             </ion-button>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label>
-              {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
-            </ion-label>
-          </ion-item>
-        </main>
-        <aside>
-          <ion-card>
-            <ion-card-header>
-              <ion-card-title>
-                {{ "Scheduler" }}
-              </ion-card-title>
-            </ion-card-header>
-            <ion-item>
-              <ion-icon slot="start" :icon="timeOutline"/>
-              <ion-label>{{ 'Run time' }}</ion-label>
-              <ion-label slot="end">{{ '3:00 PM EST' }}</ion-label>
+          </ion-list-header>
+          <ion-card v-for="card in [1, 2, 3, 4]" ref="cards" :key="card" @click="router.push('query')">
+            <ion-item lines="full">
+              <ion-label>
+                <h1>{{ 'Order lookup name' }}</h1>
+              </ion-label>
+              <ion-chip>{{ `${card}/4` }}</ion-chip>
             </ion-item>
-            <ion-item>
-              <ion-icon slot="start" :icon="timerOutline"/>
-              <ion-label>{{ 'Schedule' }}</ion-label>
-              <ion-label slot="end">{{ 'Every 5 minutes' }}</ion-label>
+            <ion-item ref="item">
+              <ion-badge>{{ 'BADGE' }}</ion-badge>
+              <ion-button fill="clear" color="medium" slot="end">
+                {{ 'Archive' }}
+              </ion-button>
             </ion-item>
           </ion-card>
-          <ion-item>
-            {{ 'Created at <time>' }}
-          </ion-item>
-          <ion-item>
-            {{ 'Updated at <time>' }}
-          </ion-item>
-        </aside>
-      </section>
+        </ion-list>
+        <section class="ion-padding">
+          <main>
+            <ion-item lines="none">
+              {{ "Description" }}
+              <ion-button fill="clear" slot="end">
+                {{ "Edit" }}
+              </ion-button>
+            </ion-item>
+            <ion-item lines="none">
+              <ion-label>
+                {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
+              </ion-label>
+            </ion-item>
+          </main>
+          <aside>
+            <ion-card>
+              <ion-card-header>
+                <ion-card-title>
+                  {{ "Scheduler" }}
+                </ion-card-title>
+              </ion-card-header>
+              <ion-item>
+                <ion-icon slot="start" :icon="timeOutline"/>
+                <ion-label>{{ 'Run time' }}</ion-label>
+                <ion-label slot="end">{{ '3:00 PM EST' }}</ion-label>
+              </ion-item>
+              <ion-item>
+                <ion-icon slot="start" :icon="timerOutline"/>
+                <ion-label>{{ 'Schedule' }}</ion-label>
+                <ion-label slot="end">{{ 'Every 5 minutes' }}</ion-label>
+              </ion-item>
+            </ion-card>
+            <ion-item>
+              {{ 'Created at <time>' }}
+            </ion-item>
+            <ion-item>
+              {{ 'Updated at <time>' }}
+            </ion-item>
+          </aside>
+        </section>
+      </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
-import { timeOutline, timerOutline } from "ionicons/icons"
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
+import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 </script>
 
 <style scoped>
@@ -64,5 +94,15 @@ section {
 
 section > * {
   min-width: 40ch;
+}
+
+ion-content > div {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: 100%;
+}
+
+ion-content > div > ion-list {
+  border-right: 1px solid #92949C;
 }
 </style>

@@ -1,21 +1,16 @@
 <template>
   <ion-app>
-    <ion-split-pane content-id="main-content">
-      <RouteMenu v-if="!isOnBrokeringRunPage"/>
-      <ion-router-outlet id="main-content" />
-    </ion-split-pane>
+    <ion-router-outlet />
   </ion-app>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { IonApp, IonRouterOutlet, IonSplitPane, loadingController, onIonViewWillEnter } from '@ionic/vue';
+import { onMounted, onUnmounted, ref } from 'vue';
+import { IonApp, IonRouterOutlet, loadingController } from '@ionic/vue';
 import emitter from "@/event-bus"
-import RouteMenu from "@/components/RouteMenu.vue"
 import { useRouter } from 'vue-router';
 
 const loader = ref(null) as any
-const router = useRouter();
 
 async function presentLoader(message = "Click the backdrop to dismiss.") {
   if (!loader.value) {
@@ -35,8 +30,6 @@ function dismissLoader() {
     loader.value = null as any;
   }
 }
-
-const isOnBrokeringRunPage = computed(() => router.currentRoute.value.fullPath === '/tabs/brokering')
 
 onMounted(async () => {
   loader.value = await loadingController

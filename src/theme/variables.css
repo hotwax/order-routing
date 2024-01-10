@@ -254,11 +254,6 @@ http://ionicframework.com/docs/theming/ */
   }
 }
 
-ion-page > div {
-  display: grid;
-  grid-template-columns: repeat(1, 1fr);
-}
-
 @media (prefers-color-scheme: dark) {
   ion-chip > ion-icon {
     color: var(--ion-color-dark);

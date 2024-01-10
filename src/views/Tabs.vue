@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs,  } from "@ionic/vue";
-import { cogOutline, settingsOutline, shuffleOutline } from "ionicons/icons";
+import { settingsOutline, shuffleOutline } from "ionicons/icons";
 </script>
 
 <style scoped>

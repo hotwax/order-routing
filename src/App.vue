@@ -8,7 +8,6 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { IonApp, IonRouterOutlet, loadingController } from '@ionic/vue';
 import emitter from "@/event-bus"
-import { useRouter } from 'vue-router';
 
 const loader = ref(null) as any
 

@@ -6,16 +6,13 @@
           <Logo />
 
           <ion-item lines="full">
-            <ion-label position="fixed">{{ $t("OMS") }}</ion-label>
-            <ion-input name="instanceUrl" v-model="instanceUrl" id="instanceUrl" type="text" required />
+            <ion-input label-placement="fixed" :label="$t('OMS')" name="instanceUrl" v-model="instanceUrl" id="instanceUrl" type="text" required />
           </ion-item>
           <ion-item lines="full">
-            <ion-label position="fixed">{{ $t("Username") }}</ion-label>
-            <ion-input name="username" v-model="username" id="username" type="text" required />
+            <ion-input label-placement="fixed" :label="$t('Username')" name="username" v-model="username" id="username" type="text" required />
           </ion-item>
           <ion-item lines="none">
-            <ion-label position="fixed">{{ $t("Password") }}</ion-label>
-            <ion-input name="password" v-model="password" id="password" type="password" required />
+            <ion-input label-placement="fixed" :label="$t('Password')" name="password" v-model="password" id="password" type="password" required />
           </ion-item>
 
           <div class="ion-padding">
@@ -33,8 +30,8 @@ import {
   IonContent,
   IonInput,
   IonItem,
-  IonLabel,
-  IonPage } from "@ionic/vue";
+  IonPage
+} from "@ionic/vue";
 import { defineComponent } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "@/store";
@@ -48,7 +45,6 @@ export default defineComponent({
     IonContent,
     IonInput,
     IonItem,
-    IonLabel,
     IonPage,
     Logo
   },

@@ -21,14 +21,14 @@
           <ion-card v-for="card in [1, 2, 3, 4]" ref="cards" :key="card" @click="router.push('query')">
             <ion-item lines="full">
               <ion-label>
-                <h1>{{ 'Order lookup name' }}</h1>
+                <h1>{{ "Order lookup name" }}</h1>
               </ion-label>
               <ion-chip>{{ `${card}/4` }}</ion-chip>
             </ion-item>
             <ion-item ref="item">
-              <ion-badge>{{ 'BADGE' }}</ion-badge>
+              <ion-badge>{{ "BADGE" }}</ion-badge>
               <ion-button fill="clear" color="medium" slot="end">
-                {{ 'Archive' }}
+                {{ "Archive" }}
               </ion-button>
             </ion-item>
           </ion-card>
@@ -56,20 +56,20 @@
               </ion-card-header>
               <ion-item>
                 <ion-icon slot="start" :icon="timeOutline"/>
-                <ion-label>{{ 'Run time' }}</ion-label>
-                <ion-label slot="end">{{ '3:00 PM EST' }}</ion-label>
+                <ion-label>{{ "Run time" }}</ion-label>
+                <ion-label slot="end">{{ "3:00 PM EST" }}</ion-label>
               </ion-item>
               <ion-item>
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <ion-label>{{ 'Schedule' }}</ion-label>
-                <ion-label slot="end">{{ 'Every 5 minutes' }}</ion-label>
+                <ion-label>{{ "Schedule" }}</ion-label>
+                <ion-label slot="end">{{ "Every 5 minutes" }}</ion-label>
               </ion-item>
             </ion-card>
             <ion-item>
-              {{ 'Created at <time>' }}
+              {{ "Created at <time>" }}
             </ion-item>
             <ion-item>
-              {{ 'Updated at <time>' }}
+              {{ "Updated at <time>" }}
             </ion-item>
           </aside>
         </section>

@@ -1,17 +1,17 @@
-import actions from './actions'
-import getters from './getters'
-import mutations from './mutations'
-import { Module } from 'vuex'
-import UserState from './UserState'
-import RootState from '@/store/RootState'
+import actions from "./actions"
+import getters from "./getters"
+import mutations from "./mutations"
+import { Module } from "vuex"
+import UserState from "./UserState"
+import RootState from "@/store/RootState"
 
 const userModule: Module<UserState, RootState> = {
   namespaced: true,
   state: {
-    token: '',
+    token: "",
     current: null,
     currentFacility: {},
-    instanceUrl: '',
+    instanceUrl: "",
   },
   getters,
   actions,
@@ -19,5 +19,5 @@ const userModule: Module<UserState, RootState> = {
 }
 
 // TODO
-// store.registerModule('user', userModule);
+// store.registerModule("user", userModule);
 export default userModule;

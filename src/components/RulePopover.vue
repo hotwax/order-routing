@@ -15,15 +15,15 @@
 </template>
 
 <script>
-import { IonContent, IonIcon, IonLabel, IonItem } from '@ionic/vue';
-import { defineComponent } from 'vue';
+import { IonContent, IonIcon, IonLabel, IonItem } from "@ionic/vue";
+import { defineComponent } from "vue";
 import { useStore } from "vuex";
 import {
   copyOutline,
   trashOutline
-} from 'ionicons/icons';
+} from "ionicons/icons";
 export default defineComponent({
-  name: 'rulePopover',
+  name: "RulePopover",
   components: { IonContent, IonIcon, IonLabel, IonItem },
   setup() {
     const store = useStore();

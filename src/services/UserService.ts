@@ -1,13 +1,13 @@
-import api, {client} from '@/api'
-import store from '@/store';
+import api, {client} from "@/api"
+import store from "@/store";
 
 const login = async (username: string, password: string): Promise <any> => {
   return api({
     url: "login", 
     method: "post",
     data: {
-      'USERNAME': username, 
-      'PASSWORD': password
+      "USERNAME": username, 
+      "PASSWORD": password
     }
   });
 }
@@ -34,8 +34,8 @@ const setUserTimeZone = async (payload: any): Promise <any>  => {
 }
 
 const checkPermission = async (payload: any): Promise <any>  => {
-  let baseURL = store.getters['user/getInstanceUrl'];
-  baseURL = baseURL && baseURL.startsWith('http') ? baseURL : `https://${baseURL}.hotwax.io/api/`;
+  let baseURL = store.getters["user/getInstanceUrl"];
+  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "checkPermission",
     method: "post",

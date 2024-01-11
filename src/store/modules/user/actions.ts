@@ -1,12 +1,10 @@
-import { UserService } from '@/services/UserService'
-import { ActionTree } from 'vuex'
-import RootState from '@/store/RootState'
-import UserState from './UserState'
-import * as types from './mutation-types'
-import { hasError, showToast } from '@/utils'
-import { translate } from '@/i18n'
-import emitter from '@/event-bus'
-import { DateTime } from 'luxon';
+import { UserService } from "@/services/UserService"
+import { ActionTree } from "vuex"
+import RootState from "@/store/RootState"
+import UserState from "./UserState"
+import * as types from "./mutation-types"
+import { hasError, showToast } from "@/utils"
+import { translate } from "@/i18n"
 
 const actions: ActionTree<UserState, RootState> = {
 
@@ -25,42 +23,42 @@ const actions: ActionTree<UserState, RootState> = {
                 permissionId
               },
               headers: {
-                Authorization:  'Bearer ' + resp.data.token,
-                'Content-Type': 'application/json'
+                Authorization:  "Bearer " + resp.data.token,
+                "Content-Type": "application/json"
               }
             });
 
             if (checkPermissionResponse.status === 200 && !hasError(checkPermissionResponse) && checkPermissionResponse.data && checkPermissionResponse.data.hasPermission) {
               commit(types.USER_TOKEN_CHANGED, { newToken: resp.data.token })
-              dispatch('getProfile')
+              dispatch("getProfile")
               if (resp.data._EVENT_MESSAGE_ && resp.data._EVENT_MESSAGE_.startsWith("Alert:")) {
               // TODO Internationalise text
                 showToast(translate(resp.data._EVENT_MESSAGE_));
               }
               return resp.data;
             } else {
-              const permissionError = 'You do not have permission to access the app.';
+              const permissionError = "You do not have permission to access the app.";
               showToast(translate(permissionError));
               console.error("error", permissionError);
               return Promise.reject(new Error(permissionError));
             }
           } else {
             commit(types.USER_TOKEN_CHANGED, { newToken: resp.data.token })
-            dispatch('getProfile')
+            dispatch("getProfile")
             return resp.data;
           }
         } else if (hasError(resp)) {
-          showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
+          showToast(translate("Sorry, your username or password is incorrect. Please try again."));
           console.error("error", resp.data._ERROR_MESSAGE_);
           return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
         }
       } else {
-        showToast(translate('Something went wrong'));
+        showToast(translate("Something went wrong"));
         console.error("error", resp.data._ERROR_MESSAGE_);
         return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
       }
     } catch (err: any) {
-      showToast(translate('Something went wrong'));
+      showToast(translate("Something went wrong"));
       console.error("error", err);
       return Promise.reject(new Error(err))
     }

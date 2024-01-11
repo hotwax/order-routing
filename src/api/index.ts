@@ -1,16 +1,16 @@
-import axios from 'axios';
-import { setupCache } from 'axios-cache-adapter'
-import OfflineHelper from '@/offline-helper'
+import axios from "axios";
+import { setupCache } from "axios-cache-adapter"
+import OfflineHelper from "@/offline-helper"
 import emitter from "@/event-bus"
-import store from '@/store';
-import { StatusCodes } from 'http-status-codes';
-import router from '@/router'
+import store from "@/store";
+import { StatusCodes } from "http-status-codes";
+import router from "@/router"
 
 axios.interceptors.request.use((config: any) => {
-  const token = store.getters['user/getUserToken'];
+  const token = store.getters["user/getUserToken"];
   if (token) {
-    config.headers.Authorization =  'Bearer ' + token;
-    config.headers['Content-Type'] = 'application/json';
+    config.headers.Authorization =  "Bearer " + token;
+    config.headers["Content-Type"] = "application/json";
   }
   return config;
 });
@@ -30,7 +30,7 @@ axios.interceptors.response.use(function (response) {
     const { status } = error.response;
     if (status === StatusCodes.UNAUTHORIZED) {
       store.dispatch("user/logout");
-      router.push('/login')
+      router.push("/login")
     }
   }
   // Any status codes that falls outside the range of 2xx cause this function to trigger
@@ -48,8 +48,8 @@ const axiosCache = setupCache({
  * Generic method to call APIs
  *
  * @param {string}  url - API Url
- * @param {string=} method - 'GET', 'PUT', 'POST', 'DELETE , and 'PATCH'
- * @param {any} [data] - Optional: `data` is the data to be sent as the request body. Only applicable for request methods 'PUT', 'POST', 'DELETE , and 'PATCH'
+ * @param {string=} method - "GET", "PUT", "POST", "DELETE , and "PATCH"
+ * @param {any} [data] - Optional: `data` is the data to be sent as the request body. Only applicable for request methods "PUT", "POST", "DELETE , and "PATCH"
  * When no `transformRequest` is set, must be of one of the following types:
  * - string, plain object, ArrayBuffer, ArrayBufferView, URLSearchParams
  * - Browser only: FormData, File, Blob
@@ -68,7 +68,7 @@ const api = async (customConfig: any) => {
     params: customConfig.params
   }
 
-  const baseURL = store.getters['user/getInstanceUrl'];
+  const baseURL = store.getters["user/getInstanceUrl"];
   if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/api/`;
   if(customConfig.cache) config.adapter = axiosCache.adapter;
   const networkStatus =  await OfflineHelper.getNetworkStatus();

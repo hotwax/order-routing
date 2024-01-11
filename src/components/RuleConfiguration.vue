@@ -70,16 +70,16 @@
 </template>
 
 <script lang="ts">
-import { IonAccordionGroup, IonAccordion, IonButton, IonCard, IonCardHeader, IonCardTitle, IonContent, IonDatetime, IonItem, IonInput, IonLabel, IonSelect, IonSelectOption, IonIcon, IonModal, popoverController, modalController  } from '@ionic/vue';
+import { IonAccordionGroup, IonAccordion, IonButton, IonCard, IonCardHeader, IonCardTitle, IonContent, IonDatetime, IonItem, IonInput, IonLabel, IonSelect, IonSelectOption, IonIcon, IonModal, popoverController, modalController  } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons";
-import { defineComponent } from 'vue';
-import { useRouter } from 'vue-router';
-import { useStore } from 'vuex';
-import RulePopover from '@/components/RulePopover.vue'
-import AddActionModal from '@/components/AddActionModal.vue'
+import { defineComponent } from "vue";
+import { useRouter } from "vue-router";
+import { useStore } from "vuex";
+import RulePopover from "@/components/RulePopover.vue"
+import AddActionModal from "@/components/AddActionModal.vue"
 
 export default defineComponent({
-  name: 'Home',
+  name: "RuleConfiguration",
   components: {
     IonAccordionGroup,
     IonAccordion,

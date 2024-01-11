@@ -13,52 +13,52 @@
           <ion-button expand="block">{{ "Save Changes" }}</ion-button>
           <ion-item-group>
             <ion-item-divider color="medium">
-              <ion-label>{{ 'Filters' }}</ion-label>
+              <ion-label>{{ "Filters" }}</ion-label>
             </ion-item-divider>
             <ion-item>
               <ion-select label="Queue" value="Brokering Queue">
-                <ion-select-option value="Brokering Queue">{{ 'Brokering Queue' }}</ion-select-option>
+                <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
               <ion-select label="Shipping method" value="Next Day">
-                <ion-select-option value="Next Day">{{ 'Next Day' }}</ion-select-option>
+                <ion-select-option value="Next Day">{{ "Next Day" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
               <ion-select label="Order priority" value="High">
-                <ion-select-option value="High">{{ 'High' }}</ion-select-option>
+                <ion-select-option value="High">{{ "High" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-label>{{ 'Promise date' }}</ion-label>
-              <ion-chip>{{ 'select date' }}</ion-chip>
+              <ion-label>{{ "Promise date" }}</ion-label>
+              <ion-chip>{{ "select date" }}</ion-chip>
             </ion-item>
             <ion-item>
               <ion-select label="Queue" value="Brokering Queue">
-                <ion-select-option value="Brokering Queue">{{ 'Brokering Queue' }}</ion-select-option>
+                <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
               </ion-select>
             </ion-item>
           </ion-item-group>
           <ion-item-group>
             <ion-item-divider color="medium">
-              <ion-label>{{ 'Sort' }}</ion-label>
+              <ion-label>{{ "Sort" }}</ion-label>
             </ion-item-divider>
             <ion-reorder-group :disabled="false">
               <ion-item>
-                <ion-label>{{ 'Ship by' }}</ion-label>
+                <ion-label>{{ "Ship by" }}</ion-label>
                 <ion-reorder />
               </ion-item>
               <ion-item>
-                <ion-label>{{ 'Ship after' }}</ion-label>
+                <ion-label>{{ "Ship after" }}</ion-label>
                 <ion-reorder />
               </ion-item>
               <ion-item>
-                <ion-label>{{ 'Order date' }}</ion-label>
+                <ion-label>{{ "Order date" }}</ion-label>
                 <ion-reorder />
               </ion-item>
               <ion-item>
-                <ion-label>{{ 'Shipping method' }}</ion-label>
+                <ion-label>{{ "Shipping method" }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -92,12 +92,12 @@
               </ion-item>
               <ion-item>
                 <ion-select label="Group" value="East coast stores">
-                  <ion-select-option value="East coast stores">{{ 'East coast stores' }}</ion-select-option>
+                  <ion-select-option value="East coast stores">{{ "East coast stores" }}</ion-select-option>
                 </ion-select>
               </ion-item>
               <ion-item>
                 <ion-select label="Proximity" value="Zone 1">
-                  <ion-select-option value="Zone 1">{{ 'Zone 1' }}</ion-select-option>
+                  <ion-select-option value="Zone 1">{{ "Zone 1" }}</ion-select-option>
                 </ion-select>
               </ion-item>
               <ion-item>

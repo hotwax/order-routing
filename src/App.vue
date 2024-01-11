@@ -5,8 +5,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
-import { IonApp, IonRouterOutlet, loadingController } from '@ionic/vue';
+import { onMounted, onUnmounted, ref } from "vue";
+import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 
 const loader = ref(null) as any
@@ -37,12 +37,12 @@ onMounted(async () => {
       translucent: true,
       backdropDismiss: true
     });
-  emitter.on('presentLoader', presentLoader);
-  emitter.on('dismissLoader', dismissLoader);
+  emitter.on("presentLoader", presentLoader);
+  emitter.on("dismissLoader", dismissLoader);
 })
 
 onUnmounted(() => {
-  emitter.off('presentLoader', presentLoader);
-  emitter.off('dismissLoader', dismissLoader);
+  emitter.off("presentLoader", presentLoader);
+  emitter.off("dismissLoader", dismissLoader);
 })
 </script>

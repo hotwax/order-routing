@@ -9,7 +9,7 @@ import { IonSkeletonText } from '@ionic/vue'
 
 export default defineComponent({
   name: "Image",
-  props: ['src'],
+  props: ["src"],
   components: {
     IonSkeletonText
   },
@@ -26,8 +26,8 @@ export default defineComponent({
   },
   data() {
     return {
-      resourceUrl: '',
-      imageUrl: ''
+      resourceUrl: "",
+      imageUrl: ""
     }
   },
   methods: {
@@ -45,10 +45,10 @@ export default defineComponent({
     },
     setImageUrl() {
       if (this.src) {
-        if (this.src.indexOf('assets/') != -1) {
+        if (this.src.indexOf("assets/") != -1) {
           // Assign directly in case of assets
           this.imageUrl = this.src;
-        } else if (this.src.startsWith('http')) {
+        } else if (this.src.startsWith("http")) {
           // If starts with http, it is web url check for existence and assign
           this.checkIfImageExists(this.src).then(() => {
             this.imageUrl = this.src;

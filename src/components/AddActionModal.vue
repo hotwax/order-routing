@@ -44,9 +44,9 @@ import {
   IonTitle,
   IonToolbar,
   modalController,
-} from '@ionic/vue';
-import { defineComponent } from 'vue';
-import { closeOutline } from 'ionicons/icons';
+} from "@ionic/vue";
+import { defineComponent } from "vue";
+import { closeOutline } from "ionicons/icons";
 import { useStore } from "@/store";
 
 export default defineComponent({

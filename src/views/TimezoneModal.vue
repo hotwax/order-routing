@@ -62,17 +62,17 @@ import { defineComponent } from "vue";
 import { close, save } from "ionicons/icons";
 import { useStore } from "@/store";
 import { UserService } from "@/services/UserService";
-import { hasError } from '@/utils'
-import { DateTime } from 'luxon';
+import { hasError } from "@/utils"
+import { DateTime } from "luxon";
 
 export default defineComponent({
   name: "TimeZoneModal",
   data() {
     return {
-      queryString: '',
+      queryString: "",
       filteredTimeZones: [],
       timeZones: [],
-      timeZoneId: ''
+      timeZoneId: ""
     }
   },
   methods: {
@@ -102,10 +102,10 @@ export default defineComponent({
       //TODO Handle it in a better way
       // Currently when the user types special character as it part of Regex expressions it breaks the code
       // so removed the characters for now
-      return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
     },
     findTimeZone() { 
-      const regularExp = new RegExp(`${this.escapeRegExp(this.queryString)}`, 'i');
+      const regularExp = new RegExp(`${this.escapeRegExp(this.queryString)}`, "i");
       this.filteredTimeZones = this.timeZones.filter((timeZone: any) => {
         return regularExp.test(timeZone.id) || regularExp.test(timeZone.label);
       });

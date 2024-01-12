@@ -35,8 +35,8 @@ import {
 import { defineComponent } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "@/store";
-import { mapGetters } from 'vuex';
-import Logo from '@/components/Logo.vue';
+import { mapGetters } from "vuex";
+import Logo from "@/components/Logo.vue";
 
 export default defineComponent({
   name: "Login",
@@ -57,7 +57,7 @@ export default defineComponent({
   },
   computed: {
     ...mapGetters({
-      currentInstanceUrlSaved: 'user/getInstanceUrl'
+      currentInstanceUrlSaved: "user/getInstanceUrl"
     })
   },
   mounted() {
@@ -69,9 +69,9 @@ export default defineComponent({
       const { username, password } = this;
       this.store.dispatch("user/login", { username: username.trim(), password }).then((data: any) => {
         if (data.token) {
-          this.username = ''
-          this.password = ''
-          this.$router.push('/')
+          this.username = ""
+          this.password = ""
+          this.$router.push("/")
         }
       })
     }

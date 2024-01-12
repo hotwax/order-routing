@@ -1,6 +1,6 @@
 import saveAs from "file-saver";
-import { toastController } from '@ionic/vue';
-import Papa from 'papaparse'
+import { toastController } from "@ionic/vue";
+import Papa from "papaparse"
 
 // TODO Use separate files for specific utilities
 
@@ -14,7 +14,7 @@ const showToast = async (message: string) => {
     .create({
       message,
       duration: 3000,
-      position: 'top',
+      position: "top",
     })
   return toast.present();
 }
@@ -46,17 +46,17 @@ const showToast = async (message: string) => {
 // "Jill",30,d
 
 // For (header:true) we get
-// [{columnA: 'Susan', columnB: '41', columnC: 'a'},
-// {columnA: 'Mike', columnB: '5', columnC: 'b'},
-// {columnA: 'Jake', columnB: '33', columnC: 'c'},
-// {columnA: 'Jill', columnB: '30', columnC: 'd'}]
+// [{columnA: "Susan", columnB: "41", columnC: "a"},
+// {columnA: "Mike", columnB: "5", columnC: "b"},
+// {columnA: "Jake", columnB: "33", columnC: "c"},
+// {columnA: "Jill", columnB: "30", columnC: "d"}]
 
 // // For (header:false) we get
-// [['columnA', 'columnB', 'columnC'],
-// ['Susan', '41', 'a'],
-// ['Mike', '5', 'b'],
-// ['Jake', '33', 'c'],
-// ['Jill', '30', 'd']]
+// [["columnA", "columnB", "columnC"],
+// ["Susan", "41", "a"],
+// ["Mike", "5", "b"],
+// ["Jake", "33", "c"],
+// ["Jill", "30", "d"]]
 
 const parseCsv = async (file: File, options: any) => {
   return new Promise ((resolve, reject) => {

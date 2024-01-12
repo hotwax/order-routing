@@ -6,18 +6,12 @@ const login = async (username: string, password: string): Promise <any> => {
     url: "login", 
     method: "post",
     data: {
-      "USERNAME": username, 
-      "PASSWORD": password
+      username,
+      password
     }
   });
 }
 
-const getProfile = async (): Promise <any>  => {
-  return api({
-    url: "user-profile",
-    method: "get",
-  });
-}
 const getAvailableTimeZones = async (): Promise <any>  => {
   return api({
     url: "getAvailableTimeZones",
@@ -47,7 +41,6 @@ const checkPermission = async (payload: any): Promise <any>  => {
 export const UserService = {
   login,
   getAvailableTimeZones,
-  getProfile,
   setUserTimeZone,
   checkPermission
 }

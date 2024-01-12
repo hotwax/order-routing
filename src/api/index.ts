@@ -15,6 +15,7 @@ axios.interceptors.request.use((config: any) => {
   return config;
 });
 
+// TODO: need to update this as per the changes in the Moqui response format, if required.
 axios.interceptors.response.use(function (response) {
   // Any status code that lie within the range of 2xx cause this function to trigger
   // Do something with response data
@@ -69,7 +70,7 @@ const api = async (customConfig: any) => {
   }
 
   const baseURL = store.getters["user/getInstanceUrl"];
-  if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/api/`;
+  if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
   if(customConfig.cache) config.adapter = axiosCache.adapter;
   const networkStatus =  await OfflineHelper.getNetworkStatus();
   if (customConfig.queue && !networkStatus.connected) {

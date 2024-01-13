@@ -103,9 +103,15 @@
 </template>
 
 <script setup lang="ts">
+import store from "@/store";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
+
+onMounted(async () => {
+  await store.dispatch('orderRouting/fetchOrderRoutingGroups');
+})
 
 const router = useRouter();
 </script>

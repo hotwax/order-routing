@@ -1,14 +1,4 @@
-enum Enumeration {
-  _entity,
-  enumId,
-  enumTypeId,
-  enumCode,
-  sequenceId,
-  description,
-  enumName,
-  sequenceNum,
-  lastUpdatedStamp
-}
+import { Enumeration } from "@/types";
 
 export default interface UtilState {
   enums: Array<Enumeration>

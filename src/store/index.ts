@@ -6,6 +6,7 @@ import RootState from "./RootState"
 import createPersistedState from "vuex-persistedstate";
 import userModule from "./modules/user";
 import utilModule from "./modules/util"
+import orderRoutingModule from "./modules/orderRouting"
 
 // TODO check how to register it from the components only
 // Handle same module registering multiple time on page refresh
@@ -27,7 +28,8 @@ const store = createStore<RootState>({
   plugins: [ persistState ],
   modules: {
     "user": userModule,
-    "util": utilModule
+    "util": utilModule,
+    "orderRouting": orderRoutingModule
   },
 })
 

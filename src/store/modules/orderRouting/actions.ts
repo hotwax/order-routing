@@ -2,7 +2,7 @@ import { ActionTree } from "vuex"
 import RootState from "@/store/RootState"
 import OrderRoutingState from "./OrderRoutingState"
 import { OrderRoutingService } from "@/services/RoutingService"
-import { hasError } from "@/utils"
+import { hasError, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
@@ -21,6 +21,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       }
     } catch(err) {
       console.log(err);
+    }
+
+    if(routingGroups.length) {
+      routingGroups = sortSequence(routingGroups)
     }
 
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)

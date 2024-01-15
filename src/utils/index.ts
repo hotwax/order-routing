@@ -1,6 +1,7 @@
 import saveAs from "file-saver";
 import { toastController } from "@ionic/vue";
 import Papa from "papaparse"
+import { Group, Route, Rule } from "@/types";
 
 // TODO Use separate files for specific utilities
 
@@ -117,4 +118,8 @@ const jsonToCsv = (file: any, options: JsonToCsvOption = {}) => {
   return blob; 
 }
 
-export { showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption }
+const sortSequence = (sequence: Array<Group | Route | Rule>) => {
+  return sequence.sort((a, b) => a.sequenceNum - b.sequenceNum)
+}
+
+export { showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }

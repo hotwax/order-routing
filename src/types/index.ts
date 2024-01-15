@@ -5,14 +5,14 @@ type Enumeration = {
   sequenceId: string,
   description: string,
   enumName: string,
-  sequenceNum: string
+  sequenceNum: number
 }
 
 type Group = {
   routingGroupId: string,
   productStoreId: string,
   groupName: string,
-  sequenceNum: string,
+  sequenceNum: number,
   description: string,
   createdByUser: string,
   createdDate: string,
@@ -24,7 +24,7 @@ type Route = {
   routingGroupId: string,
   statusId: string,
   routingName: string,
-  sequenceNum: string,
+  sequenceNum: number,
   description: string,
   createdByUser: string,
   createdDate: string,
@@ -36,7 +36,7 @@ type Rule = {
   orderRoutingId: string,
   ruleName: string,
   statusId: string,
-  sequenceNum: string,
+  sequenceNum: number,
   assignmentEnumId: string,
   fulfillEntireShipGroup: string,
   createdDate: string,

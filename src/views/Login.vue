@@ -73,7 +73,7 @@ export default defineComponent({
           this.password = ""
           this.$router.push("/")
         }
-      })
+      }).catch(err => err)
     }
   },
   setup() {

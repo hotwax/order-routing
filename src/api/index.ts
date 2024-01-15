@@ -7,10 +7,11 @@ import { StatusCodes } from "http-status-codes";
 import router from "@/router"
 
 axios.interceptors.request.use((config: any) => {
+  // TODO: pass csrf token
   const token = store.getters["user/getUserToken"];
   if (token) {
-    config.headers.Authorization =  "Bearer " + token;
-    config.headers["Content-Type"] = "application/x-www-form-urlencoded";
+    config.headers["api_key"] =  token;
+    config.headers["Content-Type"] = "application/json";
   }
 
   return config;

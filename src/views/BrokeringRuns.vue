@@ -5,7 +5,7 @@
         <ion-title>{{ "Brokering Runs" }}</ion-title>
         
         <ion-buttons slot="end">
-          <ion-button color="primary">
+          <ion-button color="primary" @click="addNewRun">
             {{ "New Run" }}
             <ion-icon :icon="addOutline" />
           </ion-button>
@@ -104,14 +104,31 @@
 
 <script setup lang="ts">
 import store from "@/store";
-import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
+import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
-import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 
-onMounted(async () => {
+onIonViewWillEnter(async () => {
   await store.dispatch('orderRouting/fetchOrderRoutingGroups');
 })
+
+async function addNewRun() {
+  const newRunAlert = await alertController.create({
+    header: "New Run",
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    }, {
+      text: "Save"
+    }],
+    inputs: [{
+      name: "runName",
+      placeholder: "Run name"
+    }]
+  })
+
+  return newRunAlert.present();
+}
 
 const router = useRouter();
 </script>

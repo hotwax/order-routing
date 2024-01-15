@@ -36,7 +36,6 @@ const actions: ActionTree<UserState, RootState> = {
       console.error("error", err);
       return Promise.reject(new Error(err))
     }
-    // return resp
   },
 
   /**

@@ -7,11 +7,13 @@ import { StatusCodes } from "http-status-codes";
 import router from "@/router"
 
 axios.interceptors.request.use((config: any) => {
+  // TODO: pass csrf token
   const token = store.getters["user/getUserToken"];
   if (token) {
-    config.headers.Authorization =  "Bearer " + token;
+    config.headers["api_key"] =  token;
     config.headers["Content-Type"] = "application/json";
   }
+
   return config;
 });
 
@@ -19,6 +21,19 @@ axios.interceptors.request.use((config: any) => {
 axios.interceptors.response.use(function (response) {
   // Any status code that lie within the range of 2xx cause this function to trigger
   // Do something with response data
+
+  // TODO: explore more on a secure way to store the csrf token
+  // Cannot store it in cookies or localStorage as its not safe
+  // https://stackoverflow.com/questions/67062876/is-it-secure-to-store-a-csrf-token-value-in-the-dom
+  // https://stackoverflow.com/questions/62289684/what-is-the-correct-way-for-a-client-to-store-a-csrf-token
+  const csrfToken = response.headers["x-csrf-token"]
+  const meta = document.createElement("meta")
+  meta.name = "csrf"
+  meta.content = csrfToken
+  document.getElementsByTagName("head")[0].appendChild(meta)
+
+  document.cookie = `x-csrf-token=${csrfToken}`
+
   return response;
 }, function (error) {
   // TODO Handle it in a better way
@@ -66,7 +81,8 @@ const api = async (customConfig: any) => {
     url: customConfig.url,
     method: customConfig.method,
     data: customConfig.data,
-    params: customConfig.params
+    params: customConfig.params,
+    // withCredentials: true
   }
 
   const baseURL = store.getters["user/getInstanceUrl"];

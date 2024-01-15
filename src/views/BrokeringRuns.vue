@@ -26,8 +26,8 @@
               {{ "Description" }}
             </ion-item>
             <ion-item>
-              {{ "<Frequency>" }}
-              {{ "<Runtime>" }}
+              <ion-label>{{ "<Frequency>" }}</ion-label>
+              <ion-label slot="end">{{ "<Runtime>" }}</ion-label>
             </ion-item>
             <ion-item>
               {{ "Created at <time>" }}

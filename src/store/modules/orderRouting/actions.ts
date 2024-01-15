@@ -7,14 +7,15 @@ import * as types from './mutation-types'
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
-    const routingGroups = [] as any;
+    let routingGroups = [] as any;
+    // filter groups on the basis of productStoreId
     const payload = {}
 
     try {
       const resp = await OrderRoutingService.fetchRoutingGroups(payload);
 
-      if(!hasError(resp)) {
-        console.log('resp', resp)
+      if(!hasError(resp) && resp.data.length) {
+        routingGroups = resp.data
       } else {
         throw resp.data
       }

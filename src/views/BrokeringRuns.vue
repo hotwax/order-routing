@@ -14,99 +14,47 @@
     </ion-header>
 
     <ion-content>
-      <main>
+      <main v-if="groups.length">
         <section>
-          <ion-card @click="router.push('brokering/route')">
+          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="router.push('brokering/route')">
             <ion-card-header>
               <ion-card-title>
-                {{ "Brokering run name" }}
+                {{ group.groupName }}
               </ion-card-title>
             </ion-card-header>
             <ion-item>
-              {{ "Description" }}
+              {{ group.description }}
             </ion-item>
             <ion-item>
-              <ion-label>{{ "<Frequency>" }}</ion-label>
-              <ion-label slot="end">{{ "<Runtime>" }}</ion-label>
+              <ion-label>{{ group.frequency ? group.frequency : "-" }}</ion-label>
+              <ion-label slot="end">{{ group.runTime ? group.runTime : "-" }}</ion-label>
             </ion-item>
             <ion-item>
-              {{ "Created at <time>" }}
+              {{ group.createdDate ? group.createdDate : "-" }}
             </ion-item>
             <ion-item>
-              {{ "Updated at <time>" }}
-            </ion-item>
-          </ion-card>
-          <ion-card @click="router.push('brokering/route')">
-            <ion-card-header>
-              <ion-card-title>
-                {{ "Brokering run name" }}
-              </ion-card-title>
-            </ion-card-header>
-            <ion-item>
-              {{ "Description" }}
-            </ion-item>
-            <ion-item>
-              {{ "<Frequency>" }}
-              {{ "<Runtime>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Created at <time>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Updated at <time>" }}
-            </ion-item>
-          </ion-card>
-          <ion-card @click="router.push('brokering/route')">
-            <ion-card-header>
-              <ion-card-title>
-                {{ "Brokering run name" }}
-              </ion-card-title>
-            </ion-card-header>
-            <ion-item>
-              {{ "Description" }}
-            </ion-item>
-            <ion-item>
-              {{ "<Frequency>" }}
-              {{ "<Runtime>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Created at <time>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Updated at <time>" }}
-            </ion-item>
-          </ion-card>
-          <ion-card @click="router.push('brokering/route')">
-            <ion-card-header>
-              <ion-card-title>
-                {{ "Brokering run name" }}
-              </ion-card-title>
-            </ion-card-header>
-            <ion-item>
-              {{ "Description" }}
-            </ion-item>
-            <ion-item>
-              {{ "<Frequency>" }}
-              {{ "<Runtime>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Created at <time>" }}
-            </ion-item>
-            <ion-item>
-              {{ "Updated at <time>" }}
+              {{ group.lastUpdatedStamp ? group.lastUpdatedStamp : "-" }}
             </ion-item>
           </ion-card>
         </section>
+      </main>
+      <main v-else>
+        {{ "No runs scheduled" }}
       </main>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import store from "@/store";
-import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
+import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
+import { computed } from "vue";
 import { useRouter } from "vue-router";
+import { useStore } from "vuex";
+
+const store = useStore()
+const router = useRouter()
+const groups = computed(() => store.getters['orderRouting/getRoutingGroups'])
 
 onIonViewWillEnter(async () => {
   await store.dispatch('orderRouting/fetchOrderRoutingGroups');
@@ -130,7 +78,6 @@ async function addNewRun() {
   return newRunAlert.present();
 }
 
-const router = useRouter();
 </script>
 
 <style scoped>

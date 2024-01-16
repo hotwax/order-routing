@@ -8,6 +8,12 @@ type Enumeration = {
   sequenceNum: number
 }
 
+type EnumerationAndType = Enumeration & {
+  typeDescription: string,
+  parentTypeId: string,
+  hasTable: string
+}
+
 type Group = {
   routingGroupId: string,
   productStoreId: string,
@@ -46,6 +52,7 @@ type Rule = {
 
 export {
   Enumeration,
+  EnumerationAndType,
   Group,
   Route,
   Rule

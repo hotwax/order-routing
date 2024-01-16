@@ -54,10 +54,11 @@ import { useStore } from "vuex";
 
 const store = useStore()
 const router = useRouter()
-const groups = computed(() => store.getters['orderRouting/getRoutingGroups'])
+const groups = computed(() => store.getters["orderRouting/getRoutingGroups"])
 
 onIonViewWillEnter(async () => {
-  await store.dispatch('orderRouting/fetchOrderRoutingGroups');
+  await store.dispatch("orderRouting/fetchOrderRoutingGroups");
+  store.dispatch("util/fetchEnums", { parentTypeId: "ORDER_ROUTING" })
 })
 
 async function addNewRun() {

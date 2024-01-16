@@ -30,7 +30,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
   },
 
-  async createBrokeringGroup({ dispatch }, groupName) {
+  async createRoutingGroup({ dispatch }, groupName) {
     const payload = {
       groupName,
       productStoreId: "STORE"

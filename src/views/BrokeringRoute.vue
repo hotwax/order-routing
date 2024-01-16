@@ -43,7 +43,7 @@
             </ion-item>
             <ion-item lines="none">
               <ion-label>
-                {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
+                {{ currentRoutingGroup.description ? currentRoutingGroup.description : "No description available" }}
               </ion-label>
             </ion-item>
           </main>
@@ -57,19 +57,19 @@
               <ion-item>
                 <ion-icon slot="start" :icon="timeOutline"/>
                 <ion-label>{{ "Run time" }}</ion-label>
-                <ion-label slot="end">{{ "3:00 PM EST" }}</ion-label>
+                <!-- <ion-label slot="end">{{ currentRoutingGroup.runTime || "-" }}</ion-label> -->
               </ion-item>
               <ion-item>
                 <ion-icon slot="start" :icon="timerOutline"/>
                 <ion-label>{{ "Schedule" }}</ion-label>
-                <ion-label slot="end">{{ "Every 5 minutes" }}</ion-label>
+                <!-- <ion-label slot="end">{{ currentRoutingGroup.frequency || "-" }}</ion-label> -->
               </ion-item>
             </ion-card>
             <ion-item>
-              {{ "Created at <time>" }}
+              {{ `Created at ${currentRoutingGroup.createdDate || "-"}` }}
             </ion-item>
             <ion-item>
-              {{ "Updated at <time>" }}
+              {{ `Updated at ${currentRoutingGroup.lastUpdatedStamp || "-"}` }}
             </ion-item>
           </aside>
         </section>
@@ -84,6 +84,7 @@ import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps } from "vue";
+import { Group } from "@/types";
 
 const router = useRouter();
 const store = useStore();
@@ -94,10 +95,16 @@ const props = defineProps({
   }
 })
 
+const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
 
 onIonViewWillEnter(async () => {
-  await store.dispatch('orderRouting/fetchOrderRoutings', props.routingGroupId)
+  await store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId)
+
+  // On refresh, the groups list is removed thus resulting is not fetching the current group information
+  if(!currentRoutingGroup.value.routingGroupId) {
+    await store.dispatch("orderRouting/fetchOrderRoutingGroups")
+  }
 })
 </script>
 

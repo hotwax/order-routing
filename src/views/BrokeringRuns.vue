@@ -75,6 +75,12 @@ async function addNewRun() {
     }]
   })
 
+  newRunAlert.onDidDismiss().then((result: any) => {
+    if(result.data?.values?.runName) {
+      store.dispatch('orderRouting/createBrokeringGroup', result.data.values.runName)
+    }
+  })
+
   return newRunAlert.present();
 }
 

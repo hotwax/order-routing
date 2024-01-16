@@ -4,10 +4,19 @@ const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
     url: "groups", 
     method: "GET",
-    data: payload
+    query: payload
   });
 }
 
+const createRoutingGroup = async (payload: any): Promise<any> => {
+  return api({
+    url: "groups",
+    method: "POST",
+    data: payload
+  })
+}
+
 export const OrderRoutingService = {
+  createRoutingGroup,
   fetchRoutingGroups
 }

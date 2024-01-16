@@ -2,7 +2,7 @@ import { ActionTree } from "vuex"
 import RootState from "@/store/RootState"
 import OrderRoutingState from "./OrderRoutingState"
 import { OrderRoutingService } from "@/services/RoutingService"
-import { hasError, sortSequence } from "@/utils"
+import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
@@ -28,6 +28,24 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
+  },
+
+  async createBrokeringGroup({ dispatch }, groupName) {
+    const payload = {
+      groupName,
+      productStoreId: "STORE"
+    }
+    try {
+      const resp = await OrderRoutingService.createRoutingGroup(payload)
+
+      if(!hasError(resp)) {
+        showToast('Brokering run created')
+        dispatch("fetchOrderRoutingGroups")
+      }
+    } catch(err) {
+      showToast("Failed to create brokering run")
+      console.log('err', err)
+    }
   }
 }
 

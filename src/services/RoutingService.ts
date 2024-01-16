@@ -16,7 +16,16 @@ const createRoutingGroup = async (payload: any): Promise<any> => {
   })
 }
 
+const fetchOrderRoutings = async (payload: any): Promise<any> => {
+  return api({
+    url: `groups/${payload.routingGroupId}/routings`,
+    method: "GET",
+    query: payload
+  });
+}
+
 export const OrderRoutingService = {
   createRoutingGroup,
+  fetchOrderRoutings,
   fetchRoutingGroups
 }

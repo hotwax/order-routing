@@ -18,15 +18,15 @@
               <ion-icon :icon="addCircleOutline" />
             </ion-button>
           </ion-list-header>
-          <ion-card v-for="card in [1, 2, 3, 4]" ref="cards" :key="card" @click="router.push('query')">
+          <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="router.push('query')">
             <ion-item lines="full">
               <ion-label>
-                <h1>{{ "Order lookup name" }}</h1>
+                <h1>{{ routing.routingName }}</h1>
               </ion-label>
-              <ion-chip>{{ `${card}/4` }}</ion-chip>
+              <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
             </ion-item>
-            <ion-item ref="item">
-              <ion-badge>{{ "BADGE" }}</ion-badge>
+            <ion-item>
+              <ion-badge>{{ routing.statusId }}</ion-badge>
               <ion-button fill="clear" color="medium" slot="end">
                 {{ "Archive" }}
               </ion-button>
@@ -79,11 +79,26 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
+import { useStore } from "vuex";
+import { computed, defineProps } from "vue";
 
 const router = useRouter();
+const store = useStore();
+const props = defineProps({
+  routingGroupId: {
+    type: String,
+    required: true
+  }
+})
+
+const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
+
+onIonViewWillEnter(async () => {
+  await store.dispatch('orderRouting/fetchOrderRoutings', props.routingGroupId)
+})
 </script>
 
 <style scoped>

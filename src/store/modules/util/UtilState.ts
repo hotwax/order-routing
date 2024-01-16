@@ -1,5 +1,9 @@
 import { Enumeration } from "@/types";
 
 export default interface UtilState {
-  enums: Array<Enumeration>
+  enums: {
+    [key: string]: {
+      [key: string]: Enumeration
+    }
+  }
 }

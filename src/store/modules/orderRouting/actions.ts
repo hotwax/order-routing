@@ -4,6 +4,7 @@ import OrderRoutingState from "./OrderRoutingState"
 import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
+import logger from "@/logger"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -20,7 +21,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         throw resp.data
       }
     } catch(err) {
-      console.log(err);
+      logger.error(err);
     }
 
     if(routingGroups.length) {
@@ -44,7 +45,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       }
     } catch(err) {
       showToast("Failed to create brokering run")
-      console.log('err', err)
+      logger.error('err', err)
     }
   }
 }

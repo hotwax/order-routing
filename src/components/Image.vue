@@ -6,6 +6,7 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
+import logger from "@/logger";
 
 export default defineComponent({
   name: "Image",
@@ -54,7 +55,7 @@ export default defineComponent({
             this.imageUrl = this.src;
           }).catch(() => {
             this.imageUrl = require("@/assets/images/defaultImage.png") ;
-            console.error("Image doesn't exist");
+            logger.error("Image doesn't exist");
           })
         } else {
           // Image is from resource server, hence append to base resource url, check for existence and assign
@@ -62,7 +63,7 @@ export default defineComponent({
           this.checkIfImageExists(imageUrl).then(() => {
             this.imageUrl = imageUrl;
           }).catch(() => {
-            console.error("Image doesn't exist");
+            logger.error("Image doesn't exist");
           })
         }
       }

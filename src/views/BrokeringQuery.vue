@@ -32,7 +32,10 @@
             </ion-item>
             <ion-item>
               <ion-label>{{ "Promise date" }}</ion-label>
-              <ion-chip>{{ "select date" }}</ion-chip>
+              <ion-chip>
+                {{ "in 5 days" }}
+                <ion-icon :icon="closeCircleOutline"/>
+              </ion-chip>
             </ion-item>
             <ion-item>
               <ion-select label="Queue" value="Brokering Queue">
@@ -176,6 +179,10 @@
                     <ion-select-option>{{ "Next rule" }}</ion-select-option>
                   </ion-select>
                 </ion-item>
+                <ion-item lines="none">
+                  <ion-label>{{ "Auto cancel days" }}</ion-label>
+                  <ion-chip outline>{{ "10 days" }}</ion-chip>
+                </ion-item>
               </ion-card>
             </div>
           </section>
@@ -187,7 +194,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController } from "@ionic/vue";
-import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { addCircleOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 
 const router = useRouter();

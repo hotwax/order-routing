@@ -5,6 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
+import { RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -103,6 +104,44 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_RULES_UPDATED, routingRules)
+  },
+
+  async fetchRoutingFilters({ commit }, orderRoutingId) {
+    let routingFilters = [] as any;
+    // filter groups on the basis of productStoreId
+    const payload = {
+      orderRoutingId
+    }
+
+    try {
+      const resp = await OrderRoutingService.fetchRoutingFilters(payload);
+
+      if(!hasError(resp) && resp.data.length) {
+        routingFilters = resp.data.reduce((filters: any, filter: RouteFilter) => {
+          if(filters[filter.conditionTypeEnumId]) {
+            filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+          } else {
+            filters[filter.conditionTypeEnumId] = {
+              [filter.fieldName]: filter
+            }
+          }
+          return filters
+        }, {})
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
+
+    // As we only need to add support of reordering for sortBy filter
+    if(routingFilters[sortEnum]?.length) {
+      routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
+    }
+
+    commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
   },
 
   async setCurrentOrderRoutingId({ commit }, payload) {

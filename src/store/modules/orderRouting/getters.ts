@@ -20,6 +20,9 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   getCurrentOrderRouting(state) {
     const orderRouting = state.routes?.find((route: Route) => route.orderRoutingId === state.currentRouteId)
     return orderRouting ? orderRouting : {}
+  },
+  getCurrentRouteFilters(state) {
+    return state.currentRouteFilters
   }
 }
 

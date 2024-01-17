@@ -40,10 +40,28 @@ const fetchRoutingFilters = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchRuleConditions = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/condition`,
+    method: "GET",
+    query: payload
+  });
+}
+
+const fetchRuleActions = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.orderRoutingId}/actions`,
+    method: "GET",
+    query: payload
+  });
+}
+
 export const OrderRoutingService = {
   createRoutingGroup,
   fetchOrderRoutings,
   fetchRoutingFilters,
   fetchRoutingGroups,
-  fetchRoutingRules
+  fetchRoutingRules,
+  fetchRuleActions,
+  fetchRuleConditions
 }

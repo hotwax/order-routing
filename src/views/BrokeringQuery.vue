@@ -5,7 +5,7 @@
         <div class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routeName }}</ion-label>
-            <ion-chip slot="end" outline @click="router.push('route')">
+            <ion-chip slot="end" outline @click="router.go(-1)">
               {{ "2/4" }}
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
@@ -16,26 +16,26 @@
               <ion-label>{{ "Filters" }}</ion-label>
             </ion-item-divider>
             <ion-item>
-              <ion-select label="Queue" value="Brokering Queue">
+              <ion-select label="Queue" :value="routingFilters[enums['FILTER']]?.[enums['QUEUE'].code]">
                 <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Shipping method" value="Next Day">
+              <ion-select label="Shipping method" :value="routingFilters[enums['FILTER']]?.[enums['SHIPPING_METHOD'].code]">
                 <ion-select-option value="Next Day">{{ "Next Day" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Order priority" value="High">
+              <ion-select label="Order priority" :value="routingFilters[enums['FILTER']]?.[enums['PRIORITY'].code]">
                 <ion-select-option value="High">{{ "High" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
               <ion-label>{{ "Promise date" }}</ion-label>
-              <ion-chip>{{ "select date" }}</ion-chip>
+              <ion-chip>{{ routingFilters[enums['FILTER']]?.[enums['PROMISE_DATE'].code] }}</ion-chip>
             </ion-item>
             <ion-item>
-              <ion-select label="Queue" value="Brokering Queue">
+              <ion-select label="Queue" :value="routingFilters[enums['FILTER']]?.[enums['SALES_CHANNEL'].code]">
                 <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -69,7 +69,8 @@
             <ion-reorder-group :disabled="false">
               <ion-item v-for="rule in routingRules" :key="rule.routingRuleId">
                 <ion-label>{{ rule.ruleName }}</ion-label>
-                <ion-reorder />
+                <!-- Don't display reordering option when there is a single rule -->
+                <ion-reorder v-show="routingRules.length > 1" />
               </ion-item>
             </ion-reorder-group>
           </ion-list>
@@ -196,11 +197,15 @@ const props = defineProps({
   }
 })
 
+const enums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
+const routingFilters = computed(() => store.getters["orderRouting/getCurrentRouteFilters"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId)
+  await store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)
 })
 
 </script>

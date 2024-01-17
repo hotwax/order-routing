@@ -35,7 +35,7 @@
               <ion-chip>{{ routingFilters[enums['FILTER']]?.[enums['PROMISE_DATE'].code] }}</ion-chip>
             </ion-item>
             <ion-item>
-              <ion-select label="Queue" :value="routingFilters[enums['FILTER']]?.[enums['SALES_CHANNEL'].code]">
+              <ion-select label="Sales Channel" :value="routingFilters[enums['FILTER']]?.[enums['SALES_CHANNEL'].code]">
                 <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -81,7 +81,9 @@
               <ion-item>
                 <ion-icon slot="start" :icon="filterOutline"/>
                 <ion-label>{{ "Filters" }}</ion-label>
-                <ion-icon :icon="optionsOutline"/>
+                <ion-button fill="clear" @click="addInventoryFilterOptions()">
+                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                </ion-button>
               </ion-item>
               <ion-item>
                 <ion-select label="Group" value="East coast stores">
@@ -102,7 +104,9 @@
               <ion-item>
                 <ion-icon slot="start" :icon="swapVerticalOutline"/>
                 <ion-label>{{ "Sort" }}</ion-label>
-                <ion-icon :icon="optionsOutline"/>
+                <ion-button fill="clear" @click="addInventorySortOptions()">
+                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                </ion-button>
               </ion-item>
               <ion-reorder-group :disabled="false">
                 <ion-item>
@@ -179,11 +183,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, onIonViewWillEnter } from "@ionic/vue";
+import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { checkmarkOutline, chevronUpOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { computed, defineProps } from "vue";
 import store from "@/store";
+import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
+import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
 
 const router = useRouter();
 const props = defineProps({
@@ -208,6 +214,21 @@ onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)
 })
 
+async function addInventoryFilterOptions() {
+  const inventoryFilterOptionsModal = await modalController.create({
+    component: AddInventoryFilterOptionsModal
+  })
+
+  await inventoryFilterOptionsModal.present();
+}
+
+async function addInventorySortOptions() {
+  const inventorySortOptionsModal = await modalController.create({
+    component: AddInventorySortOptionsModal
+  })
+
+  await inventorySortOptionsModal.present();
+}
 </script>
 
 <style scoped>

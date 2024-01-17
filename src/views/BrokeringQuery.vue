@@ -81,6 +81,10 @@
               </ion-item>
             </ion-reorder-group>
           </ion-list>
+          <ion-button fill="outline" @click="addInventoryRule">
+            {{ "Add inventory rule" }}
+            <ion-icon :icon="addCircleOutline"/>
+          </ion-button>
         </div>
         <div>
           <section class="filters">
@@ -136,45 +140,41 @@
             <div class="actions">
               <ion-card>
                 <ion-item lines="none">
-                  <ion-label>{{ "Fully available" }}</ion-label>
+                  <ion-label>{{ "Allocated Items" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-chip>{{ "Next rule" }}</ion-chip>
-                  <ion-chip>{{ "Move to queue" }}</ion-chip>
-                  <ion-chip>
-                    <ion-icon slot="start" :icon="checkmarkOutline" />
-                    {{ "Auto cancel days: 10" }}
-                  </ion-chip>
+                  <ion-toggle>{{ "Clear auto cancel days" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
                 <ion-item lines="none">
                   <ion-label>{{ "Partially available" }}</ion-label>
+                  <p>{{ "Select if partial allocation should be allowed in this inventory rule" }}</p>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-chip>
-                    <ion-icon :icon="checkmarkOutline" />
-                    <ion-label>{{ "Allocate partial" }}</ion-label>
-                  </ion-chip>
-                  <ion-chip>{{ "Next rule" }}</ion-chip>
-                  <ion-chip>{{ "Move to queue" }}</ion-chip>
-                  <ion-chip>
-                    <ion-icon :icon="checkmarkOutline" />
-                    <ion-label>{{ "Auto cancel days: 10" }}</ion-label>
-                  </ion-chip>
+                  <ion-toggle>{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
                 <ion-item lines="none">
-                  <ion-label>{{ "Not available" }}</ion-label>
+                  <ion-label>{{ "Unavailable items" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-chip>{{ "Move to queue" }}</ion-chip>
-                  <ion-chip>{{ "Next rule" }}</ion-chip>
-                  <ion-chip>
-                    <ion-icon :icon="checkmarkOutline"/>
-                    <ion-label>{{ "Auto cancel days: 10" }}</ion-label>
-                  </ion-chip>
+                  <ion-select label="Move items to" interface="popover">
+                    <ion-select-option value="next">
+                      {{ "Next rule" }}
+                      <ion-icon :icon="playForwardOutline"/>
+                    </ion-select-option>
+                    <ion-select-option value="queue">
+                      {{ "Queue" }}
+                      <ion-icon :icon="golfOutline"/>
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-select label="Queue" interface="popover">
+                    <ion-select-option>{{ "Next rule" }}</ion-select-option>
+                  </ion-select>
                 </ion-item>
               </ion-card>
             </div>
@@ -186,17 +186,45 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption } from "@ionic/vue";
-import { checkmarkOutline, chevronUpOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController } from "@ionic/vue";
+import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 
 const router = useRouter();
+
+async function addInventoryRule() {
+  const newRuleAlert = await alertController.create({
+    header: "New Inventory Rule",
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    }, {
+      text: "Save"
+    }],
+    inputs: [{
+      name: "ruleName",
+      placeholder: "Rule name"
+    }]
+  })
+
+  newRuleAlert.onDidDismiss().then((result: any) => {
+    if(result.data?.values?.ruleName) {
+      console.log('ruleName', result.data?.values?.ruleName)
+    }
+  })
+
+  return newRuleAlert.present();
+}
 </script>
 
 <style scoped>
-.actions, .filters {
+.filters {
   display: grid;
   grid-template-columns: repeat(2, auto);
+}
+
+.actions {
+  max-width: 50%;
 }
 
 ion-content > div {
@@ -207,5 +235,6 @@ ion-content > div {
 
 ion-content > div > .menu {
   border-right: 1px solid #92949C;
+  justify-content: center;
 }
 </style>

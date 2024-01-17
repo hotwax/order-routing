@@ -20,6 +20,12 @@ const mutations: MutationTree<OrderRoutingState> = {
   },
   [types.ORDER_ROUTING_FILTERS_UPDATED](state, payload) {
     state.currentRouteFilters = payload
+  },
+  [types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED](state, payload) {
+    state.ruleConditions = payload
+  },
+  [types.ORDER_ROUTING_RULE_ACTIONS_UPDATED](state, payload) {
+    state.ruleActions = payload
   }
 }
 export default mutations;

@@ -144,6 +144,67 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
   },
 
+  async fetchRuleConditions({ commit }, routingRuleId) {
+    let ruleConditions = [] as any;
+    // filter groups on the basis of productStoreId
+    const payload = {
+      routingRuleId
+    }
+
+    try {
+      const resp = await OrderRoutingService.fetchRuleConditions(payload);
+
+      console.log(resp)
+
+      if(!hasError(resp) && resp.data.length) {
+        ruleConditions = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
+
+    // // As we only need to add support of reordering for sortBy filter
+    // if(routingFilters[sortEnum]?.length) {
+    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
+    // }
+
+    commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
+  },
+
+  async fetchRuleActions({ commit }, routingRuleId) {
+    let ruleActions = [] as any;
+    const payload = {
+      routingRuleId
+    }
+
+    try {
+      const resp = await OrderRoutingService.fetchRuleActions(payload);
+
+      console.log('actions', resp.data)
+
+      if(!hasError(resp) && resp.data.length) {
+        ruleActions = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
+
+    // // As we only need to add support of reordering for sortBy filter
+    // if(routingFilters[sortEnum]?.length) {
+    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
+    // }
+
+    commit(types.ORDER_ROUTING_RULE_ACTIONS_UPDATED, ruleActions)
+  },
+
   async setCurrentOrderRoutingId({ commit }, payload) {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },

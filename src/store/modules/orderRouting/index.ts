@@ -13,7 +13,9 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
     rules: [],
     currentGroupId: '', // choosing only to save id and not whole object, as when updating the state we don't need to care updating the state on two different places
     currentRouteId: '',
-    currentRouteFilters: {}
+    currentRouteFilters: {},
+    ruleConditions: {},
+    ruleActions: {}
   },
   getters,
   actions,

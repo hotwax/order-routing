@@ -11,4 +11,6 @@ export default interface OrderRoutingState {
       [key: string]: RouteFilter  // enumCode/fieldName as key
     }
   };
+  ruleConditions: {};
+  ruleActions: {}
 }

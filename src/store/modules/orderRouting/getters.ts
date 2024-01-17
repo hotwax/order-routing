@@ -23,6 +23,12 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   },
   getCurrentRouteFilters(state) {
     return state.currentRouteFilters
+  },
+  getRuleConditions(state) {
+    return state.ruleConditions
+  },
+  getRuleActions(state) {
+    return state.ruleActions
   }
 }
 

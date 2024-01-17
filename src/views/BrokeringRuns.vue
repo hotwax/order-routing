@@ -16,7 +16,7 @@
     <ion-content>
       <main v-if="groups.length">
         <section>
-          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="router.push('brokering/route')">
+          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="redirect(group.routingGroupId)">
             <ion-card-header>
               <ion-card-title>
                 {{ group.groupName }}
@@ -83,6 +83,11 @@ async function addNewRun() {
   })
 
   return newRunAlert.present();
+}
+
+async function redirect(routingGroupId: string) {
+  await store.dispatch('orderRouting/setCurrentRoutingGroupId', routingGroupId)
+  router.push(`brokering/${routingGroupId}/routes`)
 }
 
 </script>

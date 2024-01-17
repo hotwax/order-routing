@@ -47,6 +47,36 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       showToast("Failed to create brokering run")
       logger.error('err', err)
     }
+  },
+
+  async setCurrentRoutingGroupId({ commit }, payload) {
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, payload)
+  },
+
+  async fetchOrderRoutings({ commit }, routingGroupId) {
+    let orderRoutings = [] as any;
+    // filter groups on the basis of productStoreId
+    const payload = {
+      routingGroupId
+    }
+
+    try {
+      const resp = await OrderRoutingService.fetchOrderRoutings(payload);
+
+      if(!hasError(resp) && resp.data.length) {
+        orderRoutings = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    if(orderRoutings.length) {
+      orderRoutings = sortSequence(orderRoutings)
+    }
+
+    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
   }
 }
 

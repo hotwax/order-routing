@@ -18,15 +18,15 @@
               <ion-icon :icon="addCircleOutline" />
             </ion-button>
           </ion-list-header>
-          <ion-card v-for="card in [1, 2, 3, 4]" ref="cards" :key="card" @click="router.push('query')">
+          <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="router.push('query')">
             <ion-item lines="full">
               <ion-label>
-                <h1>{{ "Order lookup name" }}</h1>
+                <h1>{{ routing.routingName }}</h1>
               </ion-label>
-              <ion-chip>{{ `${card}/4` }}</ion-chip>
+              <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
             </ion-item>
-            <ion-item ref="item">
-              <ion-badge>{{ "BADGE" }}</ion-badge>
+            <ion-item>
+              <ion-badge>{{ routing.statusId }}</ion-badge>
               <ion-button fill="clear" color="medium" slot="end">
                 {{ "Archive" }}
               </ion-button>
@@ -43,7 +43,7 @@
             </ion-item>
             <ion-item lines="none">
               <ion-label>
-                {{ "This is what a long description of the routing rule that the user has created looks like. This also includes an edit button where the user can edit their description inline" }}
+                {{ currentRoutingGroup.description ? currentRoutingGroup.description : "No description available" }}
               </ion-label>
             </ion-item>
           </main>
@@ -57,19 +57,19 @@
               <ion-item>
                 <ion-icon slot="start" :icon="timeOutline"/>
                 <ion-label>{{ "Run time" }}</ion-label>
-                <ion-label slot="end">{{ "3:00 PM EST" }}</ion-label>
+                <!-- <ion-label slot="end">{{ currentRoutingGroup.runTime || "-" }}</ion-label> -->
               </ion-item>
               <ion-item>
                 <ion-icon slot="start" :icon="timerOutline"/>
                 <ion-label>{{ "Schedule" }}</ion-label>
-                <ion-label slot="end">{{ "Every 5 minutes" }}</ion-label>
+                <!-- <ion-label slot="end">{{ currentRoutingGroup.frequency || "-" }}</ion-label> -->
               </ion-item>
             </ion-card>
             <ion-item>
-              {{ "Created at <time>" }}
+              {{ `Created at ${currentRoutingGroup.createdDate || "-"}` }}
             </ion-item>
             <ion-item>
-              {{ "Updated at <time>" }}
+              {{ `Updated at ${currentRoutingGroup.lastUpdatedStamp || "-"}` }}
             </ion-item>
           </aside>
         </section>
@@ -79,11 +79,33 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
+import { useStore } from "vuex";
+import { computed, defineProps } from "vue";
+import { Group } from "@/types";
 
 const router = useRouter();
+const store = useStore();
+const props = defineProps({
+  routingGroupId: {
+    type: String,
+    required: true
+  }
+})
+
+const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
+const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
+
+onIonViewWillEnter(async () => {
+  await store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId)
+
+  // On refresh, the groups list is removed thus resulting is not fetching the current group information
+  if(!currentRoutingGroup.value.routingGroupId) {
+    await store.dispatch("orderRouting/fetchOrderRoutingGroups")
+  }
+})
 </script>
 
 <style scoped>

@@ -18,7 +18,7 @@
               <ion-icon :icon="addCircleOutline" />
             </ion-button>
           </ion-list-header>
-          <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="router.push('query')">
+          <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
             <ion-item lines="full">
               <ion-label>
                 <h1>{{ routing.routingName }}</h1>
@@ -106,6 +106,11 @@ onIonViewWillEnter(async () => {
     await store.dispatch("orderRouting/fetchOrderRoutingGroups")
   }
 })
+
+async function redirect(orderRoutingId: string) {
+  await store.dispatch('orderRouting/setCurrentOrderRoutingId', orderRoutingId)
+  router.push(`${orderRoutingId}/rules`)
+}
 </script>
 
 <style scoped>

@@ -4,7 +4,7 @@
       <div>
         <div class="menu">
           <ion-item lines="none">
-            <ion-label>{{ "<order lookup name>" }}</ion-label>
+            <ion-label>{{ currentRouting.routeName }}</ion-label>
             <ion-chip slot="end" outline @click="router.push('route')">
               {{ "2/4" }}
               <ion-icon :icon="chevronUpOutline" />
@@ -67,16 +67,8 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group :disabled="false">
-              <ion-item>
-                <ion-label>{{ "Warehouse only" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Warehouse and stores" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Any Location" }}</ion-label>
+              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId">
+                <ion-label>{{ rule.ruleName }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -186,11 +178,31 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption } from "@ionic/vue";
+import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, onIonViewWillEnter } from "@ionic/vue";
 import { checkmarkOutline, chevronUpOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
+import { computed, defineProps } from "vue";
+import store from "@/store";
 
 const router = useRouter();
+const props = defineProps({
+  orderRoutingId: {
+    type: String,
+    required: true
+  },
+  routingGroupId: {
+    type: String,
+    requied: true
+  }
+})
+
+const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
+const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
+
+onIonViewWillEnter(async () => {
+  await store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId)
+})
+
 </script>
 
 <style scoped>

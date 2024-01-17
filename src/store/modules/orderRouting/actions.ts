@@ -77,7 +77,37 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
-  }
+  },
+
+  async fetchRoutingRules({ commit }, orderRoutingId) {
+    let routingRules = [] as any;
+    // filter groups on the basis of productStoreId
+    const payload = {
+      orderRoutingId
+    }
+
+    try {
+      const resp = await OrderRoutingService.fetchRoutingRules(payload);
+
+      if(!hasError(resp) && resp.data.length) {
+        routingRules = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    if(routingRules.length) {
+      routingRules = sortSequence(routingRules)
+    }
+
+    commit(types.ORDER_ROUTING_RULES_UPDATED, routingRules)
+  },
+
+  async setCurrentOrderRoutingId({ commit }, payload) {
+    commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
+  },
 }
 
 export default actions;

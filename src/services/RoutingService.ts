@@ -1,4 +1,7 @@
 import api from "@/api"
+import logger from "@/logger";
+import store from "@/store";
+import { hasError, showToast } from "@/utils";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -24,8 +27,65 @@ const fetchOrderRoutings = async (payload: any): Promise<any> => {
   });
 }
 
+const createRoutingRule = async (payload: any): Promise<any> => {
+  let routingRuleId = '';
+  try {
+    const resp = await api({
+      url: "rules",
+      method: "POST",
+      data: payload
+    })
+
+    if(!hasError(resp) && resp?.data.routingRuleId) {
+      routingRuleId = resp.data.routingRuleId
+    }
+  } catch(err) {
+    showToast("Failed to create new rule")
+    logger.error(err)
+  }
+
+  return routingRuleId
+}
+
+const fetchRoutingRules = async (payload: any): Promise<any> => {
+  return api({
+    url: `routings/${payload.orderRoutingId}/rules`,
+    method: "GET",
+    query: payload
+  });
+}
+
+const fetchRoutingFilters = async (payload: any): Promise<any> => {
+  return api({
+    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    method: "GET",
+    query: payload
+  });
+}
+
+const fetchRuleConditions = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/condition`,
+    method: "GET",
+    query: payload
+  });
+}
+
+const fetchRuleActions = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/actions`,
+    method: "GET",
+    query: payload
+  });
+}
+
 export const OrderRoutingService = {
   createRoutingGroup,
+  createRoutingRule,
   fetchOrderRoutings,
-  fetchRoutingGroups
+  fetchRoutingFilters,
+  fetchRoutingGroups,
+  fetchRoutingRules,
+  fetchRuleActions,
+  fetchRuleConditions
 }

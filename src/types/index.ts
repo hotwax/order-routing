@@ -50,10 +50,23 @@ type Rule = {
   lastUpdatedStamp: string
 }
 
+type RouteFilter = {
+  orderRoutingId: string,
+  conditionSeqId: string,
+  conditionTypeEnumId: string,
+  fieldName: string,
+  operator: string,
+  fieldValue: string,
+  sequenceNum: number,
+  createdDate: string,
+  lastUpdatedStamp: string
+}
+
 export {
   Enumeration,
   EnumerationAndType,
   Group,
   Route,
+  RouteFilter,
   Rule
 }

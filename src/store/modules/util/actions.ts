@@ -8,8 +8,10 @@ import { UtilService } from "@/services/UtilService"
 import { EnumerationAndType } from "@/types"
 
 const actions: ActionTree<UtilState, RootState> = {
-  async fetchEnums({ commit }, payload) {
-    let enums = {}
+  async fetchEnums({ commit, state }, payload) {
+    let enums = {
+      ...state.enums
+    }
 
     try {
       const resp = await UtilService.fetchEnums(payload);
@@ -24,13 +26,36 @@ const actions: ActionTree<UtilState, RootState> = {
             }
           }
           return enumerations
-        }, {})
+        }, enums)
       }
     } catch(err) {
       logger.error('error', err)
     }
 
     commit(types.UTIL_ENUMS_UPDATED, enums)
+  },
+
+  async fetchFacilities({ commit }) {
+    let facilities = {}
+
+    const payload = {
+      parentTypeId: "VIRTUAL_FACILITY"
+    }
+
+    try {
+      const resp = await UtilService.fetchFacilities(payload);
+
+      if(!hasError(resp) && resp.data.length) {
+        facilities = resp.data.reduce((facilities: any, facility: any) => {
+          facilities[facility.facilityId] = facility
+          return facilities
+        }, {})
+      }
+    } catch(err) {
+      logger.error('error', err)
+    }
+
+    commit(types.UTIL_FACILITIES_UPDATED, facilities)
   }
 }
 

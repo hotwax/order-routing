@@ -8,6 +8,15 @@ const fetchEnums = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchFacilities = async (payload: any): Promise<any> => {
+  return api({
+    url: "facilities", 
+    method: "GET",
+    params: payload
+  });
+}
+
 export const UtilService = {
-  fetchEnums
+  fetchEnums,
+  fetchFacilities
 }

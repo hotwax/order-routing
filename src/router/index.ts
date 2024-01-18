@@ -43,8 +43,9 @@ const routes: Array<RouteRecordRaw> = [
         props: true
       },
       {
-        path: "brokering/query",
-        component: () => import("@/views/BrokeringQuery.vue")
+        path: "brokering/:routingGroupId/:orderRoutingId/rules",
+        component: () => import("@/views/BrokeringQuery.vue"),
+        props: true
       },
       {
         path: "settings",

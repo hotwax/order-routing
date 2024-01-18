@@ -4,8 +4,8 @@
       <div>
         <div class="menu">
           <ion-item lines="none">
-            <ion-label>{{ "<order lookup name>" }}</ion-label>
-            <ion-chip slot="end" outline @click="router.push('route')">
+            <ion-label>{{ currentRouting.routeName }}</ion-label>
+            <ion-chip slot="end" outline @click="router.go(-1)">
               {{ "2/4" }}
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
@@ -16,30 +16,32 @@
               <ion-label>{{ "Filters" }}</ion-label>
             </ion-item-divider>
             <ion-item>
-              <ion-select label="Queue" value="Brokering Queue">
-                <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
+              <ion-select label="Queue" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['QUEUE'].code]?.fieldValue">
+                <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Shipping method" value="Next Day">
+              <ion-select label="Shipping method" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SHIPPING_METHOD'].code]?.fieldValue">
                 <ion-select-option value="Next Day">{{ "Next Day" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Order priority" value="High">
-                <ion-select-option value="High">{{ "High" }}</ion-select-option>
+              <ion-select label="Order priority" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PRIORITY'].code]?.fieldValue">
+                <ion-select-option value="HIGH">{{ "High" }}</ion-select-option>
+                <ion-select-option value="MEDIUM">{{ "Medium" }}</ion-select-option>
+                <ion-select-option value="Low">{{ "Low" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
               <ion-label>{{ "Promise date" }}</ion-label>
               <ion-chip>
-                {{ "in 5 days" }}
+                {{ routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PROMISE_DATE'].code]?.fieldValue }}
                 <ion-icon :icon="closeCircleOutline"/>
               </ion-chip>
             </ion-item>
             <ion-item>
-              <ion-select label="Queue" value="Brokering Queue">
-                <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
+              <ion-select label="Sales Channel" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SALES_CHANNEL'].code]?.fieldValue">
+                <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
           </ion-item-group>
@@ -70,17 +72,10 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group :disabled="false">
-              <ion-item>
-                <ion-label>{{ "Warehouse only" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Warehouse and stores" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Any Location" }}</ion-label>
-                <ion-reorder />
+              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId" @click="fetchRuleInformation(rule.routingRuleId)" button>
+                <ion-label>{{ rule.ruleName }}</ion-label>
+                <!-- Don't display reordering option when there is a single rule -->
+                <ion-reorder v-show="routingRules.length > 1" />
               </ion-item>
             </ion-reorder-group>
           </ion-list>
@@ -95,7 +90,9 @@
               <ion-item>
                 <ion-icon slot="start" :icon="filterOutline"/>
                 <ion-label>{{ "Filters" }}</ion-label>
-                <ion-icon :icon="optionsOutline"/>
+                <ion-button fill="clear" @click="addInventoryFilterOptions()">
+                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                </ion-button>
               </ion-item>
               <ion-item>
                 <ion-select label="Group" value="East coast stores">
@@ -116,17 +113,20 @@
               <ion-item>
                 <ion-icon slot="start" :icon="swapVerticalOutline"/>
                 <ion-label>{{ "Sort" }}</ion-label>
-                <ion-icon :icon="optionsOutline"/>
+                <ion-button fill="clear" @click="addInventorySortOptions()">
+                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                </ion-button>
               </ion-item>
               <ion-reorder-group :disabled="false">
                 <ion-item>
                   <ion-label>{{ "Proximity" }}</ion-label>
                   <ion-reorder />
                 </ion-item>
-                <ion-item>
+                <!-- TODO: Does not have support for order limit, but need to add this support in future -->
+                <!-- <ion-item>
                   <ion-label>{{ "Order limit" }}</ion-label>
                   <ion-reorder />
-                </ion-item>
+                </ion-item> -->
                 <ion-item>
                   <ion-label>{{ "Inventory balance" }}</ion-label>
                   <ion-reorder />
@@ -142,46 +142,54 @@
             <h2 class="ion-padding-start">{{ "Actions" }}</h2>
             <div class="actions">
               <ion-card>
-                <ion-item lines="none">
-                  <ion-label>{{ "Allocated Items" }}</ion-label>
-                </ion-item>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Allocated Items" }}
+                  </ion-card-title>
+                </ion-card-header>
                 <ion-item lines="none">
                   <ion-toggle>{{ "Clear auto cancel days" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Partially available" }}
+                  </ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                  {{ "Select if partial allocation should be allowed in this inventory rule" }}
+                </ion-card-content>
                 <ion-item lines="none">
-                  <ion-label>{{ "Partially available" }}</ion-label>
-                  <p>{{ "Select if partial allocation should be allowed in this inventory rule" }}</p>
-                </ion-item>
-                <ion-item lines="none">
-                  <ion-toggle>{{ "Allow partial allocation" }}</ion-toggle>
+                  <ion-toggle :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Unavailable items" }}
+                  </ion-card-title>
+                </ion-card-header>
                 <ion-item lines="none">
-                  <ion-label>{{ "Unavailable items" }}</ion-label>
-                </ion-item>
-                <ion-item lines="none">
-                  <ion-select label="Move items to" interface="popover">
-                    <ion-select-option value="next">
+                  <ion-select label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateRuleActionType($event.detail.value)">
+                    <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                       {{ "Next rule" }}
                       <ion-icon :icon="playForwardOutline"/>
                     </ion-select-option>
-                    <ion-select-option value="queue">
+                    <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
                       {{ "Queue" }}
                       <ion-icon :icon="golfOutline"/>
                     </ion-select-option>
                   </ion-select>
                 </ion-item>
-                <ion-item lines="none">
-                  <ion-select label="Queue" interface="popover">
-                    <ion-select-option>{{ "Next rule" }}</ion-select-option>
+                <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
+                  <ion-select label="Queue" interface="popover" :value="ruleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                    <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline>{{ "10 days" }}</ion-chip>
+                  <ion-chip outline @click="updateAutoCancelDays(autoCancelDays)">{{ autoCancelDays }}{{ ' days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>
@@ -193,11 +201,79 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController } from "@ionic/vue";
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
+import { computed, defineProps, reactive, ref } from "vue";
+import store from "@/store";
+import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
+import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
+import { showToast } from "@/utils";
+import { OrderRoutingService } from "@/services/RoutingService"
+import { Rule } from "@/types";
 
 const router = useRouter();
+const props = defineProps({
+  orderRoutingId: {
+    type: String,
+    required: true
+  }
+})
+
+const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
+const autoCancelDays = ref(0)
+const ruleActionType = ref('')
+let selectedRoutingRule = reactive({}) as Rule
+
+const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
+const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
+const routingFilters = computed(() => store.getters["orderRouting/getCurrentRouteFilters"])
+const ruleActions = computed(() => store.getters["orderRouting/getRuleActions"])
+const facilities = computed(() => store.getters["util/getFacilities"])
+const enums = computed(() => store.getters["util/getEnums"])
+
+onIonViewWillEnter(async () => {
+  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
+
+  if(!routingRules.value.length) {
+    return;
+  }
+
+  await fetchRuleInformation(routingRules.value[0].routingRuleId);
+})
+
+async function fetchRuleInformation(routingRuleId: string) {
+  if(selectedRoutingRule.routingRuleId === routingRuleId) {
+    return;
+  }
+
+  selectedRoutingRule = routingRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
+  await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
+
+  autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
+
+  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
+  ruleActionType.value = Object.keys(ruleActions.value).find((actionId: string) => {
+    return actionTypes.includes(actionId)
+  }) || ''
+}
+
+async function addInventoryFilterOptions() {
+  const inventoryFilterOptionsModal = await modalController.create({
+    component: AddInventoryFilterOptionsModal
+  })
+
+  await inventoryFilterOptionsModal.present();
+}
+
+async function addInventorySortOptions() {
+  const inventorySortOptionsModal = await modalController.create({
+    component: AddInventorySortOptionsModal
+  })
+
+  await inventorySortOptionsModal.present();
+}
 
 async function addInventoryRule() {
   const newRuleAlert = await alertController.create({
@@ -214,13 +290,84 @@ async function addInventoryRule() {
     }]
   })
 
-  newRuleAlert.onDidDismiss().then((result: any) => {
-    if(result.data?.values?.ruleName) {
-      console.log('ruleName', result.data?.values?.ruleName)
+  newRuleAlert.onDidDismiss().then(async (result: any) => {
+    const ruleName = result.data?.values?.ruleName;
+    if(ruleName) {
+      // TODO: check for the default value of params
+      const payload = {
+        routingRuleId: ruleName.split(" ").join("_").toUpperCase(),
+        orderRoutingId: props.orderRoutingId,
+        ruleName,
+        statusId: "SERVICE_ACTIVE", // by default considering the rule to be active
+        sequenceNum: 0,
+        assignmentEnumId: "ORA_SINGLE", // by default, considering partial fulfillment to inactive
+        fulfillEntireShipGroup: "N",
+      }
+
+      const resp = await OrderRoutingService.createRoutingRule(payload)
+      if(resp.routingRuleId) {
+        fetchRuleInformation(resp.routingRuleId)
+      }
     }
   })
 
   return newRuleAlert.present();
+}
+
+function updateRuleActionType(value: string) {
+  const actionType = ruleActionType.value
+  ruleActionType.value = value
+
+  ruleActions.value[ruleActionType.value] = {
+    ...ruleActions.value[actionType],
+    actionTypeEnumId: value,
+    actionValue: '' // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update it if required from some other function
+  }
+  // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
+  delete ruleActions.value[actionType]
+}
+
+function updateRuleActionValue(value: string) {
+  ruleActions.value[ruleActionType.value]["actionValue"] = value
+}
+
+async function updateAutoCancelDays(cancelDays: any) {
+  const alert = await alertController.create({
+    header: "Auto Cancel Days",
+    inputs: [{
+      name: "autoCancelDays",
+      placeholder: "auto cancel days",
+      type: "number",
+      min: 0,
+      value: cancelDays
+    }],
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    },
+    {
+      text: "Save",
+      handler: (data) => {
+        if(data) {
+          if(data.autoCancelDays === '') {
+            showToast("Please provide a value")
+            return false;
+          } else if(data.autoCancelDays < 0) {
+            showToast("Provide a value greater than or equal to 0")
+            return false;
+          } else {
+            autoCancelDays.value = data.autoCancelDays
+            ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue = data.autoCancelDays
+          }
+        }
+      }
+    }]
+  })
+  await alert.present()
+}
+
+function updatePartialAllocation(event: CustomEvent) {
+  selectedRoutingRule.assignmentEnumId = event ? "ORA_MULTI" : "ORA_SINGLE"
 }
 </script>
 

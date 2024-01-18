@@ -5,5 +5,6 @@ export default interface UtilState {
     [key: string]: {
       [key: string]: Enumeration
     }
-  }
+  };
+  facilities: object;
 }

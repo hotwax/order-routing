@@ -25,6 +25,7 @@ const actions: ActionTree<UserState, RootState> = {
       commit(types.USER_TOKEN_CHANGED, { newToken: token })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
+      return Promise.resolve({ token })
     } catch (err: any) {
       showToast(translate(err));
       logger.error("error", err);

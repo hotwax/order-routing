@@ -48,8 +48,8 @@ const getEComStores = async (token: any): Promise<any> => {
   try {
     const baseURL = store.getters["user/getBaseUrl"];
     const resp = await client({
-      url: "performFind",
-      method: "get",
+      url: "user/productStore",
+      method: "GET",
       baseURL,
       headers: {
         "api_key": token,
@@ -57,10 +57,10 @@ const getEComStores = async (token: any): Promise<any> => {
       }
     });
     // Disallow login if the user is not associated with any product store
-    if (hasError(resp) || resp.data.docs.length === 0) {
+    if (hasError(resp) || resp.data.length === 0) {
       throw resp.data;
     } else {
-      return Promise.resolve(resp.data.docs);
+      return Promise.resolve(resp.data);
     }
   } catch(error: any) {
     return Promise.reject(error)

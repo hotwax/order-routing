@@ -18,15 +18,11 @@
             is added on sides from ion-item and ion-padding-vertical to compensate the removed
             vertical padding -->
             <ion-card-header class="ion-no-padding ion-padding-vertical">
-              <ion-card-subtitle>{{ userProfile.userLoginId }}</ion-card-subtitle>
-              <ion-card-title>{{ userProfile?.partyName }}</ion-card-title>
+              <ion-card-subtitle>{{ userProfile.userId }}</ion-card-subtitle>
+              <ion-card-title>{{ userProfile?.userFullName }}</ion-card-title>
             </ion-card-header>
           </ion-item>
           <ion-button color="danger" @click="logout()">{{ "Logout" }}</ion-button>
-          <ion-button fill="outline" @click="goToLaunchpad()">
-            {{ "Go to Launchpad" }}
-            <ion-icon slot="end" :icon="openOutline" />
-          </ion-button>
           <!-- Commenting this code as we currently do not have reset password functionality -->
           <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
         </ion-card>
@@ -35,8 +31,6 @@
         <h1>{{ "OMS" }}</h1>
       </div>
       <section>
-        <OmsInstanceNavigator />
-
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
@@ -75,7 +69,7 @@
             {{ "The timezone you select is used to ensure automations you schedule are always accurate to the time you select." }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-label> {{ userProfile && userProfile.userTimeZone ? userProfile.userTimeZone : "-" }} </ion-label>
+            <ion-label> {{ userProfile && userProfile.timeZone ? userProfile.timeZone : "-" }} </ion-label>
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ "Change" }}</ion-button>
           </ion-item>
         </ion-card>
@@ -84,102 +78,51 @@
   </ion-page>
 </template>
 
-<script lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from '@ionic/vue';
-import { defineComponent } from 'vue';
-import { codeWorkingOutline, ellipsisVertical, globeOutline, openOutline, personCircleOutline, storefrontOutline, timeOutline } from 'ionicons/icons'
-import { mapGetters, useStore } from 'vuex';
-import { useRouter } from 'vue-router';
-import TimeZoneModal from '@/views/TimezoneModal.vue';
-import Image from '@/components/Image.vue'
-import { DateTime } from 'luxon';
+<script setup lang="ts">
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { computed, onMounted, ref } from "vue";
+import { useStore } from "vuex";
+import { useRouter } from "vue-router";
+import TimeZoneModal from "@/views/TimezoneModal.vue";
+import Image from "@/components/Image.vue"
+import { DateTime } from "luxon";
 
-export default defineComponent({
-  name: 'Settings',
-  components: {
-    IonAvatar,
-    IonButton, 
-    IonCard,
-    IonCardContent,
-    IonCardHeader,
-    IonCardSubtitle,
-    IonCardTitle,
-    IonContent, 
-    IonHeader, 
-    IonIcon,
-    IonItem, 
-    IonLabel, 
-    IonMenuButton,
-    IonPage, 
-    IonSelect, 
-    IonSelectOption,
-    IonTitle, 
-    IonToolbar,
-    Image
-  },
-  data() {
-    return {
-      baseURL: process.env.VUE_APP_BASE_URL,
-      appInfo: (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any,
-      appVersion: ""
-    };
-  },
-  computed: {
-    ...mapGetters({
-      userProfile: 'user/getUserProfile',
-      currentEComStore: 'user/getCurrentEComStore'
+const store = useStore()
+const router = useRouter()
+const appVersion = ref("")
+const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any
+
+const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+
+onMounted(() => {
+  appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
+})
+
+function setEComStore(event: CustomEvent) {
+  if(userProfile.value?.stores) {
+    store.dispatch("user/setEcomStore", {
+      "productStoreId": event.detail.value
     })
-  },
-  mounted() {
-    this.appVersion = this.appInfo.branch ? (this.appInfo.branch + "-" + this.appInfo.revision) : this.appInfo.tag;
-  },
-  methods: {
-    setEComStore(event: any) {
-      if(this.userProfile?.stores) {
-        this.store.dispatch('user/setEcomStore', {
-          'productStoreId': event.detail.value
-        })
-      }
-    },
-    async changeTimeZone() {
-      const timeZoneModal = await modalController.create({
-        component: TimeZoneModal,
-      });
-      return timeZoneModal.present();
-    },
-    logout () {
-      this.store.dispatch('user/logout', { isUserUnauthorised: false }).then((redirectionUrl) => {
-        // if not having redirection url then redirect the user to launchpad
-        if(!redirectionUrl) {
-          const redirectUrl = window.location.origin + '/login'
-          window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
-        }
-      })
-    },
-    goToLaunchpad() {
-      window.location.href = `${process.env.VUE_APP_LOGIN_URL}`
-    },
-    getDateTime(time: any) {
-      return DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED);
-    }
-  },
-  setup(){
-    const store = useStore();
-    const router = useRouter();
-
-    return {
-      codeWorkingOutline,
-      ellipsisVertical,
-      globeOutline,
-      personCircleOutline,
-      storefrontOutline,
-      store,
-      router,
-      timeOutline,
-      openOutline
-    }
   }
-});
+}
+
+async function changeTimeZone() {
+  const timeZoneModal = await modalController.create({
+    component: TimeZoneModal,
+  });
+  return timeZoneModal.present();
+}
+
+function logout() {
+  store.dispatch("user/logout").then(() => {
+    router.push("/login");
+  })
+}
+
+function getDateTime(time: any) {
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "";
+}
 </script>
 
 <style scoped>

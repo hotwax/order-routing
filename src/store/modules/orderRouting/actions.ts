@@ -176,7 +176,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchRuleActions({ commit }, routingRuleId) {
-    let ruleActions = [] as any;
+    let ruleActions = {} as any;
     const payload = {
       routingRuleId
     }
@@ -184,10 +184,12 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRuleActions(payload);
 
-      console.log('actions', resp.data)
-
       if(!hasError(resp) && resp.data.length) {
-        ruleActions = resp.data
+        ruleActions = resp.data.reduce((actions: any, action: any) => {
+          // considering that only one value for an action is available
+          actions[action.actionTypeEnumId] = action
+          return actions
+        }, {})
       } else {
         throw resp.data
       }

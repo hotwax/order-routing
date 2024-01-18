@@ -50,7 +50,7 @@ const fetchRuleConditions = async (payload: any): Promise<any> => {
 
 const fetchRuleActions = async (payload: any): Promise<any> => {
   return api({
-    url: `rules/${payload.orderRoutingId}/actions`,
+    url: `rules/${payload.routingRuleId}/actions`,
     method: "GET",
     query: payload
   });

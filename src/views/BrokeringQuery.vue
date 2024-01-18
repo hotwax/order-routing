@@ -120,10 +120,11 @@
                   <ion-label>{{ "Proximity" }}</ion-label>
                   <ion-reorder />
                 </ion-item>
-                <ion-item>
+                <!-- TODO: Does not have support for order limit, but need to add this support in future -->
+                <!-- <ion-item>
                   <ion-label>{{ "Order limit" }}</ion-label>
                   <ion-reorder />
-                </ion-item>
+                </ion-item> -->
                 <ion-item>
                   <ion-label>{{ "Inventory balance" }}</ion-label>
                   <ion-reorder />
@@ -160,25 +161,25 @@
                   <ion-label>{{ "Unavailable items" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-select label="Move items to" interface="popover">
-                    <ion-select-option value="next">
+                  <ion-select label="Move items to" interface="popover" :value="getRuleActionType()">
+                    <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                       {{ "Next rule" }}
                       <ion-icon :icon="playForwardOutline"/>
                     </ion-select-option>
-                    <ion-select-option value="queue">
+                    <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
                       {{ "Queue" }}
                       <ion-icon :icon="golfOutline"/>
                     </ion-select-option>
                   </ion-select>
                 </ion-item>
-                <ion-item lines="none">
+                <ion-item lines="none" v-show="getRuleActionType() === actionEnums['MOVE_TO_QUEUE'].id">
                   <ion-select label="Queue" interface="popover">
-                    <ion-select-option>{{ "Next rule" }}</ion-select-option>
+                    <ion-select-option>{{ "Queue" }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline>{{ "10 days" }}</ion-chip>
+                  <ion-chip outline>{{ ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue }}{{ ' days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>
@@ -203,22 +204,24 @@ const props = defineProps({
   orderRoutingId: {
     type: String,
     required: true
-  },
-  routingGroupId: {
-    type: String,
-    requied: true
   }
 })
 
 const enums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
 const routingFilters = computed(() => store.getters["orderRouting/getCurrentRouteFilters"])
+const ruleActions = computed(() => store.getters["orderRouting/getRuleActions"])
 
 onIonViewWillEnter(async () => {
-  await store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId)
-  await store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)
+  console.log('this.rules before', JSON.parse(JSON.stringify(routingRules.value)))
+  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)])
+
+  if(routingRules.value.length) {
+    await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRules.value[0].routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRules.value[0].routingRuleId)])
+  }
 })
 
 async function addInventoryFilterOptions() {
@@ -259,6 +262,13 @@ async function addInventoryRule() {
   })
 
   return newRuleAlert.present();
+}
+
+function getRuleActionType() {
+  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
+  return Object.keys(ruleActions.value).find((actionId: string) => {
+    return actionTypes.includes(actionId)
+  })
 }
 </script>
 

@@ -16,29 +16,31 @@
               <ion-label>{{ "Filters" }}</ion-label>
             </ion-item-divider>
             <ion-item>
-              <ion-select label="Queue" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['QUEUE'].code]">
+              <ion-select label="Queue" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['QUEUE'].code]?.fieldValue">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Shipping method" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SHIPPING_METHOD'].code]">
+              <ion-select label="Shipping method" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SHIPPING_METHOD'].code]?.fieldValue">
                 <ion-select-option value="Next Day">{{ "Next Day" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Order priority" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PRIORITY'].code]">
-                <ion-select-option value="High">{{ "High" }}</ion-select-option>
+              <ion-select label="Order priority" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PRIORITY'].code]?.fieldValue">
+                <ion-select-option value="HIGH">{{ "High" }}</ion-select-option>
+                <ion-select-option value="MEDIUM">{{ "Medium" }}</ion-select-option>
+                <ion-select-option value="Low">{{ "Low" }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
               <ion-label>{{ "Promise date" }}</ion-label>
               <ion-chip>
-                {{ routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PROMISE_DATE'].code] }}
+                {{ routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PROMISE_DATE'].code]?.fieldValue }}
                 <ion-icon :icon="closeCircleOutline"/>
               </ion-chip>
             </ion-item>
             <ion-item>
-              <ion-select label="Sales Channel" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SALES_CHANNEL'].code].fieldValue">
+              <ion-select label="Sales Channel" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SALES_CHANNEL'].code]?.fieldValue">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -70,7 +72,7 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group :disabled="false">
-              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId" button>
+              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="routingRules.length > 1" />
@@ -212,6 +214,7 @@ const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const autoCancelDays = ref(0)
 const ruleActionType = ref('')
+const selectedRoutingRule = ref('')
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -221,11 +224,14 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 
 onIonViewWillEnter(async () => {
-  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities")])
+  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
 
-  if(routingRules.value.length) {
-    await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRules.value[0].routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRules.value[0].routingRuleId), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
+  if(!routingRules.value.length) {
+    return;
   }
+
+  selectedRoutingRule.value = routingRules.value[0].routingRuleId
+  await fetchRuleInformation(selectedRoutingRule.value);
 
   autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
 
@@ -234,6 +240,15 @@ onIonViewWillEnter(async () => {
     return actionTypes.includes(actionId)
   }) || ''
 })
+
+async function fetchRuleInformation(routingRuleId: string) {
+  if(selectedRoutingRule.value === routingRuleId) {
+    return;
+  }
+
+  selectedRoutingRule.value = routingRuleId
+  await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
+}
 
 async function addInventoryFilterOptions() {
   const inventoryFilterOptionsModal = await modalController.create({

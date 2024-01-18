@@ -8,8 +8,10 @@ import { UtilService } from "@/services/UtilService"
 import { EnumerationAndType } from "@/types"
 
 const actions: ActionTree<UtilState, RootState> = {
-  async fetchEnums({ commit }, payload) {
-    let enums = {}
+  async fetchEnums({ commit, state }, payload) {
+    let enums = {
+      ...state.enums
+    }
 
     try {
       const resp = await UtilService.fetchEnums(payload);
@@ -24,7 +26,7 @@ const actions: ActionTree<UtilState, RootState> = {
             }
           }
           return enumerations
-        }, {})
+        }, enums)
       }
     } catch(err) {
       logger.error('error', err)
@@ -52,8 +54,6 @@ const actions: ActionTree<UtilState, RootState> = {
     } catch(err) {
       logger.error('error', err)
     }
-
-    console.log('facilities', facilities)
 
     commit(types.UTIL_FACILITIES_UPDATED, facilities)
   }

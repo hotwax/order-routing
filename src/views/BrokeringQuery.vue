@@ -161,7 +161,7 @@
                   {{ "Select if partial allocation should be allowed in this inventory rule" }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle>{{ "Allow partial allocation" }}</ion-toggle>
+                  <ion-toggle :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -204,12 +204,13 @@
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, reactive, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
 import { showToast } from "@/utils";
 import { OrderRoutingService } from "@/services/RoutingService"
+import { Rule } from "@/types";
 
 const router = useRouter();
 const props = defineProps({
@@ -223,7 +224,7 @@ const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const autoCancelDays = ref(0)
 const ruleActionType = ref('')
-const selectedRoutingRule = ref('')
+let selectedRoutingRule = reactive({}) as Rule
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -243,11 +244,11 @@ onIonViewWillEnter(async () => {
 })
 
 async function fetchRuleInformation(routingRuleId: string) {
-  if(selectedRoutingRule.value === routingRuleId) {
+  if(selectedRoutingRule.routingRuleId === routingRuleId) {
     return;
   }
 
-  selectedRoutingRule.value = routingRuleId
+  selectedRoutingRule = routingRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
   await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
 
   autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
@@ -363,6 +364,10 @@ async function updateAutoCancelDays(cancelDays: any) {
     }]
   })
   await alert.present()
+}
+
+function updatePartialAllocation(event: CustomEvent) {
+  selectedRoutingRule.assignmentEnumId = event ? "ORA_MULTI" : "ORA_SINGLE"
 }
 </script>
 

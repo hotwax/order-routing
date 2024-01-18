@@ -13,7 +13,7 @@
         <ion-list>
           <ion-list-header ref="listHeader">
             <ion-label>{{ "Order batches" }}</ion-label>
-            <ion-button color="primary" fill="clear">
+            <ion-button color="primary" fill="clear" @click="createOrderRoute">
               {{ "New" }}
               <ion-icon :icon="addCircleOutline" />
             </ion-button>
@@ -26,7 +26,7 @@
               <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
             </ion-item>
             <ion-item>
-              <ion-badge>{{ routing.statusId }}</ion-badge>
+              <ion-badge>{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
               <ion-button fill="clear" color="medium" slot="end">
                 {{ "Archive" }}
               </ion-button>
@@ -79,12 +79,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, alertController } from "@ionic/vue";
 import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps } from "vue";
-import { Group } from "@/types";
+import { Group, Route } from "@/types";
+import { OrderRoutingService } from "@/services/RoutingService";
 
 const router = useRouter();
 const store = useStore();
@@ -94,6 +95,8 @@ const props = defineProps({
     required: true
   }
 })
+
+const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as string)
 
 const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
@@ -110,6 +113,41 @@ onIonViewWillEnter(async () => {
 async function redirect(orderRoutingId: string) {
   await store.dispatch('orderRouting/setCurrentOrderRoutingId', orderRoutingId)
   router.push(`${orderRoutingId}/rules`)
+}
+
+async function createOrderRoute() {
+  const newRouteAlert = await alertController.create({
+    header: "New Order Route",
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    }, {
+      text: "Save"
+    }],
+    inputs: [{
+      name: "routingName",
+      placeholder: "Route name"
+    }]
+  })
+
+  newRouteAlert.onDidDismiss().then(async (result: any) => {
+    const routingName = result.data?.values?.routingName;
+    if(routingName && props.routingGroupId) {
+      // TODO: check for the default value of params
+      const payload = {
+        orderRoutingId: "",
+        routingGroupId: props.routingGroupId,
+        statusId: "ROUTING_DRAFT",
+        routingName,
+        sequenceNum: 0,
+        description: ""
+      }
+
+      await OrderRoutingService.createOrderRouting(payload)
+    }
+  })
+
+  return newRouteAlert.present();
 }
 </script>
 

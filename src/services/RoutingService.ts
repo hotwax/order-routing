@@ -47,6 +47,26 @@ const createRoutingRule = async (payload: any): Promise<any> => {
   return routingRuleId
 }
 
+const createOrderRouting = async (payload: any): Promise<any> => {
+  let orderRoutingId = '';
+  try {
+    const resp = await api({
+      url: "routings",
+      method: "POST",
+      data: payload
+    })
+
+    if(!hasError(resp) && resp?.data.orderRoutingId) {
+      orderRoutingId = resp.data.orderRoutingId
+    }
+  } catch(err) {
+    showToast("Failed to create new route")
+    logger.error(err)
+  }
+
+  return orderRoutingId
+}
+
 const fetchRoutingRules = async (payload: any): Promise<any> => {
   return api({
     url: `routings/${payload.orderRoutingId}/rules`,
@@ -80,6 +100,7 @@ const fetchRuleActions = async (payload: any): Promise<any> => {
 }
 
 export const OrderRoutingService = {
+  createOrderRouting,
   createRoutingGroup,
   createRoutingRule,
   fetchOrderRoutings,

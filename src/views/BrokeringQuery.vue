@@ -70,7 +70,7 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group :disabled="false">
-              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId">
+              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="routingRules.length > 1" />
@@ -161,7 +161,7 @@
                   <ion-label>{{ "Unavailable items" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-select label="Move items to" interface="popover" :value="getRuleActionType()">
+                  <ion-select label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateRuleActionType($event.detail.value)">
                     <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                       {{ "Next rule" }}
                       <ion-icon :icon="playForwardOutline"/>
@@ -172,7 +172,7 @@
                     </ion-select-option>
                   </ion-select>
                 </ion-item>
-                <ion-item lines="none" v-show="getRuleActionType() === actionEnums['MOVE_TO_QUEUE'].id">
+                <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
                   <ion-select label="Queue" interface="popover">
                     <ion-select-option>{{ "Queue" }}</ion-select-option>
                   </ion-select>
@@ -211,6 +211,7 @@ const props = defineProps({
 const enums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const autoCancelDays = ref(0)
+const ruleActionType = ref('')
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -218,7 +219,6 @@ const routingFilters = computed(() => store.getters["orderRouting/getCurrentRout
 const ruleActions = computed(() => store.getters["orderRouting/getRuleActions"])
 
 onIonViewWillEnter(async () => {
-  console.log('this.rules before', JSON.parse(JSON.stringify(routingRules.value)))
   await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)])
 
   if(routingRules.value.length) {
@@ -226,6 +226,11 @@ onIonViewWillEnter(async () => {
   }
 
   autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
+
+  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
+  ruleActionType.value = Object.keys(ruleActions.value).find((actionId: string) => {
+    return actionTypes.includes(actionId)
+  }) || ''
 })
 
 async function addInventoryFilterOptions() {
@@ -268,11 +273,17 @@ async function addInventoryRule() {
   return newRuleAlert.present();
 }
 
-function getRuleActionType() {
-  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
-  return Object.keys(ruleActions.value).find((actionId: string) => {
-    return actionTypes.includes(actionId)
-  })
+function updateRuleActionType(value: string) {
+  const actionType = ruleActionType.value
+  ruleActionType.value = value
+
+  ruleActions.value[ruleActionType.value] = {
+    ...ruleActions.value[actionType],
+    actionTypeEnumId: value,
+    actionValue: '' // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update it if required from some other function
+  }
+  // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
+  delete ruleActions.value[actionType]
 }
 
 async function updateAutoCancelDays(cancelDays: any) {

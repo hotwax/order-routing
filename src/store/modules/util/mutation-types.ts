@@ -1,2 +1,3 @@
 export const SN_UTIL = "util"
 export const UTIL_ENUMS_UPDATED = SN_UTIL + "/ENUMS_UPDATED"
+export const UTIL_FACILITIES_UPDATED = SN_UTIL + "/FACILITIES_UPDATED"

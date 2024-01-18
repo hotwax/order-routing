@@ -5,6 +5,9 @@ import RootState from "@/store/RootState"
 const getters: GetterTree<UtilState, RootState> = {
   getEnums(state) {
     return state.enums
+  },
+  getFacilities(state) {
+    return state.facilities
   }
 }
 

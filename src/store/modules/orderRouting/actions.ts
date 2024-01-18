@@ -154,8 +154,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRuleConditions(payload);
 
-      console.log(resp)
-
       if(!hasError(resp) && resp.data.length) {
         ruleConditions = resp.data
       } else {

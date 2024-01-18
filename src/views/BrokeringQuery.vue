@@ -16,8 +16,8 @@
               <ion-label>{{ "Filters" }}</ion-label>
             </ion-item-divider>
             <ion-item>
-              <ion-select label="Queue" :value="routingFilters[enums['FILTER']]?.[enums['QUEUE'].code]">
-                <ion-select-option value="Brokering Queue">{{ "Brokering Queue" }}</ion-select-option>
+              <ion-select label="Queue" interface="popover" :value="routingFilters[enums['FILTER']]?.[enums['QUEUE'].code]">
+                <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item>
@@ -173,8 +173,8 @@
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
-                  <ion-select label="Queue" interface="popover">
-                    <ion-select-option>{{ "Queue" }}</ion-select-option>
+                  <ion-select label="Queue" interface="popover" :value="ruleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                    <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
@@ -217,9 +217,10 @@ const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrde
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
 const routingFilters = computed(() => store.getters["orderRouting/getCurrentRouteFilters"])
 const ruleActions = computed(() => store.getters["orderRouting/getRuleActions"])
+const facilities = computed(() => store.getters["util/getFacilities"])
 
 onIonViewWillEnter(async () => {
-  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId)])
+  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities")])
 
   if(routingRules.value.length) {
     await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRules.value[0].routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRules.value[0].routingRuleId)])
@@ -284,6 +285,10 @@ function updateRuleActionType(value: string) {
   }
   // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
   delete ruleActions.value[actionType]
+}
+
+function updateRuleActionValue(value: string) {
+  ruleActions.value[ruleActionType.value]["actionValue"] = value
 }
 
 async function updateAutoCancelDays(cancelDays: any) {

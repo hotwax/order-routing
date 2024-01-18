@@ -94,10 +94,10 @@ const checkPermission = async (payload: any): Promise <any>  => {
 }
 
 export const UserService = {
-  login,
+  checkPermission,
   getAvailableTimeZones,
   getEComStores,
   getUserProfile,
+  login,
   setUserTimeZone,
-  checkPermission
 }

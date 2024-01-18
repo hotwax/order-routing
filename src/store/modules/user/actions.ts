@@ -10,8 +10,8 @@ import logger from "@/logger"
 const actions: ActionTree<UserState, RootState> = {
 
   /**
- * Login user and return token
- */
+  * Login user and return token
+  */
   async login({ commit }, { username, password }) {
     try {
       // TODO: implement support for permission check
@@ -34,24 +34,17 @@ const actions: ActionTree<UserState, RootState> = {
   },
 
   /**
-   * Logout user
-   */
-  async logout ({ commit }) {
+  * Logout user
+  */
+  async logout({ commit }) {
     // TODO add any other tasks if need
     commit(types.USER_END_SESSION)
   },
-
-  /**
-   * update current facility information
-   */
-  async setFacility ({ commit }, payload) {
-    commit(types.USER_CURRENT_FACILITY_UPDATED, payload.facility);
-  },
   
   /**
-   * Update user timeZone
-   */
-  async setUserTimeZone ( { state, commit }, payload) {
+  * Update user timeZone
+  */
+  async setUserTimeZone({ state, commit }, payload) {
     const resp = await UserService.setUserTimeZone(payload)
     if (resp.status === 200 && !hasError(resp)) {
       const current: any = state.current;
@@ -62,9 +55,9 @@ const actions: ActionTree<UserState, RootState> = {
   },
 
   /**
-   * Set User Instance Url
-   */
-  setUserInstanceUrl ({ commit }, payload){
+  * Set User Instance Url
+  */
+  setUserInstanceUrl({ commit }, payload) {
     commit(types.USER_INSTANCE_URL_UPDATED, payload)
   },
 
@@ -74,7 +67,7 @@ const actions: ActionTree<UserState, RootState> = {
       productStore = (state.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
     }
     commit(types.USER_CURRENT_ECOM_STORE_UPDATED, productStore);
-  },
+  }
 }
 
 export default actions;

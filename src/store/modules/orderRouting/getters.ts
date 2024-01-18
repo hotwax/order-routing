@@ -25,10 +25,10 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
     return state.currentRouteFilters
   },
   getRuleConditions(state) {
-    return state.ruleConditions
+    return JSON.parse(JSON.stringify(state.ruleConditions))
   },
   getRuleActions(state) {
-    return state.ruleActions
+    return JSON.parse(JSON.stringify(state.ruleActions))
   }
 }
 

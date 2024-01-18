@@ -179,7 +179,7 @@
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline @click="updateAutoCancelDays(ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue)">{{ ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue }}{{ ' days' }}</ion-chip>
+                  <ion-chip outline @click="updateAutoCancelDays(autoCancelDays)">{{ autoCancelDays }}{{ ' days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>
@@ -194,7 +194,7 @@
 import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, checkmarkOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
-import { computed, defineProps } from "vue";
+import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
@@ -210,6 +210,7 @@ const props = defineProps({
 
 const enums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
+const autoCancelDays = ref(0)
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -223,6 +224,8 @@ onIonViewWillEnter(async () => {
   if(routingRules.value.length) {
     await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRules.value[0].routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRules.value[0].routingRuleId)])
   }
+
+  autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
 })
 
 async function addInventoryFilterOptions() {
@@ -287,19 +290,18 @@ async function updateAutoCancelDays(cancelDays: any) {
       role: "cancel"
     },
     {
-      text: "Apply",
+      text: "Save",
       handler: (data) => {
-        let setLimit = this.setLimit as any;
-
         if(data) {
-          if(data.cancelDays === '') {
+          if(data.autoCancelDays === '') {
             showToast("Please provide a value")
             return false;
-          } else if(data.cancelDays < 0) {
+          } else if(data.autoCancelDays < 0) {
             showToast("Provide a value greater than or equal to 0")
             return false;
           } else {
-            cancelDays = data.cancelDays
+            autoCancelDays.value = data.autoCancelDays
+            ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue = data.autoCancelDays
           }
         }
       }

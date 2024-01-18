@@ -179,7 +179,7 @@
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline>{{ ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue }}{{ ' days' }}</ion-chip>
+                  <ion-chip outline @click="updateAutoCancelDays(ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue)">{{ ruleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue }}{{ ' days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>
@@ -198,6 +198,7 @@ import { computed, defineProps } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
+import { showToast } from "@/utils";
 
 const router = useRouter();
 const props = defineProps({
@@ -269,6 +270,42 @@ function getRuleActionType() {
   return Object.keys(ruleActions.value).find((actionId: string) => {
     return actionTypes.includes(actionId)
   })
+}
+
+async function updateAutoCancelDays(cancelDays: any) {
+  const alert = await alertController.create({
+    header: "Auto Cancel Days",
+    inputs: [{
+      name: "autoCancelDays",
+      placeholder: "auto cancel days",
+      type: "number",
+      min: 0,
+      value: cancelDays
+    }],
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    },
+    {
+      text: "Apply",
+      handler: (data) => {
+        let setLimit = this.setLimit as any;
+
+        if(data) {
+          if(data.cancelDays === '') {
+            showToast("Please provide a value")
+            return false;
+          } else if(data.cancelDays < 0) {
+            showToast("Provide a value greater than or equal to 0")
+            return false;
+          } else {
+            cancelDays = data.cancelDays
+          }
+        }
+      }
+    }]
+  })
+  await alert.present()
 }
 </script>
 

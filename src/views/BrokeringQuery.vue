@@ -142,26 +142,34 @@
             <h2 class="ion-padding-start">{{ "Actions" }}</h2>
             <div class="actions">
               <ion-card>
-                <ion-item lines="none">
-                  <ion-label>{{ "Allocated Items" }}</ion-label>
-                </ion-item>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Allocated Items" }}
+                  </ion-card-title>
+                </ion-card-header>
                 <ion-item lines="none">
                   <ion-toggle>{{ "Clear auto cancel days" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
-                <ion-item lines="none">
-                  <ion-label>{{ "Partially available" }}</ion-label>
-                  <p>{{ "Select if partial allocation should be allowed in this inventory rule" }}</p>
-                </ion-item>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Partially available" }}
+                  </ion-card-title>
+                </ion-card-header>
+                <ion-card-content>
+                  {{ "Select if partial allocation should be allowed in this inventory rule" }}
+                </ion-card-content>
                 <ion-item lines="none">
                   <ion-toggle>{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
-                <ion-item lines="none">
-                  <ion-label>{{ "Unavailable items" }}</ion-label>
-                </ion-item>
+                <ion-card-header>
+                  <ion-card-title>
+                    {{ "Unavailable items" }}
+                  </ion-card-title>
+                </ion-card-header>
                 <ion-item lines="none">
                   <ion-select label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateRuleActionType($event.detail.value)">
                     <ion-select-option :value="actionEnums['NEXT_RULE'].id">
@@ -193,14 +201,15 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, checkmarkOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { addCircleOutline, chevronUpOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
 import { showToast } from "@/utils";
+import { OrderRoutingService } from "@/services/RoutingService"
 
 const router = useRouter();
 const props = defineProps({
@@ -230,15 +239,7 @@ onIonViewWillEnter(async () => {
     return;
   }
 
-  selectedRoutingRule.value = routingRules.value[0].routingRuleId
-  await fetchRuleInformation(selectedRoutingRule.value);
-
-  autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
-
-  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
-  ruleActionType.value = Object.keys(ruleActions.value).find((actionId: string) => {
-    return actionTypes.includes(actionId)
-  }) || ''
+  await fetchRuleInformation(routingRules.value[0].routingRuleId);
 })
 
 async function fetchRuleInformation(routingRuleId: string) {
@@ -248,6 +249,13 @@ async function fetchRuleInformation(routingRuleId: string) {
 
   selectedRoutingRule.value = routingRuleId
   await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
+
+  autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
+
+  const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
+  ruleActionType.value = Object.keys(ruleActions.value).find((actionId: string) => {
+    return actionTypes.includes(actionId)
+  }) || ''
 }
 
 async function addInventoryFilterOptions() {
@@ -281,9 +289,24 @@ async function addInventoryRule() {
     }]
   })
 
-  newRuleAlert.onDidDismiss().then((result: any) => {
-    if(result.data?.values?.ruleName) {
-      console.log('ruleName', result.data?.values?.ruleName)
+  newRuleAlert.onDidDismiss().then(async (result: any) => {
+    const ruleName = result.data?.values?.ruleName;
+    if(ruleName) {
+      // TODO: check for the default value of params
+      const payload = {
+        routingRuleId: ruleName.split(" ").join("_").toUpperCase(),
+        orderRoutingId: props.orderRoutingId,
+        ruleName,
+        statusId: "SERVICE_ACTIVE", // by default considering the rule to be active
+        sequenceNum: 0,
+        assignmentEnumId: "ORA_SINGLE", // by default, considering partial fulfillment to inactive
+        fulfillEntireShipGroup: "N",
+      }
+
+      const resp = await OrderRoutingService.createRoutingRule(payload)
+      if(resp.routingRuleId) {
+        fetchRuleInformation(resp.routingRuleId)
+      }
     }
   })
 

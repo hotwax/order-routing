@@ -5,7 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { RouteFilter } from "@/types"
+import { Group, RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -142,6 +142,33 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
+  },
+
+  async updateRoutingGroup({ commit, state }, payload) {
+    let routingGroups = JSON.parse(JSON.stringify(state.groups))
+
+    try {
+      const resp = await OrderRoutingService.updateRoutingGroup(payload);
+
+      if(!hasError(resp) && resp.data.routingGroupId) {
+        routingGroups.map((group: Group) => {
+          if(group.routingGroupId === resp.data.routingGroupId) {
+            group.description = payload.description
+          }
+        })
+        showToast("Rounting group information updated")
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    if(routingGroups.length) {
+      routingGroups = sortSequence(routingGroups)
+    }
+
+    commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {

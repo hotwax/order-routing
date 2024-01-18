@@ -19,6 +19,14 @@ const createRoutingGroup = async (payload: any): Promise<any> => {
   })
 }
 
+const updateRoutingGroup = async (payload: any): Promise<any> => {
+  return api({
+    url: `groups/${payload.routingGroupId}`,
+    method: "POST",
+    data: payload
+  })
+}
+
 const fetchOrderRoutings = async (payload: any): Promise<any> => {
   return api({
     url: `groups/${payload.routingGroupId}/routings`,
@@ -108,5 +116,6 @@ export const OrderRoutingService = {
   fetchRoutingGroups,
   fetchRoutingRules,
   fetchRuleActions,
-  fetchRuleConditions
+  fetchRuleConditions,
+  updateRoutingGroup
 }

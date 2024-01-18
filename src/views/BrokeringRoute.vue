@@ -47,7 +47,7 @@
           <main>
             <ion-item lines="none">
               {{ "Description" }}
-              <ion-button fill="clear" slot="end">
+              <ion-button fill="clear" slot="end" @click="updateGroupDescription()">
                 {{ "Edit" }}
               </ion-button>
             </ion-item>
@@ -166,6 +166,38 @@ function getActiveAndDraftOrderRoutings() {
 
 function getArchivedOrderRoutings() {
   return orderRoutings.value.filter((routing: Route) => routing.statusId === 'ROUTING_ARCHIVED')
+}
+
+async function updateGroupDescription() {
+  const newRouteAlert = await alertController.create({
+    header: "Add Group Description",
+    buttons: [{
+      text: "Cancel",
+      role: "cancel"
+    }, {
+      text: "Save"
+    }],
+    inputs: [{
+      type: "textarea",
+      name: "groupDescription",
+      placeholder: "description"
+    }]
+  })
+
+  newRouteAlert.onDidDismiss().then(async (result: any) => {
+    const groupDescription = result.data?.values?.groupDescription;
+    if(groupDescription && props.routingGroupId) {
+      // TODO: check for the default value of params
+      const payload = {
+        routingGroupId: props.routingGroupId,
+        description: groupDescription,
+      }
+
+      await store.dispatch("orderRouting/updateRoutingGroup", payload)
+    }
+  })
+
+  return newRouteAlert.present();
 }
 </script>
 

@@ -16,7 +16,7 @@
           </ion-item>
 
           <div class="ion-padding">
-            <ion-button type="submit" color="primary" fill="outline" expand="block">{{ $t("Login") }}</ion-button>
+            <ion-button type="submit" color="primary" fill="outline" expand="block" @click="login(form)">{{ $t("Login") }}</ion-button>
           </div>
         </form>
       </div>
@@ -61,7 +61,7 @@ export default defineComponent({
     })
   },
   mounted() {
-    this.instanceUrl= this.currentInstanceUrlSaved;
+    this.instanceUrl = this.currentInstanceUrlSaved;
   },
   methods: {
     login: function () {

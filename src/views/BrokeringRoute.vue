@@ -19,7 +19,7 @@
                 <ion-icon :icon="addCircleOutline" />
               </ion-button>
             </ion-list-header>
-            <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
+            <ion-card v-for="routing in getActiveAndDraftOrderRoutings()" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
               <ion-item lines="full">
                 <ion-label>
                   <h1>{{ routing.routingName }}</h1>
@@ -39,7 +39,7 @@
             <ion-item lines="none">
               <ion-icon slot="start" :icon="archiveOutline" />
               <ion-label>{{ "Archive" }}</ion-label>
-              <ion-badge color="medium">{{ "4 rules" }}</ion-badge>
+              <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ " rules" }}</ion-badge>
             </ion-item>
           </div>
         </div>
@@ -158,6 +158,14 @@ async function createOrderRoute() {
   })
 
   return newRouteAlert.present();
+}
+
+function getActiveAndDraftOrderRoutings() {
+  return orderRoutings.value.filter((routing: Route) => routing.statusId !== 'ROUTING_ARCHIVED')
+}
+
+function getArchivedOrderRoutings() {
+  return orderRoutings.value.filter((routing: Route) => routing.statusId === 'ROUTING_ARCHIVED')
 }
 </script>
 

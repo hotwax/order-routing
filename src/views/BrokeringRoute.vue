@@ -10,29 +10,39 @@
     </ion-header>
     <ion-content>
       <div>
-        <ion-list>
-          <ion-list-header ref="listHeader">
-            <ion-label>{{ "Order batches" }}</ion-label>
-            <ion-button color="primary" fill="clear" @click="createOrderRoute">
-              {{ "New" }}
-              <ion-icon :icon="addCircleOutline" />
-            </ion-button>
-          </ion-list-header>
-          <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
-            <ion-item lines="full">
-              <ion-label>
-                <h1>{{ routing.routingName }}</h1>
-              </ion-label>
-              <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
-            </ion-item>
-            <ion-item>
-              <ion-badge>{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
-              <ion-button fill="clear" color="medium" slot="end">
-                {{ "Archive" }}
+        <div>
+          <ion-list>
+            <ion-list-header>
+              <ion-label>{{ "Order batches" }}</ion-label>
+              <ion-button color="primary" fill="clear" @click="createOrderRoute">
+                {{ "New" }}
+                <ion-icon :icon="addCircleOutline" />
               </ion-button>
+            </ion-list-header>
+            <ion-card v-for="routing in orderRoutings" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
+              <ion-item lines="full">
+                <ion-label>
+                  <h1>{{ routing.routingName }}</h1>
+                </ion-label>
+                <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
+              </ion-item>
+              <ion-item>
+                <ion-badge :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
+                <ion-button fill="clear" color="medium" slot="end">
+                  {{ "Archive" }}
+                  <ion-icon :icon="archiveOutline" />
+                </ion-button>
+              </ion-item>
+            </ion-card>
+          </ion-list>
+          <div>
+            <ion-item lines="none">
+              <ion-icon slot="start" :icon="archiveOutline" />
+              <ion-label>{{ "Archive" }}</ion-label>
+              <ion-badge color="medium">{{ "4 rules" }}</ion-badge>
             </ion-item>
-          </ion-card>
-        </ion-list>
+          </div>
+        </div>
         <section class="ion-padding">
           <main>
             <ion-item lines="none">
@@ -80,7 +90,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, alertController } from "@ionic/vue";
-import { addCircleOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps } from "vue";
@@ -167,7 +177,10 @@ ion-content > div {
   height: 100%;
 }
 
-ion-content > div > ion-list {
+ion-content > div > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   border-right: 1px solid #92949C;
 }
 </style>

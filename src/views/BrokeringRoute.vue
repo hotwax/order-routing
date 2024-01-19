@@ -55,14 +55,13 @@
           <main>
             <ion-item lines="none">
               {{ "Description" }}
-              <ion-button fill="clear" slot="end" @click="updateGroupDescription()">
-                {{ "Edit" }}
+              <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
+                {{ isDescUpdating ? "Save" : "Edit" }}
               </ion-button>
             </ion-item>
             <ion-item lines="none">
-              <ion-label>
-                {{ currentRoutingGroup.description ? currentRoutingGroup.description : "No description available" }}
-              </ion-label>
+              <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
+              <ion-label v-else>{{ description }}</ion-label>
             </ion-item>
           </main>
           <aside>
@@ -102,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -124,6 +123,8 @@ const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as stri
 let routingsToUpdate = ref([])
 let initialRoutingsOrder = ref([])
 let routingsForReorder = ref([])
+let description = ref('')
+let isDescUpdating = ref(false)
 
 const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
@@ -138,6 +139,7 @@ onIonViewWillEnter(async () => {
     await store.dispatch("orderRouting/fetchOrderRoutingGroups")
   }
 
+  description.value = currentRoutingGroup.value.description ? currentRoutingGroup.value.description : "No description available"
   emitter.on("initializeOrderRoutings", initializeOrderRoutings)
 })
 
@@ -209,35 +211,15 @@ function getArchivedOrderRoutings() {
 }
 
 async function updateGroupDescription() {
-  const newRouteAlert = await alertController.create({
-    header: "Add Group Description",
-    buttons: [{
-      text: "Cancel",
-      role: "cancel"
-    }, {
-      text: "Save"
-    }],
-    inputs: [{
-      type: "textarea",
-      name: "groupDescription",
-      placeholder: "description"
-    }]
-  })
-
-  newRouteAlert.onDidDismiss().then(async (result: any) => {
-    const groupDescription = result.data?.values?.groupDescription;
-    if(groupDescription && props.routingGroupId) {
-      // TODO: check for the default value of params
-      const payload = {
-        routingGroupId: props.routingGroupId,
-        description: groupDescription,
-      }
-
-      await store.dispatch("orderRouting/updateRoutingGroup", payload)
+  if(description.value && props.routingGroupId) {
+    const payload = {
+      routingGroupId: props.routingGroupId,
+      description: description.value,
     }
-  })
 
-  return newRouteAlert.present();
+    await store.dispatch("orderRouting/updateRoutingGroup", payload)
+    isDescUpdating.value = false
+  }
 }
 
 function findRoutingsDiff(previousSeq: any, updatedSeq: any) {

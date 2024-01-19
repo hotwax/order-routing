@@ -20,13 +20,13 @@
               </ion-button>
             </ion-list-header>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-card v-for="routing in routingsForReorder" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
+              <ion-card v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
                   </ion-label>
                   <ion-chip outline>
-                    <ion-label>{{ `${routing.sequenceNum}/4` }}</ion-label>
+                    <ion-label>{{ `${index}/4` }}</ion-label>
                     <ion-reorder></ion-reorder>
                   </ion-chip>
                 </ion-item>

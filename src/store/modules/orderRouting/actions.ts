@@ -109,32 +109,38 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async createOrderRouting({ commit, state }, payload) {
     let orderRoutings = JSON.parse(JSON.stringify(state.routes))
+    let orderRoutingId = ''
 
     try {
       const resp = await OrderRoutingService.createOrderRouting(payload)
 
       if(!hasError(resp) && resp?.data.orderRoutingId) {
+        orderRoutingId = resp.data.orderRoutingId
         orderRoutings.push({
           ...payload,
-          orderRoutingId: resp.data.orderRoutingId
+          orderRoutingId
         })
         showToast('New Order Routing Created')
       }
+
+      // Sort the routings and update the state only on success
+      if(orderRoutings.length) {
+        orderRoutings = sortSequence(orderRoutings)
+      }
+
+      commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
     } catch(err) {
       showToast("Failed to create order routing")
       logger.error('err', err)
     }
 
-    if(orderRoutings.length) {
-      orderRoutings = sortSequence(orderRoutings)
-    }
-
-    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+    return orderRoutingId;
   },
 
   async updateOrderRouting({ commit, state }, payload) {
     let orderRoutings = JSON.parse(JSON.stringify(state.routes))
     const field: Route[keyof Route] = payload.fieldToUpdate
+    let orderRoutingId = ''
 
     const params = {
       orderRoutingId: payload.orderRoutingId,
@@ -145,8 +151,9 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.updateOrderRouting(params);
 
       if(!hasError(resp) && resp.data.orderRoutingId) {
+        orderRoutingId = resp.data.orderRoutingId
         orderRoutings.map((routing: Route) => {
-          if(routing.orderRoutingId === resp.data.orderRoutingId) {
+          if(routing.orderRoutingId === orderRoutingId) {
             routing[field] = payload.value
           }
         })
@@ -155,6 +162,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         throw resp.data
       }
     } catch(err) {
+      showToast("Failed to update order routing")
       logger.error(err);
     }
 
@@ -163,6 +171,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+    return orderRoutingId;
   },
 
   async fetchRoutingRules({ commit }, orderRoutingId) {

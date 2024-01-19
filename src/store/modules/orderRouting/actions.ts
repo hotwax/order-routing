@@ -5,7 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { Group, RouteFilter } from "@/types"
+import { Group, Route, RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -50,6 +50,33 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
   },
 
+  async updateRoutingGroup({ commit, state }, payload) {
+    let routingGroups = JSON.parse(JSON.stringify(state.groups))
+
+    try {
+      const resp = await OrderRoutingService.updateRoutingGroup(payload);
+
+      if(!hasError(resp) && resp.data.routingGroupId) {
+        routingGroups.map((group: Group) => {
+          if(group.routingGroupId === resp.data.routingGroupId) {
+            group.description = payload.description
+          }
+        })
+        showToast("Rounting group information updated")
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    if(routingGroups.length) {
+      routingGroups = sortSequence(routingGroups)
+    }
+
+    commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
+  },
+
   async setCurrentRoutingGroupId({ commit }, payload) {
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, payload)
   },
@@ -66,6 +93,64 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp.data.length) {
         orderRoutings = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    if(orderRoutings.length) {
+      orderRoutings = sortSequence(orderRoutings)
+    }
+
+    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+  },
+
+  async createOrderRouting({ commit, state }, payload) {
+    let orderRoutings = JSON.parse(JSON.stringify(state.routes))
+
+    try {
+      const resp = await OrderRoutingService.createOrderRouting(payload)
+
+      if(!hasError(resp) && resp?.data.orderRoutingId) {
+        orderRoutings.push({
+          ...payload,
+          orderRoutingId: resp.data.orderRoutingId
+        })
+        showToast('New Order Routing Created')
+      }
+    } catch(err) {
+      showToast("Failed to create order routing")
+      logger.error('err', err)
+    }
+
+    if(orderRoutings.length) {
+      orderRoutings = sortSequence(orderRoutings)
+    }
+
+    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+  },
+
+  async updateOrderRouting({ commit, state }, payload) {
+    let orderRoutings = JSON.parse(JSON.stringify(state.routes))
+    const field: Route[keyof Route] = payload.fieldToUpdate
+
+    const params = {
+      orderRoutingId: payload.orderRoutingId,
+      [field]: payload.value  // only one field can be updated once for orderRouting
+    }
+
+    try {
+      const resp = await OrderRoutingService.updateOrderRouting(params);
+
+      if(!hasError(resp) && resp.data.orderRoutingId) {
+        orderRoutings.map((routing: Route) => {
+          if(routing.orderRoutingId === resp.data.orderRoutingId) {
+            routing[field] = payload.value
+          }
+        })
+        showToast("Order routing information updated")
       } else {
         throw resp.data
       }
@@ -142,33 +227,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
-  },
-
-  async updateRoutingGroup({ commit, state }, payload) {
-    let routingGroups = JSON.parse(JSON.stringify(state.groups))
-
-    try {
-      const resp = await OrderRoutingService.updateRoutingGroup(payload);
-
-      if(!hasError(resp) && resp.data.routingGroupId) {
-        routingGroups.map((group: Group) => {
-          if(group.routingGroupId === resp.data.routingGroupId) {
-            group.description = payload.description
-          }
-        })
-        showToast("Rounting group information updated")
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-
-    if(routingGroups.length) {
-      routingGroups = sortSequence(routingGroups)
-    }
-
-    commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {

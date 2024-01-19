@@ -34,7 +34,8 @@ type Route = {
   description: string,
   createdByUser: string,
   createdDate: string,
-  lastUpdatedStamp: string
+  lastUpdatedStamp: string,
+  [key: string]: string | number
 }
 
 type Rule = {

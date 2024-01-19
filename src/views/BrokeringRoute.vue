@@ -94,13 +94,14 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
+import emitter from "@/event-bus";
 
 const router = useRouter();
 const store = useStore();
@@ -128,6 +129,12 @@ onIonViewWillEnter(async () => {
   if(!currentRoutingGroup.value.routingGroupId) {
     await store.dispatch("orderRouting/fetchOrderRoutingGroups")
   }
+
+  emitter.on("initializeOrderRoutings", initializeOrderRoutings)
+})
+
+onIonViewWillLeave(() => {
+  emitter.off("initializeOrderRoutings", initializeOrderRoutings)
 })
 
 function initializeOrderRoutings() {

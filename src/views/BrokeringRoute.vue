@@ -19,24 +19,32 @@
                 <ion-icon :icon="addCircleOutline" />
               </ion-button>
             </ion-list-header>
-            <ion-card v-for="routing in getActiveAndDraftOrderRoutings()" :key="routing.orderRoutingId" @click="redirect(routing.orderRoutingId)">
-              <ion-item lines="full">
-                <ion-label>
-                  <h1>{{ routing.routingName }}</h1>
-                </ion-label>
-                <ion-chip>{{ `${routing.sequenceNum}/4` }}</ion-chip>
-              </ion-item>
-              <ion-item>
-                <ion-badge :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
-                <ion-button fill="clear" color="medium" slot="end">
-                  {{ "Archive" }}
-                  <ion-icon :icon="archiveOutline" />
-                </ion-button>
-              </ion-item>
-            </ion-card>
+            <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
+              <ion-card v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing.orderRoutingId)">
+                <ion-item lines="full">
+                  <ion-label>
+                    <h1>{{ routing.routingName }}</h1>
+                  </ion-label>
+                  <ion-reorder>
+                    <ion-chip outline>
+                      <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
+                      <ion-icon :icon="reorderTwoOutline"/>
+                    </ion-chip>
+                  </ion-reorder>
+                </ion-item>
+                <ion-item>
+                  <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" :color="routingStatus[routing.statusId]?.color" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
+                  <ion-badge v-else :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
+                  <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
+                    {{ "Archive" }}
+                    <ion-icon :icon="archiveOutline" />
+                  </ion-button>
+                </ion-item>
+              </ion-card>
+            </ion-reorder-group>
           </ion-list>
           <div>
-            <ion-item lines="none">
+            <ion-item button lines="none" @click="openArchivedRoutingModal()">
               <ion-icon slot="start" :icon="archiveOutline" />
               <ion-label>{{ "Archive" }}</ion-label>
               <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ " rules" }}</ion-badge>
@@ -47,14 +55,13 @@
           <main>
             <ion-item lines="none">
               {{ "Description" }}
-              <ion-button fill="clear" slot="end" @click="updateGroupDescription()">
-                {{ "Edit" }}
+              <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
+                {{ isDescUpdating ? "Save" : "Edit" }}
               </ion-button>
             </ion-item>
             <ion-item lines="none">
-              <ion-label>
-                {{ currentRoutingGroup.description ? currentRoutingGroup.description : "No description available" }}
-              </ion-label>
+              <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
+              <ion-label v-else>{{ description }}</ion-label>
             </ion-item>
           </main>
           <aside>
@@ -84,18 +91,24 @@
           </aside>
         </section>
       </div>
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button :disabled="!routingsToUpdate.length">
+          <ion-icon :icon="saveOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, alertController } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps } from "vue";
+import { computed, defineProps, ref } from "vue";
 import { Group, Route } from "@/types";
-import { OrderRoutingService } from "@/services/RoutingService";
+import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
+import emitter from "@/event-bus";
 
 const router = useRouter();
 const store = useStore();
@@ -107,6 +120,11 @@ const props = defineProps({
 })
 
 const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as string)
+let routingsToUpdate = ref([])
+let initialRoutingsOrder = ref([])
+let routingsForReorder = ref([])
+let description = ref('')
+let isDescUpdating = ref(false)
 
 const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
@@ -114,11 +132,25 @@ const orderRoutings = computed(() => store.getters["orderRouting/getOrderRouting
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId)
 
+  initializeOrderRoutings();
+
   // On refresh, the groups list is removed thus resulting is not fetching the current group information
   if(!currentRoutingGroup.value.routingGroupId) {
     await store.dispatch("orderRouting/fetchOrderRoutingGroups")
   }
+
+  description.value = currentRoutingGroup.value.description ? currentRoutingGroup.value.description : "No description available"
+  emitter.on("initializeOrderRoutings", initializeOrderRoutings)
 })
+
+onIonViewWillLeave(() => {
+  emitter.off("initializeOrderRoutings", initializeOrderRoutings)
+})
+
+function initializeOrderRoutings() {
+  initialRoutingsOrder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
+  routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
+}
 
 async function redirect(orderRoutingId: string) {
   await store.dispatch('orderRouting/setCurrentOrderRoutingId', orderRoutingId)
@@ -141,6 +173,11 @@ async function createOrderRoute() {
   })
 
   newRouteAlert.onDidDismiss().then(async (result: any) => {
+    // considered that if a role is available on dismiss, it will be a negative role in which we don't need to perform any action
+    if(result.role) {
+      return;
+    }
+
     const routingName = result.data?.values?.routingName;
     if(routingName && props.routingGroupId) {
       // TODO: check for the default value of params
@@ -149,11 +186,16 @@ async function createOrderRoute() {
         routingGroupId: props.routingGroupId,
         statusId: "ROUTING_DRAFT",
         routingName,
-        sequenceNum: 0,
+        sequenceNum: orderRoutings.value.length && orderRoutings.value[orderRoutings.value.length - 1].sequenceNum >= 0 ? orderRoutings.value[orderRoutings.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new route seqNum to 0
         description: ""
       }
 
-      await OrderRoutingService.createOrderRouting(payload)
+      const orderRoutingId = await store.dispatch("orderRouting/createOrderRouting", payload)
+
+      // update the routing order for reordering
+      if(orderRoutingId) {
+        initializeOrderRoutings();
+      }
     }
   })
 
@@ -169,35 +211,60 @@ function getArchivedOrderRoutings() {
 }
 
 async function updateGroupDescription() {
-  const newRouteAlert = await alertController.create({
-    header: "Add Group Description",
-    buttons: [{
-      text: "Cancel",
-      role: "cancel"
-    }, {
-      text: "Save"
-    }],
-    inputs: [{
-      type: "textarea",
-      name: "groupDescription",
-      placeholder: "description"
-    }]
-  })
-
-  newRouteAlert.onDidDismiss().then(async (result: any) => {
-    const groupDescription = result.data?.values?.groupDescription;
-    if(groupDescription && props.routingGroupId) {
-      // TODO: check for the default value of params
-      const payload = {
-        routingGroupId: props.routingGroupId,
-        description: groupDescription,
-      }
-
-      await store.dispatch("orderRouting/updateRoutingGroup", payload)
+  if(description.value && props.routingGroupId) {
+    const payload = {
+      routingGroupId: props.routingGroupId,
+      description: description.value,
     }
+
+    await store.dispatch("orderRouting/updateRoutingGroup", payload)
+    isDescUpdating.value = false
+  }
+}
+
+function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
+  const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
+    if (updatedSeq[key].orderRoutingId === previousSeq[key].orderRoutingId) return diff
+    return {
+      ...diff,
+      [key]: updatedSeq[key]
+    }
+  }, {})
+  return diffSeq;
+}
+
+function doReorder(event: CustomEvent) {
+  const previousSeq = JSON.parse(JSON.stringify(initialRoutingsOrder.value))
+
+  // returns the updated sequence after reordering
+  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(routingsForReorder.value)));
+
+  let diffSeq = findRoutingsDiff(previousSeq, updatedSeq)
+
+  const updatedSeqenceNum = previousSeq.map((routing: Route) => routing.sequenceNum)
+  Object.keys(diffSeq).map((key: any) => {
+    diffSeq[key].sequenceNum = updatedSeqenceNum[key]
   })
 
-  return newRouteAlert.present();
+  diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+
+  routingsForReorder.value = updatedSeq
+  routingsToUpdate.value = diffSeq
+}
+
+async function openArchivedRoutingModal() {
+  const archivedRoutingModal = await modalController.create({
+    component: ArchivedRoutingModal,
+    componentProps: { archivedRoutings: getArchivedOrderRoutings() }
+  })
+  archivedRoutingModal.present();
+}
+
+async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {
+  const orderRoutingId = await store.dispatch("orderRouting/updateOrderRouting", { orderRoutingId: routing.orderRoutingId, fieldToUpdate, value })
+  if(orderRoutingId) {
+    initializeOrderRoutings()
+  }
 }
 </script>
 

@@ -27,16 +27,14 @@
                   </ion-label>
                   <ion-reorder>
                     <ion-chip outline>
-                      <ion-label>{{ `${index + 1}/4` }}</ion-label>
+                      <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
                       <ion-icon :icon="reorderTwoOutline"/>
                     </ion-chip>
                   </ion-reorder>
                 </ion-item>
                 <ion-item>
-                  <ion-badge :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
-                  <ion-button v-if="routing.statusId === 'ROUTING_DRAFT'" fill="clear" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">
-                    <ion-icon :icon="arrowForwardOutline" slot="icon-only"/>
-                  </ion-button>
+                  <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" :color="routingStatus[routing.statusId]?.color" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
+                  <ion-badge v-else :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ "Archive" }}
                     <ion-icon :icon="archiveOutline" />
@@ -100,7 +98,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, arrowForwardOutline, reorderTwoOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, reorderTwoOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";

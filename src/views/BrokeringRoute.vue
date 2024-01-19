@@ -41,7 +41,7 @@
             </ion-reorder-group>
           </ion-list>
           <div>
-            <ion-item lines="none">
+            <ion-item button lines="none" @click="openArchivedRoutingModal()">
               <ion-icon slot="start" :icon="archiveOutline" />
               <ion-label>{{ "Archive" }}</ion-label>
               <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ " rules" }}</ion-badge>
@@ -94,12 +94,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, onIonViewWillEnter, alertController } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";
 import { Group, Route } from "@/types";
+import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 
 const router = useRouter();
 const store = useStore();
@@ -242,6 +243,14 @@ function doReorder(event: CustomEvent) {
 
   routingsForReorder.value = updatedSeq
   routingsToUpdate.value = diffSeq
+}
+
+async function openArchivedRoutingModal() {
+  const archivedRoutingModal = await modalController.create({
+    component: ArchivedRoutingModal,
+    componentProps: { archivedRoutings: getArchivedOrderRoutings() }
+  })
+  archivedRoutingModal.present();
 }
 </script>
 

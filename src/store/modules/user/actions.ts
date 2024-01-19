@@ -10,55 +10,41 @@ import logger from "@/logger"
 const actions: ActionTree<UserState, RootState> = {
 
   /**
- * Login user and return token
- */
+  * Login user and return token
+  */
   async login({ commit }, { username, password }) {
     try {
-      // TODO: implement support for fetching user-profile
       // TODO: implement support for permission check
-      // TODO: implement support for fetching product stores for user
-      const resp = await UserService.login(username, password)
-      if (resp.status === 200 && resp.data) {
-        if (resp.data.token) {
-          commit(types.USER_TOKEN_CHANGED, { newToken: resp.data.token })
-          return resp.data;
-        } else if (hasError(resp)) {
-          showToast(translate("Sorry, your username or password is incorrect. Please try again."));
-          logger.error("error", resp.data._ERROR_MESSAGE_);
-          return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
-        }
-      } else {
-        showToast(translate("Something went wrong"));
-        logger.error("error", resp.data._ERROR_MESSAGE_);
-        return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
-      }
+      const token = await UserService.login(username, password)
+
+      const userProfile = await UserService.getUserProfile(token);
+
+      // Check if we need to fetch only associated product stores of user
+      userProfile.stores = await UserService.getEComStores(token);
+
+      commit(types.USER_TOKEN_CHANGED, { newToken: token })
+      commit(types.USER_INFO_UPDATED, userProfile);
+      commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
+      return Promise.resolve({ token })
     } catch (err: any) {
-      showToast(translate("Something went wrong"));
+      showToast(translate(err));
       logger.error("error", err);
       return Promise.reject(new Error(err))
     }
   },
 
   /**
-   * Logout user
-   */
-  async logout ({ commit }) {
+  * Logout user
+  */
+  async logout({ commit }) {
     // TODO add any other tasks if need
     commit(types.USER_END_SESSION)
-    
-  },
-
-  /**
-   * update current facility information
-   */
-  async setFacility ({ commit }, payload) {
-    commit(types.USER_CURRENT_FACILITY_UPDATED, payload.facility);
   },
   
   /**
-   * Update user timeZone
-   */
-  async setUserTimeZone ( { state, commit }, payload) {
+  * Update user timeZone
+  */
+  async setUserTimeZone({ state, commit }, payload) {
     const resp = await UserService.setUserTimeZone(payload)
     if (resp.status === 200 && !hasError(resp)) {
       const current: any = state.current;
@@ -69,10 +55,18 @@ const actions: ActionTree<UserState, RootState> = {
   },
 
   /**
-   * Set User Instance Url
-   */
-  setUserInstanceUrl ({ commit }, payload){
+  * Set User Instance Url
+  */
+  setUserInstanceUrl({ commit }, payload) {
     commit(types.USER_INSTANCE_URL_UPDATED, payload)
+  },
+
+  setEcomStore({ commit, state }, payload) {
+    let productStore = payload.productStore;
+    if(!productStore) {
+      productStore = (state.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
+    }
+    commit(types.USER_CURRENT_ECOM_STORE_UPDATED, productStore);
   }
 }
 

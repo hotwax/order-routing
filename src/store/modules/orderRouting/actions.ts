@@ -89,8 +89,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRoutingGroup(routingGroupId);
 
-      console.log(resp.data)
-
       if(!hasError(resp) && resp.data) {
         currentGroup = resp.data
       } else {

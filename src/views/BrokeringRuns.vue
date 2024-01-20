@@ -16,7 +16,7 @@
     <ion-content>
       <main v-if="groups.length">
         <section>
-          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="redirect(group.routingGroupId)">
+          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="redirect(group)">
             <ion-card-header>
               <ion-card-title>
                 {{ group.groupName }}
@@ -46,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { Group } from "@/types";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { computed } from "vue";
@@ -85,9 +86,9 @@ async function addNewRun() {
   return newRunAlert.present();
 }
 
-async function redirect(routingGroupId: string) {
-  await store.dispatch('orderRouting/setCurrentRoutingGroupId', routingGroupId)
-  router.push(`brokering/${routingGroupId}/routes`)
+async function redirect(group: Group) {
+  await store.dispatch('orderRouting/setCurrentRoutingGroup', group)
+  router.push(`brokering/${group.routingGroupId}/routes`)
 }
 
 </script>

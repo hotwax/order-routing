@@ -207,12 +207,7 @@ function getArchivedOrderRoutings() {
 
 async function updateGroupDescription() {
   if(description.value && props.routingGroupId) {
-    const payload = {
-      routingGroupId: props.routingGroupId,
-      description: description.value,
-    }
-
-    await store.dispatch("orderRouting/updateRoutingGroup", payload)
+    await store.dispatch("orderRouting/updateRoutingGroup", { routingGroupId: props.routingGroupId, fieldToUpdate: 'description', value: description.value })
     isDescUpdating.value = false
   }
 }

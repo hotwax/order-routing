@@ -105,7 +105,7 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, onMounted, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import emitter from "@/event-bus";
@@ -130,14 +130,9 @@ const currentRoutingGroup = computed((): Group => store.getters["orderRouting/ge
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
 
 onIonViewWillEnter(async () => {
-  await store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId)
+  await Promise.all([store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId), store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)])
 
   initializeOrderRoutings();
-
-  // On refresh, the groups list is removed thus resulting is not fetching the current group information
-  if(!currentRoutingGroup.value.routingGroupId) {
-    await store.dispatch("orderRouting/fetchOrderRoutingGroups")
-  }
 
   description.value = currentRoutingGroup.value.description ? currentRoutingGroup.value.description : "No description available"
   emitter.on("initializeOrderRoutings", initializeOrderRoutings)

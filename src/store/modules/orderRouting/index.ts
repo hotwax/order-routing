@@ -4,6 +4,7 @@ import mutations from "./mutations"
 import { Module } from "vuex"
 import OrderRoutingState from "./OrderRoutingState"
 import RootState from "@/store/RootState"
+import { Route } from "@/types"
 
 const orderRoutingModule: Module<OrderRoutingState, RootState> = {
   namespaced: true,
@@ -11,7 +12,7 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
     groups: [],
     routes: [],
     rules: [],
-    currentGroupId: '', // choosing only to save id and not whole object, as when updating the state we don't need to care updating the state on two different places
+    currentGroup: {},
     currentRouteId: '',
     currentRouteFilters: {},
     ruleConditions: {},

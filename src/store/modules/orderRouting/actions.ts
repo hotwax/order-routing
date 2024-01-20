@@ -77,7 +77,31 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
   },
 
-  async setCurrentRoutingGroupId({ commit }, payload) {
+  async fetchCurrentRoutingGroup({ dispatch, state }, routingGroupId) {
+    const current = state.currentGroup
+    if(current.routingGroupId) {
+      dispatch("setCurrentRoutingGroup", current)
+      return;
+    }
+
+    let currentGroup = {}
+
+    try {
+      const resp = await OrderRoutingService.fetchRoutingGroup(routingGroupId);
+
+      if(!hasError(resp) && resp.data) {
+        currentGroup = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("setCurrentRoutingGroup", currentGroup)
+  },
+
+  async setCurrentRoutingGroup({ commit }, payload) {
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, payload)
   },
 

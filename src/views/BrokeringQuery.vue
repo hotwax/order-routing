@@ -296,13 +296,13 @@ async function addInventoryRule() {
     if(ruleName) {
       // TODO: check for the default value of params
       const payload = {
-        routingRuleId: ruleName.split(" ").join("_").toUpperCase(),
+        routingRuleId: "",
         orderRoutingId: props.orderRoutingId,
         ruleName,
-        statusId: "SERVICE_ACTIVE", // by default considering the rule to be active
-        sequenceNum: 0,
-        assignmentEnumId: "ORA_SINGLE", // by default, considering partial fulfillment to inactive
-        fulfillEntireShipGroup: "N",
+        statusId: "RULE_DRAFT", // by default considering the rule to be in draft
+        sequenceNum: routingRules.value.length && routingRules.value[routingRules.value.length - 1].sequenceNum >= 0 ? routingRules.value[routingRules.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0, that will result in again setting the new route seqNum to 0,
+        assignmentEnumId: "ORA_SINGLE", // by default, considering partial fulfillment to be inactive
+        fulfillEntireShipGroup: "N",  // TODO: check for default value
       }
 
       const resp = await OrderRoutingService.createRoutingRule(payload)

@@ -248,6 +248,36 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_RULES_UPDATED, routingRules)
   },
 
+  async createRoutingRule({ commit, state }, payload) {
+    let routingRules = JSON.parse(JSON.stringify(state.rules))
+    let routingRuleId = ''
+
+    try {
+      const resp = await OrderRoutingService.createRoutingRule(payload)
+
+      if(!hasError(resp) && resp?.data.routingRuleId) {
+        routingRuleId = resp.data.routingRuleId
+        routingRules.push({
+          ...payload,
+          routingRuleId
+        })
+        showToast('New Inventory Rule Created')
+      }
+
+      // Sort the routings and update the state only on success
+      if(routingRules.length) {
+        routingRules = sortSequence(routingRules)
+      }
+
+      commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+    } catch(err) {
+      showToast("Failed to create rule")
+      logger.error('err', err)
+    }
+
+    return routingRuleId;
+  },
+
   async fetchRoutingFilters({ commit }, orderRoutingId) {
     let routingFilters = [] as any;
     // filter groups on the basis of productStoreId

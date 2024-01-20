@@ -4,7 +4,7 @@
       <div>
         <div class="menu">
           <ion-item lines="none">
-            <ion-label>{{ currentRouting.routeName }}</ion-label>
+            <ion-label>{{ currentRouting.routingName }}</ion-label>
             <ion-chip slot="end" outline @click="router.go(-1)">
               {{ "2/4" }}
               <ion-icon :icon="chevronUpOutline" />
@@ -234,8 +234,9 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 
 onIonViewWillEnter(async () => {
-  await Promise.all([store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
+  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
 
+  // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(!routingRules.value.length) {
     return;
   }

@@ -5,7 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { Group, Route, RouteFilter } from "@/types"
+import { Route, RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -75,7 +75,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async fetchCurrentRoutingGroup({ dispatch, state }, routingGroupId) {
     const current = state.currentGroup
-    if(current.routingGroupId) {
+    if(current.routingGroupId && current.routingGroupId === routingGroupId) {
       dispatch("setCurrentRoutingGroup", current)
       return;
     }
@@ -192,6 +192,34 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
     commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
     return orderRoutingId;
+  },
+
+  async fetchCurrentOrderRouting({ dispatch, state }, orderRoutingId) {
+    const current = state.currentRoute
+    if(current.orderRoutingId && current.orderRoutingId === orderRoutingId) {
+      dispatch("setCurrentOrderRouting", current)
+      return;
+    }
+
+    let currentRoute = {}
+
+    try {
+      const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
+
+      if(!hasError(resp) && resp.data) {
+        currentRoute = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("setCurrentOrderRouting", currentRoute)
+  },
+
+  async setCurrentOrderRouting({ commit }, payload) {
+    commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },
 
   async fetchRoutingRules({ commit }, orderRoutingId) {
@@ -319,9 +347,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_RULE_ACTIONS_UPDATED, ruleActions)
   },
 
-  async setCurrentOrderRoutingId({ commit }, payload) {
-    commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
-  },
 }
 
 export default actions;

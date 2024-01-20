@@ -15,8 +15,8 @@ const mutations: MutationTree<OrderRoutingState> = {
   [types.ORDER_ROUTING_CURRENT_GROUP_UPDATED](state, payload) {
     state.currentGroup = payload
   },
-  [types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED](state, routeId) {
-    state.currentRouteId = routeId
+  [types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED](state, payload) {
+    state.currentRoute = payload
   },
   [types.ORDER_ROUTING_FILTERS_UPDATED](state, payload) {
     state.currentRouteFilters = payload

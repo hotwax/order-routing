@@ -41,6 +41,13 @@ const fetchOrderRoutings = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
+  return api({
+    url: `routings/${orderRoutingId}`,
+    method: "GET"
+  })
+}
+
 const updateOrderRouting = async (payload: any): Promise<any> => {
   return api({
     url: `routings/${payload.orderRoutingId}`,
@@ -113,6 +120,7 @@ export const OrderRoutingService = {
   createOrderRouting,
   createRoutingGroup,
   createRoutingRule,
+  fetchOrderRouting,
   fetchOrderRoutings,
   fetchRoutingFilters,
   fetchRoutingGroup,

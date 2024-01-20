@@ -17,8 +17,7 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
     return JSON.parse(JSON.stringify(state.currentGroup))
   },
   getCurrentOrderRouting(state) {
-    const orderRouting = state.routes?.find((route: Route) => route.orderRoutingId === state.currentRouteId)
-    return orderRouting ? orderRouting : {}
+    return JSON.parse(JSON.stringify(state.currentRoute))
   },
   getCurrentRouteFilters(state) {
     return state.currentRouteFilters

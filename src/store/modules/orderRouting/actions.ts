@@ -51,17 +51,18 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async updateRoutingGroup({ commit, state }, payload) {
-    let routingGroups = JSON.parse(JSON.stringify(state.groups))
+    const current = JSON.parse(JSON.stringify(state.currentGroup))
+
+    const params = {
+      routingGroupId: payload.routingGroupId,
+      [payload.fieldToUpdate]: payload.value
+    }
 
     try {
-      const resp = await OrderRoutingService.updateRoutingGroup(payload);
+      const resp = await OrderRoutingService.updateRoutingGroup(params);
 
       if(!hasError(resp) && resp.data.routingGroupId) {
-        routingGroups.map((group: Group) => {
-          if(group.routingGroupId === resp.data.routingGroupId) {
-            group.description = payload.description
-          }
-        })
+        current[payload.fieldToUpdate] = payload.value
         showToast("Rounting group information updated")
       } else {
         throw resp.data
@@ -69,12 +70,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     } catch(err) {
       logger.error(err);
     }
-
-    if(routingGroups.length) {
-      routingGroups = sortSequence(routingGroups)
-    }
-
-    commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, current)
   },
 
   async fetchCurrentRoutingGroup({ dispatch, state }, routingGroupId) {

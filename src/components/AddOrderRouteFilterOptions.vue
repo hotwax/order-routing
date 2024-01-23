@@ -73,7 +73,7 @@ function addSortOption(sort: any) {
         orderRoutingId: props.orderRoutingId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: sort.enumCode,
-        sequenceNum: routingFilters.value[props.conditionTypeEnumId].length && routingFilters.value[props.conditionTypeEnumId][routingFilters.value[props.conditionTypeEnumId].length - 1].sequenceNum >= 0 ? routingFilters.value[props.conditionTypeEnumId][routingFilters.value[props.conditionTypeEnumId].length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+        sequenceNum: Object.keys(routingFilters.value[props.conditionTypeEnumId]).length && routingFilters.value[props.conditionTypeEnumId][Object.keys(routingFilters.value[props.conditionTypeEnumId])[Object.keys(routingFilters.value[props.conditionTypeEnumId]).length - 1]]?.sequenceNum >= 0 ? routingFilters.value[props.conditionTypeEnumId][Object.keys(routingFilters.value[props.conditionTypeEnumId])[Object.keys(routingFilters.value[props.conditionTypeEnumId]).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
       } : routingFilters.value = {
         ...routingFilters.value,
         [props.conditionTypeEnumId]: {

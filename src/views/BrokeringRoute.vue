@@ -20,7 +20,7 @@
               </ion-button>
             </ion-list-header>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-card v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing.orderRoutingId)">
+              <ion-card v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
@@ -147,9 +147,9 @@ function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
 }
 
-async function redirect(orderRoutingId: string) {
-  await store.dispatch('orderRouting/setCurrentOrderRoutingId', orderRoutingId)
-  router.push(`${orderRoutingId}/rules`)
+async function redirect(orderRouting: Route) {
+  await store.dispatch('orderRouting/setCurrentOrderRouting', orderRouting)
+  router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
 async function createOrderRoute() {

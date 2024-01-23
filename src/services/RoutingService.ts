@@ -41,6 +41,13 @@ const fetchOrderRoutings = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
+  return api({
+    url: `routings/${orderRoutingId}`,
+    method: "GET"
+  })
+}
+
 const updateOrderRouting = async (payload: any): Promise<any> => {
   return api({
     url: `routings/${payload.orderRoutingId}`,
@@ -50,23 +57,11 @@ const updateOrderRouting = async (payload: any): Promise<any> => {
 }
 
 const createRoutingRule = async (payload: any): Promise<any> => {
-  let routingRuleId = '';
-  try {
-    const resp = await api({
-      url: "rules",
-      method: "POST",
-      data: payload
-    })
-
-    if(!hasError(resp) && resp?.data.routingRuleId) {
-      routingRuleId = resp.data.routingRuleId
-    }
-  } catch(err) {
-    showToast("Failed to create new rule")
-    logger.error(err)
-  }
-
-  return routingRuleId
+  return await api({
+    url: "rules",
+    method: "POST",
+    data: payload
+  })
 }
 
 const createOrderRouting = async (payload: any): Promise<any> => {
@@ -93,6 +88,22 @@ const fetchRoutingFilters = async (payload: any): Promise<any> => {
   });
 }
 
+const updateRoutingFilter = async (payload: any): Promise<any> => {
+  return api({
+    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    method: "POST",
+    data: payload
+  });
+}
+
+const deleteRoutingFilter = async (payload: any): Promise<any> => {
+  return api({
+    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    method: "DELETE",
+    data: payload
+  });
+}
+
 const fetchRuleConditions = async (payload: any): Promise<any> => {
   return api({
     url: `rules/${payload.routingRuleId}/condition`,
@@ -113,6 +124,8 @@ export const OrderRoutingService = {
   createOrderRouting,
   createRoutingGroup,
   createRoutingRule,
+  deleteRoutingFilter,
+  fetchOrderRouting,
   fetchOrderRoutings,
   fetchRoutingFilters,
   fetchRoutingGroup,
@@ -121,5 +134,6 @@ export const OrderRoutingService = {
   fetchRuleActions,
   fetchRuleConditions,
   updateOrderRouting,
+  updateRoutingFilter,
   updateRoutingGroup
 }

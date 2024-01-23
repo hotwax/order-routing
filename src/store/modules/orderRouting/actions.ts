@@ -5,7 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { Group, Route, RouteFilter } from "@/types"
+import { Route, RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -75,7 +75,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async fetchCurrentRoutingGroup({ dispatch, state }, routingGroupId) {
     const current = state.currentGroup
-    if(current.routingGroupId) {
+    if(current.routingGroupId && current.routingGroupId === routingGroupId) {
       dispatch("setCurrentRoutingGroup", current)
       return;
     }
@@ -194,6 +194,34 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId;
   },
 
+  async fetchCurrentOrderRouting({ dispatch, state }, orderRoutingId) {
+    const current = state.currentRoute
+    if(current.orderRoutingId && current.orderRoutingId === orderRoutingId) {
+      dispatch("setCurrentOrderRouting", current)
+      return;
+    }
+
+    let currentRoute = {}
+
+    try {
+      const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
+
+      if(!hasError(resp) && resp.data) {
+        currentRoute = resp.data
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("setCurrentOrderRouting", currentRoute)
+  },
+
+  async setCurrentOrderRouting({ commit }, payload) {
+    commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
+  },
+
   async fetchRoutingRules({ commit }, orderRoutingId) {
     let routingRules = [] as any;
     // filter groups on the basis of productStoreId
@@ -218,6 +246,36 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_RULES_UPDATED, routingRules)
+  },
+
+  async createRoutingRule({ commit, state }, payload) {
+    let routingRules = JSON.parse(JSON.stringify(state.rules))
+    let routingRuleId = ''
+
+    try {
+      const resp = await OrderRoutingService.createRoutingRule(payload)
+
+      if(!hasError(resp) && resp?.data.routingRuleId) {
+        routingRuleId = resp.data.routingRuleId
+        routingRules.push({
+          ...payload,
+          routingRuleId
+        })
+        showToast('New Inventory Rule Created')
+      }
+
+      // Sort the routings and update the state only on success
+      if(routingRules.length) {
+        routingRules = sortSequence(routingRules)
+      }
+
+      commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+    } catch(err) {
+      showToast("Failed to create rule")
+      logger.error('err', err)
+    }
+
+    return routingRuleId;
   },
 
   async fetchRoutingFilters({ commit }, orderRoutingId) {
@@ -248,7 +306,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
+    const sortEnum = "ENTCT_SORT_BY"
 
     // As we only need to add support of reordering for sortBy filter
     if(routingFilters[sortEnum]?.length) {
@@ -256,6 +314,49 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
+  },
+
+  async deleteRoutingFilters({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllFiltersDeletedSuccessfully = true;
+    try {
+      await payload.filters.forEach(async (filter: any) => {
+        const resp = await OrderRoutingService.deleteRoutingFilter({
+          orderRoutingId: payload.orderRoutingId,
+          conditionSeqId: filter.conditionSeqId
+        });
+        if(hasError(resp) || !resp.data.orderRoutingId) {
+          hasAllFiltersDeletedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRoutingFilters", payload.orderRoutingId)
+
+    return hasAllFiltersDeletedSuccessfully
+  },
+
+  async createRoutingFilters({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllFiltersCreatedSuccessfully = true;
+    try {
+      await payload.filters.forEach(async (filter: any) => {
+        const resp = await OrderRoutingService.updateRoutingFilter({
+          orderRoutingId: payload.orderRoutingId,
+          ...filter
+        });
+        if(hasError(resp) || !resp.data.orderRoutingId) {
+          hasAllFiltersCreatedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRoutingFilters", payload.orderRoutingId)
+    return hasAllFiltersCreatedSuccessfully
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {
@@ -276,13 +377,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     } catch(err) {
       logger.error(err);
     }
-
-    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
-
-    // // As we only need to add support of reordering for sortBy filter
-    // if(routingFilters[sortEnum]?.length) {
-    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
-    // }
 
     commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
   },
@@ -309,19 +403,9 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
-
-    // // As we only need to add support of reordering for sortBy filter
-    // if(routingFilters[sortEnum]?.length) {
-    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
-    // }
-
     commit(types.ORDER_ROUTING_RULE_ACTIONS_UPDATED, ruleActions)
   },
 
-  async setCurrentOrderRoutingId({ commit }, payload) {
-    commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
-  },
 }
 
 export default actions;

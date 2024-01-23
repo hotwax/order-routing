@@ -5,7 +5,7 @@ export default interface OrderRoutingState {
   routes: Array<any>;
   rules: Array<any>;
   currentGroup: any;
-  currentRouteId: string;
+  currentRoute: any;
   currentRouteFilters: {
     [key: string]: {  // conditionTypeEnumId as key
       [key: string]: RouteFilter  // enumCode/fieldName as key

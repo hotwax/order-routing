@@ -13,7 +13,7 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
     routes: [],
     rules: [],
     currentGroup: {},
-    currentRouteId: '',
+    currentRoute: {},
     currentRouteFilters: {},
     ruleConditions: {},
     ruleActions: {}

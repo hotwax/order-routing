@@ -306,7 +306,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
+    const sortEnum = "ENTCT_SORT_BY"
 
     // As we only need to add support of reordering for sortBy filter
     if(routingFilters[sortEnum]?.length) {
@@ -335,13 +335,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
-
-    // // As we only need to add support of reordering for sortBy filter
-    // if(routingFilters[sortEnum]?.length) {
-    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
-    // }
-
     commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
   },
 
@@ -366,13 +359,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     } catch(err) {
       logger.error(err);
     }
-
-    // const sortEnum = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)["SORT"] as any
-
-    // // As we only need to add support of reordering for sortBy filter
-    // if(routingFilters[sortEnum]?.length) {
-    //   routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
-    // }
 
     commit(types.ORDER_ROUTING_RULE_ACTIONS_UPDATED, ruleActions)
   },

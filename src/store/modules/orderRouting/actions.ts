@@ -316,6 +316,49 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
   },
 
+  async deleteRoutingFilters({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllFiltersDeletedSuccessfully = true;
+    try {
+      await payload.filters.forEach(async (filter: any) => {
+        const resp = await OrderRoutingService.deleteRoutingFilter({
+          orderRoutingId: payload.orderRoutingId,
+          conditionSeqId: filter.conditionSeqId
+        });
+        if(hasError(resp) || !resp.data.orderRoutingId) {
+          hasAllFiltersDeletedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRoutingFilters", payload.orderRoutingId)
+
+    return hasAllFiltersDeletedSuccessfully
+  },
+
+  async createRoutingFilters({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllFiltersCreatedSuccessfully = true;
+    try {
+      await payload.filters.forEach(async (filter: any) => {
+        const resp = await OrderRoutingService.updateRoutingFilter({
+          orderRoutingId: payload.orderRoutingId,
+          ...filter
+        });
+        if(hasError(resp) || !resp.data.orderRoutingId) {
+          hasAllFiltersCreatedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRoutingFilters", payload.orderRoutingId)
+    return hasAllFiltersCreatedSuccessfully
+  },
+
   async fetchRuleConditions({ commit }, routingRuleId) {
     let ruleConditions = [] as any;
     // filter groups on the basis of productStoreId

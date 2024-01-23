@@ -10,60 +10,57 @@
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button expand="block">{{ "Save Changes" }}</ion-button>
+          <ion-button expand="block" @click="save">{{ "Save Changes" }}</ion-button>
           <ion-item-group>
-            <ion-item-divider color="medium">
+            <ion-item-divider color="light">
               <ion-label>{{ "Filters" }}</ion-label>
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER')">
+                <ion-icon slot="icon-only" :icon="optionsOutline"/>
+              </ion-button>
             </ion-item-divider>
-            <ion-item>
-              <ion-select label="Queue" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['QUEUE'].code]?.fieldValue">
+            <p class="empty-state" v-if="!orderRoutingFilters['ENTCT_FILTER'] || !Object.keys(orderRoutingFilters['ENTCT_FILTER']).length">{{ "Select filter to apply" }}</p>
+            <ion-item v-if="getRouteFilterValue('QUEUE')">
+              <ion-select label="Queue" interface="popover" :value="getRouteFilterValue('QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'ENTCT_FILTER', 'QUEUE')">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item>
-              <ion-select label="Shipping method" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SHIPPING_METHOD'].code]?.fieldValue">
+            <ion-item v-if="getRouteFilterValue('SHIPPING_METHOD')">
+              <ion-select interface="popover" label="Shipping method" :value="getRouteFilterValue('SHIPPING_METHOD').fieldValue">
                 <ion-select-option value="Next Day">{{ "Next Day" }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item>
-              <ion-select label="Order priority" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PRIORITY'].code]?.fieldValue">
+            <ion-item v-if="getRouteFilterValue('PRIORITY')">
+              <ion-select interface="popover" label="Order priority" :value="getRouteFilterValue('PRIORITY').fieldValue">
                 <ion-select-option value="HIGH">{{ "High" }}</ion-select-option>
                 <ion-select-option value="MEDIUM">{{ "Medium" }}</ion-select-option>
                 <ion-select-option value="Low">{{ "Low" }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item>
+            <ion-item v-if="getRouteFilterValue('PROMISE_DATE')">
               <ion-label>{{ "Promise date" }}</ion-label>
               <ion-chip>
-                {{ routingFilters[ruleEnums['FILTER']]?.[ruleEnums['PROMISE_DATE'].code]?.fieldValue }}
+                {{ getRouteFilterValue('PROMISE_DATE').fieldValue }}
                 <ion-icon :icon="closeCircleOutline"/>
               </ion-chip>
             </ion-item>
-            <ion-item>
-              <ion-select label="Sales Channel" interface="popover" :value="routingFilters[ruleEnums['FILTER']]?.[ruleEnums['SALES_CHANNEL'].code]?.fieldValue">
+            <ion-item v-if="getRouteFilterValue('SALES_CHANNEL')">
+              <ion-select label="Sales Channel" interface="popover" :value="getRouteFilterValue('SALES_CHANNEL').fieldValue">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
           </ion-item-group>
           <ion-item-group>
-            <ion-item-divider color="medium">
+            <ion-item-divider color="light">
               <ion-label>{{ "Sort" }}</ion-label>
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY')">
+                <ion-icon slot="icon-only" :icon="optionsOutline"/>
+              </ion-button>
             </ion-item-divider>
+            <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
+            <p class="empty-state" v-if="!orderRoutingFilters['ENTCT_SORT_BY'] || !Object.keys(orderRoutingFilters['ENTCT_SORT_BY']).length">{{ "Select sorting to apply" }}</p>
             <ion-reorder-group :disabled="false">
-              <ion-item>
-                <ion-label>{{ "Ship by" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Ship after" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Order date" }}</ion-label>
-                <ion-reorder />
-              </ion-item>
-              <ion-item>
-                <ion-label>{{ "Shipping method" }}</ion-label>
+              <ion-item v-for="(sort, code) in orderRoutingFilters['ENTCT_SORT_BY']" :key="code">
+                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -210,7 +207,8 @@ import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptio
 import AddInventorySortOptionsModal from "@/components/AddInventorySortOptionsModal.vue";
 import { showToast } from "@/utils";
 import { OrderRoutingService } from "@/services/RoutingService"
-import { Rule } from "@/types";
+import { Enumeration, Rule } from "@/types";
+import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 
 const router = useRouter();
 const props = defineProps({
@@ -224,6 +222,7 @@ const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const autoCancelDays = ref(0)
 const ruleActionType = ref('')
+let orderRoutingFilters = ref({}) as any
 let selectedRoutingRule = reactive({}) as Rule
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
@@ -235,6 +234,8 @@ const enums = computed(() => store.getters["util/getEnums"])
 
 onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
+
+  orderRoutingFilters.value = routingFilters.value
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(!routingRules.value.length) {
@@ -274,6 +275,23 @@ async function addInventorySortOptions() {
   })
 
   await inventorySortOptionsModal.present();
+}
+
+async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnumId: string) {
+  const orderRouteFilterOptions = await modalController.create({
+    component: AddOrderRouteFilterOptions,
+    componentProps: { orderRoutingFilters: orderRoutingFilters.value, orderRoutingId: props.orderRoutingId, parentEnumId, conditionTypeEnumId }
+  })
+
+  orderRouteFilterOptions.onDidDismiss().then((result: any) => {
+    // Using role to determine when to update the filters
+    // When closing the modal without save and when unselecting all the filter, in both the cases we get filters object as empty thus passing a role from the modal to update the filter only when save action is performed
+    if(result.data?.filters && result.role === 'save') {
+      orderRoutingFilters.value = result.data.filters
+    }
+  })
+
+  await orderRouteFilterOptions.present();
 }
 
 async function addInventoryRule() {
@@ -322,7 +340,7 @@ function updateRuleActionType(value: string) {
   ruleActions.value[ruleActionType.value] = {
     ...ruleActions.value[actionType],
     actionTypeEnumId: value,
-    actionValue: '' // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update it if required from some other function
+    actionValue: '' // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update if required from some other function
   }
   // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
   delete ruleActions.value[actionType]
@@ -369,6 +387,70 @@ async function updateAutoCancelDays(cancelDays: any) {
 
 function updatePartialAllocation(event: CustomEvent) {
   selectedRoutingRule.assignmentEnumId = event ? "ORA_MULTI" : "ORA_SINGLE"
+}
+
+function getRouteFilterValue(parameter: string) {
+  // TODO: Only show filters when a value is associated
+  return orderRoutingFilters.value['ENTCT_FILTER']?.[ruleEnums[parameter].code]
+}
+
+function getLabel(parentType: string, code: string) {
+  const enumerations = enums.value[parentType]
+  const enumInfo: any = Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code)
+
+  return enumInfo?.description
+}
+
+function updateOrderFilterValue(event: CustomEvent, conditionTypeEnumId: string, id: string) {
+  orderRoutingFilters.value[conditionTypeEnumId][ruleEnums[id].code].fieldValue = event.detail.value
+}
+
+// checks whether values for all the properties of two objects are same
+function isObjectUpdated(initialObj: any, finalObj: any) {
+  return !Object.keys(initialObj).every((key: string) => finalObj[key] === initialObj[key])
+}
+
+async function save() {
+  const valueRequiredForRouteFilter = "ENTCT_FILTER"
+  const filtersToUpdate = [] as any, filtersToRemove = [] as any, filtersToCreate = [] as any
+  const orderRouteFilterTypes = Object.keys(enums.value["CONDITION_TYPE"])
+
+  orderRouteFilterTypes.map((filterType: string) => {
+    if(orderRoutingFilters.value[filterType]) {
+      Object.keys(orderRoutingFilters.value[filterType]).map((key: string) => {
+        if(routingFilters.value[filterType]?.[key]) {
+          const isSeqChanged = isObjectUpdated(routingFilters.value[filterType][key], orderRoutingFilters.value[filterType]?.[key])
+          if(isSeqChanged) {
+            filtersToUpdate.push(routingFilters.value[filterType]?.[key])
+          }
+        } else {
+          if(filterType === valueRequiredForRouteFilter && orderRoutingFilters.value[filterType][key]?.["fieldValue"]) {
+            filtersToCreate.push(orderRoutingFilters.value[filterType][key])
+          } else if(filterType !== valueRequiredForRouteFilter) {
+            filtersToCreate.push(orderRoutingFilters.value[filterType][key])
+          }
+        }
+      })
+    }
+
+    if(routingFilters.value[filterType]) {
+      Object.keys(routingFilters.value[filterType]).map((key: string) => {
+        if(!orderRoutingFilters.value[filterType]?.[key]) {
+          filtersToRemove.push(routingFilters.value[filterType][key])
+        }
+      })
+    }
+  })
+
+  // TODO: add support to update filters
+
+  if(filtersToCreate.length) {
+    await store.dispatch("orderRouting/createRoutingFilters", { filters: filtersToCreate, orderRoutingId: props.orderRoutingId })
+  }
+
+  if(filtersToRemove.length) {
+    await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+  }
 }
 </script>
 

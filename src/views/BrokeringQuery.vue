@@ -100,11 +100,15 @@
                 </ion-select>
               </ion-item>
               <ion-item v-if="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY')">
-                <ion-select label="Proximity" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY').fieldValue">
-                  <!-- TODO: add support to select measurement system, by default its in miles -->
-                  <!-- TODO: Confirm on the possible options -->
-                  <ion-select-option value="Zone 1">{{ "Zone 1" }}</ion-select-option>
-                </ion-select>
+                <!-- TODO: Confirm on the possible options -->
+                <ion-label>{{ "Proximity" }}</ion-label>
+                <ion-chip outline>
+                  <ion-select aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'ENTCT_FILTER', 'MEASUREMENT_SYSTEM')">
+                    <ion-select-option value="METRIC">{{ "kms" }}</ion-select-option>
+                    <ion-select-option value="IMPERIAL">{{ "miles" }}</ion-select-option>
+                  </ion-select>
+                </ion-chip>
+                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY').fieldValue || getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY').fieldValue == 0 ? getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY').fieldValue : '-' }}</ion-chip>
               </ion-item>
               <ion-item v-if="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
                 <ion-label>{{ "Brokering safety stock" }}</ion-label>
@@ -113,8 +117,7 @@
                     <ion-select-option v-for="(enumeration, id) in enums['COMPARISON_OPERATOR']" :key="id" :value="enumeration.enumCode">{{ enumeration.description || enumeration.enumCode }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
-                <!-- TODO: add support to select operator -->
-                <ion-chip outline @click="selectSafetyStock()">{{ getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue || getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue == 0 ? getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue : '-' }}</ion-chip>
+                <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue || getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue == 0 ? getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'BRK_SAFETY_STOCK').fieldValue : '-' }}</ion-chip>
               </ion-item>
             </ion-card>
             <ion-card>
@@ -409,8 +412,7 @@ function updatePartialAllocation(checked: any) {
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {
-  // TODO: Only show filters when a value is associated
-  return options['ENTCT_FILTER']?.[enums[parameter].code]
+  return options["ENTCT_FILTER"]?.[enums[parameter].code]
 }
 
 function getLabel(parentType: string, code: string) {
@@ -437,9 +439,9 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
   return popover.present();
 }
 
-async function selectSafetyStock() {
-  const safetyStockAlert = await alertController.create({
-    header: "Add Brokering Safety Stock",
+async function selectValue(id: string, header: string) {
+  const valueAlert = await alertController.create({
+    header,
     buttons: [{
       text: "Cancel",
       role: "cancel"
@@ -447,23 +449,23 @@ async function selectSafetyStock() {
       text: "Save"
     }],
     inputs: [{
-      name: "safetyStock",
-      placeholder: "safety stock",
-      value: getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue
+      name: "value",
+      placeholder: "value",
+      value: getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, id).fieldValue
     }]
   })
 
-  safetyStockAlert.onDidDismiss().then(async (result: any) => {
-    const safetyStock = result.data?.values?.safetyStock;
+  valueAlert.onDidDismiss().then(async (result: any) => {
+    const value = result.data?.values?.value;
     // Considering that when having role in result, its negative action and not need to do anything
-    if(!result.role && safetyStock) {
-      getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue = safetyStock
-      // When selecting a filter value making the operator to default equals
-      getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, "BRK_SAFETY_STOCK").operator = "equals"
+    if(!result.role && value) {
+      getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, id).fieldValue = value
+      // When selecting a filter value making the operator to default `equals`
+      getFilterValue(inventoryRuleConditions.value, conditionFilterEnums, id).operator = "equals"
     }
   })
 
-  return safetyStockAlert.present();
+  return valueAlert.present();
 }
 
 function updateOperator(event: CustomEvent) {

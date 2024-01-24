@@ -55,8 +55,10 @@ const props = defineProps({
   }
 })
 let inventoryRuleConditions = ref({}) as any
-let enumerations = ref({}) as any
+let enumerations = ref([]) as any
 const hiddenOptions = ["IIP_MSMNT_SYSTEM"]
+// managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
+const associatedOptions = { IIP_PROXIMITY: 'IIP_MSMNT_SYSTEM' } as any
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
@@ -65,13 +67,17 @@ onMounted(() => {
 
 function addConditionOption(condition: any) {
   const isConditionOptionAlreadyApplied = isConditionOptionSelected(condition.enumCode)?.fieldName
+  const associatedEnum = enums.value[props.parentEnumId][associatedOptions[condition.enumId]]
 
   if(isConditionOptionAlreadyApplied) {
     delete inventoryRuleConditions.value[props.conditionTypeEnumId][condition.enumCode]
+    // When removing a condition, also remove its associated option if available
+    associatedEnum && delete inventoryRuleConditions.value[props.conditionTypeEnumId][associatedEnum.enumCode]
   } else {
     // checking unchecking an option and then checking it again, we need to use the same values
     if(props.ruleConditions[props.conditionTypeEnumId]?.[condition.enumCode]) {
       inventoryRuleConditions.value[props.conditionTypeEnumId][condition.enumCode] = props.ruleConditions[props.conditionTypeEnumId][condition.enumCode]
+      associatedEnum && (inventoryRuleConditions.value[props.conditionTypeEnumId][associatedEnum.enumCode] = props.ruleConditions[props.conditionTypeEnumId][associatedEnum.enumCode])
     } else {
       // when adding a new value, we don't need to pass conditionSeqId
       // Added check that whether the filters for the conditionType exists or not, if not then create a new value for conditionType
@@ -91,6 +97,14 @@ function addConditionOption(condition: any) {
           }
         }
       }
+
+      // Adding associatedEnum out of ternary, as we will always get the conditionTypeEnumId, as the filter will already handle that
+      associatedEnum && (inventoryRuleConditions.value[props.conditionTypeEnumId][associatedEnum.enumCode] = {
+        routingRuleId: props.routingRuleId,
+        conditionTypeEnumId: props.conditionTypeEnumId,
+        fieldName: associatedEnum.enumCode,
+        sequenceNum: Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length && inventoryRuleConditions.value[props.conditionTypeEnumId][Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId])[Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[props.conditionTypeEnumId][Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId])[Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+      })
     }
   }
 }

@@ -10,7 +10,7 @@
     </ion-header>
     <ion-content>
       <ion-list>
-        <ion-item v-for="condition in Object.values(enums[props.parentEnumId] ? enums[props.parentEnumId] : {})" :key="condition.enumId">
+        <ion-item v-for="condition in enumerations" :key="condition.enumId">
           <ion-checkbox :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">{{ condition.description || condition.enumCode }}</ion-checkbox>
         </ion-item>
       </ion-list>
@@ -52,9 +52,12 @@ const props = defineProps({
   }
 })
 let inventoryRuleConditions = ref({}) as any
+let enumerations = ref({}) as any
+const hiddenOptions = ["IIP_MSMNT_SYSTEM"]
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
+  enumerations.value = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId))
 })
 
 function addConditionOption(condition: any) {

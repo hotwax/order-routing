@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ "Inventory Filters" }}</ion-title>
+        <ion-title>{{ `Inventory ${props.label}` }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="closeModal()">{{ $t('Close') }}</ion-button>
         </ion-buttons>
@@ -49,6 +49,9 @@ const props = defineProps({
   conditionTypeEnumId: {
     type: String,
     required: true
+  },
+  label: {
+    type: String
   }
 })
 let inventoryRuleConditions = ref({}) as any

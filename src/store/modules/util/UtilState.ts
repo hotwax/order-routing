@@ -7,4 +7,6 @@ export default interface UtilState {
     }
   };
   facilities: object;
+  shippingMethods: object;
+  facilityGroups: object
 }

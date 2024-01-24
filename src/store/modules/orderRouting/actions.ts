@@ -327,7 +327,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           conditionSeqId: filter.conditionSeqId
         });
         if(hasError(resp) || !resp.data.orderRoutingId) {
-          hasAllFiltersDeletedSuccessfully = true
+          hasAllFiltersDeletedSuccessfully = false
         }
       });
     } catch(err) {
@@ -349,7 +349,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           ...filter
         });
         if(hasError(resp) || !resp.data.orderRoutingId) {
-          hasAllFiltersCreatedSuccessfully = true
+          hasAllFiltersCreatedSuccessfully = false
         }
       });
     } catch(err) {
@@ -407,8 +407,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           routingRuleId: payload.routingRuleId,
           conditionSeqId: condition.conditionSeqId
         });
-        if(hasError(resp) || !resp.data.routingRuleId) {
-          hasAllConditionsDeletedSuccessfully = true
+        if(hasError(resp) || !resp.data.conditionSeqId) {
+          hasAllConditionsDeletedSuccessfully = false
         }
       });
     } catch(err) {
@@ -428,8 +428,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           routingRuleId: payload.routingRuleId,
           ...condition
         });
-        if(hasError(resp) || !resp.data.routingRuleId) {
-          hasAllConditionsCreatedSuccessfully = true
+        if(!hasError(resp) || !resp.data.conditionSeqId) {
+          hasAllConditionsCreatedSuccessfully = false
         }
       });
     } catch(err) {

@@ -8,6 +8,12 @@ const getters: GetterTree<UtilState, RootState> = {
   },
   getFacilities(state) {
     return state.facilities
+  },
+  getShippingMethods(state) {
+    return state.shippingMethods
+  },
+  getFacilityGroups(state) {
+    return state.facilityGroups
   }
 }
 

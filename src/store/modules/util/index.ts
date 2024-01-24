@@ -9,7 +9,9 @@ const utilModule: Module<UtilState, RootState> = {
   namespaced: true,
   state: {
     enums: {},
-    facilities: {}
+    facilities: {},
+    shippingMethods: {},
+    facilityGroups: {}
   },
   getters,
   actions,

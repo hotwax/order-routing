@@ -70,11 +70,11 @@
         </div>
         <div class="menu">
           <ion-list>
-            <ion-reorder-group :disabled="false">
-              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId && routingRules.length" @click="fetchRuleInformation(rule.routingRuleId)" button>
+            <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
+              <ion-item v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
-                <ion-reorder v-show="routingRules.length > 1" />
+                <ion-reorder v-show="inventoryRules.length > 1" />
               </ion-item>
             </ion-reorder-group>
           </ion-list>
@@ -121,7 +121,7 @@
                 </ion-button>
               </ion-item>
               <p class="empty-state" v-if="!inventoryRuleConditions['ENTCT_SORT_BY'] || !Object.keys(inventoryRuleConditions['ENTCT_SORT_BY']).length">{{ "Select sorting to apply" }}</p>
-              <ion-reorder-group :disabled="false">
+              <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
                 <ion-item v-for="(sort, code) in inventoryRuleConditions['ENTCT_SORT_BY']" :key="code">
                   <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
                   <ion-reorder />
@@ -220,6 +220,8 @@ const ruleActionType = ref('')
 let orderRoutingFilters = ref({}) as any
 let selectedRoutingRule = ref({}) as any
 let inventoryRuleConditions = ref({}) as any
+let inventoryRules = ref([]) as any
+let rulesToUpdate = ref([]) as any
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -240,6 +242,8 @@ onIonViewWillEnter(async () => {
   if(!routingRules.value.length) {
     return;
   }
+
+  inventoryRules.value = JSON.parse(JSON.stringify(routingRules.value))
 
   await fetchRuleInformation(routingRules.value[0].routingRuleId);
 })
@@ -328,7 +332,7 @@ async function addInventoryRule() {
         orderRoutingId: props.orderRoutingId,
         ruleName,
         statusId: "RULE_DRAFT", // by default considering the rule to be in draft
-        sequenceNum: routingRules.value.length && routingRules.value[routingRules.value.length - 1].sequenceNum >= 0 ? routingRules.value[routingRules.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0, that will result in again setting the new route seqNum to 0,
+        sequenceNum: routingRules.value.length && routingRules.value[routingRules.value.length - 1].sequenceNum >= 0 ? routingRules.value[routingRules.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0, that will result in again setting the new route seqNum to 0, // TODO: If allowing user to create a new rule without saving the reordering feature then update seqNum calculation logic
         assignmentEnumId: "ORA_SINGLE", // by default, considering partial fulfillment to be inactive
         fulfillEntireShipGroup: "N",  // TODO: check for default value
       }
@@ -479,6 +483,53 @@ function doRouteSortReorder(event: CustomEvent) {
     filters[filter.fieldName] = filter
     return filters
   }, {})
+}
+
+function doConditionSortReorder(event: CustomEvent) {
+  const previousSeq = JSON.parse(JSON.stringify(Object.values(inventoryRuleConditions.value["ENTCT_SORT_BY"])))
+
+  // returns the updated sequence after reordering
+  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(Object.values(inventoryRuleConditions.value["ENTCT_SORT_BY"]))));
+
+  const updatedSeqenceNum = Object.keys(previousSeq).map((filter: any) => previousSeq[filter].sequenceNum)
+  Object.keys(updatedSeq).map((key: any, index: number) => {
+    updatedSeq[key].sequenceNum = updatedSeqenceNum[index]
+  })
+
+  inventoryRuleConditions.value["ENTCT_SORT_BY"] = updatedSeq.reduce((filters: any, filter: any) => {
+    filters[filter.fieldName] = filter
+    return filters
+  }, {})
+}
+
+function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
+  const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId) return diff
+    return {
+      ...diff,
+      [key]: updatedSeq[key]
+    }
+  }, {})
+  return diffSeq;
+}
+
+function doReorder(event: CustomEvent) {
+  const previousSeq = JSON.parse(JSON.stringify(routingRules.value))
+
+  // returns the updated sequence after reordering
+  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(inventoryRules.value)));
+
+  let diffSeq = findRoutingsDiff(previousSeq, updatedSeq)
+
+  const updatedSeqenceNum = previousSeq.map((rule: Rule) => rule.sequenceNum)
+  Object.keys(diffSeq).map((key: any) => {
+    diffSeq[key].sequenceNum = updatedSeqenceNum[key]
+  })
+
+  diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+
+  inventoryRules.value = updatedSeq
+  rulesToUpdate.value = diffSeq
 }
 
 // checks whether values for all the properties of two objects are same

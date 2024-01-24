@@ -70,7 +70,7 @@ function addConditionOption(condition: any) {
       // when adding a new value, we don't need to pass conditionSeqId
       // Added check that whether the filters for the conditionType exists or not, if not then create a new value for conditionType
       inventoryRuleConditions.value[props.conditionTypeEnumId] ? inventoryRuleConditions.value[props.conditionTypeEnumId][condition.enumCode] = {
-        orderRoutingId: props.routingRuleId,
+        routingRuleId: props.routingRuleId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: condition.enumCode,
         sequenceNum: Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length && inventoryRuleConditions.value[props.conditionTypeEnumId][Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId])[Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[props.conditionTypeEnumId][Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId])[Object.keys(inventoryRuleConditions.value[props.conditionTypeEnumId]).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
@@ -78,7 +78,7 @@ function addConditionOption(condition: any) {
         ...inventoryRuleConditions.value,
         [props.conditionTypeEnumId]: {
           [condition.enumCode]: {
-            orderRoutingId: props.routingRuleId,
+            routingRuleId: props.routingRuleId,
             conditionTypeEnumId: props.conditionTypeEnumId,
             fieldName: condition.enumCode,
             sequenceNum: 0

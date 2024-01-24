@@ -112,6 +112,22 @@ const fetchRuleConditions = async (payload: any): Promise<any> => {
   });
 }
 
+const createRuleCondition = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/condition`,
+    method: "POST",
+    data: payload
+  });
+}
+
+const deleteRuleCondition = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/condition`,
+    method: "DELETE",
+    data: payload
+  });
+}
+
 const fetchRuleActions = async (payload: any): Promise<any> => {
   return api({
     url: `rules/${payload.routingRuleId}/actions`,
@@ -124,7 +140,9 @@ export const OrderRoutingService = {
   createOrderRouting,
   createRoutingGroup,
   createRoutingRule,
+  createRuleCondition,
   deleteRoutingFilter,
+  deleteRuleCondition,
   fetchOrderRouting,
   fetchOrderRoutings,
   fetchRoutingFilters,

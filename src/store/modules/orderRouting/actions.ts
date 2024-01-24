@@ -340,7 +340,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async createRoutingFilters({ dispatch }, payload) {
-    // TODO: check if we can call request in parallel for delete operation
+    // TODO: check if we can call request in parallel for create operation
     let hasAllFiltersCreatedSuccessfully = true;
     try {
       await payload.filters.forEach(async (filter: any) => {
@@ -396,6 +396,49 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
+  },
+
+  async deleteRuleConditions({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllConditionsDeletedSuccessfully = true;
+    try {
+      await payload.conditions.forEach(async (condition: any) => {
+        const resp = await OrderRoutingService.deleteRuleCondition({
+          routingRuleId: payload.routingRuleId,
+          conditionSeqId: condition.conditionSeqId
+        });
+        if(hasError(resp) || !resp.data.routingRuleId) {
+          hasAllConditionsDeletedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRuleConditions", payload.routingRuleId)
+
+    return hasAllConditionsDeletedSuccessfully
+  },
+
+  async createRuleConditions({ dispatch }, payload) {
+    let hasAllConditionsCreatedSuccessfully = true;
+    try {
+      await payload.conditions.forEach(async (condition: any) => {
+        const resp = await OrderRoutingService.createRuleCondition({
+          routingRuleId: payload.routingRuleId,
+          ...condition
+        });
+        if(hasError(resp) || !resp.data.routingRuleId) {
+          hasAllConditionsCreatedSuccessfully = true
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    // TODO: check if we can call the action only once after all the operations are success
+    dispatch("fetchRuleConditions", payload.routingRuleId)
+    return hasAllConditionsCreatedSuccessfully
   },
 
   async fetchRuleActions({ commit }, routingRuleId) {

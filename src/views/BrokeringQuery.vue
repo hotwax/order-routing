@@ -95,7 +95,7 @@
               </ion-item>
               <p class="empty-state" v-if="!inventoryRuleConditions['ENTCT_FILTER'] || !Object.keys(inventoryRuleConditions['ENTCT_FILTER']).length">{{ "Select filter to apply" }}</p>
               <ion-item v-if="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP')">
-                <ion-select label="Group" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP')">
+                <ion-select label="Group" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP')" @ionChange="updateRuleFilterValue($event, 'ENTCT_FILTER', 'FACILITY_GROUP')">
                   <ion-select-option value="East coast stores">{{ "East coast stores" }}</ion-select-option>
                 </ion-select>
               </ion-item>
@@ -232,8 +232,7 @@ const enums = computed(() => store.getters["util/getEnums"])
 onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })])
 
-  orderRoutingFilters.value = routingFilters.value
-  inventoryRuleConditions.value = ruleConditions.value
+  orderRoutingFilters.value = JSON.parse(JSON.stringify(routingFilters.value))
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(!routingRules.value.length) {
@@ -253,6 +252,7 @@ async function fetchRuleInformation(routingRuleId: string) {
   selectedRoutingRule.value = routingRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
   await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
 
+  inventoryRuleConditions.value = JSON.parse(JSON.stringify(ruleConditions.value))
   autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
 
   const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
@@ -458,6 +458,10 @@ function updateOrderFilterValue(event: CustomEvent, conditionTypeEnumId: string,
   orderRoutingFilters.value[conditionTypeEnumId][ruleEnums[id].code].fieldValue = event.detail.value
 }
 
+function updateRuleFilterValue(event: CustomEvent, conditionTypeEnumId: string, id: string) {
+  inventoryRuleConditions.value[conditionTypeEnumId][conditionFilterEnums[id].code].fieldValue = event.detail.value
+}
+
 function doRouteSortReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(Object.values(orderRoutingFilters.value["ENTCT_SORT_BY"])))
 
@@ -517,6 +521,41 @@ async function save() {
     }
   })
 
+  const conditionsToUpdate = [] as any, conditionsToRemove = [] as any, conditionsToCreate = [] as any
+  // const orderRouteFilterTypes = Object.keys(enums.value["CONDITION_TYPE"])
+
+  orderRouteFilterTypes.map((filterType: string) => {
+    if(inventoryRuleConditions.value[filterType]) {
+      Object.keys(inventoryRuleConditions.value[filterType]).map((key: string) => {
+        if(ruleConditions.value[filterType]?.[key]) {
+          const isSeqChanged = isObjectUpdated(ruleConditions.value[filterType][key], inventoryRuleConditions.value[filterType]?.[key])
+          if(isSeqChanged) {
+            // Expanding object, as when the filter which is updated needs to use the values from original object, but if there is some change in the latest object(like seqNum due to reordering) then needs to override it
+            conditionsToUpdate.push({
+              ...ruleConditions.value[filterType][key],
+              ...inventoryRuleConditions.value[filterType][key]
+            })
+          }
+        } else {
+          // Added check for 0, as when applying safetyStock filter the value can be zero
+          if(filterType === valueRequiredForRouteFilter && (inventoryRuleConditions.value[filterType][key]?.["fieldValue"] || inventoryRuleConditions.value[filterType][key]?.["fieldValue"] == 0)) {
+            conditionsToCreate.push(inventoryRuleConditions.value[filterType][key])
+          } else if(filterType !== valueRequiredForRouteFilter) {
+            conditionsToCreate.push(inventoryRuleConditions.value[filterType][key])
+          }
+        }
+      })
+    }
+
+    if(ruleConditions.value[filterType]) {
+      Object.keys(ruleConditions.value[filterType]).map((key: string) => {
+        if(!inventoryRuleConditions.value[filterType]?.[key]) {
+          conditionsToRemove.push(ruleConditions.value[filterType][key])
+        }
+      })
+    }
+  })
+
   // TODO: add support to update filters
 
   if(filtersToCreate.length) {
@@ -525,6 +564,16 @@ async function save() {
 
   if(filtersToRemove.length) {
     await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+  }
+
+  // TODO: add support to update conditions
+
+  if(conditionsToCreate.length) {
+    await store.dispatch("orderRouting/createRuleConditions", { conditions: conditionsToCreate, routingRuleId: selectedRoutingRule.value.routingRuleId })
+  }
+
+  if(conditionsToRemove.length) {
+    await store.dispatch("orderRouting/deleteRuleConditions", { conditions: conditionsToRemove, routingRuleId: selectedRoutingRule.value.routingRuleId })
   }
 }
 </script>

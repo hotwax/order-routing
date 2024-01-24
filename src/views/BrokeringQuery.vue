@@ -71,7 +71,7 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group :disabled="false">
-              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId" @click="fetchRuleInformation(rule.routingRuleId)" button>
+              <ion-item v-for="rule in routingRules" :key="rule.routingRuleId && routingRules.length" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="routingRules.length > 1" />
@@ -226,7 +226,7 @@ const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const autoCancelDays = ref(0)
 const ruleActionType = ref('')
 let orderRoutingFilters = ref({}) as any
-let selectedRoutingRule = reactive({}) as Rule
+let selectedRoutingRule = ref({}) as any
 
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRoutingRules"])
@@ -250,11 +250,12 @@ onIonViewWillEnter(async () => {
 
 async function fetchRuleInformation(routingRuleId: string) {
   // When clicking the same enum again do not fetch its information
-  if(selectedRoutingRule.routingRuleId === routingRuleId) {
+  // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
+  if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
     return;
   }
 
-  selectedRoutingRule = routingRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
+  selectedRoutingRule.value = routingRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
   await Promise.all([store.dispatch("orderRouting/fetchRuleConditions", routingRuleId), store.dispatch("orderRouting/fetchRuleActions", routingRuleId)])
 
   autoCancelDays.value = ruleActions.value[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue
@@ -315,7 +316,8 @@ async function addInventoryRule() {
 
   newRuleAlert.onDidDismiss().then(async (result: any) => {
     const ruleName = result.data?.values?.ruleName;
-    if(ruleName) {
+    // Considering that when having role in result, its negative action and not need to do anything
+    if(!result.role && ruleName) {
       // TODO: check for the default value of params
       const payload = {
         routingRuleId: "",
@@ -327,7 +329,7 @@ async function addInventoryRule() {
         fulfillEntireShipGroup: "N",  // TODO: check for default value
       }
 
-      const resp = await OrderRoutingService.createRoutingRule(payload)
+      const resp = await store.dispatch("orderRouting/createRoutingRule", payload)
       if(resp.routingRuleId) {
         fetchRuleInformation(resp.routingRuleId)
       }
@@ -390,7 +392,7 @@ async function updateAutoCancelDays(cancelDays: any) {
 }
 
 function updatePartialAllocation(event: CustomEvent) {
-  selectedRoutingRule.assignmentEnumId = event ? "ORA_MULTI" : "ORA_SINGLE"
+  selectedRoutingRule.value.assignmentEnumId = event ? "ORA_MULTI" : "ORA_SINGLE"
 }
 
 function getRouteFilterValue(parameter: string) {

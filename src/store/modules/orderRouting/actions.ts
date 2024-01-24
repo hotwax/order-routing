@@ -257,19 +257,20 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp?.data.routingRuleId) {
         routingRuleId = resp.data.routingRuleId
+        // Use the routingRuleId received in response, as we are passing empty routingRuleId in request
         routingRules.push({
           ...payload,
           routingRuleId
         })
         showToast('New Inventory Rule Created')
-      }
 
-      // Sort the routings and update the state only on success
-      if(routingRules.length) {
-        routingRules = sortSequence(routingRules)
-      }
+        // Sort the routings and update the state only on success
+        if(routingRules.length) {
+          routingRules = sortSequence(routingRules)
+        }
 
-      commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+        commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+      }
     } catch(err) {
       showToast("Failed to create rule")
       logger.error('err', err)

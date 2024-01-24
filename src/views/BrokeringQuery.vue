@@ -84,6 +84,12 @@
           </ion-button>
         </div>
         <div>
+          <ion-item lines="none">
+            <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
+            <ion-label>{{ "Rule Status" }}</ion-label>
+            <ion-badge v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ selectedRoutingRule.statusId }}</ion-badge>
+            <ion-badge v-else>{{ selectedRoutingRule.statusId }}</ion-badge>
+          </ion-item>
           <section class="filters">
             <ion-card>
               <ion-item>
@@ -200,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
@@ -478,6 +484,14 @@ function updateOrderFilterValue(event: CustomEvent, conditionTypeEnumId: string,
 
 function updateRuleFilterValue(event: CustomEvent, conditionTypeEnumId: string, id: string) {
   inventoryRuleConditions.value[conditionTypeEnumId][conditionFilterEnums[id].code].fieldValue = event.detail.value
+}
+
+function updateRuleStatus(routingRuleId: string, statusId: string) {
+  inventoryRules.value.map((inventoryRule: any) => {
+    if(inventoryRule.routingRuleId === routingRuleId) {
+      inventoryRule.statusId = statusId
+    }
+  })
 }
 
 function doRouteSortReorder(event: CustomEvent) {

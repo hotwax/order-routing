@@ -280,7 +280,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchRoutingFilters({ commit }, orderRoutingId) {
-    let routingFilters = [] as any;
+    let routingFilters = {} as any;
     // filter groups on the basis of productStoreId
     const payload = {
       orderRoutingId
@@ -361,7 +361,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {
-    let ruleConditions = [] as any;
+    let ruleConditions = {} as any;
     // filter groups on the basis of productStoreId
     const payload = {
       routingRuleId
@@ -371,12 +371,28 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.fetchRuleConditions(payload);
 
       if(!hasError(resp) && resp.data.length) {
-        ruleConditions = resp.data
+        ruleConditions = resp.data.reduce((conditions: any, condition: any) => {
+          if(conditions[condition.conditionTypeEnumId]) {
+            conditions[condition.conditionTypeEnumId][condition.fieldName] = condition
+          } else {
+            conditions[condition.conditionTypeEnumId] = {
+              [condition.fieldName]: condition
+            }
+          }
+          return conditions
+        }, {})
       } else {
         throw resp.data
       }
     } catch(err) {
       logger.error(err);
+    }
+
+    const sortEnum = "ENTCT_SORT_BY"
+
+    // As we only need to add support of reordering for sortBy filter
+    if(ruleConditions[sortEnum]?.length) {
+      ruleConditions[sortEnum] = sortSequence(ruleConditions[sortEnum])
     }
 
     commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)

@@ -95,12 +95,12 @@
               </ion-item>
               <p class="empty-state" v-if="!inventoryRuleConditions['ENTCT_FILTER'] || !Object.keys(inventoryRuleConditions['ENTCT_FILTER']).length">{{ "Select filter to apply" }}</p>
               <ion-item v-if="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP')">
-                <ion-select interface="popover" label="Group" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP')" @ionChange="updateRuleFilterValue($event, 'ENTCT_FILTER', 'FACILITY_GROUP')">
+                <ion-select interface="popover" label="Group" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'ENTCT_FILTER', 'FACILITY_GROUP')">
                   <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.description || facilityGroupId }}</ion-select-option>
                 </ion-select>
               </ion-item>
               <ion-item v-if="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY')">
-                <ion-select label="Proximity" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY')">
+                <ion-select label="Proximity" :value="getFilterValue(inventoryRuleConditions, conditionFilterEnums, 'PROXIMITY').fieldValue">
                   <!-- TODO: add support to select measurement system, by default its in miles -->
                   <!-- TODO: Confirm on the possible options -->
                   <ion-select-option value="Zone 1">{{ "Zone 1" }}</ion-select-option>

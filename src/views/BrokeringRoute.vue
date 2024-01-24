@@ -59,7 +59,7 @@
                 {{ isDescUpdating ? "Save" : "Edit" }}
               </ion-button>
             </ion-item>
-            <ion-item lines="none">
+            <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
               <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
               <ion-label v-else>{{ description }}</ion-label>
             </ion-item>
@@ -206,10 +206,11 @@ function getArchivedOrderRoutings() {
 }
 
 async function updateGroupDescription() {
-  if(description.value && props.routingGroupId) {
+  // Do not update description, if the desc is unchanged, we do not have routingGroupId, and description is leaft empty
+  if(description.value && props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
     await store.dispatch("orderRouting/updateRoutingGroup", { routingGroupId: props.routingGroupId, fieldToUpdate: 'description', value: description.value })
-    isDescUpdating.value = false
   }
+  isDescUpdating.value = false
 }
 
 function findRoutingsDiff(previousSeq: any, updatedSeq: any) {

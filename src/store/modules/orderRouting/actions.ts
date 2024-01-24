@@ -257,19 +257,20 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp?.data.routingRuleId) {
         routingRuleId = resp.data.routingRuleId
+        // Use the routingRuleId received in response, as we are passing empty routingRuleId in request
         routingRules.push({
           ...payload,
           routingRuleId
         })
         showToast('New Inventory Rule Created')
-      }
 
-      // Sort the routings and update the state only on success
-      if(routingRules.length) {
-        routingRules = sortSequence(routingRules)
-      }
+        // Sort the routings and update the state only on success
+        if(routingRules.length) {
+          routingRules = sortSequence(routingRules)
+        }
 
-      commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+        commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+      }
     } catch(err) {
       showToast("Failed to create rule")
       logger.error('err', err)
@@ -279,7 +280,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchRoutingFilters({ commit }, orderRoutingId) {
-    let routingFilters = [] as any;
+    let routingFilters = {} as any;
     // filter groups on the basis of productStoreId
     const payload = {
       orderRoutingId
@@ -326,7 +327,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           conditionSeqId: filter.conditionSeqId
         });
         if(hasError(resp) || !resp.data.orderRoutingId) {
-          hasAllFiltersDeletedSuccessfully = true
+          hasAllFiltersDeletedSuccessfully = false
         }
       });
     } catch(err) {
@@ -339,7 +340,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async createRoutingFilters({ dispatch }, payload) {
-    // TODO: check if we can call request in parallel for delete operation
+    // TODO: check if we can call request in parallel for create operation
     let hasAllFiltersCreatedSuccessfully = true;
     try {
       await payload.filters.forEach(async (filter: any) => {
@@ -348,7 +349,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           ...filter
         });
         if(hasError(resp) || !resp.data.orderRoutingId) {
-          hasAllFiltersCreatedSuccessfully = true
+          hasAllFiltersCreatedSuccessfully = false
         }
       });
     } catch(err) {
@@ -360,7 +361,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {
-    let ruleConditions = [] as any;
+    let ruleConditions = {} as any;
     // filter groups on the basis of productStoreId
     const payload = {
       routingRuleId
@@ -370,7 +371,16 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.fetchRuleConditions(payload);
 
       if(!hasError(resp) && resp.data.length) {
-        ruleConditions = resp.data
+        ruleConditions = resp.data.reduce((conditions: any, condition: any) => {
+          if(conditions[condition.conditionTypeEnumId]) {
+            conditions[condition.conditionTypeEnumId][condition.fieldName] = condition
+          } else {
+            conditions[condition.conditionTypeEnumId] = {
+              [condition.fieldName]: condition
+            }
+          }
+          return conditions
+        }, {})
       } else {
         throw resp.data
       }
@@ -378,7 +388,57 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
+    const sortEnum = "ENTCT_SORT_BY"
+
+    // As we only need to add support of reordering for sortBy filter
+    if(ruleConditions[sortEnum]?.length) {
+      ruleConditions[sortEnum] = sortSequence(ruleConditions[sortEnum])
+    }
+
     commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
+  },
+
+  async deleteRuleConditions({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllConditionsDeletedSuccessfully = true;
+    try {
+      await payload.conditions.forEach(async (condition: any) => {
+        const resp = await OrderRoutingService.deleteRuleCondition({
+          routingRuleId: payload.routingRuleId,
+          conditionSeqId: condition.conditionSeqId
+        });
+        if(hasError(resp) || !resp.data.conditionSeqId) {
+          hasAllConditionsDeletedSuccessfully = false
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    dispatch("fetchRuleConditions", payload.routingRuleId)
+
+    return hasAllConditionsDeletedSuccessfully
+  },
+
+  async createRuleConditions({ dispatch }, payload) {
+    let hasAllConditionsCreatedSuccessfully = true;
+    try {
+      await payload.conditions.forEach(async (condition: any) => {
+        const resp = await OrderRoutingService.createRuleCondition({
+          routingRuleId: payload.routingRuleId,
+          ...condition
+        });
+        if(!hasError(resp) || !resp.data.conditionSeqId) {
+          hasAllConditionsCreatedSuccessfully = false
+        }
+      });
+    } catch(err) {
+      logger.error(err);
+    }
+
+    // TODO: check if we can call the action only once after all the operations are success
+    dispatch("fetchRuleConditions", payload.routingRuleId)
+    return hasAllConditionsCreatedSuccessfully
   },
 
   async fetchRuleActions({ commit }, routingRuleId) {

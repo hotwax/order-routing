@@ -82,7 +82,7 @@ const fetchRoutingRules = async (payload: any): Promise<any> => {
 
 const fetchRoutingFilters = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    url: `routings/${payload.orderRoutingId}/orderFilters`,
     method: "GET",
     query: payload
   });
@@ -90,7 +90,7 @@ const fetchRoutingFilters = async (payload: any): Promise<any> => {
 
 const updateRoutingFilter = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    url: `routings/${payload.orderRoutingId}/orderFilters`,
     method: "POST",
     data: payload
   });
@@ -98,7 +98,7 @@ const updateRoutingFilter = async (payload: any): Promise<any> => {
 
 const deleteRoutingFilter = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/filter-conditions`,
+    url: `routings/${payload.orderRoutingId}/orderFilters`,
     method: "DELETE",
     data: payload
   });
@@ -106,9 +106,25 @@ const deleteRoutingFilter = async (payload: any): Promise<any> => {
 
 const fetchRuleConditions = async (payload: any): Promise<any> => {
   return api({
-    url: `rules/${payload.routingRuleId}/condition`,
+    url: `rules/${payload.routingRuleId}/inventoryFilters`,
     method: "GET",
     query: payload
+  });
+}
+
+const createRuleCondition = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/inventoryFilters`,
+    method: "POST",
+    data: payload
+  });
+}
+
+const deleteRuleCondition = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/inventoryFilters`,
+    method: "DELETE",
+    data: payload
   });
 }
 
@@ -124,7 +140,9 @@ export const OrderRoutingService = {
   createOrderRouting,
   createRoutingGroup,
   createRoutingRule,
+  createRuleCondition,
   deleteRoutingFilter,
+  deleteRuleCondition,
   fetchOrderRouting,
   fetchOrderRoutings,
   fetchRoutingFilters,

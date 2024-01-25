@@ -72,21 +72,25 @@
                 </ion-card-title>
               </ion-card-header>
               <ion-item>
-                <ion-icon slot="start" :icon="timeOutline"/>
-                <ion-label>{{ "Run time" }}</ion-label>
-                <!-- <ion-label slot="end">{{ currentRoutingGroup.runTime || "-" }}</ion-label> -->
-              </ion-item>
-              <ion-item>
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <ion-label>{{ "Schedule" }}</ion-label>
-                <!-- <ion-label slot="end">{{ currentRoutingGroup.frequency || "-" }}</ion-label> -->
+                <ion-select label="Schedule" interface="popover" :placeholder="$t('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
+                  <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
+                </ion-select>
               </ion-item>
             </ion-card>
+            <div class="actions desktop-only">
+              <div>
+                <ion-button size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
+              </div>
+              <div>
+                <ion-button size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
+              </div>
+            </div>
             <ion-item>
-              {{ `Created at ${currentRoutingGroup.createdDate || "-"}` }}
+              {{ `Created at ${getTime(currentRoutingGroup.createdDate)}` }}
             </ion-item>
             <ion-item>
-              {{ `Updated at ${currentRoutingGroup.lastUpdatedStamp || "-"}` }}
+              {{ `Updated at ${getTime(currentRoutingGroup.lastUpdatedStamp)}` }}
             </ion-item>
           </aside>
         </section>
@@ -101,14 +105,18 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, onMounted, ref } from "vue";
+import { computed, defineProps, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import emitter from "@/event-bus";
+import { OrderRoutingService } from "@/services/RoutingService";
+import logger from "@/logger";
+import { DateTime } from "luxon";
+import { hasError, showToast } from "@/utils";
 
 const router = useRouter();
 const store = useStore();
@@ -120,19 +128,24 @@ const props = defineProps({
 })
 
 const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as string)
+const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
 let routingsToUpdate = ref([])
 let initialRoutingsOrder = ref([])
 let routingsForReorder = ref([])
 let description = ref('')
 let isDescUpdating = ref(false)
 
-const currentRoutingGroup = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
+let job = ref({}) as any
+
+const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const orderRoutings = computed(() => store.getters["orderRouting/getOrderRoutings"])
 
 onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("orderRouting/fetchOrderRoutings", props.routingGroupId), store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)])
 
   initializeOrderRoutings();
+
+  job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
 
   description.value = currentRoutingGroup.value.description ? currentRoutingGroup.value.description : "No description available"
   emitter.on("initializeOrderRoutings", initializeOrderRoutings)
@@ -142,9 +155,54 @@ onIonViewWillLeave(() => {
   emitter.off("initializeOrderRoutings", initializeOrderRoutings)
 })
 
+function updateCronExpression(event: CustomEvent) {
+  job.value.cronExpression = event.detail.value
+}
+
+function getTime(time: any) {
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : '-';
+}
+
 function initializeOrderRoutings() {
   initialRoutingsOrder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
+}
+
+async function saveChanges() {
+  if(!job.value.cronExpression) {
+    logger.error('Please select an expression before proceeding')
+  }
+
+  const payload = {
+    routingGroupId: props.routingGroupId,
+    paused: "N",  // considering job in active status as soon as scheduled
+    ...job.value
+  }
+
+  try {
+    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    if(!hasError(resp)){
+      showToast("Job updated")
+    }
+  } catch(err) {
+    logger.error(err)
+  }
+}
+
+async function disable() {
+  const payload = {
+    routingGroupId: props.routingGroupId,
+    paused: "Y"  // setting Y to disable the job
+  }
+
+  try {
+    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    if(!hasError(resp)){
+      showToast("Job disabled")
+    }
+  } catch(err) {
+    logger.error(err)
+  }
 }
 
 async function redirect(orderRouting: Route) {
@@ -280,5 +338,23 @@ ion-content > div > div {
   flex-direction: column;
   justify-content: space-between;
   border-right: 1px solid #92949C;
+}
+
+ion-modal.date-time-modal {
+  --width: 290px;
+  --height: 440px;
+  --border-radius: 8px;
+}
+
+.actions > ion-button {
+  margin: var(--spacer-sm);
+}
+
+@media (min-width: 991px) {
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    margin: var(--spacer-base) var(--spacer-sm) var(--spacer-base);
+  }
 }
 </style>

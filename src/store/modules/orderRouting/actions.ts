@@ -50,40 +50,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
   },
 
-  async updateRoutingGroup({ commit, state }, payload) {
-    const current = JSON.parse(JSON.stringify(state.currentGroup))
-
-    const params = {
-      routingGroupId: payload.routingGroupId,
-      [payload.fieldToUpdate]: payload.value
-    }
+  async fetchCurrentRoutingGroup({ commit }, routingGroupId) {
+    let currentGroup = {} as any
 
     try {
-      const resp = await OrderRoutingService.updateRoutingGroup(params);
-
-      if(!hasError(resp) && resp.data.routingGroupId) {
-        current[payload.fieldToUpdate] = payload.value
-        showToast("Rounting group information updated")
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, current)
-  },
-
-  async fetchCurrentRoutingGroup({ dispatch, state }, routingGroupId) {
-    const current = state.currentGroup
-    if(current.routingGroupId && current.routingGroupId === routingGroupId) {
-      dispatch("setCurrentRoutingGroup", current)
-      return;
-    }
-
-    let currentGroup = {}
-
-    try {
-      const resp = await OrderRoutingService.fetchRoutingGroup(routingGroupId);
+      const resp = await OrderRoutingService.fetchRoutingGroupInformation(routingGroupId);
 
       if(!hasError(resp) && resp.data) {
         currentGroup = resp.data
@@ -94,41 +65,15 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    dispatch("setCurrentRoutingGroup", currentGroup)
-  },
-
-  async setCurrentRoutingGroup({ commit }, payload) {
-    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, payload)
-  },
-
-  async fetchOrderRoutings({ commit }, routingGroupId) {
-    let orderRoutings = [] as any;
-    // filter groups on the basis of productStoreId
-    const payload = {
-      routingGroupId
+    if(currentGroup.routings.length) {
+      currentGroup.routings = sortSequence(currentGroup.routings)
     }
 
-    try {
-      const resp = await OrderRoutingService.fetchOrderRoutings(payload);
-
-      if(!hasError(resp) && resp.data.length) {
-        orderRoutings = resp.data
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-
-    if(orderRoutings.length) {
-      orderRoutings = sortSequence(orderRoutings)
-    }
-
-    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
   },
 
-  async createOrderRouting({ commit, state }, payload) {
-    let orderRoutings = JSON.parse(JSON.stringify(state.routes))
+  async createOrderRouting({ dispatch, state }, payload) {
+    const currentGroup = JSON.parse(JSON.stringify(state.currentGroup))
     let orderRoutingId = ''
 
     try {
@@ -136,19 +81,18 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp?.data.orderRoutingId) {
         orderRoutingId = resp.data.orderRoutingId
-        orderRoutings.push({
+        currentGroup["routings"].push({
           ...payload,
           orderRoutingId
         })
-        showToast('New Order Routing Created')
+        showToast('New routing created')
       }
 
-      // Sort the routings and update the state only on success
-      if(orderRoutings.length) {
-        orderRoutings = sortSequence(orderRoutings)
+      if(currentGroup["routings"].length) {
+        currentGroup["routings"] = sortSequence(currentGroup["routings"])
       }
 
-      commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
+      await dispatch("setCurrentGroup", currentGroup)
     } catch(err) {
       showToast("Failed to create order routing")
       logger.error('err', err)
@@ -157,41 +101,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId;
   },
 
-  async updateOrderRouting({ commit, state }, payload) {
-    let orderRoutings = JSON.parse(JSON.stringify(state.routes))
-    const field: Route[keyof Route] = payload.fieldToUpdate
-    let orderRoutingId = ''
-
-    const params = {
-      orderRoutingId: payload.orderRoutingId,
-      [field]: payload.value  // only one field can be updated once for orderRouting
-    }
-
-    try {
-      const resp = await OrderRoutingService.updateOrderRouting(params);
-
-      if(!hasError(resp) && resp.data.orderRoutingId) {
-        orderRoutingId = resp.data.orderRoutingId
-        orderRoutings.map((routing: Route) => {
-          if(routing.orderRoutingId === orderRoutingId) {
-            routing[field] = payload.value
-          }
-        })
-        showToast("Order routing information updated")
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      showToast("Failed to update order routing")
-      logger.error(err);
-    }
-
-    if(orderRoutings.length) {
-      orderRoutings = sortSequence(orderRoutings)
-    }
-
-    commit(types.ORDER_ROUTINGS_UPDATED, orderRoutings)
-    return orderRoutingId;
+  async setCurrentGroup({ commit }, currentGroup) {
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
   },
 
   async fetchCurrentOrderRouting({ dispatch, state }, orderRoutingId) {

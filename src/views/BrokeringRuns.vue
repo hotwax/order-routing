@@ -87,7 +87,6 @@ async function addNewRun() {
 }
 
 async function redirect(group: Group) {
-  await store.dispatch('orderRouting/setCurrentRoutingGroup', group)
   router.push(`brokering/${group.routingGroupId}/routes`)
 }
 

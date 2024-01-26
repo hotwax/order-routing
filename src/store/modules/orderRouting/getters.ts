@@ -6,9 +6,6 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   getRoutingGroups(state) {
     return state.groups
   },
-  getOrderRoutings(state) {
-    return state.routes
-  },
   getRoutingRules(state) {
     return JSON.parse(JSON.stringify(state.rules))
   },

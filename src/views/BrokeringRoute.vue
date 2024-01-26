@@ -96,7 +96,7 @@
         </section>
       </div>
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button @click="saveRoutingGroup">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -105,9 +105,9 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
-import { useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";
 import { Group, Route } from "@/types";
@@ -131,6 +131,7 @@ const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as stri
 let routingsForReorder = ref([])
 let description = ref('')
 let isDescUpdating = ref(false)
+let hasUnsavedChanges = ref(false)
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
@@ -146,6 +147,36 @@ onIonViewWillEnter(async () => {
   description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : "No description available"
   
   initializeOrderRoutings();
+})
+
+onBeforeRouteLeave(async (to) => {
+  if(to.path === '/login') return;
+  let canLeave = false;
+
+  const alert = await alertController.create({
+    header: "Leave page",
+    message: "Any edits made on this page will be lost.",
+    buttons: [
+      {
+        text: "STAY",
+        handler: () => {
+          canLeave = false;
+        },
+      },
+      {
+        text: "LEAVE",
+        handler: () => {
+          canLeave = true;
+        },
+      },
+    ],
+  });
+
+  if(hasUnsavedChanges.value) {
+    alert.present();
+    await alert.onDidDismiss();
+    return canLeave;
+  }
 })
 
 function updateCronExpression(event: CustomEvent) {
@@ -232,7 +263,8 @@ async function createOrderRoute() {
         statusId: "ROUTING_DRAFT",
         routingName,
         sequenceNum: orderRoutings.value.length && orderRoutings.value[orderRoutings.value.length - 1].sequenceNum >= 0 ? orderRoutings.value[orderRoutings.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new route seqNum to 0, also considering archivedRouting when calculating new seqNum
-        description: ""
+        description: "",
+        createdDate: DateTime.now().toMillis()
       }
 
       const orderRoutingId = await store.dispatch("orderRouting/createOrderRouting", payload)
@@ -257,7 +289,6 @@ function getArchivedOrderRoutings() {
 }
 
 async function updateGroupDescription() {
-  console.log('updateGroupDescription', description.value, currentRoutingGroup.value.description)
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId, and description is left empty
   if(description.value && props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentEComStore.value.productStoreId, description: description.value })
@@ -295,6 +326,8 @@ function doReorder(event: CustomEvent) {
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   routingsForReorder.value = updatedSeq
   orderRoutings.value = sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
+  // considering that when reordering there are some changes in the order of routes
+  hasUnsavedChanges.value = true
 }
 
 async function openArchivedRoutingModal() {
@@ -305,6 +338,7 @@ async function openArchivedRoutingModal() {
 
   archivedRoutingModal.onDidDismiss().then((result: any) => {
     if(result.data?.routings?.length) {
+      hasUnsavedChanges.value = true
       orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(result.data?.routings))
     }
     initializeOrderRoutings()
@@ -319,7 +353,7 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
       route[fieldToUpdate] = value
     }
   })
-
+  hasUnsavedChanges.value = true
   initializeOrderRoutings()
 }
 
@@ -336,6 +370,12 @@ async function saveRoutingGroup() {
   }, {})
 
   const diff = findRoutingsDiff(initialRoutings, finalRoutings)
+
+  // If there is no diff in the routing order then do not make any api call and update hasUnsavedChanges values as we have made its value to true on calling of doReorder function
+  if(!Object.keys(diff).length) {
+    hasUnsavedChanges.value = false
+    return;
+  }
 
   const routings = Object.values(diff).map((routing: any) => {
     return {
@@ -355,6 +395,7 @@ async function saveRoutingGroup() {
 
   const routingGroupId = await updateRoutingGroup(payload)
   if(routingGroupId) {
+    hasUnsavedChanges.value = false
     await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, routings: orderRoutings.value })
   }
 }
@@ -371,6 +412,7 @@ async function updateRoutingGroup(payload: any) {
       throw resp.data
     }
   } catch(err) {
+    showToast("Failed to update group information")
     logger.error(err);
   }
 

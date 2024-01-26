@@ -5,7 +5,7 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { Route, RouteFilter } from "@/types"
+import { RouteFilter } from "@/types"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {

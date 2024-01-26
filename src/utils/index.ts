@@ -2,6 +2,7 @@ import saveAs from "file-saver";
 import { toastController } from "@ionic/vue";
 import Papa from "papaparse"
 import { Group, Route, Rule } from "@/types";
+import { DateTime } from "luxon";
 
 // TODO Use separate files for specific utilities
 
@@ -124,4 +125,8 @@ const sortSequence = (sequence: Array<Group | Route | Rule>) => {
   return sequence.sort((a, b) => a.sequenceNum - b.sequenceNum)
 }
 
-export { showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }
+const getTime = (time: any) => {
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : '-';
+}
+
+export { getTime, showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }

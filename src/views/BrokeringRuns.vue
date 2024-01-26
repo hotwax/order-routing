@@ -30,10 +30,10 @@
               <ion-label slot="end">{{ group.runTime ? group.runTime : "-" }}</ion-label>
             </ion-item>
             <ion-item>
-              {{ group.createdDate ? group.createdDate : "-" }}
+              {{ getTime(group.createdDate) }}
             </ion-item>
-            <ion-item>
-              {{ group.lastUpdatedStamp ? group.lastUpdatedStamp : "-" }}
+            <ion-item lines="none">
+              {{ getTime(group.lastUpdatedStamp) }}
             </ion-item>
           </ion-card>
         </section>
@@ -47,6 +47,7 @@
 
 <script setup lang="ts">
 import { Group } from "@/types";
+import { getTime, showToast } from "@/utils";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { computed } from "vue";
@@ -69,7 +70,13 @@ async function addNewRun() {
       text: "Cancel",
       role: "cancel"
     }, {
-      text: "Save"
+      text: "Save",
+      handler: (data) => {
+        if(!data.runName?.trim().length) {
+          showToast("Please enter a valid name")
+          return false;
+        }
+      }
     }],
     inputs: [{
       name: "runName",
@@ -78,8 +85,13 @@ async function addNewRun() {
   })
 
   newRunAlert.onDidDismiss().then((result: any) => {
-    if(result.data?.values?.runName) {
-      store.dispatch('orderRouting/createRoutingGroup', result.data.values.runName)
+    // considering that if we have role, then its negative action and thus not need to create run
+    if(result.role) {
+      return;
+    }
+
+    if(result.data?.values?.runName.trim()) {
+      store.dispatch('orderRouting/createRoutingGroup', result.data.values.runName.trim())
     }
   })
 

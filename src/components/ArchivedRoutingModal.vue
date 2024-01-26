@@ -51,7 +51,7 @@ let routings = ref(props.archivedRoutings) as any
 let routingsToUpdate = ref([]) as any
 
 function closeModal() {
-  modalController.dismiss({ dismissed: true, routings: routingsToUpdate.value.concat(routings.value) });
+  modalController.dismiss({ dismissed: true, routings: routingsToUpdate.value.length ? routingsToUpdate.value.concat(routings.value) : [] });
 }
 
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {

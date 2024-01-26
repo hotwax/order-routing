@@ -67,7 +67,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       logger.error(err);
     }
 
-    if(currentGroup.routings.length) {
+    if(currentGroup.routings?.length) {
       currentGroup.routings = sortSequence(currentGroup.routings)
     }
 
@@ -83,10 +83,18 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp?.data.orderRoutingId) {
         orderRoutingId = resp.data.orderRoutingId
-        currentGroup["routings"].push({
-          ...payload,
-          orderRoutingId
-        })
+        // Added check, as when there is no routing we need to create the key as well, but if routings already exist then we just need to push the value
+        if(currentGroup["routings"]) {
+          currentGroup["routings"].push({
+            ...payload,
+            orderRoutingId
+          })
+        } else {
+          currentGroup["routings"] = [{
+            ...payload,
+            orderRoutingId
+          }]
+        }
         showToast('New routing created')
       }
 

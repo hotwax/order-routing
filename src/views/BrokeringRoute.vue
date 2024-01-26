@@ -115,7 +115,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, showToast, sortSequence } from "@/utils";
+import { hasError, getTime, showToast, sortSequence } from "@/utils";
 
 const router = useRouter();
 const store = useStore();
@@ -129,7 +129,7 @@ const props = defineProps({
 const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as string)
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
 let routingsForReorder = ref([])
-let description = ref('')
+let description = ref("")
 let isDescUpdating = ref(false)
 let hasUnsavedChanges = ref(false)
 
@@ -143,10 +143,12 @@ onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
-  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : {}
-  description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : "No description available"
+  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+  description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
   
-  initializeOrderRoutings();
+  if(orderRoutings.value.length) {
+    initializeOrderRoutings();
+  }
 })
 
 onBeforeRouteLeave(async (to) => {
@@ -181,10 +183,6 @@ onBeforeRouteLeave(async (to) => {
 
 function updateCronExpression(event: CustomEvent) {
   job.value.cronExpression = event.detail.value
-}
-
-function getTime(time: any) {
-  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : '-';
 }
 
 function initializeOrderRoutings() {
@@ -271,7 +269,7 @@ async function createOrderRoute() {
 
       // update the routing order for reordering and the cloned updated routings again
       if(orderRoutingId) {
-        orderRoutings.value = JSON.parse(JSON.stringify(currentRoutingGroup.value["routings"]))
+        orderRoutings.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
         initializeOrderRoutings();
       }
     }
@@ -290,7 +288,7 @@ function getArchivedOrderRoutings() {
 
 async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId, and description is left empty
-  if(description.value && props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
+  if(props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentEComStore.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
@@ -396,7 +394,7 @@ async function saveRoutingGroup() {
   const routingGroupId = await updateRoutingGroup(payload)
   if(routingGroupId) {
     hasUnsavedChanges.value = false
-    await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, routings: orderRoutings.value })
+    await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
   }
 }
 

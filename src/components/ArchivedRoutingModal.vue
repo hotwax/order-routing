@@ -24,7 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import emitter from "@/event-bus";
 import { Route } from "@/types";
 import {
   IonButton,
@@ -41,26 +40,26 @@ import {
 } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import { defineProps, ref } from "vue";
-import { useStore } from "vuex";
 
-const store = useStore()
 const props = defineProps({
   archivedRoutings: {
     required: true
   }
 })
 
-let routings = ref(props.archivedRoutings)
+let routings = ref(props.archivedRoutings) as any
+let routingsToUpdate = ref([]) as any
 
 function closeModal() {
-  modalController.dismiss({ dismissed: true });
+  modalController.dismiss({ dismissed: true, routings: routingsToUpdate.value.concat(routings.value) });
 }
 
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {
-  const orderRoutingId = await store.dispatch("orderRouting/updateOrderRouting", { orderRoutingId: routing.orderRoutingId, fieldToUpdate, value })
-  if(orderRoutingId) {
-    routings.value = (routings.value as any).filter((routing: Route) => routing.orderRoutingId !== orderRoutingId)
-    emitter.emit("initializeOrderRoutings")
-  }
+  routingsToUpdate.value.push({
+    ...routing,
+    [fieldToUpdate]: value
+  })
+  // remove the updated routing from the archivedRoutings
+  routings.value = routings.value.filter((route: Route) => route.orderRoutingId !== routing.orderRoutingId)
 }
 </script>

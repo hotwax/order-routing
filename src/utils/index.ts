@@ -119,6 +119,8 @@ const jsonToCsv = (file: any, options: JsonToCsvOption = {}) => {
 }
 
 const sortSequence = (sequence: Array<Group | Route | Rule>) => {
+  // Currently, sorting is only performed on sequenceNum, so if two seqence have same seqNum then they will be arranged in FCFS basis
+  // TODO: Need to check that if for the above case we need to define the sorting on name as well, when seqNum is same
   return sequence.sort((a, b) => a.sequenceNum - b.sequenceNum)
 }
 

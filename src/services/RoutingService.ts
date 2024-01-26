@@ -8,7 +8,7 @@ const fetchRoutingGroups = async (payload: any): Promise<any> => {
   });
 }
 
-const fetchRoutingGroup = async (routingGroupId: string): Promise<any> => {
+const fetchRoutingGroupInformation = async (routingGroupId: string): Promise<any> => {
   return api({
     url: `groups/${routingGroupId}`,
     method: "GET"
@@ -29,14 +29,6 @@ const updateRoutingGroup = async (payload: any): Promise<any> => {
     method: "POST",
     data: payload
   })
-}
-
-const fetchOrderRoutings = async (payload: any): Promise<any> => {
-  return api({
-    url: `groups/${payload.routingGroupId}/routings`,
-    method: "GET",
-    query: payload
-  });
 }
 
 const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
@@ -150,9 +142,8 @@ export const OrderRoutingService = {
   deleteRoutingFilter,
   deleteRuleCondition,
   fetchOrderRouting,
-  fetchOrderRoutings,
   fetchRoutingFilters,
-  fetchRoutingGroup,
+  fetchRoutingGroupInformation,
   fetchRoutingGroups,
   fetchRoutingRules,
   fetchRuleActions,

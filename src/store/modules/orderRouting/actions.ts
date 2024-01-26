@@ -6,6 +6,7 @@ import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
 import { RouteFilter } from "@/types"
+import { DateTime } from "luxon"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -35,7 +36,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   async createRoutingGroup({ dispatch }, groupName) {
     const payload = {
       groupName,
-      productStoreId: "STORE"
+      productStoreId: "STORE",
+      createdDate: DateTime.now().toMillis()
     }
     try {
       const resp = await OrderRoutingService.createRoutingGroup(payload)

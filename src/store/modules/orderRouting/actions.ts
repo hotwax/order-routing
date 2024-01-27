@@ -115,13 +115,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
   },
 
-  async fetchCurrentOrderRouting({ dispatch, state }, orderRoutingId) {
-    const current = state.currentRoute
-    if(current.orderRoutingId && current.orderRoutingId === orderRoutingId) {
-      dispatch("setCurrentOrderRouting", current)
-      return;
-    }
-
+  async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
     let currentRoute = {}
 
     try {
@@ -239,9 +233,9 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async deleteRoutingFilters({ dispatch }, payload) {
-    // TODO: check if we can call request in parallel for delete operation
     let hasAllFiltersDeletedSuccessfully = true;
     try {
+      // We can't make parallel api calls, as discussed hence using forEach loop to make api calls
       await payload.filters.forEach(async (filter: any) => {
         const resp = await OrderRoutingService.deleteRoutingFilter({
           orderRoutingId: payload.orderRoutingId,

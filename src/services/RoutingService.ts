@@ -78,9 +78,9 @@ const fetchRoutingFilters = async (payload: any): Promise<any> => {
   });
 }
 
-const updateRoutingFilter = async (payload: any): Promise<any> => {
+const updateRouting = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/orderFilters`,
+    url: `routings/${payload.orderRoutingId}`,
     method: "POST",
     data: payload
   });
@@ -150,6 +150,6 @@ export const OrderRoutingService = {
   fetchRuleConditions,
   scheduleBrokering,
   updateOrderRouting,
-  updateRoutingFilter,
+  updateRouting,
   updateRoutingGroup
 }

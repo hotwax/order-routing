@@ -232,7 +232,6 @@ const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS a
 const autoCancelDays = ref(0)
 const ruleActionType = ref('')
 
-let orderRoutingFilters = ref([]) as any
 let orderRoutingFilterOptions = ref({}) as any
 let orderRoutingSortOptions = ref({}) as any
 
@@ -254,7 +253,6 @@ const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
 onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingRules", props.orderRoutingId), store.dispatch("orderRouting/fetchRoutingFilters", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
 
-  orderRoutingFilters.value = JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))
   initializeOrderRoutingOptions()
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
@@ -268,7 +266,7 @@ onIonViewWillEnter(async () => {
 })
 
 function initializeOrderRoutingOptions() {
-  const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(orderRoutingFilters.value))).reduce((filters: any, filter: any) => {
+  const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
       filters[filter.conditionTypeEnumId][filter.fieldName] = filter
     } else {
@@ -279,8 +277,8 @@ function initializeOrderRoutingOptions() {
     return filters
   }, {})
 
-  orderRoutingFilterOptions.value = orderRouteFilters["ENTCT_FILTER"]
-  orderRoutingSortOptions.value = orderRouteFilters["ENTCT_SORT_BY"]
+  orderRoutingFilterOptions.value = orderRouteFilters["ENTCT_FILTER"] ? orderRouteFilters["ENTCT_FILTER"] : {}
+  orderRoutingSortOptions.value = orderRouteFilters["ENTCT_SORT_BY"] ? orderRouteFilters["ENTCT_SORT_BY"] : {}
 }
 
 async function fetchRuleInformation(routingRuleId: string) {
@@ -609,7 +607,8 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
   }, seqToUpdate)
 
   seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key]) {
+    // Added fieldValue check as we have considered that when adding a filter option, it should always have a value
+    if(!previousSeq[key] && updatedSeq[key].fieldValue) {
       diff = {
         ...diff,
         [key]: updatedSeq[key]
@@ -640,11 +639,6 @@ function doReorder(event: CustomEvent) {
   inventoryRules.value = updatedSeq
 }
 
-// checks whether values for all the properties of two objects are same
-function updatedFilters(initialObj: any, finalObj: any) {
-  return !Object.keys(initialObj).every((key: string) => finalObj[key] === initialObj[key]) || Object.keys(initialObj).length !== Object.keys(finalObj).length
-}
-
 async function save() {
   const orderRouting = {
     orderRoutingId: props.orderRoutingId,
@@ -670,12 +664,24 @@ async function save() {
 
   if(filtersToRemove.length) {
     await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+
+    // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
+    // if(isSuccess) {
+    //   await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+    // }
   }
 
   if(filtersToUpdate.length) {
     orderRouting["orderFilters"] = filtersToUpdate
-    await store.dispatch("orderRouting/updateRoutingFilters", orderRouting)
+    const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
+
+    if(orderRoutingId) {
+      await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+    }
   }
+
+  await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  initializeOrderRoutingOptions();
 }
 </script>
 

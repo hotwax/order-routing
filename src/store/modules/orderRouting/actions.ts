@@ -235,8 +235,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   async deleteRoutingFilters({ dispatch }, payload) {
     let hasAllFiltersDeletedSuccessfully = true;
     try {
-      // We can't make parallel api calls, as discussed hence using forEach loop to make api calls
-      await payload.filters.forEach(async (filter: any) => {
+      // As discussed, we can't make parallel api calls, hence using for loop to make api calls
+      for(const filter of payload.filters) {
         const resp = await OrderRoutingService.deleteRoutingFilter({
           orderRoutingId: payload.orderRoutingId,
           conditionSeqId: filter.conditionSeqId
@@ -244,35 +244,26 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         if(hasError(resp) || !resp.data.orderRoutingId) {
           hasAllFiltersDeletedSuccessfully = false
         }
-      });
+      }
     } catch(err) {
       logger.error(err);
     }
-
-    dispatch("fetchRoutingFilters", payload.orderRoutingId)
 
     return hasAllFiltersDeletedSuccessfully
   },
 
-  async createRoutingFilters({ dispatch }, payload) {
-    // TODO: check if we can call request in parallel for create operation
-    let hasAllFiltersCreatedSuccessfully = true;
+  async updateRouting({ dispatch }, payload) {
+    let orderRoutingId = ''
     try {
-      await payload.filters.forEach(async (filter: any) => {
-        const resp = await OrderRoutingService.updateRoutingFilter({
-          orderRoutingId: payload.orderRoutingId,
-          ...filter
-        });
-        if(hasError(resp) || !resp.data.orderRoutingId) {
-          hasAllFiltersCreatedSuccessfully = false
-        }
-      });
+      const resp = await OrderRoutingService.updateRouting(payload)
+      if(!hasError(resp) && resp.data?.orderRoutingId) {
+        orderRoutingId = resp.data.orderRoutingId
+      }
     } catch(err) {
       logger.error(err);
     }
 
-    dispatch("fetchRoutingFilters", payload.orderRoutingId)
-    return hasAllFiltersCreatedSuccessfully
+    return orderRoutingId
   },
 
   async fetchRuleConditions({ commit }, routingRuleId) {

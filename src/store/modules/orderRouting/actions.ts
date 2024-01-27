@@ -137,32 +137,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },
 
-  async fetchRoutingRules({ commit }, orderRoutingId) {
-    let routingRules = [] as any;
-    // filter groups on the basis of productStoreId
-    const payload = {
-      orderRoutingId
-    }
-
-    try {
-      const resp = await OrderRoutingService.fetchRoutingRules(payload);
-
-      if(!hasError(resp) && resp.data.length) {
-        routingRules = resp.data
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-
-    if(routingRules.length) {
-      routingRules = sortSequence(routingRules)
-    }
-
-    commit(types.ORDER_ROUTING_RULES_UPDATED, routingRules)
-  },
-
   async createRoutingRule({ commit, state }, payload) {
     let routingRules = JSON.parse(JSON.stringify(state.rules))
     let routingRuleId = ''
@@ -347,31 +321,47 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return hasAllConditionsCreatedSuccessfully
   },
 
-  async fetchRuleActions({ commit }, routingRuleId) {
-    let ruleActions = {} as any;
-    const payload = {
-      routingRuleId
+  async fetchInventoryRuleInformation({ commit, state }, routingRuleId) {
+    const rulesInformation = JSON.parse(JSON.stringify(state.rules))
+
+    // Do not fetch the rule information if its already available in state. This condition will be false on refresh as state will be cleared so automatically updated information will be fetched
+    if(rulesInformation[routingRuleId]) {
+      return rulesInformation[routingRuleId];
     }
 
     try {
-      const resp = await OrderRoutingService.fetchRuleActions(payload);
+      const resp = await OrderRoutingService.fetchRule(routingRuleId)
 
-      if(!hasError(resp) && resp.data.length) {
-        ruleActions = resp.data.reduce((actions: any, action: any) => {
-          // considering that only one value for an action is available
-          actions[action.actionTypeEnumId] = action
-          return actions
-        }, {})
-      } else {
-        throw resp.data
+      if(!hasError(resp) && resp.data.routingRuleId) {
+        rulesInformation[routingRuleId] = resp.data
+
+        if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
+          rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
+            if(filters[filter.conditionTypeEnumId]) {
+              filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+            } else {
+              filters[filter.conditionTypeEnumId] = {
+                [filter.fieldName]: filter
+              }
+            }
+            return filters
+          }, {})
+        }
+
+        if(rulesInformation[routingRuleId]["actions"]?.length) {
+          rulesInformation[routingRuleId]["actions"] = rulesInformation[routingRuleId]["actions"].reduce((actions: any, action: any) => {
+            actions[action.actionTypeEnumId] = action
+            return actions
+          }, {})
+        }
       }
     } catch(err) {
-      logger.error(err);
+      logger.error(err)
     }
 
-    commit(types.ORDER_ROUTING_RULE_ACTIONS_UPDATED, ruleActions)
-  },
-
+    commit(types.ORDER_ROUTING_RULES_UPDATED, rulesInformation)
+    return JSON.parse(JSON.stringify(rulesInformation[routingRuleId]))
+  }
 }
 
 export default actions;

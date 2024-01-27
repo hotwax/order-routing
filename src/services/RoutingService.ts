@@ -118,11 +118,10 @@ const deleteRuleCondition = async (payload: any): Promise<any> => {
   });
 }
 
-const fetchRuleActions = async (payload: any): Promise<any> => {
+const fetchRule = async (routingRuleId: string): Promise<any> => {
   return api({
-    url: `rules/${payload.routingRuleId}/actions`,
-    method: "GET",
-    query: payload
+    url: `rules/${routingRuleId}`,
+    method: "GET"
   });
 }
 
@@ -146,7 +145,7 @@ export const OrderRoutingService = {
   fetchRoutingGroupInformation,
   fetchRoutingGroups,
   fetchRoutingRules,
-  fetchRuleActions,
+  fetchRule,
   fetchRuleConditions,
   scheduleBrokering,
   updateOrderRouting,

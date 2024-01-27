@@ -126,7 +126,7 @@ const props = defineProps({
   }
 })
 
-const routingStatus = JSON.parse(process.env?.VUE_APP_ROUTE_STATUS_ENUMS as string)
+const routingStatus = JSON.parse(process.env?.VUE_APP_STATUS_ENUMS as string)
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
 let routingsForReorder = ref([])
 let description = ref("")

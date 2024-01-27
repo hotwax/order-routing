@@ -11,7 +11,7 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
   state: {
     groups: [],
     routes: [],
-    rules: [],
+    rules: {},
     currentGroup: {},
     currentRoute: {},
     currentRouteFilters: {},

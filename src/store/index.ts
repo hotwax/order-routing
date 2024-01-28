@@ -15,7 +15,7 @@ import orderRoutingModule from "./modules/orderRouting"
 const state: any = {}
 
 const persistState = createPersistedState({
-  paths: ["user", "util"],
+  paths: ["user", "util", "orderRouting.currentGroup"],
   fetchBeforeUse: true
 })
 

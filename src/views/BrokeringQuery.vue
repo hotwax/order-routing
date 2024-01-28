@@ -6,8 +6,7 @@
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
             <ion-chip slot="end" outline @click="router.go(-1)">
-              <!-- TODO: make route index and count dynamic -->
-              {{ "2/4" }}
+              {{ getRouteIndex() }}
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
@@ -233,6 +232,7 @@ const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
 const statusEnums = JSON.parse(process.env?.VUE_APP_STATUS_ENUMS as string)
 
+const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRulesInformation"])
 const facilities = computed(() => store.getters["util/getFacilities"])
@@ -263,6 +263,15 @@ onIonViewWillEnter(async () => {
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
 })
+
+function getRouteIndex() {
+  const activeAndDraftRoute = currentRoutingGroup.value["routings"].filter((routing: any) => routing.statusId !== 'ROUTING_ARCHIVED')
+  const total = activeAndDraftRoute.length
+  const currentRouteIndex: any = Object.keys(activeAndDraftRoute).find((key: any) => activeAndDraftRoute[key].orderRoutingId === props.orderRoutingId)
+
+  // adding one (1) as currentRouteIndex will have the index based on array, and used + as currentRouteIndex is a string
+  return `${+currentRouteIndex + 1}/${total}`
+}
 
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {

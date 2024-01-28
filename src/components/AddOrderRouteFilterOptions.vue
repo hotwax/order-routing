@@ -29,6 +29,7 @@ import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, I
 import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
+import { DateTime } from "luxon";
 
 const store = useStore();
 const enums = computed(() => store.getters["util/getEnums"])
@@ -64,43 +65,34 @@ function addSortOption(sort: any) {
   const isSortOptionAlreadyApplied = isSortOptionSelected(sort.enumCode)?.fieldName
 
   if(isSortOptionAlreadyApplied) {
-    delete routingFilters.value[props.conditionTypeEnumId][sort.enumCode]
+    delete routingFilters.value[sort.enumCode]
   } else {
     // checking unchecking an option and then checking it again, we need to use the same values
-    if(props.orderRoutingFilters[props.conditionTypeEnumId]?.[sort.enumCode]) {
-      routingFilters.value[props.conditionTypeEnumId][sort.enumCode] = props.orderRoutingFilters[props.conditionTypeEnumId][sort.enumCode]
+    // TODO: check for a unique case that what if we add a new option, reorder the filters and then remove the old option and then add it again, this case result in duplicate seqNum which should not happen
+    if(props.orderRoutingFilters?.[sort.enumCode]) {
+      routingFilters.value[sort.enumCode] = props.orderRoutingFilters[sort.enumCode]
     } else {
       // when adding a new value, we don't need to pass conditionSeqId
-      // Added check that whether the filters for the conditionType exists or not, if not then create a new value for conditionType
-      routingFilters.value[props.conditionTypeEnumId] ? routingFilters.value[props.conditionTypeEnumId][sort.enumCode] = {
+      routingFilters.value[sort.enumCode] = {
         orderRoutingId: props.orderRoutingId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: sort.enumCode,
-        sequenceNum: Object.keys(routingFilters.value[props.conditionTypeEnumId]).length && routingFilters.value[props.conditionTypeEnumId][Object.keys(routingFilters.value[props.conditionTypeEnumId])[Object.keys(routingFilters.value[props.conditionTypeEnumId]).length - 1]]?.sequenceNum >= 0 ? routingFilters.value[props.conditionTypeEnumId][Object.keys(routingFilters.value[props.conditionTypeEnumId])[Object.keys(routingFilters.value[props.conditionTypeEnumId]).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
-      } : routingFilters.value = {
-        ...routingFilters.value,
-        [props.conditionTypeEnumId]: {
-          [sort.enumCode]: {
-            orderRoutingId: props.orderRoutingId,
-            conditionTypeEnumId: props.conditionTypeEnumId,
-            fieldName: sort.enumCode,
-            sequenceNum: 0
-          }
-        }
+        sequenceNum: Object.keys(routingFilters.value).length && routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]]?.sequenceNum >= 0 ? routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+        createdDate: DateTime.now().toMillis()  // TODO: need to create createdDate object when clicking save button, as adding it here will have difference between creation time when having multiple filters to create
       }
     }
   }
 }
 
 function saveSortOptions() {
-  closeModal(routingFilters.value, 'save');
+  closeModal('save');
 }
 
 function isSortOptionSelected(code: string) {
-  return routingFilters.value[props.conditionTypeEnumId]?.[code]
+  return routingFilters.value?.[code]
 }
 
-function closeModal(filters = {}, action = 'close') {
-  modalController.dismiss({ dismissed: true, filters }, action)
+function closeModal(action = 'close') {
+  modalController.dismiss({ dismissed: true, filters: routingFilters.value }, action)
 }
 </script>

@@ -70,17 +70,9 @@ const fetchRoutingRules = async (payload: any): Promise<any> => {
   });
 }
 
-const fetchRoutingFilters = async (payload: any): Promise<any> => {
+const updateRouting = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/orderFilters`,
-    method: "GET",
-    query: payload
-  });
-}
-
-const updateRoutingFilter = async (payload: any): Promise<any> => {
-  return api({
-    url: `routings/${payload.orderRoutingId}/orderFilters`,
+    url: `routings/${payload.orderRoutingId}`,
     method: "POST",
     data: payload
   });
@@ -91,14 +83,6 @@ const deleteRoutingFilter = async (payload: any): Promise<any> => {
     url: `routings/${payload.orderRoutingId}/orderFilters`,
     method: "DELETE",
     data: payload
-  });
-}
-
-const fetchRuleConditions = async (payload: any): Promise<any> => {
-  return api({
-    url: `rules/${payload.routingRuleId}/inventoryFilters`,
-    method: "GET",
-    query: payload
   });
 }
 
@@ -118,11 +102,26 @@ const deleteRuleCondition = async (payload: any): Promise<any> => {
   });
 }
 
-const fetchRuleActions = async (payload: any): Promise<any> => {
+const deleteRuleAction = async (payload: any): Promise<any> => {
   return api({
     url: `rules/${payload.routingRuleId}/actions`,
-    method: "GET",
-    query: payload
+    method: "DELETE",
+    data: payload
+  });
+}
+
+const fetchRule = async (routingRuleId: string): Promise<any> => {
+  return api({
+    url: `rules/${routingRuleId}`,
+    method: "GET"
+  });
+}
+
+const updateRule = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}`,
+    method: "POST",
+    data: payload
   });
 }
 
@@ -140,16 +139,16 @@ export const OrderRoutingService = {
   createRoutingRule,
   createRuleCondition,
   deleteRoutingFilter,
+  deleteRuleAction,
   deleteRuleCondition,
   fetchOrderRouting,
-  fetchRoutingFilters,
   fetchRoutingGroupInformation,
   fetchRoutingGroups,
   fetchRoutingRules,
-  fetchRuleActions,
-  fetchRuleConditions,
+  fetchRule,
   scheduleBrokering,
   updateOrderRouting,
-  updateRoutingFilter,
-  updateRoutingGroup
+  updateRouting,
+  updateRoutingGroup,
+  updateRule
 }

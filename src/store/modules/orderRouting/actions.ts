@@ -138,7 +138,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async createRoutingRule({ commit, state }, payload) {
-    let routingRules = JSON.parse(JSON.stringify(state.rules))
+    const currentRoute = JSON.parse(JSON.stringify(state.currentRoute))
+    let routingRules = currentRoute.rules?.length ? currentRoute.rules : []
     let routingRuleId = ''
 
     try {
@@ -158,7 +159,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           routingRules = sortSequence(routingRules)
         }
 
-        commit(types.ORDER_ROUTINGS_UPDATED, routingRules)
+        commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
       }
     } catch(err) {
       showToast("Failed to create rule")
@@ -282,22 +283,40 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     // TODO: check if we can call request in parallel for delete operation
     let hasAllConditionsDeletedSuccessfully = true;
     try {
-      await payload.conditions.forEach(async (condition: any) => {
+      for(const condition of payload.conditions) {
         const resp = await OrderRoutingService.deleteRuleCondition({
           routingRuleId: payload.routingRuleId,
           conditionSeqId: condition.conditionSeqId
-        });
+        })
         if(hasError(resp) || !resp.data.conditionSeqId) {
           hasAllConditionsDeletedSuccessfully = false
         }
-      });
+      }
     } catch(err) {
       logger.error(err);
     }
 
-    dispatch("fetchRuleConditions", payload.routingRuleId)
-
     return hasAllConditionsDeletedSuccessfully
+  },
+
+  async deleteRuleActions({ dispatch }, payload) {
+    // TODO: check if we can call request in parallel for delete operation
+    let hasAllActionsDeletedSuccessfully = true;
+    try {
+      for(const action of payload.actions) {
+        const resp = await OrderRoutingService.deleteRuleAction({
+          routingRuleId: payload.routingRuleId,
+          actionSeqId: action.actionSeqId
+        })
+        if(hasError(resp) || !resp.data.actionSeqId) {
+          hasAllActionsDeletedSuccessfully = false
+        }
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    return hasAllActionsDeletedSuccessfully
   },
 
   async createRuleConditions({ dispatch }, payload) {
@@ -361,6 +380,21 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
     commit(types.ORDER_ROUTING_RULES_UPDATED, rulesInformation)
     return JSON.parse(JSON.stringify(rulesInformation[routingRuleId]))
+  },
+
+  async updateRule({ dispatch }, payload) {
+    let routingRuleId = ''
+    try {
+      const resp = await OrderRoutingService.updateRule(payload)
+
+      if(!hasError(resp) && resp.data.routingRuleId) {
+        routingRuleId = resp.data.routingRuleId
+      }
+    } catch(err) {
+      logger.error("Failed to update rule conditions and actions")
+    }
+
+    return routingRuleId;
   }
 }
 

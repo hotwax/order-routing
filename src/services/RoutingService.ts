@@ -118,10 +118,26 @@ const deleteRuleCondition = async (payload: any): Promise<any> => {
   });
 }
 
+const deleteRuleAction = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}/actions`,
+    method: "DELETE",
+    data: payload
+  });
+}
+
 const fetchRule = async (routingRuleId: string): Promise<any> => {
   return api({
     url: `rules/${routingRuleId}`,
     method: "GET"
+  });
+}
+
+const updateRule = async (payload: any): Promise<any> => {
+  return api({
+    url: `rules/${payload.routingRuleId}`,
+    method: "POST",
+    data: payload
   });
 }
 
@@ -139,6 +155,7 @@ export const OrderRoutingService = {
   createRoutingRule,
   createRuleCondition,
   deleteRoutingFilter,
+  deleteRuleAction,
   deleteRuleCondition,
   fetchOrderRouting,
   fetchRoutingFilters,
@@ -150,5 +167,6 @@ export const OrderRoutingService = {
   scheduleBrokering,
   updateOrderRouting,
   updateRouting,
-  updateRoutingGroup
+  updateRoutingGroup,
+  updateRule
 }

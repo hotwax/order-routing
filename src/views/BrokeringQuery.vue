@@ -387,9 +387,10 @@ async function addInventoryRule() {
         createdDate: DateTime.now().toMillis()
       }
 
-      const resp = await store.dispatch("orderRouting/createRoutingRule", payload)
-      if(resp.routingRuleId) {
-        fetchRuleInformation(resp.routingRuleId)
+      const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
+      if(routingRuleId) {
+        inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+        fetchRuleInformation(routingRuleId)
       }
     }
   })
@@ -758,6 +759,7 @@ async function save() {
   }
   // Inventory rules diff calculated
 
+  // Find order filters diff
   const routeSortOptionsDiff = findSortDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
     if(filter.conditionTypeEnumId === "ENTCT_SORT_BY") {
       filters[filter.fieldName] = filter
@@ -774,6 +776,7 @@ async function save() {
 
   const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
   const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
+  // Diff found for removing and updating filters
 
   if(filtersToRemove?.length) {
     await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
@@ -793,10 +796,7 @@ async function save() {
     }
   }
 
-  
   const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
-  console.log('initialInventoryRulesInformation', initialInventoryRulesInformation)
-  console.log('rulesInformation.value', rulesInformation.value)
 
   // Whenever we will be having a feature to delete a rule then this logic needs updation
   const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
@@ -804,46 +804,44 @@ async function save() {
     const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
     const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
 
-    console.log('sortOptionsDiff', sortOptionsDiff)
-
     const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
     const updatedRuleFilterOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
     const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-    console.log('filterOptionsDiff', filterOptionsDiff)
 
     const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
     const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
     const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
 
-    console.log(ruleActionsDiff)
-
     return {
       routingRuleId: ruleId,
       orderRoutingId: props.orderRoutingId,
       filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
-      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate })
+      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
+      actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
+      actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
     }
   })
 
-  console.log('rulesDiff', rulesDiff)
-  
-  // const inventorySortOptionsDiff = findSortDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-  //   if(filter.conditionTypeEnumId === "ENTCT_SORT_BY") {
-  //     filters[filter.fieldName] = filter
-  //   }
-  //   return filters
-  // }, {}), inventoryRuleSortOptions.value)
+  for(const key in rulesDiff) {
+    const rule = rulesDiff[key]
+    
+    if(rule.filtersToRemove?.length) {
+      await store.dispatch("orderRouting/deleteRuleConditions", rule.filtersToRemove)
+    }
 
-  // const inventoryFilterOptionsDiff = findFilterDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-  //   if(filter.conditionTypeEnumId === "ENTCT_FILTER") {
-  //     filters[filter.fieldName] = filter
-  //   }
-  //   return filters
-  // }, {}), inventoryRuleFilterOptions.value)
+    if(rule.actionsToRemove?.length) {
+      await store.dispatch("orderRouting/deleteRuleActions", rule.actionsToRemove)
+    }
 
-  // const inventoryFiltersToRemove = Object.values({ ...inventoryFilterOptionsDiff.seqToRemove, ...inventorySortOptionsDiff.seqToRemove })
-  // const inventoryFiltersToUpdate = Object.values({ ...inventoryFilterOptionsDiff.seqToUpdate, ...inventorySortOptionsDiff.seqToUpdate })
+    if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
+      await store.dispatch("orderRouting/updateRule", {
+        routingRuleId: rule.routingRuleId,
+        orderRoutingId: rule.orderRoutingId,
+        inventoryFilters: rule.filtersToUpdate,
+        actions: rule.actionsToUpdate
+      })
+    }
+  }
 
   // TODO: call this action only if there is some change in the orderRoutings
   // await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)

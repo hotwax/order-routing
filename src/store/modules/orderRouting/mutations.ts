@@ -6,9 +6,6 @@ const mutations: MutationTree<OrderRoutingState> = {
   [types.ORDER_ROUTING_GROUPS_UPDATED](state, payload) {
     state.groups = payload
   },
-  [types.ORDER_ROUTINGS_UPDATED](state, payload) {
-    state.routes = payload
-  },
   [types.ORDER_ROUTING_RULES_UPDATED](state, payload) {
     state.rules = payload
   },
@@ -18,14 +15,5 @@ const mutations: MutationTree<OrderRoutingState> = {
   [types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED](state, payload) {
     state.currentRoute = payload
   },
-  [types.ORDER_ROUTING_FILTERS_UPDATED](state, payload) {
-    state.currentRouteFilters = payload
-  },
-  [types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED](state, payload) {
-    state.ruleConditions = payload
-  },
-  [types.ORDER_ROUTING_RULE_ACTIONS_UPDATED](state, payload) {
-    state.ruleActions = payload
-  }
 }
 export default mutations;

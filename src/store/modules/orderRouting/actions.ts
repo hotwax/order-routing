@@ -5,7 +5,6 @@ import { OrderRoutingService } from "@/services/RoutingService"
 import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
-import { RouteFilter } from "@/types"
 import { DateTime } from "luxon"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
@@ -74,6 +73,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
   },
 
+  async setCurrentGroup({ commit }, currentGroup) {
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
+  },
+
   async createOrderRouting({ dispatch, state }, payload) {
     const currentGroup = JSON.parse(JSON.stringify(state.currentGroup))
     let orderRoutingId = ''
@@ -111,10 +114,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId;
   },
 
-  async setCurrentGroup({ commit }, currentGroup) {
-    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
-  },
-
   async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
     let currentRoute = {}
 
@@ -135,76 +134,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async setCurrentOrderRouting({ commit }, payload) {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
-  },
-
-  async createRoutingRule({ commit, state }, payload) {
-    const currentRoute = JSON.parse(JSON.stringify(state.currentRoute))
-    let routingRules = currentRoute.rules?.length ? currentRoute.rules : []
-    let routingRuleId = ''
-
-    try {
-      const resp = await OrderRoutingService.createRoutingRule(payload)
-
-      if(!hasError(resp) && resp?.data.routingRuleId) {
-        routingRuleId = resp.data.routingRuleId
-        // Use the routingRuleId received in response, as we are passing empty routingRuleId in request
-        routingRules.push({
-          ...payload,
-          routingRuleId
-        })
-        showToast('New Inventory Rule Created')
-
-        // Sort the routings and update the state only on success
-        if(routingRules.length) {
-          routingRules = sortSequence(routingRules)
-        }
-
-        commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
-      }
-    } catch(err) {
-      showToast("Failed to create rule")
-      logger.error('err', err)
-    }
-
-    return routingRuleId;
-  },
-
-  async fetchRoutingFilters({ commit }, orderRoutingId) {
-    let routingFilters = {} as any;
-    // filter groups on the basis of productStoreId
-    const payload = {
-      orderRoutingId
-    }
-
-    try {
-      const resp = await OrderRoutingService.fetchRoutingFilters(payload);
-
-      if(!hasError(resp) && resp.data.length) {
-        routingFilters = resp.data.reduce((filters: any, filter: RouteFilter) => {
-          if(filters[filter.conditionTypeEnumId]) {
-            filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-          } else {
-            filters[filter.conditionTypeEnumId] = {
-              [filter.fieldName]: filter
-            }
-          }
-          return filters
-        }, {})
-      } else {
-        throw resp.data
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-
-    const sortEnum = "ENTCT_SORT_BY"
-
-    // As we only need to add support of reordering for sortBy filter
-    if(routingFilters[sortEnum]?.length) {
-      routingFilters[sortEnum] = sortSequence(routingFilters[sortEnum])
-    }
-
-    commit(types.ORDER_ROUTING_FILTERS_UPDATED, routingFilters)
   },
 
   async deleteRoutingFilters({ dispatch }, payload) {
@@ -241,42 +170,36 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId
   },
 
-  async fetchRuleConditions({ commit }, routingRuleId) {
-    let ruleConditions = {} as any;
-    // filter groups on the basis of productStoreId
-    const payload = {
-      routingRuleId
-    }
+  async createRoutingRule({ commit, state }, payload) {
+    const currentRoute = JSON.parse(JSON.stringify(state.currentRoute))
+    let routingRules = currentRoute.rules?.length ? currentRoute.rules : []
+    let routingRuleId = ''
 
     try {
-      const resp = await OrderRoutingService.fetchRuleConditions(payload);
+      const resp = await OrderRoutingService.createRoutingRule(payload)
 
-      if(!hasError(resp) && resp.data.length) {
-        ruleConditions = resp.data.reduce((conditions: any, condition: any) => {
-          if(conditions[condition.conditionTypeEnumId]) {
-            conditions[condition.conditionTypeEnumId][condition.fieldName] = condition
-          } else {
-            conditions[condition.conditionTypeEnumId] = {
-              [condition.fieldName]: condition
-            }
-          }
-          return conditions
-        }, {})
-      } else {
-        throw resp.data
+      if(!hasError(resp) && resp?.data.routingRuleId) {
+        routingRuleId = resp.data.routingRuleId
+        // Use the routingRuleId received in response, as we are passing empty routingRuleId in request
+        routingRules.push({
+          ...payload,
+          routingRuleId
+        })
+        showToast('New Inventory Rule Created')
+
+        // Sort the routings and update the state only on success
+        if(routingRules.length) {
+          routingRules = sortSequence(routingRules)
+        }
+
+        commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
       }
     } catch(err) {
-      logger.error(err);
+      showToast("Failed to create rule")
+      logger.error('err', err)
     }
 
-    const sortEnum = "ENTCT_SORT_BY"
-
-    // As we only need to add support of reordering for sortBy filter
-    if(ruleConditions[sortEnum]?.length) {
-      ruleConditions[sortEnum] = sortSequence(ruleConditions[sortEnum])
-    }
-
-    commit(types.ORDER_ROUTING_RULE_CONDITIONS_UPDATED, ruleConditions)
+    return routingRuleId;
   },
 
   async deleteRuleConditions({ dispatch }, payload) {
@@ -317,27 +240,6 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     return hasAllActionsDeletedSuccessfully
-  },
-
-  async createRuleConditions({ dispatch }, payload) {
-    let hasAllConditionsCreatedSuccessfully = true;
-    try {
-      await payload.conditions.forEach(async (condition: any) => {
-        const resp = await OrderRoutingService.createRuleCondition({
-          routingRuleId: payload.routingRuleId,
-          ...condition
-        });
-        if(!hasError(resp) || !resp.data.conditionSeqId) {
-          hasAllConditionsCreatedSuccessfully = false
-        }
-      });
-    } catch(err) {
-      logger.error(err);
-    }
-
-    // TODO: check if we can call the action only once after all the operations are success
-    dispatch("fetchRuleConditions", payload.routingRuleId)
-    return hasAllConditionsCreatedSuccessfully
   },
 
   async fetchInventoryRuleInformation({ commit, state }, routingRuleId) {

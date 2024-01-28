@@ -10,13 +10,9 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
   namespaced: true,
   state: {
     groups: [],
-    routes: [],
     rules: {},
     currentGroup: {},
-    currentRoute: {},
-    currentRouteFilters: {},
-    ruleConditions: {},
-    ruleActions: {}
+    currentRoute: {}
   },
   getters,
   actions,

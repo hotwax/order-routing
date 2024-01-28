@@ -83,7 +83,7 @@
             <ion-icon :icon="addCircleOutline"/>
           </ion-button>
         </div>
-        <div>
+        <div v-if="selectedRoutingRule.routingRuleId">
           <ion-item lines="none">
             <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
             <ion-label>{{ "Rule Status" }}</ion-label>
@@ -200,6 +200,7 @@
             </div>
           </section>
         </div>
+        <div class="empty-state" v-else>{{ "Failed to identify selected inventory rule, please select a rule or refresh" }}</div>
       </div>
     </ion-content>
   </ion-page>
@@ -318,7 +319,6 @@ async function fetchRuleInformation(routingRuleId: string) {
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
   if(!selectedRoutingRule.value.routingRuleId) {
-    showToast("Failed to identify selected inventory rule, please select a rule or refresh")
     logger.error("Failed to identify selected inventory rule, please select a rule or refresh")
     return;
   }
@@ -676,8 +676,8 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
   }, seqToUpdate)
 
   seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    // Added fieldValue check as we have considered that when adding a filter option, it should always have a value
-    if(!previousSeq[key] && updatedSeq[key].fieldValue) {
+    // Added fieldValue check as we have considered that when adding a filter option, it should always have a value, and added check for zero, as in some filters value as 0 is possible
+    if(!previousSeq[key] && (updatedSeq[key].fieldValue || updatedSeq[key].fieldValue === 0)) {
       diff = {
         ...diff,
         [key]: updatedSeq[key]
@@ -746,34 +746,36 @@ async function save() {
   } as any
 
   // Find diff for inventory rules
-  let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
-
-  const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
-  Object.keys(diffSeq).map((key: any) => {
-    diffSeq[key].sequenceNum = updatedSeqenceNum[key]
-  })
-
-  diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
-
-  if(diffSeq.length) {
-    orderRouting["rules"] = diffSeq
+  if(currentRouting.value["rules"]) {
+    let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
+  
+    const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
+    Object.keys(diffSeq).map((key: any) => {
+      diffSeq[key].sequenceNum = updatedSeqenceNum[key]
+    })
+  
+    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+  
+    if(diffSeq.length) {
+      orderRouting["rules"] = diffSeq
+    }
   }
   // Inventory rules diff calculated
 
   // Find order filters diff
-  const routeSortOptionsDiff = findSortDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filter.conditionTypeEnumId === "ENTCT_SORT_BY") {
-      filters[filter.fieldName] = filter
+  const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
+    if(filters[filter.conditionTypeEnumId]) {
+      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+    } else {
+      filters[filter.conditionTypeEnumId] = {
+        [filter.fieldName]: filter
+      }
     }
     return filters
-  }, {}), orderRoutingSortOptions.value)
+  }, {}) : {}
 
-  const routeFilterOptionsDiff = findFilterDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filter.conditionTypeEnumId === "ENTCT_FILTER") {
-      filters[filter.fieldName] = filter
-    }
-    return filters
-  }, {}), orderRoutingFilterOptions.value)
+  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
+  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
 
   const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
   const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })

@@ -310,7 +310,7 @@ async function fetchRuleInformation(routingRuleId: string) {
     rulesInformation.value = JSON.parse(JSON.stringify(routingRules.value))
   }
 
-  // Using currentRouting["rules"] deep-cloned object here, we will update the change in rules with route changes and not with rules filter changes
+  // Using currentRouting["rules"] deep-cloned object here, as we will update the change in rules with route changes and not with rules filter changes
   selectedRoutingRule.value = inventoryRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
 
   initializeInventoryRules(JSON.parse(JSON.stringify(rulesInformation.value[routingRuleId])));
@@ -389,6 +389,7 @@ async function addInventoryRule() {
 
       const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
       if(routingRuleId) {
+        // TODO: Fix warning of duplicate keys when creating a new rule
         inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
         fetchRuleInformation(routingRuleId)
       }

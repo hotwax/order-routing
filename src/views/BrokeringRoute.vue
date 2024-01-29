@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/" />
+          <ion-back-button default-href="/tabs/brokering" />
         </ion-buttons>
         <ion-title>{{ "Brokering run name" }}</ion-title>
       </ion-toolbar>
@@ -32,7 +32,7 @@
                     </ion-chip>
                   </ion-reorder>
                 </ion-item>
-                <ion-item>
+                <ion-item lines="none">
                   <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" :color="routingStatus[routing.statusId]?.color" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
                   <ion-badge v-else :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">

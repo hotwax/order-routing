@@ -21,17 +21,17 @@
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">{{ "Select filter to apply" }}</p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
-              <ion-select label="Queue" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'QUEUE')">
+              <ion-select placeholder="queue" label="Queue" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'QUEUE')">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-select interface="popover" label="Shipping method" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
+              <ion-select placeholder="shipping method" interface="popover" label="Shipping method" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
-              <ion-select interface="popover" label="Order priority" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
+              <ion-select placeholder="priority" interface="popover" label="Order priority" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
                 <ion-select-option value="HIGH">{{ "High" }}</ion-select-option>
                 <ion-select-option value="MEDIUM">{{ "Medium" }}</ion-select-option>
                 <ion-select-option value="Low">{{ "Low" }}</ion-select-option>
@@ -41,11 +41,11 @@
               <ion-label>{{ "Promise date" }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
                 <!-- TODO: need to display a string in place of just the value -->
-                {{ getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue || getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue == 0 ? getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue : '-' }}
+                {{ getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue || getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue == 0 ? getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue : 'select range' }}
               </ion-chip>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
-              <ion-select label="Sales Channel" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL')">
+              <ion-select placeholder="sales channel" label="Sales Channel" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL')">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -100,7 +100,7 @@
               </ion-item>
               <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ "Select filter to apply" }}</p>
               <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
-                <ion-select interface="popover" label="Group" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
+                <ion-select placeholder="facility group" interface="popover" label="Group" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
                   <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                 </ion-select>
               </ion-item>
@@ -108,7 +108,7 @@
                 <!-- TODO: Confirm on the possible options -->
                 <ion-label>{{ "Proximity" }}</ion-label>
                 <ion-chip outline>
-                  <ion-select aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
+                  <ion-select placeholder="measurement unit" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
                     <ion-select-option value="METRIC">{{ "kms" }}</ion-select-option>
                     <ion-select-option value="IMPERIAL">{{ "miles" }}</ion-select-option>
                   </ion-select>
@@ -118,7 +118,7 @@
               <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
                 <ion-label>{{ "Brokering safety stock" }}</ion-label>
                 <ion-chip outline>
-                  <ion-select aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                  <ion-select placeholder="operator" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
                     <ion-select-option v-for="(enumeration, id) in enums['COMPARISON_OPERATOR']" :key="id" :value="enumeration.enumCode">{{ enumeration.description || enumeration.enumCode }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
@@ -175,7 +175,7 @@
                   </ion-card-title>
                 </ion-card-header>
                 <ion-item lines="none">
-                  <ion-select label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
+                  <ion-select placeholder="action" label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
                     <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                       {{ "Next rule" }}
                       <ion-icon :icon="playForwardOutline"/>
@@ -187,13 +187,13 @@
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
-                  <ion-select label="Queue" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                  <ion-select placeholder="queue" label="Queue" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
                     <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue ? `${inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue} days` : '-' }}</ion-chip>
+                  <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue ? `${inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue} days` : 'select days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>

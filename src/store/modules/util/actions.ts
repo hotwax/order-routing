@@ -36,8 +36,13 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_ENUMS_UPDATED, enums)
   },
 
-  async fetchFacilities({ commit }) {
-    let facilities = {}
+  async fetchFacilities({ commit, state }) {
+    let facilities = JSON.parse(JSON.stringify(state.facilities))
+
+    // Do not fetch facilities if already available
+    if(Object.keys(facilities).length) {
+      return;
+    }
 
     const payload = {
       parentTypeId: "VIRTUAL_FACILITY"
@@ -59,8 +64,13 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_FACILITIES_UPDATED, facilities)
   },
 
-  async fetchShippingMethods({ commit }) {
-    let shippingMethods = {}
+  async fetchShippingMethods({ commit, state }) {
+    let shippingMethods = JSON.parse(JSON.stringify(state.shippingMethods))
+
+    // Do not fetch shipping methods if aleady available
+    if(Object.keys(shippingMethods).length) {
+      return;
+    }
 
     const payload = {
       productStoreId: store.state.user.currentEComStore.productStoreId
@@ -82,8 +92,13 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_SHIPPING_METHOD_UPDATED, shippingMethods)
   },
 
-  async fetchFacilityGroups({ commit }) {
-    let facilityGroups = {}
+  async fetchFacilityGroups({ commit, state }) {
+    let facilityGroups = JSON.parse(JSON.stringify(state.facilityGroups))
+
+    // Do not fetch groups again if already available
+    if(Object.keys(facilityGroups).length) {
+      return;
+    }
 
     const payload = {
       productStoreId: store.state.user.currentEComStore.productStoreId,

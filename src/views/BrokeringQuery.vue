@@ -218,6 +218,7 @@ import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
 import logger from "@/logger";
 import { DateTime } from "luxon";
+import emitter from "@/event-bus";
 
 const router = useRouter();
 const props = defineProps({
@@ -251,6 +252,7 @@ let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 
 onIonViewWillEnter(async () => {
+  emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
 
   if(currentRouting.value["orderFilters"]?.length) {
@@ -262,6 +264,7 @@ onIonViewWillEnter(async () => {
     inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
+  emitter.emit("dismissLoader")
 })
 
 function getRouteIndex() {
@@ -423,7 +426,7 @@ function updateUnfillableActionType(value: string) {
     actionValue: "", // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update if required from some other function
     createdDate: DateTime.now().toMillis()
   }
-  // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
+  // deleting previous action type, but using the data of previous action
   delete inventoryRuleActions.value[actionType]
   updateRule()
 }
@@ -769,6 +772,7 @@ function doReorder(event: CustomEvent) {
 }
 
 async function save() {
+  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
   const orderRouting = {
     orderRoutingId: props.orderRoutingId,
     routingGroupId: currentRouting.value.routingGroupId
@@ -875,9 +879,17 @@ async function save() {
     }
   }
 
-  // TODO: call this action only if there is some change in the orderRoutings
-  // await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
-  // initializeOrderRoutingOptions();
+  await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  if(currentRouting.value["orderFilters"]?.length) {
+    initializeOrderRoutingOptions()
+  }
+
+  // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
+  if(currentRouting.value["rules"]?.length) {
+    inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+    await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
+  }
+  emitter.emit("dismissLoader")
 }
 </script>
 

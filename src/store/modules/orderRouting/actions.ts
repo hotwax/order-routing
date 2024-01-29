@@ -6,6 +6,7 @@ import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
 import { DateTime } from "luxon"
+import emitter from "@/event-bus"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -42,8 +43,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.createRoutingGroup(payload)
 
       if(!hasError(resp)) {
-        showToast('Brokering run created')
+        showToast("Brokering run created")
         dispatch("fetchOrderRoutingGroups")
+      } else {
+        throw resp.data
       }
     } catch(err) {
       showToast("Failed to create brokering run")
@@ -52,6 +55,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchCurrentRoutingGroup({ commit }, routingGroupId) {
+    emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
     let currentGroup = {} as any
 
     try {
@@ -71,6 +75,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
+    emitter.emit("dismissLoader")
   },
 
   async setCurrentGroup({ commit }, currentGroup) {
@@ -185,7 +190,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           ...payload,
           routingRuleId
         })
-        showToast('New Inventory Rule Created')
+        showToast('Inventory rule created successfully')
 
         // Sort the routings and update the state only on success
         if(routingRules.length) {
@@ -195,7 +200,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
       }
     } catch(err) {
-      showToast("Failed to create rule")
+      showToast("Failed to create inventory rule")
       logger.error('err', err)
     }
 

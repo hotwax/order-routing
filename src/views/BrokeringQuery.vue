@@ -528,7 +528,9 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
     })
 
   popover.onDidDismiss().then((result: any) => {
-    getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+    if(result.data?.duration || result.data?.duration == 0) {
+      getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+    }
     getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").operator = "less-equals"
   })
 
@@ -694,7 +696,8 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
       return diff
     }
 
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue === previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
+    // Not using strict equality comparison for fieldValue as for some filters the type of value returned from server and the updated value from the app will not be the same(ex. Promise date filter)
+    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue == previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -726,7 +729,8 @@ function findActionDiff(previousSeq: any, updatedSeq: any) {
       return diff
     }
 
-    if (updatedSeq[key].actionTypeEnumId === previousSeq[key].actionTypeEnumId && updatedSeq[key].actionValue === previousSeq[key].actionValue) return diff
+    // Not using strict equality comparison for actionValue as for some filters the type of value returned from server and the updated value from the app will not be the same.
+    if (updatedSeq[key].actionTypeEnumId === previousSeq[key].actionTypeEnumId && updatedSeq[key].actionValue == previousSeq[key].actionValue) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]

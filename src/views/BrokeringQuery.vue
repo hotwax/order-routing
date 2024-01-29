@@ -165,7 +165,7 @@
                   {{ "Select if partial allocation should be allowed in this inventory rule" }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
+                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -488,6 +488,23 @@ function updatePartialAllocation(checked: any) {
       inventoryRule.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
     }
   })
+}
+
+function isPromiseDateFilterApplied() {
+  const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, 'PROMISE_DATE')
+
+  // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
+  if(filter?.fieldValue || filter?.fieldValue == 0) {
+    inventoryRules.value.find((inventoryRule: any) => {
+      const assignmentEnumId = JSON.parse(JSON.stringify(currentRouting.value["rules"])).find((rule: any) => rule.routingRuleId === selectedRoutingRule.value.routingRuleId)?.assignmentEnumId
+
+      if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
+        inventoryRule.assignmentEnumId = assignmentEnumId
+        return true;
+      }
+    })
+  }
+  return filter?.fieldValue || filter?.fieldValue == 0
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {

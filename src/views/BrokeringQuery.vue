@@ -261,7 +261,7 @@ onIonViewWillEnter(async () => {
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
   emitter.emit("dismissLoader")
@@ -886,7 +886,7 @@ async function save() {
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
   emitter.emit("dismissLoader")

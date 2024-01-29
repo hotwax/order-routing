@@ -251,9 +251,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     const rulesInformation = JSON.parse(JSON.stringify(state.rules))
 
     // Do not fetch the rule information if its already available in state. This condition will be false on refresh as state will be cleared so automatically updated information will be fetched
-    if(rulesInformation[routingRuleId]) {
-      return rulesInformation[routingRuleId];
-    }
+    // commented this, as after update we currently do not update state locally and fetch the information again for getting latest information
+    // if(rulesInformation[routingRuleId]) {
+    //   return rulesInformation[routingRuleId];
+    // }
 
     try {
       const resp = await OrderRoutingService.fetchRule(routingRuleId)

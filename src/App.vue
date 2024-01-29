@@ -11,13 +11,16 @@ import emitter from "@/event-bus"
 
 const loader = ref(null) as any
 
-async function presentLoader(message = "Click the backdrop to dismiss.") {
+async function presentLoader(options = { message: "Click the backdrop to dismiss.", backdropDismiss: true }) {
+  // When having a custom message remove already existing loader, if not removed it takes into account the already existing loader
+  if(options.message && loader.value) dismissLoader();
+
   if (!loader.value) {
     loader.value = await loadingController
       .create({
-        message,
+        message: options.message,
         translucent: true,
-        backdropDismiss: true
+        backdropDismiss: options.backdropDismiss
       });
   }
   loader.value.present();

@@ -86,7 +86,8 @@ const actions: ActionTree<UtilState, RootState> = {
     let facilityGroups = {}
 
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId
+      productStoreId: store.state.user.currentEComStore.productStoreId,
+      facilityGroupTypeId: "BROKERING_GROUP"
     }
 
     try {

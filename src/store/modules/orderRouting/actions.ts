@@ -6,6 +6,7 @@ import { hasError, showToast, sortSequence } from "@/utils"
 import * as types from './mutation-types'
 import logger from "@/logger"
 import { DateTime } from "luxon"
+import emitter from "@/event-bus"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -54,6 +55,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchCurrentRoutingGroup({ commit }, routingGroupId) {
+    emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
     let currentGroup = {} as any
 
     try {
@@ -73,6 +75,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
+    emitter.emit("dismissLoader")
   },
 
   async setCurrentGroup({ commit }, currentGroup) {

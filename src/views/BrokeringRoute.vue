@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -116,6 +116,7 @@ import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
 import { hasError, getTime, showToast, sortSequence } from "@/utils";
+import emitter from "@/event-bus";
 
 const router = useRouter();
 const store = useStore();
@@ -191,7 +192,8 @@ function initializeOrderRoutings() {
 
 async function saveChanges() {
   if(!job.value.cronExpression) {
-    logger.error('Please select an expression before proceeding')
+    showToast("Please select a scheduling for job")
+    logger.error("Please select a scheduling for job")
   }
 
   const payload = {
@@ -204,8 +206,11 @@ async function saveChanges() {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
       showToast("Job updated")
+    } else {
+      throw resp.data
     }
   } catch(err) {
+    showToast("Failed to update job")
     logger.error(err)
   }
 }
@@ -220,14 +225,17 @@ async function disable() {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
       showToast("Job disabled")
+    } else {
+      throw resp.data
     }
   } catch(err) {
+    showToast("Failed to update job")
     logger.error(err)
   }
 }
 
 async function redirect(orderRouting: Route) {
-  await store.dispatch('orderRouting/setCurrentOrderRouting', orderRouting)
+  await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
@@ -399,6 +407,7 @@ async function saveRoutingGroup() {
 }
 
 async function updateRoutingGroup(payload: any) {
+  emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
   let routingGroupId = ''
   try {
     const resp = await OrderRoutingService.updateRoutingGroup(payload);
@@ -414,6 +423,7 @@ async function updateRoutingGroup(payload: any) {
     logger.error(err);
   }
 
+  emitter.emit("dismissLoader")
   return routingGroupId
 }
 </script>

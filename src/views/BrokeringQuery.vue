@@ -5,9 +5,8 @@
         <div class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
-            <ion-chip slot="end" outline @click="router.go(-1)">
-              <!-- TODO: make route index and count dynamic -->
-              {{ "2/4" }}
+            <ion-chip slot="end" outline @click="router.push(`/tabs/brokering/${currentRouting.routingGroupId}/routes`)">
+              {{ getRouteIndex() }}
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
@@ -22,17 +21,17 @@
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">{{ "Select filter to apply" }}</p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
-              <ion-select label="Queue" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'QUEUE')">
+              <ion-select placeholder="queue" label="Queue" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'QUEUE')">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-select interface="popover" label="Shipping method" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
+              <ion-select placeholder="shipping method" interface="popover" label="Shipping method" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
-              <ion-select interface="popover" label="Order priority" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
+              <ion-select placeholder="priority" interface="popover" label="Order priority" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
                 <ion-select-option value="HIGH">{{ "High" }}</ion-select-option>
                 <ion-select-option value="MEDIUM">{{ "Medium" }}</ion-select-option>
                 <ion-select-option value="Low">{{ "Low" }}</ion-select-option>
@@ -42,11 +41,11 @@
               <ion-label>{{ "Promise date" }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
                 <!-- TODO: need to display a string in place of just the value -->
-                {{ getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue || getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue == 0 ? getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue : '-' }}
+                {{ getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue || getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue == 0 ? getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE').fieldValue : 'select range' }}
               </ion-chip>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
-              <ion-select label="Sales Channel" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL')">
+              <ion-select placeholder="sales channel" label="Sales Channel" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL')">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -83,7 +82,7 @@
             <ion-icon :icon="addCircleOutline"/>
           </ion-button>
         </div>
-        <div>
+        <div v-if="selectedRoutingRule.routingRuleId">
           <ion-item lines="none">
             <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
             <ion-label>{{ "Rule Status" }}</ion-label>
@@ -101,15 +100,15 @@
               </ion-item>
               <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ "Select filter to apply" }}</p>
               <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
-                <ion-select interface="popover" label="Group" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                  <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.description || facilityGroupId }}</ion-select-option>
+                <ion-select placeholder="facility group" interface="popover" label="Group" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
+                  <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                 </ion-select>
               </ion-item>
               <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
                 <!-- TODO: Confirm on the possible options -->
                 <ion-label>{{ "Proximity" }}</ion-label>
                 <ion-chip outline>
-                  <ion-select aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
+                  <ion-select placeholder="measurement unit" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
                     <ion-select-option value="METRIC">{{ "kms" }}</ion-select-option>
                     <ion-select-option value="IMPERIAL">{{ "miles" }}</ion-select-option>
                   </ion-select>
@@ -119,7 +118,7 @@
               <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
                 <ion-label>{{ "Brokering safety stock" }}</ion-label>
                 <ion-chip outline>
-                  <ion-select aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                  <ion-select placeholder="operator" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
                     <ion-select-option v-for="(enumeration, id) in enums['COMPARISON_OPERATOR']" :key="id" :value="enumeration.enumCode">{{ enumeration.description || enumeration.enumCode }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
@@ -166,7 +165,7 @@
                   {{ "Select if partial allocation should be allowed in this inventory rule" }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
+                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ "Allow partial allocation" }}</ion-toggle>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -176,7 +175,7 @@
                   </ion-card-title>
                 </ion-card-header>
                 <ion-item lines="none">
-                  <ion-select label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
+                  <ion-select placeholder="action" label="Move items to" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
                     <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                       {{ "Next rule" }}
                       <ion-icon :icon="playForwardOutline"/>
@@ -188,18 +187,19 @@
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
-                  <ion-select label="Queue" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                  <ion-select placeholder="queue" label="Queue" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
                     <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ "Auto cancel days" }}</ion-label>
-                  <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue ? `${inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue} days` : '-' }}</ion-chip>
+                  <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue ? `${inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id].actionValue} days` : 'select days' }}</ion-chip>
                 </ion-item>
               </ion-card>
             </div>
           </section>
         </div>
+        <div class="empty-state" v-else>{{ "Failed to identify selected inventory rule, please select a rule or refresh" }}</div>
       </div>
     </ion-content>
   </ion-page>
@@ -232,6 +232,7 @@ const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
 const statusEnums = JSON.parse(process.env?.VUE_APP_STATUS_ENUMS as string)
 
+const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRulesInformation"])
 const facilities = computed(() => store.getters["util/getFacilities"])
@@ -262,6 +263,15 @@ onIonViewWillEnter(async () => {
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
 })
+
+function getRouteIndex() {
+  const activeAndDraftRoute = currentRoutingGroup.value["routings"].filter((routing: any) => routing.statusId !== 'ROUTING_ARCHIVED')
+  const total = activeAndDraftRoute.length
+  const currentRouteIndex: any = Object.keys(activeAndDraftRoute).find((key: any) => activeAndDraftRoute[key].orderRoutingId === props.orderRoutingId)
+
+  // adding one (1) as currentRouteIndex will have the index based on array, and used + as currentRouteIndex is a string
+  return `${+currentRouteIndex + 1}/${total}`
+}
 
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
@@ -318,7 +328,6 @@ async function fetchRuleInformation(routingRuleId: string) {
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
   if(!selectedRoutingRule.value.routingRuleId) {
-    showToast("Failed to identify selected inventory rule, please select a rule or refresh")
     logger.error("Failed to identify selected inventory rule, please select a rule or refresh")
     return;
   }
@@ -481,6 +490,22 @@ function updatePartialAllocation(checked: any) {
   })
 }
 
+function isPromiseDateFilterApplied() {
+  const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, 'PROMISE_DATE')
+
+  // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
+  if(filter?.fieldValue || filter?.fieldValue == 0) {
+    const assignmentEnumId = JSON.parse(JSON.stringify(currentRouting.value["rules"])).find((rule: any) => rule.routingRuleId === selectedRoutingRule.value.routingRuleId)?.assignmentEnumId
+    inventoryRules.value.find((inventoryRule: any) => {
+      if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
+        inventoryRule.assignmentEnumId = assignmentEnumId
+        return true;
+      }
+    })
+  }
+  return filter?.fieldValue || filter?.fieldValue == 0
+}
+
 function getFilterValue(options: any, enums: any, parameter: string) {
   return options?.[enums[parameter].code]
 }
@@ -502,7 +527,9 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
     })
 
   popover.onDidDismiss().then((result: any) => {
-    getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+    if(result.data?.duration || result.data?.duration == 0) {
+      getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+    }
     getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").operator = "less-equals"
   })
 
@@ -668,7 +695,8 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
       return diff
     }
 
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue === previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
+    // Not using strict equality comparison for fieldValue as for some filters the type of value returned from server and the updated value from the app will not be the same(ex. Promise date filter)
+    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue == previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -676,8 +704,8 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
   }, seqToUpdate)
 
   seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    // Added fieldValue check as we have considered that when adding a filter option, it should always have a value
-    if(!previousSeq[key] && updatedSeq[key].fieldValue) {
+    // Added fieldValue check as we have considered that when adding a filter option, it should always have a value, and added check for zero, as in some filters value as 0 is possible
+    if(!previousSeq[key] && (updatedSeq[key].fieldValue || updatedSeq[key].fieldValue === 0)) {
       diff = {
         ...diff,
         [key]: updatedSeq[key]
@@ -700,7 +728,8 @@ function findActionDiff(previousSeq: any, updatedSeq: any) {
       return diff
     }
 
-    if (updatedSeq[key].actionTypeEnumId === previousSeq[key].actionTypeEnumId && updatedSeq[key].actionValue === previousSeq[key].actionValue) return diff
+    // Not using strict equality comparison for actionValue as for some filters the type of value returned from server and the updated value from the app will not be the same.
+    if (updatedSeq[key].actionTypeEnumId === previousSeq[key].actionTypeEnumId && updatedSeq[key].actionValue == previousSeq[key].actionValue) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -746,34 +775,36 @@ async function save() {
   } as any
 
   // Find diff for inventory rules
-  let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
-
-  const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
-  Object.keys(diffSeq).map((key: any) => {
-    diffSeq[key].sequenceNum = updatedSeqenceNum[key]
-  })
-
-  diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
-
-  if(diffSeq.length) {
-    orderRouting["rules"] = diffSeq
+  if(currentRouting.value["rules"]) {
+    let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
+  
+    const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
+    Object.keys(diffSeq).map((key: any) => {
+      diffSeq[key].sequenceNum = updatedSeqenceNum[key]
+    })
+  
+    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+  
+    if(diffSeq.length) {
+      orderRouting["rules"] = diffSeq
+    }
   }
   // Inventory rules diff calculated
 
   // Find order filters diff
-  const routeSortOptionsDiff = findSortDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filter.conditionTypeEnumId === "ENTCT_SORT_BY") {
-      filters[filter.fieldName] = filter
+  const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
+    if(filters[filter.conditionTypeEnumId]) {
+      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+    } else {
+      filters[filter.conditionTypeEnumId] = {
+        [filter.fieldName]: filter
+      }
     }
     return filters
-  }, {}), orderRoutingSortOptions.value)
+  }, {}) : {}
 
-  const routeFilterOptionsDiff = findFilterDiff(currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filter.conditionTypeEnumId === "ENTCT_FILTER") {
-      filters[filter.fieldName] = filter
-    }
-    return filters
-  }, {}), orderRoutingFilterOptions.value)
+  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
+  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
 
   const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
   const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })

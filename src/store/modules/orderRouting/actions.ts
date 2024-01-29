@@ -42,8 +42,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.createRoutingGroup(payload)
 
       if(!hasError(resp)) {
-        showToast('Brokering run created')
+        showToast("Brokering run created")
         dispatch("fetchOrderRoutingGroups")
+      } else {
+        throw resp.data
       }
     } catch(err) {
       showToast("Failed to create brokering run")

@@ -423,7 +423,7 @@ function updateUnfillableActionType(value: string) {
     actionValue: "", // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update if required from some other function
     createdDate: DateTime.now().toMillis()
   }
-  // deleting previous action type, but using the data of previous action, as we will not call delete action on server for actionTypes
+  // deleting previous action type, but using the data of previous action
   delete inventoryRuleActions.value[actionType]
   updateRule()
 }

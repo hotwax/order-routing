@@ -14,7 +14,13 @@
     </ion-header>
 
     <ion-content>
-      <main v-if="groups.length">
+      <main v-if="isLoading">
+        <ion-item lines="none">
+          <ion-spinner name="crescent" slot="start" />
+          {{ $t("Fetching groups") }}
+        </ion-item>
+      </main>
+      <main v-else-if="groups.length">
         <section>
           <ion-card v-for="group in groups" :key="group.routingGroupId" @click="redirect(group)">
             <ion-card-header>
@@ -48,18 +54,21 @@
 <script setup lang="ts">
 import { Group } from "@/types";
 import { getTime, showToast } from "@/utils";
-import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
+import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
 
 const store = useStore()
 const router = useRouter()
 const groups = computed(() => store.getters["orderRouting/getRoutingGroups"])
+let isLoading = ref(false)
 
 onIonViewWillEnter(async () => {
+  isLoading.value = true
   await store.dispatch("orderRouting/fetchOrderRoutingGroups");
+  isLoading.value = false
   store.dispatch("util/fetchEnums", { parentTypeId: "ORDER_ROUTING" })
 })
 

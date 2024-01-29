@@ -190,7 +190,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           ...payload,
           routingRuleId
         })
-        showToast('New Inventory Rule Created')
+        showToast('Inventory rule created successfully')
 
         // Sort the routings and update the state only on success
         if(routingRules.length) {
@@ -200,7 +200,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
       }
     } catch(err) {
-      showToast("Failed to create rule")
+      showToast("Failed to create inventory rule")
       logger.error('err', err)
     }
 

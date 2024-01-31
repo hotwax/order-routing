@@ -33,8 +33,8 @@
                   </ion-reorder>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" :color="routingStatus[routing.statusId]?.color" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
-                  <ion-badge v-else :color="routingStatus[routing.statusId]?.color">{{ routingStatus[routing.statusId]?.desc || routing.statusId }}</ion-badge>
+                  <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                  <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ "Archive" }}
                     <ion-icon :icon="archiveOutline" />
@@ -135,7 +135,6 @@ const props = defineProps({
   }
 })
 
-const routingStatus = JSON.parse(process.env?.VUE_APP_STATUS_ENUMS as string)
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
 let routingsForReorder = ref([])
 let description = ref("")
@@ -148,9 +147,11 @@ let orderRoutings = ref([]) as any
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
+const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
+  store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []

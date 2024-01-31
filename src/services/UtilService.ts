@@ -32,6 +32,14 @@ const fetchFacilityGroups = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchStatusInformation = async (payload: any): Promise<any> => {
+  return api({
+    url: `status`,
+    method: "GET",
+    params: payload
+  });
+}
+
 const checkOmsConnection = async (): Promise<any> => {
   return api({
     url: `checkOmsConnection`,
@@ -45,4 +53,5 @@ export const UtilService = {
   fetchFacilities,
   fetchFacilityGroups,
   fetchShippingMethods,
+  fetchStatusInformation
 }

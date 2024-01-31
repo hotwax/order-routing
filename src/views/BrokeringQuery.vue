@@ -494,6 +494,10 @@ function updatePartialAllocation(checked: any) {
 }
 
 function isPromiseDateFilterApplied() {
+  if(!currentRouting.value["rules"]?.length) {
+    return;
+  }
+
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, 'PROMISE_DATE')
 
   // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature

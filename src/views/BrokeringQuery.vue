@@ -494,6 +494,10 @@ function updatePartialAllocation(checked: any) {
 }
 
 function isPromiseDateFilterApplied() {
+  if(!currentRouting.value["rules"]?.length) {
+    return;
+  }
+
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, 'PROMISE_DATE')
 
   // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
@@ -862,11 +866,11 @@ async function save() {
     const rule = rulesDiff[key]
     
     if(rule.filtersToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleConditions", rule.filtersToRemove)
+      await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
     }
 
     if(rule.actionsToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleActions", rule.actionsToRemove)
+      await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
     }
 
     if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {

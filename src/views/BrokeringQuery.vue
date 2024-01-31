@@ -862,11 +862,11 @@ async function save() {
     const rule = rulesDiff[key]
     
     if(rule.filtersToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleConditions", rule.filtersToRemove)
+      await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
     }
 
     if(rule.actionsToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleActions", rule.actionsToRemove)
+      await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
     }
 
     if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {

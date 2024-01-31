@@ -14,6 +14,16 @@ const mutations: MutationTree<UtilState> = {
   },
   [types.UTIL_FACILITY_GROUP_UPDATED](state, payload) {
     state.facilityGroups = payload
+  },
+  [types.UTIL_OMS_CONNECTION_STATUS_UPDATED](state, payload) {
+    state.isOmsConnectionExist = payload
+  },
+  [types.UTIL_CLEARED](state) {
+    state.enums = {}
+    state.facilities = {}
+    state.shippingMethods = {}
+    state.facilityGroups = {}
+    state.isOmsConnectionExist = undefined
   }
 }
 export default mutations;

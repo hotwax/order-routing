@@ -14,6 +14,9 @@ const getters: GetterTree<UtilState, RootState> = {
   },
   getFacilityGroups(state) {
     return state.facilityGroups
+  },
+  isOmsConnectionExist(state) {
+    return state.isOmsConnectionExist
   }
 }
 

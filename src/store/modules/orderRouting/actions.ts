@@ -54,7 +54,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
   },
 
-  async fetchCurrentRoutingGroup({ commit }, routingGroupId) {
+  async fetchCurrentRoutingGroup({ commit, dispatch }, routingGroupId) {
     emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
     let currentGroup = {} as any
 
@@ -74,8 +74,28 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       currentGroup.routings = sortSequence(currentGroup.routings)
     }
 
-    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
+    // Fetching the schedule information for the group
+    await dispatch("fetchCurrentGroupSchedule", { routingGroupId, currentGroup })
+
     emitter.emit("dismissLoader")
+  },
+
+  async fetchCurrentGroupSchedule({ commit }, payload) {
+    const currentGroup = payload.currentGroup as any
+
+    try {
+      const resp = await OrderRoutingService.fetchRoutingScheduleInformation(payload.routingGroupId);
+
+      if(!hasError(resp) && resp.data?.schedule) {
+        currentGroup["schedule"] = resp.data.schedule
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+    }
+
+    commit(types.ORDER_ROUTING_CURRENT_GROUP_UPDATED, currentGroup)
   },
 
   async setCurrentGroup({ commit }, currentGroup) {

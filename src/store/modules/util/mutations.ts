@@ -14,6 +14,9 @@ const mutations: MutationTree<UtilState> = {
   },
   [types.UTIL_FACILITY_GROUP_UPDATED](state, payload) {
     state.facilityGroups = payload
+  },
+  [types.UTIL_OMS_CONFIGURED_UPDATED](state, payload) {
+    state.isOmsConfigured = payload
   }
 }
 export default mutations;

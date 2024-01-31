@@ -71,6 +71,14 @@
                   {{ "Scheduler" }}
                 </ion-card-title>
               </ion-card-header>
+              <ion-item v-show="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" lines="none">
+                <ion-label color="danger" class="ion-text-wrap">
+                  {{ "Connection configuration is missing for oms." }}
+                </ion-label>
+                <ion-button fill="clear" @click="checkOmsConnectionStatus">
+                  <ion-icon slot="icon-only" :icon="refreshOutline" />
+                </ion-button>
+              </ion-item>
               <ion-item>
                 <ion-icon slot="start" :icon="timerOutline"/>
                 <ion-select label="Schedule" interface="popover" :placeholder="$t('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
@@ -80,10 +88,10 @@
             </ion-card>
             <div class="actions desktop-only">
               <div>
-                <ion-button size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
               </div>
               <div>
-                <ion-button size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
               </div>
             </div>
             <ion-item>
@@ -106,7 +114,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, refreshOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";
@@ -139,6 +147,7 @@ let orderRoutings = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const isOmsConfigured = computed(() => store.getters["util/isOmsConfigured"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
@@ -190,10 +199,24 @@ function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
 }
 
+async function checkOmsConnectionStatus() {
+  await store.dispatch("util/checkOmsConnectionStatus")
+}
+
 async function saveChanges() {
+  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConfigured value is a boolean it means we have previously fetched the connection status
+  if(typeof isOmsConfigured.value !== "boolean") {
+    await checkOmsConnectionStatus()
+  }
+
+  if(!isOmsConfigured.value) {
+    return;
+  }
+
   if(!job.value.cronExpression) {
     showToast("Please select a scheduling for job")
     logger.error("Please select a scheduling for job")
+    return;
   }
 
   const payload = {

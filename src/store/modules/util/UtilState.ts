@@ -8,5 +8,6 @@ export default interface UtilState {
   };
   facilities: object;
   shippingMethods: object;
-  facilityGroups: object
+  facilityGroups: object;
+  isOmsConfigured: boolean | undefined;
 }

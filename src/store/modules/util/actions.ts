@@ -119,6 +119,21 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     commit(types.UTIL_FACILITY_GROUP_UPDATED, facilityGroups)
+  },
+
+  async checkOmsConnectionStatus({ commit }) {
+    let isOmsConfigured = false
+    try {
+      const resp = await UtilService.checkOmsConnection();
+
+      if(!hasError(resp)) {
+        isOmsConfigured = true
+      }
+    } catch(err) {
+      logger.error('error', err)
+    }
+
+    commit(types.UTIL_OMS_CONFIGURED_UPDATED, isOmsConfigured)
   }
 }
 

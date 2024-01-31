@@ -11,7 +11,8 @@ const utilModule: Module<UtilState, RootState> = {
     enums: {},
     facilities: {},
     shippingMethods: {},
-    facilityGroups: {}
+    facilityGroups: {},
+    isOmsConfigured: undefined
   },
   getters,
   actions,

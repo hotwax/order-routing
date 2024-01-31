@@ -24,6 +24,10 @@ const mutations: MutationTree<UtilState> = {
     state.shippingMethods = {}
     state.facilityGroups = {}
     state.isOmsConnectionExist = undefined
+    state.statuses = {}
+  },
+  [types.UTIL_STATUSES_UPDATED](state, payload) {
+    state.statuses = payload
   }
 }
 export default mutations;

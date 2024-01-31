@@ -136,6 +136,34 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_OMS_CONNECTION_STATUS_UPDATED, isOmsConnectionExist)
   },
 
+  async fetchStatusInformation({ commit, state }) {
+    let statuses = JSON.parse(JSON.stringify(state.statuses))
+
+    // Do not fetch statuses again if already available
+    if(Object.keys(statuses).length) {
+      return;
+    }
+
+    const payload = {
+      parentTypeId: "ROUTING_STATUS"
+    }
+
+    try {
+      const resp = await UtilService.fetchStatusInformation(payload);
+
+      if(!hasError(resp)) {
+        statuses = resp.data.reduce((statues: any, status: any) => {
+          statues[status.statusId] = status
+          return statues
+        }, {})
+      }
+    } catch(err) {
+      logger.error("Failed to fetch the status information")
+    }
+
+    commit(types.UTIL_STATUSES_UPDATED, statuses)
+  },
+
   async clearUtilState({ commit }) {
     commit(types.UTIL_CLEARED)
   }

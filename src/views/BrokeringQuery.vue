@@ -86,8 +86,8 @@
           <ion-item lines="none">
             <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
             <ion-label>{{ "Rule Status" }}</ion-label>
-            <ion-badge :color="statusEnums[selectedRoutingRule.statusId]?.color" v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ statusEnums[selectedRoutingRule.statusId]?.desc }}</ion-badge>
-            <ion-badge :color="statusEnums[selectedRoutingRule.statusId]?.color" v-else>{{ statusEnums[selectedRoutingRule.statusId]?.desc }}</ion-badge>
+            <ion-badge v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
+            <ion-badge color="success" v-else>{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
           </ion-item>
           <section class="filters">
             <ion-card>
@@ -212,7 +212,7 @@ import { useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { showToast, sortSequence } from "@/utils";
+import { sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -231,7 +231,6 @@ const props = defineProps({
 const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
-const statusEnums = JSON.parse(process.env?.VUE_APP_STATUS_ENUMS as string)
 
 const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
@@ -240,6 +239,7 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 let ruleActionType = ref('')
 let selectedRoutingRule = ref({}) as any

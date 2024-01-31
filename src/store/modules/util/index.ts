@@ -12,7 +12,7 @@ const utilModule: Module<UtilState, RootState> = {
     facilities: {},
     shippingMethods: {},
     facilityGroups: {},
-    isOmsConfigured: undefined
+    isOmsConnectionExist: undefined
   },
   getters,
   actions,

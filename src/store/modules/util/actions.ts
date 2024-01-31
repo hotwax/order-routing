@@ -122,18 +122,18 @@ const actions: ActionTree<UtilState, RootState> = {
   },
 
   async checkOmsConnectionStatus({ commit }) {
-    let isOmsConfigured = false
+    let isOmsConnectionExist = false
     try {
       const resp = await UtilService.checkOmsConnection();
 
       if(!hasError(resp)) {
-        isOmsConfigured = true
+        isOmsConnectionExist = true
       }
     } catch(err) {
       logger.error('error', err)
     }
 
-    commit(types.UTIL_OMS_CONFIGURED_UPDATED, isOmsConfigured)
+    commit(types.UTIL_OMS_CONNECTION_STATUS_UPDATED, isOmsConnectionExist)
   },
 
   async clearUtilState({ commit }) {

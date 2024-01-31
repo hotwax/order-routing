@@ -71,7 +71,7 @@
                   {{ "Scheduler" }}
                 </ion-card-title>
               </ion-card-header>
-              <ion-item v-show="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" lines="none">
+              <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
                   {{ "Connection configuration is missing for oms." }}
                 </ion-label>
@@ -88,10 +88,10 @@
             </ion-card>
             <div class="actions desktop-only">
               <div>
-                <ion-button :disabled="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
               </div>
               <div>
-                <ion-button :disabled="typeof isOmsConfigured === 'boolean' && !isOmsConfigured" size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
               </div>
             </div>
             <ion-item>
@@ -147,7 +147,7 @@ let orderRoutings = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
-const isOmsConfigured = computed(() => store.getters["util/isOmsConfigured"])
+const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
@@ -204,12 +204,12 @@ async function checkOmsConnectionStatus() {
 }
 
 async function saveChanges() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConfigured value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConfigured.value !== "boolean") {
+  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
+  if(typeof isOmsConnectionExist.value !== "boolean") {
     await checkOmsConnectionStatus()
   }
 
-  if(!isOmsConfigured.value) {
+  if(!isOmsConnectionExist.value) {
     return;
   }
 

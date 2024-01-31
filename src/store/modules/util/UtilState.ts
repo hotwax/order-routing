@@ -9,5 +9,5 @@ export default interface UtilState {
   facilities: object;
   shippingMethods: object;
   facilityGroups: object;
-  isOmsConfigured: boolean | undefined;
+  isOmsConnectionExist: boolean | undefined;
 }

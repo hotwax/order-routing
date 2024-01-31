@@ -134,6 +134,10 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     commit(types.UTIL_OMS_CONFIGURED_UPDATED, isOmsConfigured)
+  },
+
+  async clearUtilState({ commit }) {
+    commit(types.UTIL_CLEARED)
   }
 }
 

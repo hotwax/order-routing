@@ -7,7 +7,6 @@ import { hasError, showToast } from "@/utils"
 import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
-import store from "@/store"
 
 const actions: ActionTree<UserState, RootState> = {
 

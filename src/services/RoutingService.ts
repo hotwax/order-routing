@@ -116,6 +116,13 @@ const scheduleBrokering = async (payload: any): Promise<any> => {
   });
 }
 
+const runNow = async (routingGroupId: string): Promise<any> => {
+  return api({
+    url: `groups/${routingGroupId}/runNow`,
+    method: "POST"
+  });
+}
+
 export const OrderRoutingService = {
   createOrderRouting,
   createRoutingGroup,
@@ -128,6 +135,7 @@ export const OrderRoutingService = {
   fetchRoutingGroups,
   fetchRoutingScheduleInformation,
   fetchRule,
+  runNow,
   scheduleBrokering,
   updateRouting,
   updateRoutingGroup,

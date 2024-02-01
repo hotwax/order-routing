@@ -38,7 +38,7 @@
   </ion-content>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { 
   IonButtons,
   IonButton,
@@ -56,88 +56,63 @@ import {
   IonToolbar,
   modalController,
 } from "@ionic/vue";
-import { defineComponent } from "vue";
+import { onBeforeMount, ref } from "vue";
 import { close, save } from "ionicons/icons";
 import { useStore } from "@/store";
 import { UserService } from "@/services/UserService";
 import { hasError } from "@/utils"
 import { DateTime } from "luxon";
 
-export default defineComponent({
-  name: "TimeZoneModal",
-  data() {
-    return {
-      queryString: "",
-      filteredTimeZones: [],
-      timeZones: [],
-      timeZoneId: ""
-    }
-  },
-  methods: {
-    closeModal() {
-      modalController.dismiss({ dismissed: true });
-    },
-    escapeRegExp(text: string) {
-      //TODO Handle it in a better way
-      // Currently when the user types special character as it part of Regex expressions it breaks the code
-      // so removed the characters for now
-      return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-    },
-    findTimeZone() { 
-      const regularExp = new RegExp(`${this.escapeRegExp(this.queryString)}`, "i");
-      this.filteredTimeZones = this.timeZones.filter((timeZone: any) => {
-        return regularExp.test(timeZone.id) || regularExp.test(timeZone.label);
+const store = useStore();
+let queryString = ref("")
+let filteredTimeZones = ref([])
+let timeZones = ref([])
+let timeZoneId = ref("")
+
+onBeforeMount(() => {
+  getAvailableTimeZones();
+})
+
+function closeModal() {
+  modalController.dismiss({ dismissed: true });
+}
+
+function escapeRegExp(text: string) {
+  //TODO Handle it in a better way
+  // Currently when the user types special character as it part of Regex expressions it breaks the code
+  // so removed the characters for now
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
+
+function findTimeZone() { 
+  const regularExp = new RegExp(`${escapeRegExp(queryString.value)}`, "i");
+  filteredTimeZones.value = timeZones.value.filter((timeZone: any) => {
+    return regularExp.test(timeZone.id) || regularExp.test(timeZone.label);
+  });
+}
+
+function getAvailableTimeZones() {
+  UserService.getAvailableTimeZones().then((resp: any) => {
+    if (resp.status === 200 && !hasError(resp)) {
+      timeZones.value = resp.data.timeZones.filter((timeZone: any) => {
+        return DateTime.local().setZone(timeZone.id).isValid;
       });
-    },
-    async getAvailableTimeZones() {
-      UserService.getAvailableTimeZones().then((resp: any) => {
-        if (resp.status === 200 && !hasError(resp)) {
-          this.timeZones = resp.data.timeZones.filter((timeZone: any) => {
-            return DateTime.local().setZone(timeZone.id).isValid;
-          });
-          this.findTimeZone();
-        }
-      })
-    },
-    selectSearchBarText(event: any) {
-      event.target.getInputElement().then((element: any) => {
-        element.select();
-      })
-    },
-    async setUserTimeZone() {
-      return this.store.dispatch("user/setUserTimeZone", {
-        "tzId": this.timeZoneId
-      }).then(() => {
-        this.closeModal()
-      })
+      findTimeZone();
     }
-  },
-  beforeMount () {
-    this.getAvailableTimeZones();
-  },
-  setup() {
-    const store = useStore();
-    return {
-      close,
-      save,
-      store
-    };
-  },
-  components: { 
-    IonButtons,
-    IonButton,
-    IonContent,
-    IonFab,
-    IonFabButton,
-    IonHeader,
-    IonIcon,
-    IonItem,
-    IonList,
-    IonRadioGroup,
-    IonRadio,
-    IonSearchbar,
-    IonTitle,
-    IonToolbar 
-  },
-});
+  })
+}
+
+function selectSearchBarText(event: any) {
+  event.target.getInputElement().then((element: any) => {
+    element.select();
+  })
+}
+
+async function setUserTimeZone() {
+  return store.dispatch("user/setUserTimeZone", {
+    "tzId": timeZoneId.value
+  }).then(() => {
+    closeModal()
+  })
+}
 </script>

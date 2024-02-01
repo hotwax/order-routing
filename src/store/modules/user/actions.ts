@@ -7,6 +7,7 @@ import { hasError, showToast } from "@/utils"
 import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
+import { Settings } from "luxon"
 
 const actions: ActionTree<UserState, RootState> = {
 
@@ -27,6 +28,10 @@ const actions: ActionTree<UserState, RootState> = {
 
       // TODO: fetch only associated product stores for user, currently api does not support this
       userProfile.stores = await UserService.getEComStores(token);
+
+      if (userProfile.timeZone) {
+        Settings.defaultZone = userProfile.timeZone;
+      }
 
       commit(types.USER_TOKEN_CHANGED, { newToken: token })
       commit(types.USER_INFO_UPDATED, userProfile);
@@ -55,12 +60,13 @@ const actions: ActionTree<UserState, RootState> = {
   * Update user timeZone
   */
   async setUserTimeZone({ state, commit }, payload) {
-    const resp = await UserService.setUserTimeZone(payload)
-    if (resp.status === 200 && !hasError(resp)) {
-      const current: any = state.current;
-      current.userTimeZone = payload.tzId;
+    const current: any = state.current;
+    // TODO: add support to change the user time on server, currently api to update user is not available
+    if(current.timeZone !== payload.tzId) {
+      current.timeZone = payload.tzId;
       commit(types.USER_INFO_UPDATED, current);
-      showToast(translate("Time zone updated successfully"));
+      Settings.defaultZone = current.timeZone;
+      showToast("Time zone updated successfully");
     }
   },
 

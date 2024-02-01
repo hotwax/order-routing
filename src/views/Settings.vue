@@ -69,8 +69,8 @@
             {{ "The timezone you select is used to ensure automations you schedule are always accurate to the time you select." }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-label> {{ userProfile && userProfile.timeZone ? userProfile.timeZone : "-" }} </ion-label>
-            <ion-button disabled @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ "Change" }}</ion-button>
+            <ion-label>{{ userProfile && userProfile.timeZone ? userProfile.timeZone : "-" }}</ion-label>
+            <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ "Change" }}</ion-button>
           </ion-item>
         </ion-card>
       </section>

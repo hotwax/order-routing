@@ -129,4 +129,8 @@ const getTime = (time: any) => {
   return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : '-';
 }
 
-export { getTime, showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }
+const getTimeFromSeconds = (time: any) => {
+  return time ? DateTime.fromSeconds(time).toLocaleString(DateTime.DATETIME_MED) : '-';
+}
+
+export { getTime, getTimeFromSeconds, showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }

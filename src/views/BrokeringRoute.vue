@@ -92,6 +92,7 @@
               </div>
               <div>
                 <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="runNow()">{{ "Run Now" }}</ion-button>
               </div>
             </div>
             <ion-item>
@@ -256,6 +257,38 @@ async function disable() {
     showToast("Failed to update job")
     logger.error(err)
   }
+}
+
+async function runNow() {
+  const scheduleAlert = await alertController
+    .create({
+      header: "Run now",
+      message: "Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action.",
+      buttons: [
+        {
+          text: "Cancel",
+          role: "cancel",
+        },
+        {
+          text: "Run now",
+          handler: async () => {
+            try {
+              const resp = await OrderRoutingService.runNow(props.routingGroupId)
+              if(!hasError(resp) && resp.data.jobRunId) {
+                showToast("Service has been scheduled")
+              } else {
+                throw resp.data
+              }
+            } catch(err) {
+              showToast("Failed to schedule service")
+              logger.error(err)
+            }
+          }
+        }
+      ]
+    });
+
+  return scheduleAlert.present();
 }
 
 async function redirect(orderRouting: Route) {

@@ -14,9 +14,14 @@
   </ion-header>
 
   <ion-content class="ion-padding">
-    <!-- Empty state -->
-    <div class="empty-state" v-if="filteredTimeZones.length === 0">
-      <p>{{ $t("No time zone found")}}</p>
+    <div class="empty-state" v-if="isLoading">
+      <ion-item lines="none">
+        <ion-spinner name="crescent" slot="start" />
+        {{ "Fetching time zones" }}
+      </ion-item>
+    </div>
+    <div class="empty-state" v-else-if="!filteredTimeZones.length">
+      <p>{{ "No time zone found" }}</p>
     </div>
 
     <!-- Timezones -->
@@ -52,6 +57,7 @@ import {
   IonRadio,
   IonList,
   IonSearchbar,
+  IonSpinner,
   IonTitle,
   IonToolbar,
   modalController,
@@ -68,6 +74,7 @@ let queryString = ref("")
 let filteredTimeZones = ref([])
 let timeZones = ref([])
 let timeZoneId = ref("")
+let isLoading = ref(true)
 
 onBeforeMount(() => {
   getAvailableTimeZones();
@@ -99,6 +106,7 @@ function getAvailableTimeZones() {
       });
       findTimeZone();
     }
+    isLoading.value = false;
   })
 }
 

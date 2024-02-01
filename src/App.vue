@@ -5,11 +5,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
+import { Settings } from 'luxon'
+import store from "./store";
 
 const loader = ref(null) as any
+const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 async function presentLoader(options = { message: "Click the backdrop to dismiss.", backdropDismiss: true }) {
   // When having a custom message remove already existing loader, if not removed it takes into account the already existing loader
@@ -42,6 +45,11 @@ onMounted(async () => {
     });
   emitter.on("presentLoader", presentLoader);
   emitter.on("dismissLoader", dismissLoader);
+
+  if (userProfile.value) {
+    // Luxon timezone should be set with the user's selected timezone
+    userProfile.value.timeZone && (Settings.defaultZone = userProfile.value.timeZone);
+  }
 })
 
 onUnmounted(() => {

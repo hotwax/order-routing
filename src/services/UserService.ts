@@ -69,7 +69,7 @@ const getEComStores = async (token: any): Promise<any> => {
 
 const getAvailableTimeZones = async (): Promise <any>  => {
   return api({
-    url: "getAvailableTimeZones",
+    url: "user/getAvailableTimeZones",
     method: "get",
     cache: true
   });

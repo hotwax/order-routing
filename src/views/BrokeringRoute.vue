@@ -83,6 +83,11 @@
                 </ion-button>
               </ion-item>
               <ion-item>
+                <ion-icon slot="start" :icon="timeOutline"/>
+                <ion-label>{{ "Run time" }}</ion-label>
+                <ion-label slot="end">{{ getTimeFromSeconds(job.nextExecutionDateTime) }}</ion-label>
+              </ion-item>
+              <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
                 <ion-select label="Schedule" interface="popover" :placeholder="$t('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                   <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
@@ -118,7 +123,7 @@
 
 <script setup lang="ts">
 import { IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, arrowBackOutline, refreshOutline, reorderTwoOutline, saveOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, arrowBackOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";
@@ -127,7 +132,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getTime, showToast, sortSequence } from "@/utils";
+import { hasError, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 
 const router = useRouter();

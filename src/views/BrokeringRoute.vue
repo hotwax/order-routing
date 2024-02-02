@@ -113,7 +113,7 @@
         </section>
       </div>
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -427,6 +427,28 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
   })
   hasUnsavedChanges.value = true
   initializeOrderRoutings()
+}
+
+async function save() {
+  const confirmAlert = await alertController
+    .create({
+      header: translate("Confirm"),
+      message: translate("Make sure that you've reviewed the routes order and status before saving."),
+      buttons: [
+        {
+          text: translate("Cancel"),
+          role: "cancel",
+        },
+        {
+          text: translate("Save"),
+          handler: async () => {
+            await saveRoutingGroup()
+          }
+        }
+      ]
+    });
+
+  return confirmAlert.present();
 }
 
 async function saveRoutingGroup() {

@@ -22,7 +22,7 @@
       </main>
       <main v-else-if="groups.length">
         <section>
-          <ion-card v-for="group in groups" :key="group.routingGroupId" @click="redirect(group)">
+          <ion-card class="pointer" v-for="group in groups" :key="group.routingGroupId" @click="redirect(group)">
             <ion-card-header>
               <ion-card-title>
                 {{ group.groupName }}

@@ -215,6 +215,24 @@ async function checkOmsConnectionStatus() {
 }
 
 async function saveChanges() {
+  const alert = await alertController
+    .create({
+      header: translate("Save changes"),
+      message: translate("Are you sure you want to save these changes?"),
+      buttons: [{
+        text: translate("Cancel"),
+        role: "cancel"
+      }, {
+        text: translate("Save"),
+        handler: async () => {
+          await saveSchedule()
+        }
+      }]
+    });
+  return alert.present();
+}
+
+async function saveSchedule() {
   // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
   if(typeof isOmsConnectionExist.value !== "boolean") {
     await checkOmsConnectionStatus()

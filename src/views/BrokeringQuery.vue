@@ -10,7 +10,7 @@
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save Changes") }}</ion-button>
+          <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>

@@ -86,7 +86,7 @@
           <ion-item lines="none">
             <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
             <ion-label>{{ translate("Rule Status") }}</ion-label>
-            <ion-badge v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
+            <ion-badge class="pointer" v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
             <ion-badge color="success" v-else>{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
           </ion-item>
           <section class="filters">

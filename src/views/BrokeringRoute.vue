@@ -23,7 +23,7 @@
               </ion-button>
             </ion-list-header>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-card v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
+              <ion-card class="pointer" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
@@ -36,7 +36,7 @@
                   </ion-reorder>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                  <ion-badge class="pointer" v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ translate("Archive") }}

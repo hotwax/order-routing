@@ -96,7 +96,7 @@
             </ion-card>
             <div class="actions desktop-only">
               <div>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ translate("Disable") }}</ion-button>
+                <ion-button :disabled="job.paused === 'Y' || typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ translate("Disable") }}</ion-button>
               </div>
               <div>
                 <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ translate("Save changes") }}</ion-button>
@@ -113,7 +113,7 @@
         </section>
       </div>
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -215,6 +215,24 @@ async function checkOmsConnectionStatus() {
 }
 
 async function saveChanges() {
+  const alert = await alertController
+    .create({
+      header: translate("Save changes"),
+      message: translate("Are you sure you want to save these changes?"),
+      buttons: [{
+        text: translate("Cancel"),
+        role: "cancel"
+      }, {
+        text: translate("Save"),
+        handler: async () => {
+          await saveSchedule()
+        }
+      }]
+    });
+  return alert.present();
+}
+
+async function saveSchedule() {
   // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
   if(typeof isOmsConnectionExist.value !== "boolean") {
     await checkOmsConnectionStatus()
@@ -250,22 +268,36 @@ async function saveChanges() {
 }
 
 async function disable() {
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    paused: "Y"  // setting Y to disable the job
-  }
+  const alert = await alertController
+    .create({
+      header: translate("Disable"),
+      message: translate("Disabling this schedule will cancel this occurrence and all following occurrences. This schedule will have to be re-enabled manually to run it again."),
+      buttons: [{
+        text: translate("Don't cancel"),
+        role: "cancel"
+      }, {
+        text: translate("Cancel"),
+        handler: async () => {
+          const payload = {
+            routingGroupId: props.routingGroupId,
+            paused: "Y"  // setting Y to disable the schedule
+          }
 
-  try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)){
-      showToast(translate("Job disabled"))
-    } else {
-      throw resp.data
-    }
-  } catch(err) {
-    showToast(translate("Failed to update job"))
-    logger.error(err)
-  }
+          try {
+            const resp = await OrderRoutingService.scheduleBrokering(payload)
+            if(!hasError(resp)){
+              showToast(translate("Schedule disabled"))
+            } else {
+              throw resp.data
+            }
+          } catch(err) {
+            showToast(translate("Failed to update schedule"))
+            logger.error(err)
+          }
+        }
+      }],
+    });
+  return alert.present();
 }
 
 async function runNow() {
@@ -427,6 +459,28 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
   })
   hasUnsavedChanges.value = true
   initializeOrderRoutings()
+}
+
+async function save() {
+  const confirmAlert = await alertController
+    .create({
+      header: translate("Confirm"),
+      message: translate("Make sure that you've reviewed the routes order and status before saving."),
+      buttons: [
+        {
+          text: translate("Cancel"),
+          role: "cancel",
+        },
+        {
+          text: translate("Save"),
+          handler: async () => {
+            await saveRoutingGroup()
+          }
+        }
+      ]
+    });
+
+  return confirmAlert.present();
 }
 
 async function saveRoutingGroup() {

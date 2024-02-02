@@ -2,9 +2,9 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ `Order Rule ${props.label}` }}</ion-title>
+        <ion-title>{{ translate(`Order Rule ${props.label}`) }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="closeModal()">{{ $t('Close') }}</ion-button>
+          <ion-button @click="closeModal()">{{ translate("Close") }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -30,6 +30,7 @@ import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
+import { translate } from "@/i18n";
 
 const store = useStore();
 const enums = computed(() => store.getters["util/getEnums"])
@@ -85,14 +86,14 @@ function addSortOption(sort: any) {
 }
 
 function saveSortOptions() {
-  closeModal('save');
+  closeModal("save");
 }
 
 function isSortOptionSelected(code: string) {
   return routingFilters.value?.[code]
 }
 
-function closeModal(action = 'close') {
+function closeModal(action = "close") {
   modalController.dismiss({ dismissed: true, filters: routingFilters.value }, action)
 }
 </script>

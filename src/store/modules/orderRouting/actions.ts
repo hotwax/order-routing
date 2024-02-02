@@ -7,6 +7,7 @@ import * as types from './mutation-types'
 import logger from "@/logger"
 import { DateTime } from "luxon"
 import emitter from "@/event-bus"
+import { translate } from "@/i18n"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
@@ -43,18 +44,18 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       const resp = await OrderRoutingService.createRoutingGroup(payload)
 
       if(!hasError(resp)) {
-        showToast("Brokering run created")
+        showToast(translate("Brokering run created"))
         dispatch("fetchOrderRoutingGroups")
       } else {
         throw resp.data
       }
     } catch(err) {
-      showToast("Failed to create brokering run")
-      logger.error('err', err)
+      showToast(translate("Failed to create brokering run"))
+      logger.error(err)
     }
   },
 
-  async fetchCurrentRoutingGroup({ commit, dispatch }, routingGroupId) {
+  async fetchCurrentRoutingGroup({ dispatch }, routingGroupId) {
     emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
     let currentGroup = {} as any
 
@@ -104,7 +105,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async createOrderRouting({ dispatch, state }, payload) {
     const currentGroup = JSON.parse(JSON.stringify(state.currentGroup))
-    let orderRoutingId = ''
+    let orderRoutingId = ""
 
     try {
       const resp = await OrderRoutingService.createOrderRouting(payload)
@@ -123,7 +124,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
             orderRoutingId
           }]
         }
-        showToast('New routing created')
+        showToast(translate("New routing created"))
       }
 
       if(currentGroup["routings"].length) {
@@ -132,8 +133,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       await dispatch("setCurrentGroup", currentGroup)
     } catch(err) {
-      showToast("Failed to create order routing")
-      logger.error('err', err)
+      showToast(translate("Failed to create order routing"))
+      logger.error(err)
     }
 
     return orderRoutingId;
@@ -210,7 +211,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
           ...payload,
           routingRuleId
         })
-        showToast('Inventory rule created successfully')
+        showToast(translate("Inventory rule created successfully"))
 
         // Sort the routings and update the state only on success
         if(routingRules.length) {
@@ -221,8 +222,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
         commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, currentRoute)
       }
     } catch(err) {
-      showToast("Failed to create inventory rule")
-      logger.error('err', err)
+      showToast(translate("Failed to create inventory rule"))
+      logger.error(err)
     }
 
     return routingRuleId;

@@ -10,6 +10,7 @@ import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 import { Settings } from 'luxon'
 import store from "./store";
+import { translate } from "@/i18n"
 
 const loader = ref(null) as any
 const userProfile = computed(() => store.getters["user/getUserProfile"])
@@ -21,7 +22,7 @@ async function presentLoader(options = { message: "Click the backdrop to dismiss
   if (!loader.value) {
     loader.value = await loadingController
       .create({
-        message: options.message,
+        message: translate(options.message),
         translucent: true,
         backdropDismiss: options.backdropDismiss
       });
@@ -39,7 +40,7 @@ function dismissLoader() {
 onMounted(async () => {
   loader.value = await loadingController
     .create({
-      message: "Click the backdrop to dismiss.",
+      message: translate("Click the backdrop to dismiss."),
       translucent: true,
       backdropDismiss: true
     });

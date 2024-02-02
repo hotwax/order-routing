@@ -3,7 +3,7 @@ import store from "@/store";
 import { hasError } from "@/utils";
 
 const login = async (username: string, password: string): Promise <any> => {
-  let token = ''
+  let token = ""
   try {
     const resp = await api({
       url: "login", 

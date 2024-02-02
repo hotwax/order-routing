@@ -3,7 +3,7 @@ import { ActionTree } from "vuex"
 import RootState from "@/store/RootState"
 import UserState from "./UserState"
 import * as types from "./mutation-types"
-import { hasError, showToast } from "@/utils"
+import { showToast } from "@/utils"
 import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
@@ -66,7 +66,7 @@ const actions: ActionTree<UserState, RootState> = {
       current.timeZone = payload.tzId;
       commit(types.USER_INFO_UPDATED, current);
       Settings.defaultZone = current.timeZone;
-      showToast("Time zone updated successfully");
+      showToast(translate("Time zone updated successfully"));
     }
   },
 

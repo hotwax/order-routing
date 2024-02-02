@@ -30,7 +30,7 @@ const actions: ActionTree<UtilState, RootState> = {
         }, enums)
       }
     } catch(err) {
-      logger.error('error', err)
+      logger.error(err)
     }
 
     commit(types.UTIL_ENUMS_UPDATED, enums)
@@ -58,7 +58,7 @@ const actions: ActionTree<UtilState, RootState> = {
         }, {})
       }
     } catch(err) {
-      logger.error('error', err)
+      logger.error(err)
     }
 
     commit(types.UTIL_FACILITIES_UPDATED, facilities)
@@ -86,7 +86,7 @@ const actions: ActionTree<UtilState, RootState> = {
         }, {})
       }
     } catch(err) {
-      logger.error('error', err)
+      logger.error(err)
     }
 
     commit(types.UTIL_SHIPPING_METHOD_UPDATED, shippingMethods)
@@ -115,7 +115,7 @@ const actions: ActionTree<UtilState, RootState> = {
         }, {})
       }
     } catch(err) {
-      logger.error('error', err)
+      logger.error(err)
     }
 
     commit(types.UTIL_FACILITY_GROUP_UPDATED, facilityGroups)

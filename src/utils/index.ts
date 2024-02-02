@@ -126,11 +126,11 @@ const sortSequence = (sequence: Array<Group | Route | Rule>) => {
 }
 
 const getTime = (time: any) => {
-  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : '-';
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "-";
 }
 
 const getTimeFromSeconds = (time: any) => {
-  return time ? DateTime.fromSeconds(time).toLocaleString(DateTime.DATETIME_MED) : '-';
+  return time ? DateTime.fromSeconds(time).toLocaleString(DateTime.DATETIME_MED) : "-";
 }
 
 export { getTime, getTimeFromSeconds, showToast, hasError , parseCsv , jsonToCsv, JsonToCsvOption, sortSequence }

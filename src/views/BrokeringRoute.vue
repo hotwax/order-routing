@@ -8,7 +8,7 @@
             <ion-icon slot="icon-only" :icon="arrowBackOutline"/>
           </ion-button>
         </ion-buttons>
-        <ion-title>{{ "Brokering run name" }}</ion-title>
+        <ion-title>{{ translate("Brokering run name") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -16,9 +16,9 @@
         <div>
           <ion-list>
             <ion-list-header>
-              <ion-label>{{ "Order batches" }}</ion-label>
+              <ion-label>{{ translate("Order batches") }}</ion-label>
               <ion-button color="primary" fill="clear" @click="createOrderRoute">
-                {{ "New" }}
+                {{ translate("New") }}
                 <ion-icon :icon="addCircleOutline" />
               </ion-button>
             </ion-list-header>
@@ -39,7 +39,7 @@
                   <ion-badge v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
-                    {{ "Archive" }}
+                    {{ translate("Archive") }}
                     <ion-icon :icon="archiveOutline" />
                   </ion-button>
                 </ion-item>
@@ -49,17 +49,17 @@
           <div>
             <ion-item button lines="none" @click="openArchivedRoutingModal()">
               <ion-icon slot="start" :icon="archiveOutline" />
-              <ion-label>{{ "Archive" }}</ion-label>
-              <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ " rules" }}</ion-badge>
+              <ion-label>{{ translate("Archive") }}</ion-label>
+              <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ translate("rules") }}</ion-badge>
             </ion-item>
           </div>
         </div>
         <section class="ion-padding">
           <main>
             <ion-item lines="none">
-              {{ "Description" }}
+              {{ translate("Description") }}
               <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
-                {{ isDescUpdating ? "Save" : "Edit" }}
+                {{ translate(isDescUpdating ? "Save" : "Edit") }}
               </ion-button>
             </ion-item>
             <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
@@ -71,12 +71,12 @@
             <ion-card>
               <ion-card-header>
                 <ion-card-title>
-                  {{ "Scheduler" }}
+                  {{ translate("Scheduler") }}
                 </ion-card-title>
               </ion-card-header>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
-                  {{ "Connection configuration is missing for oms." }}
+                  {{ translate("Connection configuration is missing for oms.") }}
                 </ion-label>
                 <ion-button fill="clear" @click="checkOmsConnectionStatus">
                   <ion-icon slot="icon-only" :icon="refreshOutline" />
@@ -84,23 +84,23 @@
               </ion-item>
               <ion-item>
                 <ion-icon slot="start" :icon="timeOutline"/>
-                <ion-label>{{ "Run time" }}</ion-label>
+                <ion-label>{{ translate("Run time") }}</ion-label>
                 <ion-label slot="end">{{ getTimeFromSeconds(job.nextExecutionDateTime) }}</ion-label>
               </ion-item>
               <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <ion-select label="Schedule" interface="popover" :placeholder="$t('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
+                <ion-select :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                   <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                 </ion-select>
               </ion-item>
             </ion-card>
             <div class="actions desktop-only">
               <div>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ "Disable" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ translate("Disable") }}</ion-button>
               </div>
               <div>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ "Save changes" }}</ion-button>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="runNow()">{{ "Run Now" }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ translate("Save changes") }}</ion-button>
+                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="runNow()">{{ translate("Run Now") }}</ion-button>
               </div>
             </div>
             <ion-item>
@@ -134,6 +134,7 @@ import logger from "@/logger";
 import { DateTime } from "luxon";
 import { hasError, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
+import { translate } from "@/i18n";
 
 const router = useRouter();
 const store = useStore();
@@ -172,21 +173,21 @@ onIonViewWillEnter(async () => {
 })
 
 onBeforeRouteLeave(async (to) => {
-  if(to.path === '/login') return;
+  if(to.path === "/login") return;
   let canLeave = false;
 
   const alert = await alertController.create({
-    header: "Leave page",
-    message: "Any edits made on this page will be lost.",
+    header: translate("Leave page"),
+    message: translate("Any edits made on this page will be lost."),
     buttons: [
       {
-        text: "STAY",
+        text: translate("STAY"),
         handler: () => {
           canLeave = false;
         },
       },
       {
-        text: "LEAVE",
+        text: translate("LEAVE"),
         handler: () => {
           canLeave = true;
         },
@@ -224,7 +225,7 @@ async function saveChanges() {
   }
 
   if(!job.value.cronExpression) {
-    showToast("Please select a scheduling for job")
+    showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
     return;
   }
@@ -238,12 +239,12 @@ async function saveChanges() {
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
-      showToast("Job updated")
+      showToast(translate("Job updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast("Failed to update job")
+    showToast(translate("Failed to update job"))
     logger.error(err)
   }
 }
@@ -257,12 +258,12 @@ async function disable() {
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
-      showToast("Job disabled")
+      showToast(translate("Job disabled"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast("Failed to update job")
+    showToast(translate("Failed to update job"))
     logger.error(err)
   }
 }
@@ -270,25 +271,25 @@ async function disable() {
 async function runNow() {
   const scheduleAlert = await alertController
     .create({
-      header: "Run now",
-      message: "Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action.",
+      header: translate("Run now"),
+      message: translate("Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action."),
       buttons: [
         {
-          text: "Cancel",
+          text: translate("Cancel"),
           role: "cancel",
         },
         {
-          text: "Run now",
+          text: translate("Run now"),
           handler: async () => {
             try {
               const resp = await OrderRoutingService.runNow(props.routingGroupId)
               if(!hasError(resp) && resp.data.jobRunId) {
-                showToast("Service has been scheduled")
+                showToast(translate("Service has been scheduled"))
               } else {
                 throw resp.data
               }
             } catch(err) {
-              showToast("Failed to schedule service")
+              showToast(translate("Failed to schedule service"))
               logger.error(err)
             }
           }
@@ -306,16 +307,16 @@ async function redirect(orderRouting: Route) {
 
 async function createOrderRoute() {
   const newRouteAlert = await alertController.create({
-    header: "New Order Route",
+    header: translate("New Order Route"),
     buttons: [{
-      text: "Cancel",
+      text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: "Save"
+      text: translate("Save")
     }],
     inputs: [{
       name: "routingName",
-      placeholder: "Route name"
+      placeholder: translate("route name")
     }]
   })
 
@@ -352,11 +353,11 @@ async function createOrderRoute() {
 }
 
 function getActiveAndDraftOrderRoutings() {
-  return orderRoutings.value.filter((routing: Route) => routing.statusId !== 'ROUTING_ARCHIVED')
+  return orderRoutings.value.filter((routing: Route) => routing.statusId !== "ROUTING_ARCHIVED")
 }
 
 function getArchivedOrderRoutings() {
-  return orderRoutings.value.filter((routing: Route) => routing.statusId === 'ROUTING_ARCHIVED')
+  return orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_ARCHIVED")
 }
 
 async function updateGroupDescription() {
@@ -479,12 +480,12 @@ async function updateRoutingGroup(payload: any) {
 
     if(!hasError(resp) && resp.data.routingGroupId) {
       routingGroupId = resp.data.routingGroupId
-      showToast("Routing group information updated")
+      showToast(translate("Routing group information updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast("Failed to update group information")
+    showToast(translate("Failed to update group information"))
     logger.error(err);
   }
 

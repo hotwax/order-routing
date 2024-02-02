@@ -34,7 +34,7 @@ const fetchFacilityGroups = async (payload: any): Promise<any> => {
 
 const fetchStatusInformation = async (payload: any): Promise<any> => {
   return api({
-    url: `status`,
+    url: "status",
     method: "GET",
     params: payload
   });
@@ -42,7 +42,7 @@ const fetchStatusInformation = async (payload: any): Promise<any> => {
 
 const checkOmsConnection = async (): Promise<any> => {
   return api({
-    url: `checkOmsConnection`,
+    url: "checkOmsConnection",
     method: "GET"
   });
 }

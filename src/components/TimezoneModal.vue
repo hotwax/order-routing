@@ -6,10 +6,10 @@
           <ion-icon :icon="close" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ $t("Select time zone") }}</ion-title>
+      <ion-title>{{ translate("Select time zone") }}</ion-title>
     </ion-toolbar>
     <ion-toolbar>
-      <ion-searchbar @ionFocus="selectSearchBarText($event)" :placeholder="$t('Search time zones')"  v-model="queryString" v-on:keyup.enter="queryString = $event.target.value; findTimeZone()" />
+      <ion-searchbar @ionFocus="selectSearchBarText($event)" :placeholder="translate('Search time zones')"  v-model="queryString" v-on:keyup.enter="queryString = $event.target.value; findTimeZone()" />
     </ion-toolbar>
   </ion-header>
 
@@ -17,11 +17,11 @@
     <div class="empty-state" v-if="isLoading">
       <ion-item lines="none">
         <ion-spinner name="crescent" slot="start" />
-        {{ "Fetching time zones" }}
+        {{ translate("Fetching time zones") }}
       </ion-item>
     </div>
     <div class="empty-state" v-else-if="!filteredTimeZones.length">
-      <p>{{ "No time zone found" }}</p>
+      <p>{{ translate("No time zone found") }}</p>
     </div>
 
     <!-- Timezones -->
@@ -68,6 +68,7 @@ import { useStore } from "@/store";
 import { UserService } from "@/services/UserService";
 import { hasError } from "@/utils"
 import { DateTime } from "luxon";
+import { translate } from "@/i18n"
 
 const store = useStore();
 let queryString = ref("")

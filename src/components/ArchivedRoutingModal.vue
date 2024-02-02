@@ -6,7 +6,7 @@
           <ion-icon slot="icon-only" :icon="closeOutline" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ "Archived Routes" }}</ion-title>
+      <ion-title>{{ translate("Archived Routes") }}</ion-title>
     </ion-toolbar>
   </ion-header>
   
@@ -14,16 +14,17 @@
     <ion-list>
       <ion-item v-for="routing in routings" :key="routing.orderRoutingId">
         <ion-label>{{ routing.routingName }}</ion-label>
-        <ion-button slot="end" fill="outline" color="medium" @click="updateOrderRouting(routing, 'statusId', 'ROUTING_DRAFT')">{{ "Unarchive" }}</ion-button>
+        <ion-button slot="end" fill="outline" color="medium" @click="updateOrderRouting(routing, 'statusId', 'ROUTING_DRAFT')">{{ translate("Unarchive") }}</ion-button>
       </ion-item>
     </ion-list>
     <p class="empty-state" v-if="!routings.length">
-      {{ "No archived routings" }}
+      {{ translate("No archived routings") }}
     </p>
   </ion-content>
 </template>
 
 <script setup lang="ts">
+import { translate } from "@/i18n";
 import { Route } from "@/types";
 import {
   IonButton,

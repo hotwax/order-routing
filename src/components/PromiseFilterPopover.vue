@@ -2,22 +2,23 @@
   <ion-content>
     <ion-list>
       <ion-list-header>
-        <ion-label>{{ $t("Promise date") }}</ion-label>
+        <ion-label>{{ translate("Promise date") }}</ion-label>
       </ion-list-header>
       <ion-item button @click="updatePromiseDate()">
-        <ion-label>{{ $t("Already passed") }}</ion-label>
+        <ion-label>{{ translate("Already passed") }}</ion-label>
       </ion-item>
       <ion-item button @click="updatePromiseDate('Upcoming duration')">
-        <ion-label>{{ $t("Upcoming duration") }}</ion-label>
+        <ion-label>{{ translate("Upcoming duration") }}</ion-label>
       </ion-item>
       <ion-item button lines="none" @click="updatePromiseDate('Passed duration', true)">
-        <ion-label>{{ $t("Passed duration") }}</ion-label>
+        <ion-label>{{ translate("Passed duration") }}</ion-label>
       </ion-item>
     </ion-list>
   </ion-content>
 </template>
 
 <script setup lang="ts">
+import { translate } from "@/i18n";
 import { IonContent, IonItem, IonLabel, IonList, IonListHeader, alertController, popoverController } from "@ionic/vue";
 
 async function updatePromiseDate(header = '', isPastDuration = false) {
@@ -29,16 +30,16 @@ async function updatePromiseDate(header = '', isPastDuration = false) {
   }
 
   const durationAlert = await alertController.create({
-    header,
+    header: translate(header),
     buttons: [{
-      text: "Cancel",
+      text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: "Save"
+      text: translate("Save")
     }],
     inputs: [{
       name: "duration",
-      placeholder: "duration"
+      placeholder: translate("duration")
     }]
   })
 

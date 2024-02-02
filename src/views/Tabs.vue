@@ -5,12 +5,12 @@
       <ion-tab-bar slot="bottom">
         <ion-tab-button tab="brokering" href="/tabs/brokering">
           <ion-icon :icon="shuffleOutline" />
-          <ion-label>{{ $t("Brokering") }}</ion-label>
+          <ion-label>{{ translate("Brokering") }}</ion-label>
         </ion-tab-button>
 
         <ion-tab-button tab="more" href="/tabs/settings">
           <ion-icon :icon="settingsOutline" />
-          <ion-label>{{ $t("Settings") }}</ion-label>
+          <ion-label>{{ translate("Settings") }}</ion-label>
         </ion-tab-button>
       </ion-tab-bar>
     </ion-tabs>
@@ -18,7 +18,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs,  } from "@ionic/vue";
+import { translate } from "@/i18n";
+import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
 import { settingsOutline, shuffleOutline } from "ionicons/icons";
 </script>
 

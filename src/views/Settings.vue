@@ -3,7 +3,7 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-menu-button slot="start" />
-        <ion-title>{{ "Settings" }}</ion-title>
+        <ion-title>{{ translate("Settings") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     
@@ -22,29 +22,29 @@
               <ion-card-title>{{ userProfile?.userFullName }}</ion-card-title>
             </ion-card-header>
           </ion-item>
-          <ion-button color="danger" @click="logout()">{{ "Logout" }}</ion-button>
+          <ion-button color="danger" @click="logout()">{{ translate("Logout") }}</ion-button>
           <!-- Commenting this code as we currently do not have reset password functionality -->
           <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
         </ion-card>
       </div>
       <div class="section-header">
-        <h1>{{ "OMS" }}</h1>
+        <h1>{{ translate("OMS") }}</h1>
       </div>
       <section>
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
-              {{ "Product Store" }}
+              {{ translate("Product Store") }}
             </ion-card-subtitle>
             <ion-card-title>
-              {{ "Store" }}
+              {{ translate("Store") }}
             </ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            {{ "A store repesents a company or a unique catalog of products. If your OMS is connected to multiple eCommerce stores sellling different collections of products, you may have multiple Product Stores set up in HotWax Commerce." }}
+            {{ translate("A store repesents a company or a unique catalog of products. If your OMS is connected to multiple eCommerce stores sellling different collections of products, you may have multiple Product Stores set up in HotWax Commerce.") }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-select :label="'Select store'" interface="popover" :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
+            <ion-select :label="translate('Select store')" interface="popover" :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
               <ion-select-option v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" :value="store.productStoreId" >{{ store.storeName }}</ion-select-option>
             </ion-select>
           </ion-item>
@@ -53,24 +53,24 @@
       <hr />
       <div class="section-header">
         <h1>
-          {{ "App" }}
-          <p class="overline" >{{ "Version: " + appVersion }}</p>
+          {{ translate("App") }}
+          <p class="overline" >{{ translate("Version:") + appVersion }}</p>
         </h1>
-        <p class="overline">{{ "Built: " + getDateTime(appInfo.builtTime) }}</p>
+        <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
       </div>
       <section>
         <ion-card>
           <ion-card-header>
             <ion-card-title>
-              {{ "Timezone" }}
+              {{ translate("Timezone") }}
             </ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            {{ "The timezone you select is used to ensure automations you schedule are always accurate to the time you select." }}
+            {{ translate("The timezone you select is used to ensure automations you schedule are always accurate to the time you select.") }}
           </ion-card-content>
           <ion-item lines="none">
             <ion-label>{{ userProfile && userProfile.timeZone ? userProfile.timeZone : "-" }}</ion-label>
-            <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ "Change" }}</ion-button>
+            <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
         </ion-card>
       </section>
@@ -86,6 +86,7 @@ import { useRouter } from "vue-router";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
+import { translate } from "@/i18n"
 
 const store = useStore()
 const router = useRouter()

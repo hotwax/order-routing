@@ -2,11 +2,11 @@
   <ion-page>
     <ion-header :translucent="true">
       <ion-toolbar>
-        <ion-title>{{ "Brokering Runs" }}</ion-title>
+        <ion-title>{{ translate("Brokering Runs") }}</ion-title>
         
         <ion-buttons slot="end">
           <ion-button color="primary" @click="addNewRun">
-            {{ "New Run" }}
+            {{ translate("New Run") }}
             <ion-icon :icon="addOutline" />
           </ion-button>
         </ion-buttons>
@@ -17,7 +17,7 @@
       <main v-if="isLoading">
         <ion-item lines="none">
           <ion-spinner name="crescent" slot="start" />
-          {{ $t("Fetching groups") }}
+          {{ translate("Fetching groups") }}
         </ion-item>
       </main>
       <main v-else-if="groups.length">
@@ -45,13 +45,14 @@
         </section>
       </main>
       <main v-else>
-        {{ "No runs scheduled" }}
+        {{ translate("No runs scheduled") }}
       </main>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
+import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getTime, showToast } from "@/utils";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
@@ -74,22 +75,22 @@ onIonViewWillEnter(async () => {
 
 async function addNewRun() {
   const newRunAlert = await alertController.create({
-    header: "New Run",
+    header: translate("New Run"),
     buttons: [{
-      text: "Cancel",
+      text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: "Save",
+      text: translate("Save"),
       handler: (data) => {
         if(!data.runName?.trim().length) {
-          showToast("Please enter a valid name")
+          showToast(translate("Please enter a valid name"))
           return false;
         }
       }
     }],
     inputs: [{
       name: "runName",
-      placeholder: "Run name"
+      placeholder: translate("run name")
     }]
   })
 
@@ -100,7 +101,7 @@ async function addNewRun() {
     }
 
     if(result.data?.values?.runName.trim()) {
-      store.dispatch('orderRouting/createRoutingGroup', result.data.values.runName.trim())
+      store.dispatch("orderRouting/createRoutingGroup", result.data.values.runName.trim())
     }
   })
 

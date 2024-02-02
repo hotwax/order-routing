@@ -6,17 +6,17 @@
           <Logo />
 
           <ion-item lines="full">
-            <ion-input label-placement="fixed" :label="$t('OMS')" name="instanceUrl" v-model="instanceUrl" id="instanceUrl" type="text" required />
+            <ion-input label-placement="fixed" :label="translate('OMS')" name="instanceUrl" v-model="instanceUrl" id="instanceUrl" type="text" required />
           </ion-item>
           <ion-item lines="full">
-            <ion-input label-placement="fixed" :label="$t('Username')" name="username" v-model="username" id="username" type="text" required />
+            <ion-input label-placement="fixed" :label="translate('Username')" name="username" v-model="username" id="username" type="text" required />
           </ion-item>
           <ion-item lines="none">
-            <ion-input label-placement="fixed" :label="$t('Password')" name="password" v-model="password" id="password" type="password" required />
+            <ion-input label-placement="fixed" :label="translate('Password')" name="password" v-model="password" id="password" type="password" required />
           </ion-item>
 
           <div class="ion-padding">
-            <ion-button type="submit" color="primary" fill="outline" expand="block" @click="login(form)">{{ $t("Login") }}</ion-button>
+            <ion-button type="submit" color="primary" fill="outline" expand="block" @click="login(form)">{{ translate("Login") }}</ion-button>
           </div>
         </form>
       </div>
@@ -37,6 +37,7 @@ import { useRouter } from "vue-router";
 import { useStore } from "@/store";
 import { mapGetters } from "vuex";
 import Logo from "@/components/Logo.vue";
+import { translate } from "@/i18n"
 
 export default defineComponent({
   name: "Login",
@@ -79,7 +80,7 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const store = useStore();
-    return { router, store };
+    return { router, store, translate };
   }
 });
 </script>

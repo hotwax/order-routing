@@ -70,7 +70,7 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-item v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
+              <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="inventoryRules.length > 1" />
@@ -259,6 +259,11 @@ onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
 
+  // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
+  if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
+    await store.dispatch("orderRouting/fetchCurrentRoutingGroup", router.currentRoute.value.params.routingGroupId)
+  }
+
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
   }
@@ -302,6 +307,7 @@ onBeforeRouteLeave(async (to) => {
 })
 
 function getRouteIndex() {
+  // Filtering archived routes as the index and total count needs to calculated by excluding the archived routes
   const activeAndDraftRoute = currentRoutingGroup.value["routings"].filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED")
   const total = activeAndDraftRoute.length
   const currentRouteIndex: any = Object.keys(activeAndDraftRoute).find((key: any) => activeAndDraftRoute[key].orderRoutingId === props.orderRoutingId)

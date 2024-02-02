@@ -10,7 +10,7 @@
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button expand="block" @click="save">{{ translate("Save Changes") }}</ion-button>
+          <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="save">{{ translate("Save Changes") }}</ion-button>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -210,7 +210,7 @@
 <script setup lang="ts">
 import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
-import { useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
@@ -253,6 +253,7 @@ let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
+let hasUnsavedChanges = ref(false)
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -268,6 +269,36 @@ onIonViewWillEnter(async () => {
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
   emitter.emit("dismissLoader")
+})
+
+onBeforeRouteLeave(async (to) => {
+  if(to.path === "/login") return;
+  let canLeave = false;
+
+  const alert = await alertController.create({
+    header: translate("Leave page"),
+    message: translate("Any edits made on this page will be lost."),
+    buttons: [
+      {
+        text: translate("STAY"),
+        handler: () => {
+          canLeave = false;
+        },
+      },
+      {
+        text: translate("LEAVE"),
+        handler: () => {
+          canLeave = true;
+        },
+      },
+    ],
+  });
+
+  if(hasUnsavedChanges.value) {
+    alert.present();
+    await alert.onDidDismiss();
+    return canLeave;
+  }
 })
 
 function getRouteIndex() {
@@ -366,6 +397,7 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
     // When closing the modal without save and when unselecting all the filter, in both the cases we get filters object as empty thus passing a role from the modal to update the filter only when save action is performed
     if(result.role === "save") {
       conditionTypeEnumId === "ENTCT_FILTER" ? ( orderRoutingFilterOptions.value = result.data.filters ) : ( orderRoutingSortOptions.value = result.data.filters )
+      hasUnsavedChanges.value = true
     }
   })
 
@@ -418,6 +450,7 @@ async function addInventoryRule() {
 function updateRule() {
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"] = { "ENTCT_FILTER": inventoryRuleFilterOptions.value, "ENTCT_SORT_BY": inventoryRuleSortOptions.value }
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] = inventoryRuleActions.value
+  hasUnsavedChanges.value = true
 }
 
 function updateUnfillableActionType(value: string) {
@@ -494,6 +527,7 @@ function updatePartialAllocation(checked: any) {
       inventoryRule.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
     }
   })
+  hasUnsavedChanges.value = true
 }
 
 function isPromiseDateFilterApplied() {
@@ -539,6 +573,7 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
   popover.onDidDismiss().then((result: any) => {
     if(result.data?.duration || result.data?.duration == 0) {
       getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+      hasUnsavedChanges.value = true
     }
     getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").operator = "less-equals"
   })
@@ -584,6 +619,7 @@ function updateOperator(event: CustomEvent) {
 
 function updateOrderFilterValue(event: CustomEvent, id: string) {
   orderRoutingFilterOptions.value[ruleEnums[id].code].fieldValue = event.detail.value
+  hasUnsavedChanges.value = true
 }
 
 function updateRuleFilterValue(event: CustomEvent, id: string) {
@@ -615,6 +651,7 @@ function updateRuleStatus(routingRuleId: string, statusId: string) {
       inventoryRule.statusId = statusId
     }
   })
+  hasUnsavedChanges.value = true
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -632,6 +669,9 @@ function doRouteSortReorder(event: CustomEvent) {
     filters[filter.fieldName] = filter
     return filters
   }, {})
+
+  // considering that on reordering there is some change in the order
+  hasUnsavedChanges.value = true
 }
 
 function doConditionSortReorder(event: CustomEvent) {
@@ -776,6 +816,7 @@ function doReorder(event: CustomEvent) {
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
 
   inventoryRules.value = updatedSeq
+  hasUnsavedChanges.value = true
 }
 
 async function save() {
@@ -896,6 +937,8 @@ async function save() {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
+
+  hasUnsavedChanges.value = false
   emitter.emit("dismissLoader")
 }
 </script>

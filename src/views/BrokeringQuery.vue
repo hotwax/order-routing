@@ -119,7 +119,9 @@
                 <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
                 <ion-chip outline>
                   <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
-                    <ion-select-option v-for="(enumeration, id) in enums['COMPARISON_OPERATOR']" :key="id" :value="enumeration.enumCode">{{ enumeration.description || enumeration.enumCode }}</ion-select-option>
+                    <ion-select-option value="equals">{{ translate("equals") }}</ion-select-option>
+                    <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
+                    <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
                 <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>

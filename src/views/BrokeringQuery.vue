@@ -1001,7 +1001,7 @@ ion-back-button::part(icon) {
 
 /* As no border is displayed by default to the ion-back-button */
 ion-back-button::part(native) {
-  border: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.32);
+  border: 1px solid;
   border-radius: 16px;
 }
 </style>

@@ -5,10 +5,7 @@
         <div class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
-            <ion-chip slot="end" outline @click="router.push(`/tabs/brokering/${currentRouting.routingGroupId}/routes`)">
-              {{ getRouteIndex() }}
-              <ion-icon :icon="chevronUpOutline" />
-            </ion-chip>
+            <ion-back-button slot="end" :default-href="`/tabs/brokering/${currentRouting.routingGroupId}/routes`" :text="getRouteIndex()" :icon="chevronUpOutline"></ion-back-button>
           </ion-item>
           <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
           <ion-item-group>
@@ -208,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
@@ -995,5 +992,16 @@ ion-content > div > .menu {
 ion-chip > ion-select {
   /* Adding min-height as auto-styling is getting appLied when not using legacy select option */
   min-height: unset;
+}
+
+/* Change the position of icon inside back-button to end, as the icon inside back-button is always displayed first */
+ion-back-button::part(icon) {
+  order: 2;
+}
+
+/* As no border is displayed by default to the ion-back-button */
+ion-back-button::part(native) {
+  border: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.32);
+  border-radius: 16px;
 }
 </style>

@@ -36,10 +36,10 @@
               <ion-label slot="end">{{ group.runTime ? group.runTime : "-" }}</ion-label>
             </ion-item>
             <ion-item>
-              {{ getTime(group.createdDate) }}
+              {{ getDateAndTime(group.createdDate) }}
             </ion-item>
             <ion-item lines="none">
-              {{ getTime(group.lastUpdatedStamp) }}
+              {{ getDateAndTime(group.lastUpdatedStamp) }}
             </ion-item>
           </ion-card>
         </section>
@@ -54,7 +54,7 @@
 <script setup lang="ts">
 import { translate } from "@/i18n";
 import { Group } from "@/types";
-import { getTime, showToast } from "@/utils";
+import { getDateAndTime, showToast } from "@/utils";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { computed, ref } from "vue";

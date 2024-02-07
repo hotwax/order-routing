@@ -22,6 +22,13 @@ const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<
   });
 }
 
+const fetchRoutingHistory = async (routingGroupId: string): Promise<any> => {
+  return api({
+    url: `groups/${routingGroupId}/routingRuns`,
+    method: "GET"
+  });
+}
+
 const createRoutingGroup = async (payload: any): Promise<any> => {
   return api({
     url: "groups",
@@ -133,6 +140,7 @@ export const OrderRoutingService = {
   fetchOrderRouting,
   fetchRoutingGroupInformation,
   fetchRoutingGroups,
+  fetchRoutingHistory,
   fetchRoutingScheduleInformation,
   fetchRule,
   runNow,

@@ -57,7 +57,7 @@
         <section class="ion-padding">
           <main>
             <ion-item lines="none">
-              {{ translate("Description") }}
+              <h2>{{ translate("Description") }}</h2>
               <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
                 {{ translate(isDescUpdating ? "Save" : "Edit") }}
               </ion-button>
@@ -65,6 +65,16 @@
             <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
               <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
               <ion-label v-else>{{ description }}</ion-label>
+            </ion-item>
+            <ion-item lines="none">
+              <h2>{{ translate("History") }}</h2>
+            </ion-item>
+            <ion-item v-for="routing in routingHistory" :key="routing.routingGroupId">
+              <ion-label>
+                <h3>{{ getTime(routing.startDate) }}</h3>
+                <p>{{ getDate(routing.startDate) }}</p>
+              </ion-label>
+              <ion-badge color="dark">{{ getTime(routing.endDate - routing.startDate) }}</ion-badge>
             </ion-item>
           </main>
           <aside>
@@ -104,10 +114,10 @@
               </div>
             </div>
             <ion-item>
-              {{ `Created at ${getTime(currentRoutingGroup.createdDate)}` }}
+              {{ `Created at ${getDateAndTime(currentRoutingGroup.createdDate)}` }}
             </ion-item>
             <ion-item>
-              {{ `Updated at ${getTime(currentRoutingGroup.lastUpdatedStamp)}` }}
+              {{ `Updated at ${getDateAndTime(currentRoutingGroup.lastUpdatedStamp)}` }}
             </ion-item>
           </aside>
         </section>
@@ -132,7 +142,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
+import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 
@@ -153,6 +163,7 @@ let hasUnsavedChanges = ref(false)
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
+let routingHistory = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
@@ -160,7 +171,7 @@ const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionE
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 onIonViewWillEnter(async () => {
-  await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
+  await Promise.all([store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId), fetchRoutingHistory()])
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -230,6 +241,21 @@ async function saveChanges() {
       }]
     });
   return alert.present();
+}
+
+async function fetchRoutingHistory() {
+  routingHistory.value = []
+  try {
+    const resp = await OrderRoutingService.fetchRoutingHistory(props.routingGroupId)
+
+    if(!hasError(resp)) {
+      routingHistory.value = resp.data
+    } else {
+      throw resp.data;
+    }
+  } catch(err) {
+    logger.error(err)
+  }
 }
 
 async function saveSchedule() {

@@ -83,12 +83,25 @@
           </ion-button>
         </div>
         <div v-if="selectedRoutingRule.routingRuleId">
-          <ion-item lines="none">
-            <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
-            <ion-label>{{ translate("Rule Status") }}</ion-label>
-            <ion-badge class="pointer" v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-            <ion-badge color="success" v-else>{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-          </ion-item>
+          <ion-card class="rule-info">
+            <ion-item :color="isRuleNameUpdating ? 'light' : ''" lines="none">
+              <ion-label v-if="!isRuleNameUpdating">
+                <h1>{{ selectedRoutingRule.ruleName }}</h1>
+              </ion-label>
+              <ion-input v-else aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+            </ion-item>
+            <div>
+              <ion-item lines="none">
+                <ion-icon slot="start" :icon="bookmarkOutline" />
+                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                  <ion-select-option value="RULE_DRAFT">{{ "Draft" }}</ion-select-option>
+                  <ion-select-option value="RULE_ACTIVE">{{ "Active" }}</ion-select-option>
+                  <ion-select-option value="RULE_ARCHIVED">{{ "Archived" }}</ion-select-option>
+                </ion-select>
+              </ion-item>
+              <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; hasUnsavedChanges = true" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+            </div>
+          </ion-card>
           <section class="filters">
             <ion-card>
               <ion-item>
@@ -208,8 +221,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
@@ -254,6 +267,7 @@ let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
+let isRuleNameUpdating = ref(false)
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -346,6 +360,9 @@ async function initializeInventoryRules(rule: any) {
 }
 
 async function fetchRuleInformation(routingRuleId: string) {
+  // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
+  isRuleNameUpdating.value = false
+
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
   if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
@@ -651,10 +668,10 @@ function updateClearAutoCancelDays(checked: any) {
 }
 
 // Updating rule status
-function updateRuleStatus(routingRuleId: string, statusId: string) {
+function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   inventoryRules.value.map((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === routingRuleId) {
-      inventoryRule.statusId = statusId
+      inventoryRule.statusId = event.detail.value
     }
   })
   hasUnsavedChanges.value = true
@@ -979,6 +996,12 @@ async function save() {
 
 .actions {
   max-width: 50%;
+}
+
+.rule-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: start;
 }
 
 ion-content > div {

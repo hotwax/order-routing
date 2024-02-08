@@ -169,6 +169,11 @@
                 <ion-item lines="none">
                   <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
                 </ion-item>
+                <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
+                  <ion-label class="ion-text-wrap">
+                    <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
+                  </ion-label>
+                </ion-item>
               </ion-card>
               <ion-card>
                 <ion-card-header>

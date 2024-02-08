@@ -69,12 +69,13 @@
             <ion-item lines="none">
               <h2>{{ translate("History") }}</h2>
             </ion-item>
-            <ion-item v-for="routing in routingHistory" :key="routing.routingGroupId">
+            <p class="empty-state" v-if="!groupHistory.length">{{ translate("No available history for this group") }}</p>
+            <ion-item v-for="routing in groupHistory" :key="routing.routingGroupId">
               <ion-label>
-                <h3>{{ getTime(routing.startDate) }}</h3>
-                <p>{{ getDate(routing.startDate) }}</p>
+                <h3>{{ getTime(routing.startTime) }}</h3>
+                <p>{{ getDate(routing.startTime) }}</p>
               </ion-label>
-              <ion-badge color="dark">{{ getTime(routing.endDate - routing.startDate) }}</ion-badge>
+              <ion-badge color="dark">{{ getTime(routing.endTime - routing.startTime) }}</ion-badge>
             </ion-item>
           </main>
           <aside>
@@ -83,6 +84,7 @@
                 <ion-card-title>
                   {{ translate("Scheduler") }}
                 </ion-card-title>
+                <ion-badge>{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
               </ion-card-header>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
@@ -163,7 +165,7 @@ let hasUnsavedChanges = ref(false)
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
-let routingHistory = ref([]) as any
+let groupHistory = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
@@ -171,7 +173,8 @@ const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionE
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 onIonViewWillEnter(async () => {
-  await Promise.all([store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId), fetchRoutingHistory()])
+  await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
+  await fetchGroupHistory()
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -243,13 +246,19 @@ async function saveChanges() {
   return alert.present();
 }
 
-async function fetchRoutingHistory() {
-  routingHistory.value = []
+async function fetchGroupHistory() {
+  groupHistory.value = []
+
+  if(!currentRoutingGroup.value?.jobName) {
+    return;
+  }
+
   try {
-    const resp = await OrderRoutingService.fetchRoutingHistory(props.routingGroupId)
+    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName)
 
     if(!hasError(resp)) {
-      routingHistory.value = resp.data
+      // Sorting the history based on startTime, as we does not get the records in sorted order from api
+      groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
     } else {
       throw resp.data;
     }
@@ -291,6 +300,14 @@ async function saveSchedule() {
     showToast(translate("Failed to update job"))
     logger.error(err)
   }
+}
+
+function timeTillJobUsingSeconds(time: any) {
+  if(!time) {
+    return;
+  }
+  const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
+  return DateTime.local().plus(timeDiff).toRelative();
 }
 
 async function disable() {

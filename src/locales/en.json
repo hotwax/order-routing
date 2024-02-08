@@ -48,9 +48,11 @@
   "Filters": "Filters",
   "facility group": "facility group",
   "Group": "Group",
+  "Group history": "Group history",
   "greater": "greater",
   "greater than or equal to": "greater than or equal to",
   "High": "High",
+  "History": "History",
   "Inventory Filters": "Inventory Filters",
   "Inventory rule created successfully": "Inventory rule created successfully",
   "Inventory Sort": "Inventory Sort",
@@ -74,6 +76,7 @@
   "New Run": "New Run",
   "New routing created": "New routing created",
   "Next rule": "Next rule",
+  "No available history for this group": "No available history for this group",
   "No archived routings": "No archived routings",
   "No runs scheduled": "No runs scheduled",
   "No time zone found": "No time zone found",
@@ -138,5 +141,6 @@
   "Updating inventory rules and filters": "Updating inventory rules and filters",
   "Username": "Username",
   "Version:": "Version: ",
+  "View All": "View All",
   "value": "value"
 }

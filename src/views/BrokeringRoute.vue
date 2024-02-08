@@ -68,14 +68,15 @@
             </ion-item>
             <ion-item lines="none">
               <h2>{{ translate("History") }}</h2>
+              <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
             </ion-item>
             <p class="empty-state" v-if="!groupHistory.length">{{ translate("No available history for this group") }}</p>
-            <ion-item v-for="routing in groupHistory" :key="routing.routingGroupId">
+            <ion-item v-else>
               <ion-label>
-                <h3>{{ getTime(routing.startTime) }}</h3>
-                <p>{{ getDate(routing.startTime) }}</p>
+                <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
+                <p>{{ getDate(groupHistory[0].startTime) }}</p>
               </ion-label>
-              <ion-badge color="dark">{{ getTime(routing.endTime - routing.startTime) }}</ion-badge>
+              <ion-badge color="dark">{{ getTime(groupHistory[0].endTime - groupHistory[0].startTime) }}</ion-badge>
             </ion-item>
           </main>
           <aside>
@@ -147,6 +148,7 @@ import { DateTime } from "luxon";
 import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
+import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 
 const router = useRouter();
 const store = useStore();
@@ -588,6 +590,15 @@ async function updateRoutingGroup(payload: any) {
 
   emitter.emit("dismissLoader")
   return routingGroupId
+}
+
+async function showGroupHistory() {
+  const groupHistoryModal = await modalController.create({
+    component: GroupHistoryModal,
+    componentProps: { groupHistory: groupHistory.value }
+  })
+
+  groupHistoryModal.present();
 }
 </script>
 

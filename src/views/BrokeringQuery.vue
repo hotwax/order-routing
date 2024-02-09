@@ -99,7 +99,7 @@
                   <ion-select-option value="RULE_ARCHIVED">{{ "Archived" }}</ion-select-option>
                 </ion-select>
               </ion-item>
-              <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; hasUnsavedChanges = true" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+              <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
             </div>
           </ion-card>
           <section class="filters">
@@ -677,6 +677,15 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   hasUnsavedChanges.value = true
 }
 
+function updateRuleName(routingRuleId: string) {
+  // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
+  currentRouting.value["rules"].map((inventoryRule: any) => {
+    if(inventoryRule.routingRuleId === routingRuleId && inventoryRule.ruleName.trim() !== selectedRoutingRule.value.ruleName.trim()) {
+      hasUnsavedChanges.value = true
+    }
+  })
+}
+
 function doRouteSortReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(Object.values(orderRoutingSortOptions.value)))
 
@@ -718,7 +727,7 @@ function doConditionSortReorder(event: CustomEvent) {
 
 function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
-    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId) return diff
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]

@@ -86,20 +86,23 @@
           <ion-card class="rule-info">
             <ion-item :color="isRuleNameUpdating ? 'light' : ''" lines="none">
               <ion-label v-if="!isRuleNameUpdating">
+                <p>{{ getRuleIndex() }}</p>
                 <h1>{{ selectedRoutingRule.ruleName }}</h1>
               </ion-label>
               <ion-input v-else aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
             </ion-item>
             <div>
-              <ion-item lines="none">
+              <ion-item>
                 <ion-icon slot="start" :icon="bookmarkOutline" />
                 <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
-                  <ion-select-option value="RULE_DRAFT">{{ "Draft" }}</ion-select-option>
-                  <ion-select-option value="RULE_ACTIVE">{{ "Active" }}</ion-select-option>
-                  <ion-select-option value="RULE_ARCHIVED">{{ "Archived" }}</ion-select-option>
+                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                  <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                  <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
                 </ion-select>
               </ion-item>
-              <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+              <ion-item>
+                <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+              </ion-item>
             </div>
           </ion-card>
           <section class="filters">
@@ -328,6 +331,14 @@ function getRouteIndex() {
 
   // adding one (1) as currentRouteIndex will have the index based on array, and used + as currentRouteIndex is a string
   return `${+currentRouteIndex + 1}/${total}`
+}
+
+function getRuleIndex() {
+  const total = inventoryRules.value.length
+  const currentRuleIndex: any = Object.keys(inventoryRules.value).find((key: any) => inventoryRules.value[key].routingRuleId == selectedRoutingRule.value.routingRuleId)
+
+  // adding one (1) as currentRuleIndex will have the index based on array, and used + as currentRuleIndex is a string
+  return `${+currentRuleIndex + 1}/${total}`
 }
 
 function initializeOrderRoutingOptions() {

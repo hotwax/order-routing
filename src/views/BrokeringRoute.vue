@@ -8,7 +8,7 @@
             <ion-icon slot="icon-only" :icon="arrowBackOutline"/>
           </ion-button>
         </ion-buttons>
-        <ion-title>{{ translate("Brokering run name") }}</ion-title>
+        <ion-title>{{ currentRoutingGroup.groupName }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>

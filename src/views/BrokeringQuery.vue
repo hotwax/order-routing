@@ -7,7 +7,7 @@
             <ion-label>{{ currentRouting.routingName }}</ion-label>
             <ion-back-button slot="end" :default-href="`/tabs/brokering/${currentRouting.routingGroupId}/routes`" :text="getRouteIndex()" :icon="chevronUpOutline"></ion-back-button>
           </ion-item>
-          <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -80,12 +80,29 @@
           </ion-button>
         </div>
         <div v-if="selectedRoutingRule.routingRuleId">
-          <ion-item lines="none">
-            <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
-            <ion-label>{{ translate("Rule Status") }}</ion-label>
-            <ion-badge class="pointer" v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-            <ion-badge color="success" v-else>{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-          </ion-item>
+          <ion-card class="rule-info">
+            <ion-item lines="none">
+              <ion-label>
+                <p>{{ getRuleIndex() }}</p>
+                <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+              </ion-label>
+              <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+              <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+            </ion-item>
+            <div>
+              <ion-item>
+                <ion-icon slot="start" :icon="bookmarkOutline" />
+                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                  <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                  <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
+                </ion-select>
+              </ion-item>
+              <ion-item>
+                <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+              </ion-item>
+            </div>
+          </ion-card>
           <section class="filters">
             <ion-card>
               <ion-item>
@@ -205,8 +222,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
@@ -239,7 +256,6 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -251,6 +267,7 @@ let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
+let isRuleNameUpdating = ref(false)
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -313,6 +330,14 @@ function getRouteIndex() {
   return `${+currentRouteIndex + 1}/${total}`
 }
 
+function getRuleIndex() {
+  const total = inventoryRules.value.length
+  const currentRuleIndex: any = Object.keys(inventoryRules.value).find((key: any) => inventoryRules.value[key].routingRuleId == selectedRoutingRule.value.routingRuleId)
+
+  // adding one (1) as currentRuleIndex will have the index based on array, and used + as currentRuleIndex is a string
+  return `${+currentRuleIndex + 1}/${total}`
+}
+
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
@@ -343,6 +368,9 @@ async function initializeInventoryRules(rule: any) {
 }
 
 async function fetchRuleInformation(routingRuleId: string) {
+  // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
+  isRuleNameUpdating.value = false
+
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
   if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
@@ -648,13 +676,22 @@ function updateClearAutoCancelDays(checked: any) {
 }
 
 // Updating rule status
-function updateRuleStatus(routingRuleId: string, statusId: string) {
+function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   inventoryRules.value.map((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === routingRuleId) {
-      inventoryRule.statusId = statusId
+      inventoryRule.statusId = event.detail.value
     }
   })
   hasUnsavedChanges.value = true
+}
+
+function updateRuleName(routingRuleId: string) {
+  // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
+  currentRouting.value["rules"].map((inventoryRule: any) => {
+    if(inventoryRule.routingRuleId === routingRuleId && inventoryRule.ruleName.trim() !== selectedRoutingRule.value.ruleName.trim()) {
+      hasUnsavedChanges.value = true
+    }
+  })
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -698,7 +735,7 @@ function doConditionSortReorder(event: CustomEvent) {
 
 function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
-    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId) return diff
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -978,6 +1015,12 @@ async function save() {
   max-width: 50%;
 }
 
+.rule-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: start;
+}
+
 ion-content > div {
   display: grid;
   grid-template-columns: 300px 300px 1fr;
@@ -1003,5 +1046,9 @@ ion-back-button::part(icon) {
 ion-back-button::part(native) {
   border: 1px solid;
   border-radius: 16px;
+}
+
+ion-input.ruleName {
+  --background: var(--ion-color-light)
 }
 </style>

@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/tabs/brokering" />
         </ion-buttons>
-        <ion-title>{{ translate("Brokering run name") }}</ion-title>
+        <ion-title>{{ currentRoutingGroup.groupName }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -54,7 +54,7 @@
         <section class="ion-padding">
           <main>
             <ion-item lines="none">
-              {{ translate("Description") }}
+              <h2>{{ translate("Description") }}</h2>
               <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
                 {{ translate(isDescUpdating ? "Save" : "Edit") }}
               </ion-button>
@@ -63,6 +63,18 @@
               <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
               <ion-label v-else>{{ description }}</ion-label>
             </ion-item>
+            <ion-item lines="none">
+              <h2>{{ translate("History") }}</h2>
+              <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
+            </ion-item>
+            <p class="empty-state" v-if="!groupHistory.length">{{ translate("No available history for this group") }}</p>
+            <ion-item v-else>
+              <ion-label>
+                <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
+                <p>{{ getDate(groupHistory[0].startTime) }}</p>
+              </ion-label>
+              <ion-badge color="dark">{{ getTime(groupHistory[0].endTime - groupHistory[0].startTime) }}</ion-badge>
+            </ion-item>
           </main>
           <aside>
             <ion-card>
@@ -70,6 +82,7 @@
                 <ion-card-title>
                   {{ translate("Scheduler") }}
                 </ion-card-title>
+                <ion-badge>{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
               </ion-card-header>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
@@ -101,10 +114,10 @@
               </div>
             </div>
             <ion-item>
-              {{ `Created at ${getTime(currentRoutingGroup.createdDate)}` }}
+              {{ `Created at ${getDateAndTime(currentRoutingGroup.createdDate)}` }}
             </ion-item>
             <ion-item>
-              {{ `Updated at ${getTime(currentRoutingGroup.lastUpdatedStamp)}` }}
+              {{ `Updated at ${getDateAndTime(currentRoutingGroup.lastUpdatedStamp)}` }}
             </ion-item>
           </aside>
         </section>
@@ -129,9 +142,10 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
+import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
+import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 
 const router = useRouter();
 const store = useStore();
@@ -150,6 +164,7 @@ let hasUnsavedChanges = ref(false)
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
+let groupHistory = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
@@ -158,6 +173,7 @@ const getStatusDesc = computed(() => (id: string) => store.getters["util/getStat
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
+  await fetchGroupHistory()
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -229,6 +245,27 @@ async function saveChanges() {
   return alert.present();
 }
 
+async function fetchGroupHistory() {
+  groupHistory.value = []
+
+  if(!currentRoutingGroup.value?.jobName) {
+    return;
+  }
+
+  try {
+    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName)
+
+    if(!hasError(resp)) {
+      // Sorting the history based on startTime, as we does not get the records in sorted order from api
+      groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
+    } else {
+      throw resp.data;
+    }
+  } catch(err) {
+    logger.error(err)
+  }
+}
+
 async function saveSchedule() {
   // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
   if(typeof isOmsConnectionExist.value !== "boolean") {
@@ -262,6 +299,14 @@ async function saveSchedule() {
     showToast(translate("Failed to update job"))
     logger.error(err)
   }
+}
+
+function timeTillJobUsingSeconds(time: any) {
+  if(!time) {
+    return;
+  }
+  const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
+  return DateTime.local().plus(timeDiff).toRelative();
 }
 
 async function disable() {
@@ -542,6 +587,15 @@ async function updateRoutingGroup(payload: any) {
 
   emitter.emit("dismissLoader")
   return routingGroupId
+}
+
+async function showGroupHistory() {
+  const groupHistoryModal = await modalController.create({
+    component: GroupHistoryModal,
+    componentProps: { groupHistory: groupHistory.value }
+  })
+
+  groupHistoryModal.present();
 }
 </script>
 

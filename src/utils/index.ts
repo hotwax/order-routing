@@ -26,11 +26,19 @@ const sortSequence = (sequence: Array<Group | Route | Rule>) => {
 }
 
 const getTime = (time: any) => {
-  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "-";
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.TIME_24_WITH_SECONDS) : "-";
 }
 
 const getTimeFromSeconds = (time: any) => {
   return time ? DateTime.fromSeconds(time).toLocaleString(DateTime.DATETIME_MED) : "-";
 }
 
-export { getTime, getTimeFromSeconds, showToast, hasError, sortSequence }
+function getDate(runTime: any) {
+  return DateTime.fromMillis(runTime).toLocaleString(DateTime.DATE_MED);
+}
+
+function getDateAndTime(time: any) {
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "-";
+}
+
+export { getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, hasError, sortSequence }

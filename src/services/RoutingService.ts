@@ -22,6 +22,20 @@ const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<
   });
 }
 
+const fetchRoutingHistory = async (routingGroupId: string): Promise<any> => {
+  return api({
+    url: `groups/${routingGroupId}/routingRuns`,
+    method: "GET"
+  });
+}
+
+const fetchGroupHistory = async (jobName: string): Promise<any> => {
+  return api({
+    url: `serviceJobRuns/${jobName}`,
+    method: "GET"
+  });
+}
+
 const createRoutingGroup = async (payload: any): Promise<any> => {
   return api({
     url: "groups",
@@ -130,9 +144,11 @@ export const OrderRoutingService = {
   deleteRoutingFilter,
   deleteRuleAction,
   deleteRuleCondition,
+  fetchGroupHistory,
   fetchOrderRouting,
   fetchRoutingGroupInformation,
   fetchRoutingGroups,
+  fetchRoutingHistory,
   fetchRoutingScheduleInformation,
   fetchRule,
   runNow,

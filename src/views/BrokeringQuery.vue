@@ -84,12 +84,13 @@
         </div>
         <div v-if="selectedRoutingRule.routingRuleId">
           <ion-card class="rule-info">
-            <ion-item :color="isRuleNameUpdating ? 'light' : ''" lines="none">
-              <ion-label v-if="!isRuleNameUpdating">
+            <ion-item lines="none">
+              <ion-label>
                 <p>{{ getRuleIndex() }}</p>
-                <h1>{{ selectedRoutingRule.ruleName }}</h1>
+                <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
               </ion-label>
-              <ion-input v-else aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+              <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+              <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
             </ion-item>
             <div>
               <ion-item>
@@ -1038,5 +1039,9 @@ ion-content > div > .menu {
 ion-chip > ion-select {
   /* Adding min-height as auto-styling is getting appLied when not using legacy select option */
   min-height: unset;
+}
+
+ion-input.ruleName {
+  --background: var(--ion-color-light)
 }
 </style>

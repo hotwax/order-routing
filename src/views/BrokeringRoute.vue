@@ -39,7 +39,7 @@
                   <ion-icon :icon="timeOutline" slot="start" />
                   <ion-label>{{ "Last run" }}</ion-label>
                   <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getTime(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
+                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
                   </ion-chip>
                 </ion-item>
                 <ion-item lines="none">
@@ -651,6 +651,11 @@ async function showGroupHistory() {
   })
 
   groupHistoryModal.present();
+}
+
+function getDateAndTimeShort(time: any) {
+  // format: hh:mm(localized 24-hour time) date/month
+  return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
 }
 </script>
 

@@ -21,12 +21,17 @@
           {{ currentEComStore.productStoreId }}
         </ion-label>
       </ion-item>
-      <ion-item v-for="(history, index) in routingHistory" :key="index">
-        <ion-icon v-if="history.hasError === 'Y'" :icon="warningOutline" color="warning" slot="start" />
-        <ion-icon v-else :icon="checkmarkDoneOutline" slot="start"/>
-        <ion-label>{{ history.routingResult }}</ion-label>
-        <ion-label slot="end">{{ getDateAndTime(history.startDate) }}</ion-label>
-      </ion-item>
+      <div class="empty-state" v-if="!routingHistory.length">
+        {{ translate("No available history for this route") }}
+      </div>
+      <div v-else>
+        <ion-item v-for="(history, index) in routingHistory" :key="index">
+          <ion-icon v-if="history.hasError === 'Y'" :icon="warningOutline" color="warning" slot="start" />
+          <ion-icon v-else :icon="checkmarkDoneOutline" slot="start"/>
+          <ion-label>{{ history.routingResult }}</ion-label>
+          <ion-label slot="end">{{ getDateAndTime(history.startDate) }}</ion-label>
+        </ion-item>
+      </div>
     </ion-list>
   </ion-content>
 </template>

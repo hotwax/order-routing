@@ -26,7 +26,7 @@
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-select :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
+              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -650,8 +650,20 @@ function updateOperator(event: CustomEvent) {
   updateRule()
 }
 
-function updateOrderFilterValue(event: CustomEvent, id: string) {
-  orderRoutingFilterOptions.value[ruleEnums[id].code].fieldValue = event.detail.value
+function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
+  let value = event.detail.value
+  let operator = "equals"
+  // When the filter has multiple selection support then we will receive an array in the event value and thus creating a string before updating the same
+  if(multi && value.length > 1) {
+    value = value.join(',')
+    operator = "in"
+  } else {
+    // When filter is having a single option selected, we will receive an array with single value, but as we need to pass a string, so fetching the 0th index from the array
+    value = value[0]
+  }
+
+  orderRoutingFilterOptions.value[ruleEnums[id].code].fieldValue = value
+  orderRoutingFilterOptions.value[ruleEnums[id].code].operator = operator
   hasUnsavedChanges.value = true
 }
 

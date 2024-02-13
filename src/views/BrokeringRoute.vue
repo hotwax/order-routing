@@ -35,12 +35,19 @@
                     </ion-chip>
                   </ion-reorder>
                 </ion-item>
+                <ion-item lines="full">
+                  <ion-icon :icon="timeOutline" slot="start" />
+                  <ion-label>{{ "Last run" }}</ion-label>
+                  <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
+                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
+                  </ion-chip>
+                </ion-item>
                 <ion-item lines="none">
                   <ion-badge class="pointer" v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ translate("Archive") }}
-                    <ion-icon :icon="archiveOutline" />
+                    <ion-icon slot="end" :icon="archiveOutline" />
                   </ion-button>
                 </ion-item>
               </ion-card>
@@ -149,6 +156,7 @@ import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToa
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 
 const router = useRouter();
 const store = useStore();
@@ -168,6 +176,7 @@ let hasUnsavedChanges = ref(false)
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
+let routingHistory = ref({}) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
@@ -177,6 +186,7 @@ const getStatusDesc = computed(() => (id: string) => store.getters["util/getStat
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
   await fetchGroupHistory()
+  fetchRoutingHistory()
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -261,6 +271,39 @@ async function fetchGroupHistory() {
     if(!hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
       groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
+    } else {
+      throw resp.data;
+    }
+  } catch(err) {
+    logger.error(err)
+  }
+}
+
+async function fetchRoutingHistory() {
+  routingHistory.value = {}
+
+  if(!currentRoutingGroup.value?.jobName) {
+    return;
+  }
+
+  try {
+    const resp = await OrderRoutingService.fetchRoutingHistory(props.routingGroupId)
+
+    if(!hasError(resp)) {
+      // Sorting the history based on startTime, as we does not get the records in sorted order from api
+      const sortedRoutingHistory = resp.data.sort((a: any, b: any) => b.startDate - a.startDate)
+
+      routingHistory.value = sortedRoutingHistory.reduce((routings: any, routing: any) => {
+        if(routings[routing.orderRoutingId]) {
+          routings[routing.orderRoutingId].push(routing)
+        } else {
+          routings = {
+            ...routings,
+            [routing.orderRoutingId]: [routing]
+          }
+        }
+        return routings
+      }, {})
     } else {
       throw resp.data;
     }
@@ -496,6 +539,15 @@ async function openArchivedRoutingModal() {
   archivedRoutingModal.present();
 }
 
+async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
+  })
+
+  routingHistoryModal.present();
+}
+
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {
   orderRoutings.value.map((route: any) => {
     if(route.orderRoutingId === routing.orderRoutingId) {
@@ -599,6 +651,11 @@ async function showGroupHistory() {
   })
 
   groupHistoryModal.present();
+}
+
+function getDateAndTimeShort(time: any) {
+  // format: hh:mm(localized 24-hour time) date/month
+  return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
 }
 </script>
 

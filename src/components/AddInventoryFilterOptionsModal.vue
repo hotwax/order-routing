@@ -60,7 +60,7 @@ let inventoryRuleConditions = ref({}) as any
 let enumerations = ref([]) as any
 const hiddenOptions = ["IIP_MSMNT_SYSTEM"]
 // managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
-const associatedOptions = { IIP_PROXIMITY: 'IIP_MSMNT_SYSTEM' } as any
+const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultValue: "IMPERIAL" }} as any
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
@@ -69,8 +69,7 @@ onMounted(() => {
 
 function addConditionOption(condition: any) {
   const isConditionOptionAlreadyApplied = isConditionOptionSelected(condition.enumCode)?.fieldName
-  const associatedEnum = enums.value[props.parentEnumId][associatedOptions[condition.enumId]]
-
+  const associatedEnum = enums.value[props.parentEnumId][associatedOptions[condition.enumId]?.enum]
   if(isConditionOptionAlreadyApplied) {
     delete inventoryRuleConditions.value[condition.enumCode]
     // When removing a condition, also remove its associated option if available
@@ -96,6 +95,7 @@ function addConditionOption(condition: any) {
         routingRuleId: props.routingRuleId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: associatedEnum.enumCode,
+        fieldValue: associatedOptions[condition.enumId]?.defaultValue,
         sequenceNum: Object.keys(inventoryRuleConditions.value).length && inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
         createdDate: DateTime.now().toMillis()
       })

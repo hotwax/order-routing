@@ -653,12 +653,12 @@ function updateOperator(event: CustomEvent) {
 function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
   let value = event.detail.value
   let operator = "equals"
-  // When the filter has multiple selection support then we will receive an array in the event value and thus creating a string before updating the same
+  // When the filter has multiple selection support then we will receive an array in the event value and thus creating a string before updating the same as the fieldValue supports a string as value
   if(multi && value.length > 1) {
     value = value.join(',')
     operator = "in"
-  } else {
-    // When filter is having a single option selected, we will receive an array with single value, but as we need to pass a string, so fetching the 0th index from the array
+  } else if(multi) {
+    // When filter is having a single option selected with multiple selection enabled, we will receive an array with single value, but as we need to pass a string, so fetching the 0th index from the array
     value = value[0]
   }
 

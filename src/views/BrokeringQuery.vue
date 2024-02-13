@@ -21,12 +21,12 @@
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">{{ translate("Select filter to apply") }}</p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
-              <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue" @ionChange="updateOrderFilterValue($event, 'QUEUE')">
+              <ion-select multiple :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
+              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -585,6 +585,24 @@ function isPromiseDateFilterApplied() {
 
 function getFilterValue(options: any, enums: any, parameter: string) {
   return options?.[enums[parameter].code]
+}
+
+function getSelectedValue(options: any, enums: any, parameter: string) {
+  let value = options?.[enums[parameter].code].fieldValue
+
+  // Initially when adding a filter no value is selected thus returning empty string
+  if(!value) {
+    return "";
+  }
+
+  value = value?.split(',')
+
+  // If having more than 1 value selected then displaying the count of selected value otherwise returning the facilityName of the selected facility
+  if(value?.length > 1) {
+    return `${value.length} selected`
+  } else {
+    return facilities.value[value[0]].facilityName || value[0]
+  }
 }
 
 function getLabel(parentType: string, code: string) {

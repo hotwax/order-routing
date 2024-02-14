@@ -14,6 +14,9 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   },
   getCurrentOrderRouting(state) {
     return JSON.parse(JSON.stringify(state.currentRoute))
+  },
+  getRoutingHistory(state) {
+    return JSON.parse(JSON.stringify(state.routingHistory))
   }
 }
 

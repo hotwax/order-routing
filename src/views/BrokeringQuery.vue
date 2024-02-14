@@ -11,6 +11,13 @@
             </ion-chip>
           </ion-item>
           <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-item>
+            <ion-icon slot="start" :icon="pulseOutline" />
+            <ion-select :label="translate('Status')" interface="popover" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
+              <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
+              <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
+            </ion-select>
+          </ion-item>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -225,7 +232,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
@@ -270,6 +277,7 @@ let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
 let isRuleNameUpdating = ref(false)
+let routingStatus = ref("")
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -289,6 +297,8 @@ onIonViewWillEnter(async () => {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
+
+  routingStatus.value = currentRouting.value.statusId
   emitter.emit("dismissLoader")
 })
 
@@ -483,6 +493,11 @@ async function addInventoryRule() {
 function updateRule() {
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"] = { "ENTCT_FILTER": inventoryRuleFilterOptions.value, "ENTCT_SORT_BY": inventoryRuleSortOptions.value }
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] = inventoryRuleActions.value
+  hasUnsavedChanges.value = true
+}
+
+function updateOrderRouting(value: string) {
+  routingStatus.value = value
   hasUnsavedChanges.value = true
 }
 
@@ -735,7 +750,7 @@ function doConditionSortReorder(event: CustomEvent) {
   updateRule()
 }
 
-function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
+function findRulesDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
     if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
     return {
@@ -848,7 +863,7 @@ function doReorder(event: CustomEvent) {
   // returns the updated sequence after reordering
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(inventoryRules.value)));
 
-  let diffSeq = findRoutingsDiff(previousSeq, updatedSeq)
+  let diffSeq = findRulesDiff(previousSeq, updatedSeq)
 
   const updatedSeqenceNum = previousSeq.map((rule: Rule) => rule.sequenceNum)
   Object.keys(diffSeq).map((key: any) => {
@@ -890,9 +905,14 @@ async function save() {
     routingGroupId: currentRouting.value.routingGroupId
   } as any
 
+  // Check if the status of currentRouting is changed, if yes then update the status for routing
+  if(currentRouting.value.statusId !== routingStatus.value) {
+    orderRouting["statusId"] = routingStatus.value
+  }
+
   // Find diff for inventory rules
   if(currentRouting.value["rules"]) {
-    let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
+    let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
   
     const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
     Object.keys(diffSeq).map((key: any) => {
@@ -935,7 +955,7 @@ async function save() {
     // }
   }
 
-  if(filtersToUpdate?.length || orderRouting["rules"]?.length) {
+  if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
     orderRouting["orderFilters"] = filtersToUpdate
     const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
 

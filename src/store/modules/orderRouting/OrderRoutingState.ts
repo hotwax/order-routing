@@ -3,4 +3,5 @@ export default interface OrderRoutingState {
   rules: any;
   currentGroup: any;
   currentRoute: any;
+  routingHistory: any;
 }

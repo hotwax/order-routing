@@ -10,7 +10,27 @@
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-item>
+            <ion-icon slot="start" :icon="pulseOutline" />
+            <ion-select :label="translate('Status')" interface="popover" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
+              <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
+              <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="timeOutline" slot="start" />
+            <ion-label>{{ translate("Last run") }}</ion-label>
+            <ion-chip outline @click.stop="openRoutingHistoryModal()">
+              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
+            </ion-chip>
+          </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="archiveOutline" slot="start" />
+            <ion-toggle color="danger" :checked="currentRouting.statusId === 'ROUTING_ARCHIVED'" @ionChange="toggleRoutingStatus($event)">
+              {{ translate("Archive") }}
+            </ion-toggle>
+          </ion-item>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -27,7 +47,7 @@
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
               <ion-select :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
-                <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
+                <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
@@ -83,12 +103,29 @@
           </ion-button>
         </div>
         <div v-if="selectedRoutingRule.routingRuleId">
-          <ion-item lines="none">
-            <!-- TODO: add support to archive a rule, add rule status Desc, and add color option -->
-            <ion-label>{{ translate("Rule Status") }}</ion-label>
-            <ion-badge class="pointer" v-if="selectedRoutingRule.statusId === 'RULE_DRAFT'" @click="updateRuleStatus(selectedRoutingRule.routingRuleId, 'RULE_ACTIVE')">{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-            <ion-badge color="success" v-else>{{ getStatusDesc(selectedRoutingRule.statusId) }}</ion-badge>
-          </ion-item>
+          <ion-card class="rule-info">
+            <ion-item lines="none">
+              <ion-label>
+                <p>{{ getRuleIndex() }}</p>
+                <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+              </ion-label>
+              <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+              <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+            </ion-item>
+            <div>
+              <ion-item>
+                <ion-icon slot="start" :icon="bookmarkOutline" />
+                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                  <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                  <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
+                </ion-select>
+              </ion-item>
+              <ion-item>
+                <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+              </ion-item>
+            </div>
+          </ion-card>
           <section class="filters">
             <ion-card>
               <ion-item>
@@ -119,7 +156,6 @@
                 <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
                 <ion-chip outline>
                   <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
-                    <ion-select-option value="equals">{{ translate("equals") }}</ion-select-option>
                     <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
                     <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                   </ion-select>
@@ -213,13 +249,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, archiveOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { sortSequence } from "@/utils";
+import { getDateAndTimeShort, sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -227,6 +263,7 @@ import logger from "@/logger";
 import { DateTime } from "luxon";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 
 const router = useRouter();
 const props = defineProps({
@@ -247,7 +284,7 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -259,10 +296,13 @@ let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
+let isRuleNameUpdating = ref(false)
+let routingStatus = ref("")
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
+  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
@@ -278,6 +318,8 @@ onIonViewWillEnter(async () => {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
+
+  routingStatus.value = currentRouting.value.statusId
   emitter.emit("dismissLoader")
 })
 
@@ -321,6 +363,14 @@ function getRouteIndex() {
   return `${+currentRouteIndex + 1}/${total}`
 }
 
+function getRuleIndex() {
+  const total = inventoryRules.value.length
+  const currentRuleIndex: any = Object.keys(inventoryRules.value).find((key: any) => inventoryRules.value[key].routingRuleId == selectedRoutingRule.value.routingRuleId)
+
+  // adding one (1) as currentRuleIndex will have the index based on array, and used + as currentRuleIndex is a string
+  return `${+currentRuleIndex + 1}/${total}`
+}
+
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
@@ -351,6 +401,9 @@ async function initializeInventoryRules(rule: any) {
 }
 
 async function fetchRuleInformation(routingRuleId: string) {
+  // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
+  isRuleNameUpdating.value = false
+
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
   if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
@@ -415,6 +468,15 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
   await orderRouteFilterOptions.present();
 }
 
+async function openRoutingHistoryModal() {
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[currentRouting.value.orderRoutingId], routingName: currentRouting.value.routingName, groupName: currentRoutingGroup.value.groupName }
+  })
+
+  routingHistoryModal.present();
+}
+
 async function addInventoryRule() {
   const newRuleAlert = await alertController.create({
     header: translate("New Inventory Rule"),
@@ -461,6 +523,21 @@ async function addInventoryRule() {
 function updateRule() {
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"] = { "ENTCT_FILTER": inventoryRuleFilterOptions.value, "ENTCT_SORT_BY": inventoryRuleSortOptions.value }
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] = inventoryRuleActions.value
+  hasUnsavedChanges.value = true
+}
+
+function updateOrderRouting(value: string) {
+  routingStatus.value = value
+  hasUnsavedChanges.value = true
+}
+
+function toggleRoutingStatus(event: CustomEvent) {
+  if(event.detail.checked) {
+    routingStatus.value = "ROUTING_ARCHIVED"
+  } else {
+    routingStatus.value = "ROUTING_DRAFT"
+  }
+
   hasUnsavedChanges.value = true
 }
 
@@ -656,13 +733,22 @@ function updateClearAutoCancelDays(checked: any) {
 }
 
 // Updating rule status
-function updateRuleStatus(routingRuleId: string, statusId: string) {
+function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   inventoryRules.value.map((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === routingRuleId) {
-      inventoryRule.statusId = statusId
+      inventoryRule.statusId = event.detail.value
     }
   })
   hasUnsavedChanges.value = true
+}
+
+function updateRuleName(routingRuleId: string) {
+  // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
+  currentRouting.value["rules"].map((inventoryRule: any) => {
+    if(inventoryRule.routingRuleId === routingRuleId && inventoryRule.ruleName.trim() !== selectedRoutingRule.value.ruleName.trim()) {
+      hasUnsavedChanges.value = true
+    }
+  })
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -704,9 +790,9 @@ function doConditionSortReorder(event: CustomEvent) {
   updateRule()
 }
 
-function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
+function findRulesDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
-    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId) return diff
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -817,7 +903,7 @@ function doReorder(event: CustomEvent) {
   // returns the updated sequence after reordering
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(inventoryRules.value)));
 
-  let diffSeq = findRoutingsDiff(previousSeq, updatedSeq)
+  let diffSeq = findRulesDiff(previousSeq, updatedSeq)
 
   const updatedSeqenceNum = previousSeq.map((rule: Rule) => rule.sequenceNum)
   Object.keys(diffSeq).map((key: any) => {
@@ -859,9 +945,14 @@ async function save() {
     routingGroupId: currentRouting.value.routingGroupId
   } as any
 
+  // Check if the status of currentRouting is changed, if yes then update the status for routing
+  if(currentRouting.value.statusId !== routingStatus.value) {
+    orderRouting["statusId"] = routingStatus.value
+  }
+
   // Find diff for inventory rules
   if(currentRouting.value["rules"]) {
-    let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
+    let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
   
     const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
     Object.keys(diffSeq).map((key: any) => {
@@ -904,7 +995,7 @@ async function save() {
     // }
   }
 
-  if(filtersToUpdate?.length || orderRouting["rules"]?.length) {
+  if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
     orderRouting["orderFilters"] = filtersToUpdate
     const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
 
@@ -986,6 +1077,12 @@ async function save() {
   max-width: 50%;
 }
 
+.rule-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  align-items: start;
+}
+
 ion-content > div {
   display: grid;
   grid-template-columns: 300px 300px 1fr;
@@ -1000,5 +1097,9 @@ ion-content > div > .menu {
 ion-chip > ion-select {
   /* Adding min-height as auto-styling is getting appLied when not using legacy select option */
   min-height: unset;
+}
+
+ion-input.ruleName {
+  --background: var(--ion-color-light)
 }
 </style>

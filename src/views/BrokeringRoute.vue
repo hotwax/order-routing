@@ -8,7 +8,7 @@
             <ion-icon slot="icon-only" :icon="arrowBackOutline"/>
           </ion-button>
         </ion-buttons>
-        <ion-title>{{ translate("Brokering run name") }}</ion-title>
+        <ion-title>{{ currentRoutingGroup.groupName }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -35,12 +35,19 @@
                     </ion-chip>
                   </ion-reorder>
                 </ion-item>
+                <ion-item lines="full">
+                  <ion-icon :icon="timeOutline" slot="start" />
+                  <ion-label>{{ translate("Last run") }}</ion-label>
+                  <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
+                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
+                  </ion-chip>
+                </ion-item>
                 <ion-item lines="none">
                   <ion-badge class="pointer" v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ translate("Archive") }}
-                    <ion-icon :icon="archiveOutline" />
+                    <ion-icon slot="end" :icon="archiveOutline" />
                   </ion-button>
                 </ion-item>
               </ion-card>
@@ -145,10 +152,11 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
+import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 
 const router = useRouter();
 const store = useStore();
@@ -173,10 +181,12 @@ const currentRoutingGroup: any = computed((): Group => store.getters["orderRouti
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
   await fetchGroupHistory()
+  store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -494,6 +504,15 @@ async function openArchivedRoutingModal() {
   })
 
   archivedRoutingModal.present();
+}
+
+async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
+  })
+
+  routingHistoryModal.present();
 }
 
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {

@@ -3,10 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <!-- Used ion-button, instead of ion-back-button as back-button navigates on the basis of history and thus stuck in the loop of navigation -->
-          <ion-button fill="clear" @click="router.push('/tabs/brokering')">
-            <ion-icon slot="icon-only" :icon="arrowBackOutline"/>
-          </ion-button>
+          <ion-back-button default-href="/tabs/brokering" />
         </ion-buttons>
         <ion-title>{{ currentRoutingGroup.groupName }}</ion-title>
       </ion-toolbar>
@@ -142,8 +139,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, arrowBackOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { addCircleOutline, archiveOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, ref } from "vue";

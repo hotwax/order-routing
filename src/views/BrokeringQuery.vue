@@ -5,7 +5,7 @@
         <div class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
-            <ion-chip slot="end" outline @click="router.push(`/tabs/brokering/${currentRouting.routingGroupId}/routes`)">
+            <ion-chip slot="end" outline @click="router.go(-1)">
               {{ getRouteIndex() }}
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>

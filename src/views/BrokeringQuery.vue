@@ -203,7 +203,13 @@
                   {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                  <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
+                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                </ion-item>
+                <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
+                  <ion-label class="ion-text-wrap">
+                    <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
+                  </ion-label>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -618,18 +624,8 @@ function isPromiseDateFilterApplied() {
     return;
   }
 
+  // When user updates partial allocation and then selects promiseDate filter then we will assume that the user wants to change the value for partialAllocation on server and thus we will not revert any change made in the partial allocation action and update its value on server
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE")
-
-  // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
-  if(filter?.fieldValue || filter?.fieldValue == 0) {
-    const assignmentEnumId = JSON.parse(JSON.stringify(currentRouting.value["rules"])).find((rule: any) => rule.routingRuleId === selectedRoutingRule.value.routingRuleId)?.assignmentEnumId
-    inventoryRules.value.find((inventoryRule: any) => {
-      if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
-        inventoryRule.assignmentEnumId = assignmentEnumId
-        return true;
-      }
-    })
-  }
   return filter?.fieldValue || filter?.fieldValue == 0
 }
 

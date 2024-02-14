@@ -25,6 +25,12 @@
               <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
             </ion-chip>
           </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="archiveOutline" slot="start" />
+            <ion-toggle color="danger" :checked="currentRouting.statusId === 'ROUTING_ARCHIVED'" @ionChange="toggleRoutingStatus($event)">
+              {{ translate("Archive") }}
+            </ion-toggle>
+          </ion-item>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -239,7 +245,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
@@ -517,6 +523,16 @@ function updateRule() {
 
 function updateOrderRouting(value: string) {
   routingStatus.value = value
+  hasUnsavedChanges.value = true
+}
+
+function toggleRoutingStatus(event: CustomEvent) {
+  if(event.detail.checked) {
+    routingStatus.value = "ROUTING_ARCHIVED"
+  } else {
+    routingStatus.value = "ROUTING_DRAFT"
+  }
+
   hasUnsavedChanges.value = true
 }
 

@@ -89,6 +89,7 @@
   "Order Rule Filters": "Order Rule Filters",
   "Order Rule Sort": "Order Rule Sort",
   "operator": "operator",
+  "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.": "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.",
   "Partially available": "Partially available",
   "Passed duration": "Passed duration",
   "Password":  "Password",

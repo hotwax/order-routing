@@ -624,18 +624,8 @@ function isPromiseDateFilterApplied() {
     return;
   }
 
+  // When user updates partial allocation and then selects promiseDate filter then we will assume that the user wants to change the value for partialAllocation on server and thus we will not revert any change made in the partial allocation action and update its value on server
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE")
-
-  // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
-  if(filter?.fieldValue || filter?.fieldValue == 0) {
-    const assignmentEnumId = JSON.parse(JSON.stringify(currentRouting.value["rules"])).find((rule: any) => rule.routingRuleId === selectedRoutingRule.value.routingRuleId)?.assignmentEnumId
-    inventoryRules.value.find((inventoryRule: any) => {
-      if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
-        inventoryRule.assignmentEnumId = assignmentEnumId
-        return true;
-      }
-    })
-  }
   return filter?.fieldValue || filter?.fieldValue == 0
 }
 

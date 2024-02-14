@@ -645,9 +645,9 @@ function getSelectedValue(options: any, enums: any, parameter: string) {
 
   // If having more than 1 value selected then displaying the count of selected value otherwise returning the facilityName of the selected facility
   if(value?.length > 1) {
-    return `${value.length} selected`
+    return `${value.length} ${translate("selected")}`
   } else {
-    return facilities.value[value[0]].facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]].description || value[0] : facilities.value[value[0]].facilityName || value[0]
   }
 }
 

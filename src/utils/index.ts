@@ -41,4 +41,9 @@ function getDateAndTime(time: any) {
   return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "-";
 }
 
-export { getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, hasError, sortSequence }
+function getDateAndTimeShort(time: any) {
+  // format: hh:mm(localized 24-hour time) date/month
+  return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
+}
+
+export { getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, hasError, sortSequence }

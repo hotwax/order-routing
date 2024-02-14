@@ -8,6 +8,26 @@
             <ion-back-button slot="end" :default-href="`/tabs/brokering/${currentRouting.routingGroupId}/routes`" :text="getRouteIndex()" :icon="chevronUpOutline"></ion-back-button>
           </ion-item>
           <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-item>
+            <ion-icon slot="start" :icon="pulseOutline" />
+            <ion-select :label="translate('Status')" interface="popover" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
+              <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
+              <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="timeOutline" slot="start" />
+            <ion-label>{{ translate("Last run") }}</ion-label>
+            <ion-chip outline @click.stop="openRoutingHistoryModal()">
+              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
+            </ion-chip>
+          </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="archiveOutline" slot="start" />
+            <ion-toggle color="danger" :checked="currentRouting.statusId === 'ROUTING_ARCHIVED'" @ionChange="toggleRoutingStatus($event)">
+              {{ translate("Archive") }}
+            </ion-toggle>
+          </ion-item>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -24,7 +44,7 @@
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
               <ion-select :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD')">
-                <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.shippingMethodId || shippingMethodId }}</ion-select-option>
+                <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
@@ -133,7 +153,6 @@
                 <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
                 <ion-chip outline>
                   <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
-                    <ion-select-option value="equals">{{ translate("equals") }}</ion-select-option>
                     <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
                     <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                   </ion-select>
@@ -181,7 +200,13 @@
                   {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                  <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
+                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                </ion-item>
+                <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
+                  <ion-label class="ion-text-wrap">
+                    <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
+                  </ion-label>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -222,13 +247,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, swapVerticalOutline } from "ionicons/icons"
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, archiveOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { sortSequence } from "@/utils";
+import { getDateAndTimeShort, sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -236,6 +261,7 @@ import logger from "@/logger";
 import { DateTime } from "luxon";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 
 const router = useRouter();
 const props = defineProps({
@@ -256,6 +282,7 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -268,10 +295,12 @@ let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
 let isRuleNameUpdating = ref(false)
+let routingStatus = ref("")
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
+  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
@@ -287,6 +316,8 @@ onIonViewWillEnter(async () => {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
   }
+
+  routingStatus.value = currentRouting.value.statusId
   emitter.emit("dismissLoader")
 })
 
@@ -435,6 +466,15 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
   await orderRouteFilterOptions.present();
 }
 
+async function openRoutingHistoryModal() {
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[currentRouting.value.orderRoutingId], routingName: currentRouting.value.routingName, groupName: currentRoutingGroup.value.groupName }
+  })
+
+  routingHistoryModal.present();
+}
+
 async function addInventoryRule() {
   const newRuleAlert = await alertController.create({
     header: translate("New Inventory Rule"),
@@ -481,6 +521,21 @@ async function addInventoryRule() {
 function updateRule() {
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"] = { "ENTCT_FILTER": inventoryRuleFilterOptions.value, "ENTCT_SORT_BY": inventoryRuleSortOptions.value }
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] = inventoryRuleActions.value
+  hasUnsavedChanges.value = true
+}
+
+function updateOrderRouting(value: string) {
+  routingStatus.value = value
+  hasUnsavedChanges.value = true
+}
+
+function toggleRoutingStatus(event: CustomEvent) {
+  if(event.detail.checked) {
+    routingStatus.value = "ROUTING_ARCHIVED"
+  } else {
+    routingStatus.value = "ROUTING_DRAFT"
+  }
+
   hasUnsavedChanges.value = true
 }
 
@@ -566,18 +621,8 @@ function isPromiseDateFilterApplied() {
     return;
   }
 
+  // When user updates partial allocation and then selects promiseDate filter then we will assume that the user wants to change the value for partialAllocation on server and thus we will not revert any change made in the partial allocation action and update its value on server
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE")
-
-  // When promise date range is selected for order filter, we will revert any change made to the partialAllocation enum and will change it to its initial value and will disable the partial allocation feature
-  if(filter?.fieldValue || filter?.fieldValue == 0) {
-    const assignmentEnumId = JSON.parse(JSON.stringify(currentRouting.value["rules"])).find((rule: any) => rule.routingRuleId === selectedRoutingRule.value.routingRuleId)?.assignmentEnumId
-    inventoryRules.value.find((inventoryRule: any) => {
-      if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
-        inventoryRule.assignmentEnumId = assignmentEnumId
-        return true;
-      }
-    })
-  }
   return filter?.fieldValue || filter?.fieldValue == 0
 }
 
@@ -733,7 +778,7 @@ function doConditionSortReorder(event: CustomEvent) {
   updateRule()
 }
 
-function findRoutingsDiff(previousSeq: any, updatedSeq: any) {
+function findRulesDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
     if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
     return {
@@ -846,7 +891,7 @@ function doReorder(event: CustomEvent) {
   // returns the updated sequence after reordering
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(inventoryRules.value)));
 
-  let diffSeq = findRoutingsDiff(previousSeq, updatedSeq)
+  let diffSeq = findRulesDiff(previousSeq, updatedSeq)
 
   const updatedSeqenceNum = previousSeq.map((rule: Rule) => rule.sequenceNum)
   Object.keys(diffSeq).map((key: any) => {
@@ -888,9 +933,14 @@ async function save() {
     routingGroupId: currentRouting.value.routingGroupId
   } as any
 
+  // Check if the status of currentRouting is changed, if yes then update the status for routing
+  if(currentRouting.value.statusId !== routingStatus.value) {
+    orderRouting["statusId"] = routingStatus.value
+  }
+
   // Find diff for inventory rules
   if(currentRouting.value["rules"]) {
-    let diffSeq = findRoutingsDiff(currentRouting.value["rules"], inventoryRules.value)
+    let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
   
     const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
     Object.keys(diffSeq).map((key: any) => {
@@ -933,7 +983,7 @@ async function save() {
     // }
   }
 
-  if(filtersToUpdate?.length || orderRouting["rules"]?.length) {
+  if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
     orderRouting["orderFilters"] = filtersToUpdate
     const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
 

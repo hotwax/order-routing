@@ -162,6 +162,44 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },
 
+  async fetchRoutingHistory({ commit, state }, routingGroupId) {
+    const history = Object.values(state.routingHistory)[0] as any
+
+    // If the routing history for the current group is already available then don't fetch the history again
+    if(history?.length && history[0].routingGroupId === routingGroupId) {
+      return;
+    }
+
+    let routingHistory = {}
+
+    try {
+      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId)
+  
+      if(!hasError(resp)) {
+        // Sorting the history based on startTime, as we does not get the records in sorted order from api
+        const sortedRoutingHistory = resp.data.sort((a: any, b: any) => b.startDate - a.startDate)
+  
+        routingHistory = sortedRoutingHistory.reduce((routings: any, routing: any) => {
+          if(routings[routing.orderRoutingId]) {
+            routings[routing.orderRoutingId].push(routing)
+          } else {
+            routings = {
+              ...routings,
+              [routing.orderRoutingId]: [routing]
+            }
+          }
+          return routings
+        }, {})
+      } else {
+        throw resp.data;
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    commit(types.ORDER_ROUTING_HISTORY_UPDATED, routingHistory)
+  },
+
   async deleteRoutingFilters({ dispatch }, payload) {
     let hasAllFiltersDeletedSuccessfully = true;
     try {

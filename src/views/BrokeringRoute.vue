@@ -37,7 +37,7 @@
                 </ion-item>
                 <ion-item lines="full">
                   <ion-icon :icon="timeOutline" slot="start" />
-                  <ion-label>{{ "Last run" }}</ion-label>
+                  <ion-label>{{ translate("Last run") }}</ion-label>
                   <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
                     <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
                   </ion-chip>
@@ -152,7 +152,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
+import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -176,17 +176,17 @@ let hasUnsavedChanges = ref(false)
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
-let routingHistory = ref({}) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
   await fetchGroupHistory()
-  fetchRoutingHistory()
+  store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -271,39 +271,6 @@ async function fetchGroupHistory() {
     if(!hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
       groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
-    } else {
-      throw resp.data;
-    }
-  } catch(err) {
-    logger.error(err)
-  }
-}
-
-async function fetchRoutingHistory() {
-  routingHistory.value = {}
-
-  if(!currentRoutingGroup.value?.jobName) {
-    return;
-  }
-
-  try {
-    const resp = await OrderRoutingService.fetchRoutingHistory(props.routingGroupId)
-
-    if(!hasError(resp)) {
-      // Sorting the history based on startTime, as we does not get the records in sorted order from api
-      const sortedRoutingHistory = resp.data.sort((a: any, b: any) => b.startDate - a.startDate)
-
-      routingHistory.value = sortedRoutingHistory.reduce((routings: any, routing: any) => {
-        if(routings[routing.orderRoutingId]) {
-          routings[routing.orderRoutingId].push(routing)
-        } else {
-          routings = {
-            ...routings,
-            [routing.orderRoutingId]: [routing]
-          }
-        }
-        return routings
-      }, {})
     } else {
       throw resp.data;
     }
@@ -651,11 +618,6 @@ async function showGroupHistory() {
   })
 
   groupHistoryModal.present();
-}
-
-function getDateAndTimeShort(time: any) {
-  // format: hh:mm(localized 24-hour time) date/month
-  return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
 }
 </script>
 

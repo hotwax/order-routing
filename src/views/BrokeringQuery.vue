@@ -18,6 +18,13 @@
               <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
             </ion-select>
           </ion-item>
+          <ion-item lines="full">
+            <ion-icon :icon="timeOutline" slot="start" />
+            <ion-label>{{ translate("Last run") }}</ion-label>
+            <ion-chip outline @click.stop="openRoutingHistoryModal()">
+              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
+            </ion-chip>
+          </ion-item>
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
@@ -232,12 +239,12 @@
 
 <script setup lang="ts">
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline } from "ionicons/icons"
+import { addCircleOutline, bookmarkOutline, chevronUpOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { sortSequence } from "@/utils";
+import { getDateAndTimeShort, sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -245,6 +252,7 @@ import logger from "@/logger";
 import { DateTime } from "luxon";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 
 const router = useRouter();
 const props = defineProps({
@@ -265,6 +273,7 @@ const facilities = computed(() => store.getters["util/getFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -282,6 +291,7 @@ let routingStatus = ref("")
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
+  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
@@ -445,6 +455,15 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
   })
 
   await orderRouteFilterOptions.present();
+}
+
+async function openRoutingHistoryModal() {
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[currentRouting.value.orderRoutingId], routingName: currentRouting.value.routingName, groupName: currentRoutingGroup.value.groupName }
+  })
+
+  routingHistoryModal.present();
 }
 
 async function addInventoryRule() {

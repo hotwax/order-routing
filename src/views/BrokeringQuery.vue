@@ -5,7 +5,10 @@
         <div class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
-            <ion-back-button slot="end" :default-href="`/tabs/brokering/${currentRouting.routingGroupId}/routes`" :text="getRouteIndex()" :icon="chevronUpOutline"></ion-back-button>
+            <ion-chip slot="end" outline @click="router.go(-1)">
+              {{ getRouteIndex() }}
+              <ion-icon :icon="chevronUpOutline" />
+            </ion-chip>
           </ion-item>
           <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
           <ion-item>
@@ -1085,17 +1088,6 @@ ion-content > div > .menu {
 ion-chip > ion-select {
   /* Adding min-height as auto-styling is getting appLied when not using legacy select option */
   min-height: unset;
-}
-
-/* Change the position of icon inside back-button to end, as the icon inside back-button is always displayed first */
-ion-back-button::part(icon) {
-  order: 2;
-}
-
-/* As no border is displayed by default to the ion-back-button */
-ion-back-button::part(native) {
-  border: 1px solid;
-  border-radius: 16px;
 }
 
 ion-input.ruleName {

@@ -203,7 +203,8 @@
                   {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
                 </ion-card-content>
                 <ion-item lines="none">
-                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                  <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
+                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
                 </ion-item>
                 <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
                   <ion-label class="ion-text-wrap">

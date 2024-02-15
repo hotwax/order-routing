@@ -175,7 +175,6 @@ let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
@@ -447,7 +446,7 @@ function getArchivedOrderRoutings() {
 async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId, and description is left empty
   if(props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
-    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentEComStore.value.productStoreId, description: description.value })
+    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
     }
@@ -576,7 +575,7 @@ async function saveRoutingGroup() {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId: currentRoutingGroup.value.productStoreId,
     routings
   }
 

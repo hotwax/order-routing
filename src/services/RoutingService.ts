@@ -4,7 +4,7 @@ const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
     url: "groups", 
     method: "GET",
-    query: payload
+    params: payload
   });
 }
 

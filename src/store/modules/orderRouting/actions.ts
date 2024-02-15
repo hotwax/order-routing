@@ -8,12 +8,15 @@ import logger from "@/logger"
 import { DateTime } from "luxon"
 import emitter from "@/event-bus"
 import { translate } from "@/i18n"
+import store from "@/store"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {
   async fetchOrderRoutingGroups({ commit }) {
     let routingGroups = [] as any;
     // filter groups on the basis of productStoreId
-    const payload = {}
+    const payload = {
+      productStoreId: store.state.user.currentEComStore.productStoreId
+    }
 
     try {
       const resp = await OrderRoutingService.fetchRoutingGroups(payload);

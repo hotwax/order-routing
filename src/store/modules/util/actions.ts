@@ -67,13 +67,14 @@ const actions: ActionTree<UtilState, RootState> = {
   async fetchShippingMethods({ commit, state }) {
     let shippingMethods = JSON.parse(JSON.stringify(state.shippingMethods))
 
-    // Do not fetch shipping methods if aleady available
+    // Do not fetch shipping methods if already available
     if(Object.keys(shippingMethods).length) {
       return;
     }
 
+    // Fetching shipping methods for productStore of the currentGroup
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId
     }
 
     try {
@@ -101,7 +102,7 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId,
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
       facilityGroupTypeId: "BROKERING_GROUP"
     }
 
@@ -166,6 +167,14 @@ const actions: ActionTree<UtilState, RootState> = {
 
   async clearUtilState({ commit }) {
     commit(types.UTIL_CLEARED)
+  },
+
+  async updateShippingMethods({ commit }) {
+    commit(types.UTIL_SHIPPING_METHOD_UPDATED, {})
+  },
+
+  async updateFacillityGroups({ commit }) {
+    commit(types.UTIL_FACILITY_GROUP_UPDATED, {})
   }
 }
 

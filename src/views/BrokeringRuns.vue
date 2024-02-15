@@ -145,6 +145,7 @@ async function setEComStore(event: CustomEvent) {
       "productStoreId": event.detail.value
     })
     await store.dispatch("orderRouting/fetchOrderRoutingGroups");
+    brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   }
   emitter.emit("dismissLoader")
 }

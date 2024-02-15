@@ -127,7 +127,7 @@
             </div>
           </ion-card>
           <section class="filters">
-            <ion-card>
+            <ion-card class="ion-padding-vertical">
               <ion-item>
                 <ion-icon slot="start" :icon="filterOutline"/>
                 <ion-label>{{ translate("Filters") }}</ion-label>
@@ -163,7 +163,7 @@
                 <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
               </ion-item>
             </ion-card>
-            <ion-card>
+            <ion-card class="ion-padding-vertical">
               <ion-item>
                 <ion-icon slot="start" :icon="swapVerticalOutline"/>
                 <ion-label>{{ translate("Sort") }}</ion-label>
@@ -1091,7 +1091,8 @@ async function save() {
 <style scoped>
 .filters {
   display: grid;
-  grid-template-columns: repeat(2, auto);
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
 }
 
 .actions {
@@ -1100,8 +1101,9 @@ async function save() {
 
 .rule-info {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: 1fr 1fr;
   align-items: start;
+  gap: var(--spacer-xs)
 }
 
 ion-content > div {

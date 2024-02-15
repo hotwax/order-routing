@@ -83,6 +83,8 @@ const actions: ActionTree<UserState, RootState> = {
       productStore = (state.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
     }
     commit(types.USER_CURRENT_ECOM_STORE_UPDATED, productStore);
+    this.dispatch("util/updateShippingMethods", {})
+    this.dispatch("util/udpateFacillityGroups", {})
   }
 }
 

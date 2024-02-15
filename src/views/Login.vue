@@ -51,7 +51,6 @@ onMounted(() => {
 
 function login() {
   store.dispatch("user/setUserInstanceUrl", instanceUrl.value.trim())
-  // const { username, password } = this;
   store.dispatch("user/login", { username: username.value.trim(), password: password.value }).then((data: any) => {
     if (data.token) {
       username.value = ""

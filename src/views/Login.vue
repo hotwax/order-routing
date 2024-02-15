@@ -24,7 +24,7 @@
   </ion-page>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { 
   IonButton,
   IonContent,
@@ -32,58 +32,36 @@ import {
   IonItem,
   IonPage
 } from "@ionic/vue";
-import { defineComponent } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useStore } from "@/store";
-import { mapGetters } from "vuex";
+import store from "@/store";
 import Logo from "@/components/Logo.vue";
 import { translate } from "@/i18n"
 
-export default defineComponent({
-  name: "Login",
-  components: {
-    IonButton,
-    IonContent,
-    IonInput,
-    IonItem,
-    IonPage,
-    Logo
-  },
-  data() {
-    return {
-      username: "",
-      password: "",
-      instanceUrl: ""
-    };
-  },
-  computed: {
-    ...mapGetters({
-      currentInstanceUrlSaved: "user/getInstanceUrl"
-    })
-  },
-  mounted() {
-    this.instanceUrl = this.currentInstanceUrlSaved;
-  },
-  methods: {
-    login: function () {
-      this.store.dispatch("user/setUserInstanceUrl", this.instanceUrl.trim())
-      const { username, password } = this;
-      this.store.dispatch("user/login", { username: username.trim(), password }).then((data: any) => {
-        if (data.token) {
-          this.username = ""
-          this.password = ""
-          this.$router.push("/")
-        }
-      }).catch(err => err)
+const username = ref("")
+const password = ref("")
+const instanceUrl = ref("")
+const router = useRouter();
+
+const currentInstanceUrlSaved = computed(() => store.getters["user/getInstanceUrl"])
+
+onMounted(() => {
+  instanceUrl.value = currentInstanceUrlSaved.value;
+})
+
+function login() {
+  store.dispatch("user/setUserInstanceUrl", instanceUrl.value.trim())
+  // const { username, password } = this;
+  store.dispatch("user/login", { username: username.value.trim(), password: password.value }).then((data: any) => {
+    if (data.token) {
+      username.value = ""
+      password.value = ""
+      router.push("/")
     }
-  },
-  setup() {
-    const router = useRouter();
-    const store = useStore();
-    return { router, store, translate };
-  }
-});
+  }).catch(err => err)
+}
 </script>
+
 <style scoped>
 .login-container {
   width: 375px;

@@ -63,7 +63,7 @@
             <ion-item lines="none">
               <h2>{{ translate("Description") }}</h2>
               <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
-                {{ translate(isDescUpdating ? "Save" : "Edit") }}
+                {{ translate(isDescUpdating ? "Save" : description ? "Edit" : "Add") }}
               </ion-button>
             </ion-item>
             <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">

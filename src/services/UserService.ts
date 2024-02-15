@@ -20,7 +20,7 @@ const login = async (username: string, password: string): Promise <any> => {
       throw "Sorry, login failed. Please try again";
     }
   } catch(err) {
-    return Promise.reject(err);
+    return Promise.reject("Sorry, login failed. Please try again");
   }
   return Promise.resolve(token)
 }

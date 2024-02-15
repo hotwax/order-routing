@@ -173,7 +173,7 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_SHIPPING_METHOD_UPDATED, {})
   },
 
-  async udpateFacillityGroups({ commit }) {
+  async updateFacillityGroups({ commit }) {
     commit(types.UTIL_FACILITY_GROUP_UPDATED, {})
   }
 }

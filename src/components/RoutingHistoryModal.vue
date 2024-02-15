@@ -18,7 +18,7 @@
           <p>{{ groupName }}</p>
         </ion-label>
         <ion-label slot="end">
-          {{ currentEComStore.productStoreId }}
+          {{ productStoreName }}
         </ion-label>
       </ion-item>
       <div class="empty-state" v-if="!routingHistory.length">
@@ -72,7 +72,10 @@ defineProps({
   }
 })
 
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
+
+const productStoreName = computed(() => userProfile.value.stores.find((store: any) => store.productStoreId === currentRoutingGroup.value.productStoreId)?.storeName || currentRoutingGroup.value.productStoreId)
 
 function closeModal() {
   modalController.dismiss();

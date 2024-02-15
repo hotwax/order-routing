@@ -647,7 +647,7 @@ function getSelectedValue(options: any, enums: any, parameter: string) {
   if(value?.length > 1) {
     return `${value.length} ${translate("selected")}`
   } else {
-    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]].description || value[0] : facilities.value[value[0]].facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : facilities.value[value[0]]?.facilityName || value[0]
   }
 }
 

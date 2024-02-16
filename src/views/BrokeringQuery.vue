@@ -426,7 +426,7 @@ async function fetchRuleInformation(routingRuleId: string) {
   selectedRoutingRule.value = inventoryRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
 
   // If failed to fetch the current routing rule information
-  if(!selectedRoutingRule.value || !rulesInformation.value[routingRuleId]) {
+  if(!selectedRoutingRule.value || !rulesInformation.value[routingRuleId]?.routingRuleId) {
     selectedRoutingRule.value = {}
   }
 

@@ -48,8 +48,8 @@
                 {{ group.description }}
               </ion-item>
               <ion-item>
-                <ion-label>{{ group.frequency ? group.frequency : "-" }}</ion-label>
-                <ion-label slot="end">{{ group.runTime ? group.runTime : "-" }}</ion-label>
+                <ion-label>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</ion-label>
+                <ion-label slot="end">{{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}</ion-label>
               </ion-item>
               <ion-item>
                 {{ getDateAndTime(group.createdDate) }}
@@ -72,7 +72,7 @@
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
-import { getDateAndTime, showToast } from "@/utils";
+import { getDateAndTime, getTimeFromSeconds, showToast } from "@/utils";
 import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSearchbar, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { computed, ref } from "vue";
@@ -84,6 +84,8 @@ const router = useRouter()
 const groups = computed(() => store.getters["orderRouting/getRoutingGroups"])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+
+const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS)
 
 let isLoading = ref(false)
 let queryString = ref("")
@@ -148,6 +150,10 @@ async function setEComStore(event: CustomEvent) {
     brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   }
   emitter.emit("dismissLoader")
+}
+
+function getScheduleFrequency(cronExp: string) {
+  return Object.entries(cronExpressions).find(([description, expression]) => expression === cronExp)?.[0] || "-"
 }
 
 async function redirect(group: Group) {

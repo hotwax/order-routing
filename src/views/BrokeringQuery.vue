@@ -281,6 +281,7 @@ const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
+const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -312,7 +313,7 @@ onIonViewWillEnter(async () => {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
+    await fetchRuleInformation(currentRuleId.value || inventoryRules.value[0].routingRuleId);
   }
 
   routingStatus.value = currentRouting.value.statusId
@@ -347,6 +348,8 @@ onBeforeRouteLeave(async (to) => {
     await alert.onDidDismiss();
     return canLeave;
   }
+  // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
+  store.dispatch("orderRouting/updateRoutingRuleId", "")
 })
 
 function getRouteIndex() {
@@ -399,6 +402,8 @@ async function initializeInventoryRules(rule: any) {
 async function fetchRuleInformation(routingRuleId: string) {
   // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
   isRuleNameUpdating.value = false
+
+  await store.dispatch("orderRouting/updateRoutingRuleId", routingRuleId)
 
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
@@ -1070,7 +1075,7 @@ async function save() {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(inventoryRules.value[0].routingRuleId);
+    await fetchRuleInformation(currentRuleId.value);
   }
 
   hasUnsavedChanges.value = false

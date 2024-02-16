@@ -19,10 +19,18 @@ const showToast = async (message: string) => {
   return toast.present();
 }
 
-const sortSequence = (sequence: Array<Group | Route | Rule>) => {
-  // Currently, sorting is only performed on sequenceNum, so if two seqence have same seqNum then they will be arranged in FCFS basis
-  // TODO: Need to check that if for the above case we need to define the sorting on name as well, when seqNum is same
-  return sequence.sort((a, b) => a.sequenceNum - b.sequenceNum)
+const sortSequence = (sequence: Array<Group | Route | Rule>, sortOnField = "sequenceNum") => {
+  // Currently, sorting is only performed on a single parameter, so if two sequence have same value for that parameter then they will be arranged in FCFS basis
+  // TODO: Need to check that if for the above case we need to define the sorting on name as well, when previous param is same
+  return sequence.sort((a: any, b: any) => {
+    if(a[sortOnField] === b[sortOnField]) return 0;
+
+    // Sort undefined values at last
+    if(a[sortOnField] == undefined) return 1;
+    if(b[sortOnField] == undefined) return -1;
+
+    return a[sortOnField] - b[sortOnField]
+  })
 }
 
 const getTime = (time: any) => {

@@ -47,10 +47,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       routingGroups = routingGroups.map((group: any) => ({
         ...group,
+        runTime: schedules[group.jobName]?.nextExecutionDateTime,  // Using this value just to sort the groups on the basis of runTime
         schedule: schedules[group.jobName]
       }))
 
-      routingGroups = sortSequence(routingGroups)
+      routingGroups = sortSequence(routingGroups, "runTime")
     }
 
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)

@@ -425,8 +425,8 @@ async function fetchRuleInformation(routingRuleId: string) {
   // Using currentRouting["rules"] deep-cloned object here, as we will update the change in rules with route changes and not with rules filter changes
   selectedRoutingRule.value = inventoryRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
 
-  // Even after fetching the rule is not found then initializing the selectedRouting to empty object
-  if(!selectedRoutingRule.value) {
+  // If failed to fetch the current routing rule information
+  if(!selectedRoutingRule.value || !rulesInformation.value[routingRuleId]?.routingRuleId) {
     selectedRoutingRule.value = {}
   }
 
@@ -516,7 +516,7 @@ async function addInventoryRule() {
       const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
       if(routingRuleId) {
         // TODO: Fix warning of duplicate keys when creating a new rule
-        inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+        inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
         fetchRuleInformation(routingRuleId)
       }
     }

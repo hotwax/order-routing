@@ -370,7 +370,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_RULES_UPDATED, rulesInformation)
-    return JSON.parse(JSON.stringify(rulesInformation[routingRuleId]))
+    return rulesInformation[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation[routingRuleId])) : {}
   },
 
   async updateRule({ dispatch }, payload) {

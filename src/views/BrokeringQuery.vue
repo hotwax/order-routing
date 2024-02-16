@@ -85,7 +85,7 @@
         <div class="menu">
           <ion-list>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
+              <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>{{ rule.ruleName }}</ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="inventoryRules.length > 1" />
@@ -97,7 +97,7 @@
             <ion-icon :icon="addCircleOutline"/>
           </ion-button>
         </div>
-        <div v-if="selectedRoutingRule.routingRuleId">
+        <div v-if="selectedRoutingRule?.routingRuleId">
           <ion-card class="rule-info">
             <ion-item lines="none">
               <ion-label>
@@ -420,7 +420,12 @@ async function fetchRuleInformation(routingRuleId: string) {
   // Using currentRouting["rules"] deep-cloned object here, as we will update the change in rules with route changes and not with rules filter changes
   selectedRoutingRule.value = inventoryRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
 
-  initializeInventoryRules(JSON.parse(JSON.stringify(rulesInformation.value[routingRuleId])));
+  // Even after fetching the rule is not found then initializing the selectedRouting to empty object
+  if(!selectedRoutingRule.value) {
+    selectedRoutingRule.value = {}
+  }
+
+  initializeInventoryRules(rulesInformation.value[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation.value[routingRuleId])) : {});
 }
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {

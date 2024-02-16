@@ -1,116 +1,90 @@
-import { UserService } from '@/services/UserService'
-import { ActionTree } from 'vuex'
-import RootState from '@/store/RootState'
-import UserState from './UserState'
-import * as types from './mutation-types'
-import { hasError, showToast } from '@/utils'
-import { translate } from '@/i18n'
-import emitter from '@/event-bus'
-import { DateTime } from 'luxon';
+import { UserService } from "@/services/UserService"
+import { ActionTree } from "vuex"
+import RootState from "@/store/RootState"
+import UserState from "./UserState"
+import * as types from "./mutation-types"
+import { showToast } from "@/utils"
+import { translate } from "@/i18n"
+import logger from "@/logger"
+import emitter from "@/event-bus"
+import { Settings } from "luxon"
 
 const actions: ActionTree<UserState, RootState> = {
 
   /**
- * Login user and return token
- */
-  async login ({ commit, dispatch }, { username, password }) {
+  * Login user and return token
+  */
+  async login({ commit }, { username, password }) {
     try {
-      const resp = await UserService.login(username, password)
-      if (resp.status === 200 && resp.data) {
-        if (resp.data.token) {
-          const permissionId = process.env.VUE_APP_PERMISSION_ID;
-          if (permissionId) {
-            const checkPermissionResponse = await UserService.checkPermission({
-              data: {
-                permissionId
-              },
-              headers: {
-                Authorization:  'Bearer ' + resp.data.token,
-                'Content-Type': 'application/json'
-              }
-            });
-
-            if (checkPermissionResponse.status === 200 && !hasError(checkPermissionResponse) && checkPermissionResponse.data && checkPermissionResponse.data.hasPermission) {
-              commit(types.USER_TOKEN_CHANGED, { newToken: resp.data.token })
-              dispatch('getProfile')
-              if (resp.data._EVENT_MESSAGE_ && resp.data._EVENT_MESSAGE_.startsWith("Alert:")) {
-              // TODO Internationalise text
-                showToast(translate(resp.data._EVENT_MESSAGE_));
-              }
-              return resp.data;
-            } else {
-              const permissionError = 'You do not have permission to access the app.';
-              showToast(translate(permissionError));
-              console.error("error", permissionError);
-              return Promise.reject(new Error(permissionError));
-            }
-          } else {
-            commit(types.USER_TOKEN_CHANGED, { newToken: resp.data.token })
-            dispatch('getProfile')
-            return resp.data;
-          }
-        } else if (hasError(resp)) {
-          showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
-          console.error("error", resp.data._ERROR_MESSAGE_);
-          return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
-        }
-      } else {
-        showToast(translate('Something went wrong'));
-        console.error("error", resp.data._ERROR_MESSAGE_);
-        return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
+      if(!username.length || !password.length) {
+        return Promise.reject('')
       }
+
+      emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
+      // TODO: implement support for permission check
+      const token = await UserService.login(username, password)
+
+      const userProfile = await UserService.getUserProfile(token);
+
+      // TODO: fetch only associated product stores for user, currently api does not support this
+      userProfile.stores = await UserService.getEComStores(token);
+
+      if (userProfile.timeZone) {
+        Settings.defaultZone = userProfile.timeZone;
+      }
+
+      commit(types.USER_TOKEN_CHANGED, { newToken: token })
+      commit(types.USER_INFO_UPDATED, userProfile);
+      commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
+      emitter.emit("dismissLoader")
+      return Promise.resolve({ token })
     } catch (err: any) {
-      showToast(translate('Something went wrong'));
-      console.error("error", err);
+      emitter.emit("dismissLoader")
+      showToast(translate(err));
+      logger.error("error", err);
       return Promise.reject(new Error(err))
     }
-    // return resp
   },
 
   /**
-   * Logout user
-   */
-  async logout ({ commit }) {
+  * Logout user
+  */
+  async logout({ commit }) {
     // TODO add any other tasks if need
     commit(types.USER_END_SESSION)
-    
-  },
-
-  /**
-   * Get User profile
-   */
-  async getProfile ( { commit }) {
-    const resp = await UserService.getProfile()
-    if (resp.status === 200) {
-      commit(types.USER_INFO_UPDATED, resp.data);
-    }
-  },
-
-  /**
-   * update current facility information
-   */
-  async setFacility ({ commit }, payload) {
-    commit(types.USER_CURRENT_FACILITY_UPDATED, payload.facility);
+    this.dispatch("orderRouting/clearRouting")
+    this.dispatch("util/clearUtilState")
   },
   
   /**
-   * Update user timeZone
-   */
-  async setUserTimeZone ( { state, commit }, payload) {
-    const resp = await UserService.setUserTimeZone(payload)
-    if (resp.status === 200 && !hasError(resp)) {
-      const current: any = state.current;
-      current.userTimeZone = payload.tzId;
+  * Update user timeZone
+  */
+  async setUserTimeZone({ state, commit }, payload) {
+    const current: any = state.current;
+    // TODO: add support to change the user time on server, currently api to update user is not available
+    if(current.timeZone !== payload.tzId) {
+      current.timeZone = payload.tzId;
       commit(types.USER_INFO_UPDATED, current);
+      Settings.defaultZone = current.timeZone;
       showToast(translate("Time zone updated successfully"));
     }
   },
 
   /**
-   * Set User Instance Url
-   */
-  setUserInstanceUrl ({ state, commit }, payload){
+  * Set User Instance Url
+  */
+  setUserInstanceUrl({ commit }, payload) {
     commit(types.USER_INSTANCE_URL_UPDATED, payload)
+  },
+
+  setEcomStore({ commit, state }, payload) {
+    let productStore = payload.productStore;
+    if(!productStore) {
+      productStore = (state.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
+    }
+    commit(types.USER_CURRENT_ECOM_STORE_UPDATED, productStore);
+    this.dispatch("util/updateShippingMethods", {})
+    this.dispatch("util/updateFacillityGroups", {})
   }
 }
 

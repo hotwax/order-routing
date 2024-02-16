@@ -1,26 +1,21 @@
 import { createStore, useStore as useVuexStore } from "vuex"
-import mutations  from './mutations'
-import getters  from './getters'
-import actions from './actions'
-import RootState from './RootState'
+import mutations  from "./mutations"
+import getters  from "./getters"
+import actions from "./actions"
+import RootState from "./RootState"
 import createPersistedState from "vuex-persistedstate";
-import userModule from './modules/user';
-import productModule from "./modules/product";
-
-
-
+import userModule from "./modules/user";
+import utilModule from "./modules/util"
+import orderRoutingModule from "./modules/orderRouting"
 
 // TODO check how to register it from the components only
 // Handle same module registering multiple time on page refresh
-//store.registerModule('user', userModule);
+//store.registerModule("user", userModule);
 
-
-const state: any = {
-
-}
+const state: any = {}
 
 const persistState = createPersistedState({
-  paths: ['user'],
+  paths: ["user", "util", "orderRouting.currentGroup"],
   fetchBeforeUse: true
 })
 
@@ -32,8 +27,9 @@ const store = createStore<RootState>({
   getters,
   plugins: [ persistState ],
   modules: {
-    'user': userModule,
-    'product': productModule
+    "user": userModule,
+    "util": utilModule,
+    "orderRouting": orderRoutingModule
   },
 })
 

@@ -2,15 +2,15 @@
   <ion-page>
     <ion-tabs>
       <ion-router-outlet></ion-router-outlet>
-      <ion-tab-bar slot="bottom">
+      <ion-tab-bar slot="bottom" v-if="showFooter()">
         <ion-tab-button tab="brokering" href="/tabs/brokering">
           <ion-icon :icon="shuffleOutline" />
-          <ion-label>{{ $t("Brokering") }}</ion-label>
+          <ion-label>{{ translate("Brokering") }}</ion-label>
         </ion-tab-button>
 
         <ion-tab-button tab="more" href="/tabs/settings">
           <ion-icon :icon="settingsOutline" />
-          <ion-label>{{ $t("Settings") }}</ion-label>
+          <ion-label>{{ translate("Settings") }}</ion-label>
         </ion-tab-button>
       </ion-tab-bar>
     </ion-tabs>
@@ -18,8 +18,17 @@
 </template>
 
 <script setup lang="ts">
-import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs,  } from "@ionic/vue";
+import { translate } from "@/i18n";
+import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
 import { settingsOutline, shuffleOutline } from "ionicons/icons";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
+
+function showFooter() {
+  if (['/tabs/settings', '/tabs/brokering'].includes(router.currentRoute.value.path)) return true
+  return false
+}
 </script>
 
 <style scoped>

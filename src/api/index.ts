@@ -1,23 +1,39 @@
-import axios from 'axios';
-import { setupCache } from 'axios-cache-adapter'
-import OfflineHelper from '@/offline-helper'
+import axios from "axios";
+import { setupCache } from "axios-cache-adapter"
+import OfflineHelper from "@/offline-helper"
 import emitter from "@/event-bus"
-import store from '@/store';
-import { StatusCodes } from 'http-status-codes';
-import router from '@/router'
+import store from "@/store";
+import { StatusCodes } from "http-status-codes";
+import router from "@/router"
 
 axios.interceptors.request.use((config: any) => {
-  const token = store.getters['user/getUserToken'];
+  // TODO: pass csrf token
+  const token = store.getters["user/getUserToken"];
   if (token) {
-    config.headers.Authorization =  'Bearer ' + token;
-    config.headers['Content-Type'] = 'application/json';
+    config.headers["api_key"] =  token;
+    config.headers["Content-Type"] = "application/json";
   }
+
   return config;
 });
 
+// TODO: need to update this as per the changes in the Moqui response format, if required.
 axios.interceptors.response.use(function (response) {
   // Any status code that lie within the range of 2xx cause this function to trigger
   // Do something with response data
+
+  // TODO: explore more on a secure way to store the csrf token
+  // Cannot store it in cookies or localStorage as its not safe
+  // https://stackoverflow.com/questions/67062876/is-it-secure-to-store-a-csrf-token-value-in-the-dom
+  // https://stackoverflow.com/questions/62289684/what-is-the-correct-way-for-a-client-to-store-a-csrf-token
+  const csrfToken = response.headers["x-csrf-token"]
+  const meta = document.createElement("meta")
+  meta.name = "csrf"
+  meta.content = csrfToken
+  document.getElementsByTagName("head")[0].appendChild(meta)
+
+  document.cookie = `x-csrf-token=${csrfToken}`
+
   return response;
 }, function (error) {
   // TODO Handle it in a better way
@@ -30,7 +46,7 @@ axios.interceptors.response.use(function (response) {
     const { status } = error.response;
     if (status === StatusCodes.UNAUTHORIZED) {
       store.dispatch("user/logout");
-      router.push('/login')
+      router.push("/login")
     }
   }
   // Any status codes that falls outside the range of 2xx cause this function to trigger
@@ -48,8 +64,8 @@ const axiosCache = setupCache({
  * Generic method to call APIs
  *
  * @param {string}  url - API Url
- * @param {string=} method - 'GET', 'PUT', 'POST', 'DELETE , and 'PATCH'
- * @param {any} [data] - Optional: `data` is the data to be sent as the request body. Only applicable for request methods 'PUT', 'POST', 'DELETE , and 'PATCH'
+ * @param {string=} method - "GET", "PUT", "POST", "DELETE , and "PATCH"
+ * @param {any} [data] - Optional: `data` is the data to be sent as the request body. Only applicable for request methods "PUT", "POST", "DELETE , and "PATCH"
  * When no `transformRequest` is set, must be of one of the following types:
  * - string, plain object, ArrayBuffer, ArrayBufferView, URLSearchParams
  * - Browser only: FormData, File, Blob
@@ -65,11 +81,12 @@ const api = async (customConfig: any) => {
     url: customConfig.url,
     method: customConfig.method,
     data: customConfig.data,
-    params: customConfig.params
+    params: customConfig.params,
+    // withCredentials: true
   }
 
-  const baseURL = store.getters['user/getInstanceUrl'];
-  if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/api/`;
+  const baseURL = store.getters["user/getInstanceUrl"];
+  if (baseURL) config.baseURL = `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
   if(customConfig.cache) config.adapter = axiosCache.adapter;
   const networkStatus =  await OfflineHelper.getNetworkStatus();
   if (customConfig.queue && !networkStatus.connected) {

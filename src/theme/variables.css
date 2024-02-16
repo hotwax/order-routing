@@ -243,14 +243,78 @@ http://ionicframework.com/docs/theming/ */
 
     --ion-card-background: #1e1e1e;
   }
+}
 
-  .overline {
-    font-weight: 500 !important;
-    font-size: 10px !important;
-    line-height: 16px !important;
-    letter-spacing: 1.5px;
-    color: #666;
-    text-transform: uppercase !important;
+.empty-state {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.empty-state > img {
+  object-fit: contain;
+}
+
+.empty-state > p {
+  text-align: center;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+.desktop-only {
+  display: none;
+}
+
+.mobile-only {
+  display: unset;
+}
+
+.find {
+  display: grid;
+  grid-template-areas: "search"
+                       "main";
+}
+
+.find > .filters{
+  display: none;
+}
+
+.find > main {
+  grid-area: main;
+}
+
+.filters {
+  grid-area: filters;
+}
+
+.search {
+  grid-area: search;
+}
+
+@media (min-width: 991px) {
+  .find {
+    grid: "search  main" min-content
+          "filters main" 1fr
+          / 375px;
+    column-gap: var(--spacer-2xl);
+    margin: var(--spacer-lg);
+  }
+
+  .filters {
+    margin-top: var(--spacer-lg);
+  }
+
+  .filters {
+    margin-top: var(--spacer-lg);
+  }
+
+  .find > .filters{
+    display: unset;
   }
 }
 

@@ -84,6 +84,13 @@
             </ion-item>
           </main>
           <aside>
+            <ion-item>
+              <!-- If we does not have a schedule available then displaying the status for group schedule as draft -->
+              <ion-select :label="translate('Status')" interface="popover" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+                <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
+                <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-card>
               <ion-item lines="none">
                 <h2>{{ translate("Scheduler") }}</h2>
@@ -110,9 +117,6 @@
               </ion-item>
             </ion-card>
             <div class="actions desktop-only">
-              <div>
-                <ion-button :disabled="job.paused === 'Y' || typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" color="danger" @click="disable">{{ translate("Disable") }}</ion-button>
-              </div>
               <div>
                 <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ translate("Save changes") }}</ion-button>
                 <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="runNow()">{{ translate("Run Now") }}</ion-button>
@@ -291,7 +295,7 @@ async function saveSchedule() {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: "N",  // considering job in active status as soon as scheduled
+    paused: job.value.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
     ...job.value
   }
 
@@ -314,39 +318,6 @@ function timeTillJobUsingSeconds(time: any) {
   }
   const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
   return DateTime.local().plus(timeDiff).toRelative();
-}
-
-async function disable() {
-  const alert = await alertController
-    .create({
-      header: translate("Disable"),
-      message: translate("Disabling this schedule will cancel this occurrence and all following occurrences. This schedule will have to be re-enabled manually to run it again."),
-      buttons: [{
-        text: translate("Don't cancel"),
-        role: "cancel"
-      }, {
-        text: translate("Cancel"),
-        handler: async () => {
-          const payload = {
-            routingGroupId: props.routingGroupId,
-            paused: "Y"  // setting Y to disable the schedule
-          }
-
-          try {
-            const resp = await OrderRoutingService.scheduleBrokering(payload)
-            if(!hasError(resp)){
-              showToast(translate("Schedule disabled"))
-            } else {
-              throw resp.data
-            }
-          } catch(err) {
-            showToast(translate("Failed to update schedule"))
-            logger.error(err)
-          }
-        }
-      }],
-    });
-  return alert.present();
 }
 
 async function runNow() {
@@ -384,6 +355,10 @@ async function runNow() {
 async function redirect(orderRouting: Route) {
   await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
+}
+
+function updateGroupStatus(event: CustomEvent) {
+  job.value.paused = event.detail.value
 }
 
 async function createOrderRoute() {

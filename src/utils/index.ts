@@ -27,7 +27,7 @@ const sortSequence = (sequence: Array<Group | Route | Rule>, sortOnField = "sequ
 
     // Sort undefined values at last
     if(a[sortOnField] == undefined) return 1;
-    if(b[sortOnField] === undefined) return -1;
+    if(b[sortOnField] == undefined) return -1;
 
     return a[sortOnField] - b[sortOnField]
   })

@@ -1,6 +1,7 @@
 {
   "projects": {
     "default": "hotwax-digital-commerce",
+    "uat": "hotwax-digital-commerce-uat",
     "production": "digital-commerce-71eb8"
   },
   "targets": {
@@ -8,7 +9,11 @@
       "hosting": {
         "dev": [
           "hotwax-order-routing-dev"
-        ],
+        ]
+      }
+    },
+    "hotwax-digital-commerce-uat": {
+      "hosting": {
         "uat": [
           "hotwax-order-routing-uat"
         ]

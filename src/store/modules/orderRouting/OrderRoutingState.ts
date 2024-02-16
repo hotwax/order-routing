@@ -4,4 +4,5 @@ export default interface OrderRoutingState {
   currentGroup: any;
   currentRoute: any;
   routingHistory: any;
+  currentRuleId: string;
 }

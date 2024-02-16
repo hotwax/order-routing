@@ -257,6 +257,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId
   },
 
+  async updateRoutingRuleId({ commit }, payload) {
+    commit(types.ORDER_ROUTING_CURRENT_RULE_UPDATED, payload)
+  },
+
   async createRoutingRule({ commit, state }, payload) {
     const currentRoute = JSON.parse(JSON.stringify(state.currentRoute))
     let routingRules = currentRoute.rules?.length ? JSON.parse(JSON.stringify(currentRoute.rules)) : []
@@ -370,7 +374,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     commit(types.ORDER_ROUTING_RULES_UPDATED, rulesInformation)
-    return JSON.parse(JSON.stringify(rulesInformation[routingRuleId]))
+    return rulesInformation[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation[routingRuleId])) : {}
   },
 
   async updateRule({ dispatch }, payload) {

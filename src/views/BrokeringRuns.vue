@@ -20,13 +20,13 @@
         </section>
 
         <aside class="filters">
-          <ion-list-header>{{ "Product Stores" }}</ion-list-header>
           <ion-list>
-            <ion-item lines="none">
-              <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
-                <ion-radio v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" :value="store.productStoreId">{{ store.storeName }}</ion-radio>
-              </ion-radio-group>
-            </ion-item>
+            <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
+            <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
+              <ion-item v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" lines="none">
+                <ion-radio :value="store.productStoreId">{{ store.storeName }}</ion-radio>
+              </ion-item>
+            </ion-radio-group>
           </ion-list>
         </aside>
 

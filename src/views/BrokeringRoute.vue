@@ -85,12 +85,10 @@
           </main>
           <aside>
             <ion-card>
-              <ion-card-header>
-                <ion-card-title>
-                  {{ translate("Scheduler") }}
-                </ion-card-title>
-                <ion-badge>{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
-              </ion-card-header>
+              <ion-item lines="none">
+                <h2>{{ translate("Scheduler") }}</h2>
+                <ion-badge slot="end">{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
+              </ion-item>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
                   {{ translate("Connection configuration is missing for oms.") }}
@@ -139,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, archiveOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";

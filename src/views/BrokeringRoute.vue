@@ -63,7 +63,7 @@
             <ion-item lines="none">
               <h2>{{ translate("Description") }}</h2>
               <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
-                {{ translate(isDescUpdating ? "Save" : "Edit") }}
+                {{ translate(isDescUpdating ? "Save" : description ? "Edit" : "Add") }}
               </ion-button>
             </ion-item>
             <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
@@ -444,8 +444,9 @@ function getArchivedOrderRoutings() {
 }
 
 async function updateGroupDescription() {
-  // Do not update description, if the desc is unchanged, and we do not have routingGroupId, and description is left empty
-  if(props.routingGroupId && currentRoutingGroup.value.description !== description.value) {
+  // Do not update description, if the desc is unchanged, and we do not have routingGroupId
+  // Added conversion using `!!`, as if the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
+  if(props.routingGroupId && (!!currentRoutingGroup.value.description != !!description.value)) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })

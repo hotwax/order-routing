@@ -2,6 +2,7 @@
   "A store repesents a company or a unique catalog of products. If your OMS is connected to multiple eCommerce stores sellling different collections of products, you may have multiple Product Stores set up in HotWax Commerce.": "A store repesents a company or a unique catalog of products. If your OMS is connected to multiple eCommerce stores sellling different collections of products, you may have multiple Product Stores set up in HotWax Commerce.",
   "Actions": "Actions",
   "Active": "Active",
+  "Add": "Add",
   "Add inventory rule": "Add inventory rule",
   "Allocated Items": "Allocated Items",
   "Allow partial allocation": "Allow partial allocation",

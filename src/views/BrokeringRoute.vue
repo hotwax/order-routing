@@ -84,6 +84,13 @@
             </ion-item>
           </main>
           <aside>
+            <ion-item>
+              <!-- If we does not have a schedule available then displaying the status for group schedule as draft -->
+              <ion-select :label="translate('Status')" interface="popover" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+                <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
+                <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-card>
               <ion-item lines="none">
                 <h2>{{ translate("Scheduler") }}</h2>
@@ -291,7 +298,7 @@ async function saveSchedule() {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: "N",  // considering job in active status as soon as scheduled
+    paused: job.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
     ...job.value
   }
 
@@ -384,6 +391,10 @@ async function runNow() {
 async function redirect(orderRouting: Route) {
   await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
+}
+
+function updateGroupStatus(event: CustomEvent) {
+  job.paused = event.detail.value
 }
 
 async function createOrderRoute() {

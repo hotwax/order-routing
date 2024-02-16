@@ -44,7 +44,7 @@
                   {{ group.groupName }}
                 </ion-card-title>
               </ion-card-header>
-              <ion-item>
+              <ion-item v-if="group.description">
                 {{ group.description }}
               </ion-item>
               <ion-item>

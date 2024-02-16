@@ -31,6 +31,25 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     }
 
     if(routingGroups.length) {
+      const groupScheduleInfoPayload = routingGroups.map((group: any) => {
+        return group.routingGroupId
+      })
+
+      const resp = await Promise.allSettled(groupScheduleInfoPayload.map((routingGroupId: any) => OrderRoutingService.fetchRoutingScheduleInformation(routingGroupId)))
+
+      // Performing check on only those responses for which the status is fulfilled
+      const schedules = resp.filter((response: any) => response.status === "fulfilled").reduce((schedules: any, response: any) => {
+        if(response.value.data.schedule) {
+          schedules[response.value.data.schedule.jobName] = response.value.data.schedule
+        }
+        return schedules;
+      }, {})
+
+      routingGroups = routingGroups.map((group: any) => ({
+        ...group,
+        schedule: schedules[group.jobName]
+      }))
+
       routingGroups = sortSequence(routingGroups)
     }
 

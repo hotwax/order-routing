@@ -298,7 +298,7 @@ async function saveSchedule() {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: job.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
+    paused: job.value.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
     ...job.value
   }
 
@@ -394,7 +394,7 @@ async function redirect(orderRouting: Route) {
 }
 
 function updateGroupStatus(event: CustomEvent) {
-  job.paused = event.detail.value
+  job.value.paused = event.detail.value
 }
 
 async function createOrderRoute() {

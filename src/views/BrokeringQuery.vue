@@ -81,8 +81,8 @@
               </ion-item>
             </ion-reorder-group>
           </ion-item-group>
-        </div>
-        <div id="inventory-sequence" class="menu">
+        </section>
+        <section id="inventory-sequence" class="menu">
           <ion-list>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
@@ -96,7 +96,7 @@
             {{ translate("Add inventory rule") }}
             <ion-icon :icon="addCircleOutline"/>
           </ion-button>
-        </div>
+        </section>
         <div v-if="selectedRoutingRule?.routingRuleId">
           <ion-card class="rule-info">
             <ion-item lines="none">

@@ -1108,8 +1108,7 @@ ion-content > main {
 }
 
 .menu {
-  display: flex;
-  justify-content: center;
+  text-align: center;
   border-right: 1px solid var(--ion-color-medium);
 }
 

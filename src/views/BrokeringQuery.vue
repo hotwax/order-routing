@@ -4,7 +4,7 @@
       <main>
         <section id="order-filters" class="menu">
           <ion-item lines="none">
-            <ion-label>{{ currentRouting.routingName }}</ion-label>
+            <ion-label><h1>{{ currentRouting.routingName }}<h1></ion-label>
             <ion-chip slot="end" outline @click="router.go(-1)">
               {{ getRouteIndex() }}
               <ion-icon :icon="chevronUpOutline" />
@@ -1108,8 +1108,11 @@ ion-content > main {
 }
 
 .menu {
-  text-align: center;
   border-right: 1px solid var(--ion-color-medium);
+}
+
+#inventory-sequence {
+  text-align: center;
 }
 
 ion-chip > ion-select {

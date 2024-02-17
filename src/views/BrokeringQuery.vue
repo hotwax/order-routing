@@ -1,8 +1,8 @@
 <template>
   <ion-page>
     <ion-content>
-      <div>
-        <div class="menu">
+      <main>
+        <section id="order-filters" class="menu">
           <ion-item lines="none">
             <ion-label>{{ currentRouting.routingName }}</ion-label>
             <ion-chip slot="end" outline @click="router.go(-1)">
@@ -82,7 +82,7 @@
             </ion-reorder-group>
           </ion-item-group>
         </div>
-        <div class="menu">
+        <div id="inventory-sequence" class="menu">
           <ion-list>
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
@@ -239,7 +239,7 @@
           </section>
         </div>
         <div class="empty-state" v-else>{{ translate("Failed to identify selected inventory rule, please select a rule or refresh") }}</div>
-      </div>
+      </main>
     </ion-content>
   </ion-page>
 </template>
@@ -1101,15 +1101,16 @@ async function save() {
   gap: var(--spacer-xs)
 }
 
-ion-content > div {
+ion-content > main {
   display: grid;
-  grid-template-columns: 300px 300px 1fr;
+  grid-template-columns: repeat(2, minmax(375px, 25%)) 1fr;
   height: 100%;
 }
 
-ion-content > div > .menu {
-  border-right: 1px solid #92949C;
+.menu {
+  display: flex;
   justify-content: center;
+  border-right: 1px solid var(--ion-color-medium);
 }
 
 ion-chip > ion-select {

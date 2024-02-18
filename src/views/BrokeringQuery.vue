@@ -125,7 +125,7 @@
             <ion-card class="ion-padding-vertical">
               <ion-item>
                 <ion-icon slot="start" :icon="filterOutline"/>
-                <ion-label>{{ translate("Filters") }}</ion-label>
+                <h4>{{ translate("Filters") }}</h4>
                 <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
@@ -161,7 +161,7 @@
             <ion-card class="ion-padding-vertical">
               <ion-item>
                 <ion-icon slot="start" :icon="swapVerticalOutline"/>
-                <ion-label>{{ translate("Sort") }}</ion-label>
+                <h4>{{ translate("Sort") }}</h4>
                 <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>

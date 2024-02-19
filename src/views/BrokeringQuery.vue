@@ -88,7 +88,7 @@
               <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
                 <ion-label>
                   <h2>{{ rule.ruleName }}</h2>
-                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : translate("Inactive") }}</ion-note>
+                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="inventoryRules.length > 1" />

@@ -40,8 +40,7 @@
                   </ion-chip>
                 </ion-item>
                 <ion-item lines="none">
-                  <ion-badge class="pointer" v-if="routing.statusId === 'ROUTING_DRAFT'" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ACTIVE')">{{ getStatusDesc(routing.statusId) }}</ion-badge>
-                  <ion-badge v-else color="success">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                  <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : ''" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                   <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                     {{ translate("Archive") }}
                     <ion-icon slot="end" :icon="archiveOutline" />

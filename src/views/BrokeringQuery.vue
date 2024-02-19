@@ -60,7 +60,7 @@
               </ion-chip>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
-              <ion-select :placeholder="translate('sales channel')" :label="translate('Sales Channel')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL')">
+              <ion-select multiple :placeholder="translate('sales channel')" :label="translate('Sales Channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -628,8 +628,8 @@ function getFilterValue(options: any, enums: any, parameter: string) {
   return options?.[enums[parameter].code]
 }
 
-function getSelectedValue(options: any, enums: any, parameter: string) {
-  let value = options?.[enums[parameter].code].fieldValue
+function getSelectedValue(options: any, enumerations: any, parameter: string) {
+  let value = options?.[enumerations[parameter].code].fieldValue
 
   // Initially when adding a filter no value is selected thus returning empty string
   if(!value) {
@@ -642,7 +642,7 @@ function getSelectedValue(options: any, enums: any, parameter: string) {
   if(value?.length > 1) {
     return `${value.length} ${translate("selected")}`
   } else {
-    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : facilities.value[value[0]]?.facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description || value[0] : facilities.value[value[0]]?.facilityName || value[0]
   }
 }
 

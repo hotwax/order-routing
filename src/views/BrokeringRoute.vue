@@ -93,7 +93,8 @@
             <ion-card>
               <ion-item lines="none">
                 <h2>{{ translate("Scheduler") }}</h2>
-                <ion-badge slot="end">{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
+                <!-- When the group is in draft status, do not display the time delta badge -->
+                <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
               </ion-item>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
@@ -106,11 +107,15 @@
               <ion-item>
                 <ion-icon slot="start" :icon="timeOutline"/>
                 <ion-label>{{ translate("Run time") }}</ion-label>
-                <ion-label slot="end">{{ getTimeFromSeconds(job.nextExecutionDateTime) }}</ion-label>
+                <!-- When the group is in draft status, do not display the runTime from the schedule -->
+                <ion-label slot="end">{{ job.paused === 'N' ? getTimeFromSeconds(job.nextExecutionDateTime) : "-" }}</ion-label>
               </ion-item>
               <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <ion-select :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
+                <!-- When the group is in draft status, do not display the frequency and juust display the label for schedule -->
+                <ion-label v-if="job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
+                <ion-label v-if="job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
+                <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                   <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                 </ion-select>
               </ion-item>

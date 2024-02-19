@@ -39,23 +39,33 @@
         <main v-else-if="brokeringGroups.length">
           <section>
             <ion-card class="pointer" v-for="group in brokeringGroups" :key="group.routingGroupId" @click="redirect(group)">
-              <ion-card-header>
-                <ion-card-title>
-                  {{ group.groupName }}
-                </ion-card-title>
-              </ion-card-header>
+              <ion-item>
+                <ion-label>
+                  <h1>{{ group.groupName }}</h1>
+                  <p>{{ getDateAndTime(group.createdDate) }}</p>
+                </ion-label>
+              </ion-item>
               <ion-item v-if="group.description">
                 {{ group.description }}
               </ion-item>
-              <ion-item>
-                <ion-label>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</ion-label>
-                <ion-label slot="end">{{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}</ion-label>
+              <ion-item v-if="group.schedule?.paused === 'N'">
+                <ion-label>
+                  {{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
+                </ion-label>
+                <ion-badge slot="end" color="dark">
+                  {{ group.schedule ? timeTillRunUsingSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                </ion-badge>
               </ion-item>
-              <ion-item>
-                {{ getDateAndTime(group.createdDate) }}
+              <ion-item v-else>
+                <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
+                <ion-label>
+                  {{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                </ion-label>
+                <ion-badge slot="end" color="dark">{{ translate("Draft") }}</ion-badge>
               </ion-item>
               <ion-item lines="none">
-                {{ getDateAndTime(group.lastUpdatedStamp) }}
+                {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
               </ion-item>
             </ion-card>
           </section>
@@ -73,8 +83,9 @@ import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, getTimeFromSeconds, showToast } from "@/utils";
-import { IonButton, IonButtons, IonCard, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSearchbar, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSearchbar, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
+import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -98,6 +109,11 @@ onIonViewWillEnter(async () => {
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   store.dispatch("util/fetchEnums", { parentTypeId: "ORDER_ROUTING" })
 })
+
+function timeTillRunUsingSeconds(time: any) {
+  const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
+  return DateTime.local().plus(timeDiff).toRelative();
+}
 
 function filterGroups() {
   // Before filtering the groups, reassinging it with state, if we have searched for a specific character and then updates the search string then we need to again filter on all the groups and not on the previously searched results

@@ -80,7 +80,7 @@
                 <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
                 <p>{{ getDate(groupHistory[0].startTime) }}</p>
               </ion-label>
-              <ion-badge color="dark">{{ getTime(groupHistory[0].endTime - groupHistory[0].startTime) }}</ion-badge>
+              <ion-badge color="dark">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
             </ion-item>
           </main>
           <aside>
@@ -151,7 +151,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, sortSequence } from "@/utils";
+import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, sortSequence, timeTillRun } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"

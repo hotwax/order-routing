@@ -29,7 +29,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -68,7 +68,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -125,11 +125,11 @@
             </div>
           </ion-card>
           <section class="filters">
-            <ion-card class="ion-padding-vertical">
+            <ion-card>
               <ion-item>
                 <ion-icon slot="start" :icon="filterOutline"/>
                 <h4>{{ translate("Filters") }}</h4>
-                <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
               </ion-item>
@@ -161,11 +161,11 @@
                 <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
               </ion-item>
             </ion-card>
-            <ion-card class="ion-padding-vertical">
+            <ion-card>
               <ion-item>
                 <ion-icon slot="start" :icon="swapVerticalOutline"/>
                 <h4>{{ translate("Sort") }}</h4>
-                <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
               </ion-item>

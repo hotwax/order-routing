@@ -585,7 +585,7 @@ section > * {
 
 ion-content > div {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: minmax(375px, 25%) 1fr;
   height: 100%;
 }
 

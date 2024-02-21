@@ -17,7 +17,7 @@
           <h3>{{ getTime(history.startTime) }}</h3>
           <p>{{ getDate(history.startTime) }}</p>
         </ion-label>
-        <ion-badge color="dark">{{ getTime(history.endTime - history.startTime) }}</ion-badge>
+        <ion-badge color="dark">{{ timeTillRun(history.endTime) }}</ion-badge>
       </ion-item>
     </ion-list>
   </ion-content>
@@ -41,7 +41,7 @@ import {
 } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import { defineProps } from "vue";
-import { getDate, getTime } from "@/utils";
+import { getDate, getTime, timeTillRun } from "@/utils";
 
 defineProps({
   groupHistory: {

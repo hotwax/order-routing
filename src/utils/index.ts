@@ -34,7 +34,7 @@ const sortSequence = (sequence: Array<Group | Route | Rule>, sortOnField = "sequ
 }
 
 const getTime = (time: any) => {
-  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.TIME_24_WITH_SECONDS) : "-";
+  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.TIME_SIMPLE) : "-";
 }
 
 const getTimeFromSeconds = (time: any) => {
@@ -54,4 +54,9 @@ function getDateAndTimeShort(time: any) {
   return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
 }
 
-export { getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, hasError, sortSequence }
+function timeTillRun(endTime: any) {
+  const timeDiff = DateTime.fromMillis(endTime).diff(DateTime.local());
+  return DateTime.local().plus(timeDiff).toRelative();
+}
+
+export { getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, hasError, sortSequence, timeTillRun }

@@ -37,10 +37,6 @@ const getTime = (time: any) => {
   return time ? DateTime.fromMillis(time).toLocaleString(DateTime.TIME_SIMPLE) : "-";
 }
 
-const getTimeFromSeconds = (time: any) => {
-  return time ? DateTime.fromSeconds(time).toLocaleString(DateTime.DATETIME_MED) : "-";
-}
-
 function getDate(runTime: any) {
   return DateTime.fromMillis(runTime).toLocaleString(DateTime.DATE_MED);
 }
@@ -59,4 +55,4 @@ function timeTillRun(endTime: any) {
   return DateTime.local().plus(timeDiff).toRelative();
 }
 
-export { getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, hasError, sortSequence, timeTillRun }
+export { getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun }

@@ -94,7 +94,7 @@
               <ion-item lines="none">
                 <h2>{{ translate("Scheduler") }}</h2>
                 <!-- When the group is in draft status, do not display the time delta badge -->
-                <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJobUsingSeconds(job.nextExecutionDateTime) }}</ion-badge>
+                <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
               </ion-item>
               <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
                 <ion-label color="danger" class="ion-text-wrap">
@@ -108,7 +108,7 @@
                 <ion-icon slot="start" :icon="timeOutline"/>
                 <ion-label>{{ translate("Run time") }}</ion-label>
                 <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                <ion-label slot="end">{{ job.paused === 'N' ? getTimeFromSeconds(job.nextExecutionDateTime) : "-" }}</ion-label>
+                <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
               </ion-item>
               <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
@@ -155,7 +155,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, getTimeFromSeconds, showToast, sortSequence, timeTillRun } from "@/utils";
+import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, sortSequence, timeTillRun } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -316,11 +316,11 @@ async function saveSchedule() {
   }
 }
 
-function timeTillJobUsingSeconds(time: any) {
+function timeTillJob(time: any) {
   if(!time) {
     return;
   }
-  const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
+  const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
   return DateTime.local().plus(timeDiff).toRelative();
 }
 

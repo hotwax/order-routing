@@ -50,17 +50,17 @@
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
-                  {{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                   <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
-                  {{ group.schedule ? timeTillRunUsingSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-badge>
               </ion-item>
               <ion-item v-else>
                 <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
                 <ion-label>
-                  {{ group.schedule ? getTimeFromSeconds(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-label>
                 <ion-badge slot="end" color="dark">{{ translate("Draft") }}</ion-badge>
               </ion-item>
@@ -82,7 +82,7 @@
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
-import { getDateAndTime, getTimeFromSeconds, showToast } from "@/utils";
+import { getDateAndTime, showToast } from "@/utils";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSearchbar, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
@@ -110,8 +110,8 @@ onIonViewWillEnter(async () => {
   store.dispatch("util/fetchEnums", { parentTypeId: "ORDER_ROUTING" })
 })
 
-function timeTillRunUsingSeconds(time: any) {
-  const timeDiff = DateTime.fromSeconds(time).diff(DateTime.local());
+function timeTillRun(time: any) {
+  const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
   return DateTime.local().plus(timeDiff).toRelative();
 }
 

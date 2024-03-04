@@ -204,6 +204,11 @@ onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
   let canLeave = false;
 
+  // If there are no unsaved changes do not create and present the alert
+  if(!hasUnsavedChanges.value) {
+    return;
+  }
+
   const alert = await alertController.create({
     header: translate("Leave page"),
     message: translate("Any edits made on this page will be lost."),
@@ -223,11 +228,9 @@ onBeforeRouteLeave(async (to) => {
     ],
   });
 
-  if(hasUnsavedChanges.value) {
-    alert.present();
-    await alert.onDidDismiss();
-    return canLeave;
-  }
+  alert.present();
+  await alert.onDidDismiss();
+  return canLeave;
 })
 
 function updateCronExpression(event: CustomEvent) {

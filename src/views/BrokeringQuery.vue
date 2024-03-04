@@ -327,6 +327,12 @@ onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
   let canLeave = false;
 
+  if(!hasUnsavedChanges.value) {
+    // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
+    store.dispatch("orderRouting/updateRoutingRuleId", "")
+    return;
+  }
+
   const alert = await alertController.create({
     header: translate("Leave page"),
     message: translate("Any edits made on this page will be lost."),
@@ -340,19 +346,17 @@ onBeforeRouteLeave(async (to) => {
       {
         text: translate("LEAVE"),
         handler: () => {
+          // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
+          store.dispatch("orderRouting/updateRoutingRuleId", "")
           canLeave = true;
         },
       },
     ],
   });
 
-  if(hasUnsavedChanges.value) {
-    alert.present();
-    await alert.onDidDismiss();
-    return canLeave;
-  }
-  // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
-  store.dispatch("orderRouting/updateRoutingRuleId", "")
+  alert.present();
+  await alert.onDidDismiss();
+  return canLeave;
 })
 
 function getRouteIndex() {

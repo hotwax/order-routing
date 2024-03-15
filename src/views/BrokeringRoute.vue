@@ -61,13 +61,15 @@
           <main>
             <ion-item lines="none">
               <h2>{{ translate("Description") }}</h2>
-              <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : (isDescUpdating = !isDescUpdating)">
+              <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
                 {{ translate(isDescUpdating ? "Save" : description ? "Edit" : "Add") }}
               </ion-button>
             </ion-item>
             <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
-              <ion-textarea v-if="isDescUpdating" aria-label="description" v-model="description"></ion-textarea>
-              <ion-label v-else>{{ description }}</ion-label>
+              <!-- Used keydown event as ionic provides the keydown event to be overridden -->
+              <ion-textarea ref="descRef" v-show="isDescUpdating" aria-label="description" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription"></ion-textarea>
+              <!-- Using regex to replace all \n with br tag to correctly display the user entered description -->
+              <ion-label v-show="!isDescUpdating" v-html="description.replace(/(?:\n|\n)/g, '<br />')"></ion-label>
             </ion-item>
             <ion-item lines="none">
               <h2>{{ translate("History") }}</h2>
@@ -149,7 +151,7 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonCo
 import { addCircleOutline, archiveOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -175,6 +177,7 @@ let routingsForReorder = ref([])
 let description = ref("")
 let isDescUpdating = ref(false)
 let hasUnsavedChanges = ref(false)
+const descRef = ref()
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
@@ -425,8 +428,8 @@ function getArchivedOrderRoutings() {
 
 async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId
-  // Added conversion using `!!`, as if the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
-  if(props.routingGroupId && (!!currentRoutingGroup.value.description != !!description.value)) {
+  // If the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
+  if(props.routingGroupId && ((currentRoutingGroup.value.description || description.value) && currentRoutingGroup.value.description != description.value)) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
@@ -573,6 +576,13 @@ async function showGroupHistory() {
   })
 
   groupHistoryModal.present();
+}
+
+async function editGroupDescription() {
+  isDescUpdating.value = !isDescUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  descRef.value.$el.setFocus();
 }
 </script>
 

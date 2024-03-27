@@ -60,7 +60,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   async createRoutingGroup({ dispatch }, groupName) {
     const payload = {
       groupName,
-      productStoreId: "STORE",
+      productStoreId: store.state.user.currentEComStore.productStoreId,
       createdDate: DateTime.now().toMillis()
     }
     try {
@@ -68,7 +68,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp)) {
         showToast(translate("Brokering run created"))
-        dispatch("fetchOrderRoutingGroups")
+        await dispatch("fetchOrderRoutingGroups")
       } else {
         throw resp.data
       }

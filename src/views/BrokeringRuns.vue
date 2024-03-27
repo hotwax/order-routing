@@ -142,14 +142,15 @@ async function addNewRun() {
     }]
   })
 
-  newRunAlert.onDidDismiss().then((result: any) => {
+  newRunAlert.onDidDismiss().then(async (result: any) => {
     // considering that if we have role, then its negative action and thus not need to create run
     if(result.role) {
       return;
     }
 
     if(result.data?.values?.runName.trim()) {
-      store.dispatch("orderRouting/createRoutingGroup", result.data.values.runName.trim())
+      await store.dispatch("orderRouting/createRoutingGroup", result.data.values.runName.trim())
+      brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
     }
   })
 

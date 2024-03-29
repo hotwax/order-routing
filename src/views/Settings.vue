@@ -34,6 +34,23 @@
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
+              {{ $t('OMS instance') }}
+            </ion-card-subtitle>
+            <ion-card-title>
+              {{ oms }}
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            {{ $t('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
+          </ion-card-content>
+          <ion-button @click="goToOms()" fill="clear">
+            {{ $t('Go to OMS') }}
+            <ion-icon slot="end" :icon="openOutline" />
+          </ion-button>
+        </ion-card>
+        <ion-card>
+          <ion-card-header>
+            <ion-card-subtitle>
               {{ translate("Product Store") }}
             </ion-card-subtitle>
             <ion-card-title>
@@ -79,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "vuex";
 import { useRouter } from "vue-router";
@@ -87,6 +104,7 @@ import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
+import { openOutline } from "ionicons/icons"
 
 const store = useStore()
 const router = useRouter()
@@ -95,6 +113,8 @@ const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_A
 
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const token = computed(() => store.getters["user/getUserToken"])
+const oms = computed(() => store.getters["user/getInstanceUrl"])
 
 onMounted(() => {
   appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
@@ -123,6 +143,12 @@ function logout() {
 
 function getDateTime(time: any) {
   return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "";
+}
+
+function goToOms() {
+  const link = (oms.value.startsWith('http') ? oms.value.replace(/\/api\/?|\/$/, "") : `https://${oms.value}.hotwax.io`) + `/qapps?token=${token.value}`
+
+  window.open(link, '_blank', 'noopener, noreferrer')
 }
 </script>
 

@@ -387,7 +387,13 @@ async function createOrderRoute() {
       text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: translate("Save")
+      text: translate("Save"),
+      handler: (data) => {
+        if(!data.routingName?.trim().length) {
+          showToast(translate("Please enter a valid name"))
+          return false;
+        }
+      }
     }],
     inputs: [{
       name: "routingName",

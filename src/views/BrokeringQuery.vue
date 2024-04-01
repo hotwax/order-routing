@@ -254,7 +254,7 @@ import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { getDateAndTimeShort, sortSequence } from "@/utils";
+import { getDateAndTimeShort, showToast, sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -497,7 +497,13 @@ async function addInventoryRule() {
       text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: translate("Save")
+      text: translate("Save"),
+      handler: (data) => {
+        if(!data.ruleName?.trim().length) {
+          showToast(translate("Please enter a valid name"))
+          return false;
+        }
+      }
     }],
     inputs: [{
       name: "ruleName",

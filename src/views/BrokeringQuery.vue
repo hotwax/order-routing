@@ -330,6 +330,7 @@ onBeforeRouteLeave(async (to) => {
   if(!hasUnsavedChanges.value) {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
     store.dispatch("orderRouting/updateRoutingRuleId", "")
+    store.dispatch("orderRouting/clearRules", "")
     return;
   }
 
@@ -348,6 +349,7 @@ onBeforeRouteLeave(async (to) => {
         handler: () => {
           // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
           store.dispatch("orderRouting/updateRoutingRuleId", "")
+          store.dispatch("orderRouting/clearRules", "")
           canLeave = true;
         },
       },

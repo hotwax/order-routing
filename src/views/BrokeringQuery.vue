@@ -330,6 +330,7 @@ onBeforeRouteLeave(async (to) => {
   if(!hasUnsavedChanges.value) {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
     store.dispatch("orderRouting/updateRoutingRuleId", "")
+    store.dispatch("orderRouting/clearRules")
     return;
   }
 
@@ -348,6 +349,7 @@ onBeforeRouteLeave(async (to) => {
         handler: () => {
           // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
           store.dispatch("orderRouting/updateRoutingRuleId", "")
+          store.dispatch("orderRouting/clearRules")
           canLeave = true;
         },
       },
@@ -831,7 +833,7 @@ function findRulesDiff(previousSeq: any, updatedSeq: any) {
 }
 
 function findSortDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {}
+  let seqToUpdate = {} as any
   let seqToRemove = {} as any
 
   seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
@@ -858,11 +860,22 @@ function findSortDiff(previousSeq: any, updatedSeq: any) {
     return diff
   }, seqToUpdate)
 
+  // Updated the keys of the object as there are some cases in which the field is same for both filter and sort options thus causing issue when doing same kind operation (addtion or deletion) of fields
+  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + '_sort'] = seqToUpdate[key]
+    return updatedSeq
+  }, {})
+
+  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + '_sort'] = seqToRemove[key]
+    return updatedSeq
+  }, {})
+
   return { seqToUpdate, seqToRemove };
 }
 
 function findFilterDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {}
+  let seqToUpdate = {} as any
   let seqToRemove = {} as any
 
   seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
@@ -890,6 +903,17 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
 
     return diff
   }, seqToUpdate)
+
+  // Updated the keys of the object as there are some cases in which the field is same for both filter and sort options thus causing issue when doing same kind operation (addtion or deletion) of fields
+  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + '_filter'] = seqToUpdate[key]
+    return updatedSeq
+  }, {})
+
+  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + '_filter'] = seqToRemove[key]
+    return updatedSeq
+  }, {})
 
   return { seqToUpdate, seqToRemove };
 }

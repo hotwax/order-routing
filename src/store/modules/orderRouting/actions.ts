@@ -394,6 +394,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async clearRouting({ commit }) {
     commit(types.ORDER_ROUTING_CLEARED)
+  },
+
+  async clearRules({ commit }) {
+    commit(types.ORDER_ROUTING_RULES_UPDATED, {})
   }
 }
 

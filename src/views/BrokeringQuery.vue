@@ -833,7 +833,7 @@ function findRulesDiff(previousSeq: any, updatedSeq: any) {
 }
 
 function findSortDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {}
+  let seqToUpdate = {} as any
   let seqToRemove = {} as any
 
   seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
@@ -860,11 +860,22 @@ function findSortDiff(previousSeq: any, updatedSeq: any) {
     return diff
   }, seqToUpdate)
 
+  // Updated the keys of the object as there are some cases in which the field is same for both filter and sort options thus causing issue when doing same kind operation (addtion or deletion) of fields
+  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + 'sort'] = seqToUpdate[key]
+    return updatedSeq
+  }, {})
+
+  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + 'sort'] = seqToRemove[key]
+    return updatedSeq
+  }, {})
+
   return { seqToUpdate, seqToRemove };
 }
 
 function findFilterDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {}
+  let seqToUpdate = {} as any
   let seqToRemove = {} as any
 
   seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
@@ -892,6 +903,17 @@ function findFilterDiff(previousSeq: any, updatedSeq: any) {
 
     return diff
   }, seqToUpdate)
+
+  // Updated the keys of the object as there are some cases in which the field is same for both filter and sort options thus causing issue when doing same kind operation (addtion or deletion) of fields
+  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + 'filter'] = seqToUpdate[key]
+    return updatedSeq
+  }, {})
+
+  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
+    updatedSeq[key + 'filter'] = seqToRemove[key]
+    return updatedSeq
+  }, {})
 
   return { seqToUpdate, seqToRemove };
 }

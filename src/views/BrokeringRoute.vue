@@ -75,7 +75,7 @@
               <h2>{{ translate("History") }}</h2>
               <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
             </ion-item>
-            <p class="empty-state" v-if="!groupHistory.length">{{ translate("No available history for this group") }}</p>
+            <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
             <ion-item v-else>
               <ion-label>
                 <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
@@ -114,9 +114,9 @@
               </ion-item>
               <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <!-- When the group is in draft status, do not display the frequency and juust display the label for schedule -->
-                <ion-label v-if="job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
-                <ion-label v-if="job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
+                <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
+                <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
+                <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
                 <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                   <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                 </ion-select>
@@ -352,6 +352,27 @@ async function runNow() {
         {
           text: translate("Run now"),
           handler: async () => {
+            // Checking that if we already have the job schedule before calling runNow, because if the job scheduler is not present then runNow action can't be performed
+            // If the scheduler for the job is available then we will have jobName, if not then first scheduling the job in draft status just to create a routing schedule and then calling runNow action
+            if(!job.value.jobName) {
+              const payload = {
+                routingGroupId: props.routingGroupId,
+                paused: "Y",  // passing Y as we just need to configure the scheduler and do not need to schedule it in active state
+              }
+
+              try {
+                const resp = await OrderRoutingService.scheduleBrokering(payload)
+                if(hasError(resp)) {
+                  throw resp.data
+                }
+                // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
+                job.value.jobName = resp.data.jobName
+              } catch(err) {
+                logger.error(err)
+                return;
+              }
+            }
+
             try {
               const resp = await OrderRoutingService.runNow(props.routingGroupId)
               if(!hasError(resp) && resp.data.jobRunId) {

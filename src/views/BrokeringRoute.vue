@@ -114,9 +114,9 @@
               </ion-item>
               <ion-item lines="none">
                 <ion-icon slot="start" :icon="timerOutline"/>
-                <!-- When the group is in draft status, do not display the frequency and juust display the label for schedule -->
-                <ion-label v-if="job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
-                <ion-label v-if="job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
+                <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
+                <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
+                <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
                 <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                   <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                 </ion-select>

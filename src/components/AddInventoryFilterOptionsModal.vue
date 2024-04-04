@@ -16,7 +16,7 @@
       </ion-list>
 
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button @click="saveConditionOptions()">
+        <ion-fab-button :disabled="!areFiltersUpdated" @click="saveConditionOptions()">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -58,6 +58,8 @@ const props = defineProps({
 })
 let inventoryRuleConditions = ref({}) as any
 let enumerations = ref([]) as any
+let areFiltersUpdated = ref(false)
+
 const hiddenOptions = ["IIP_MSMNT_SYSTEM"]
 // managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
 const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultValue: "IMPERIAL" }} as any
@@ -66,6 +68,17 @@ onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
   enumerations.value = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId))
 })
+
+function checkFilters() {
+  areFiltersUpdated.value = false;
+  areFiltersUpdated.value = Object.keys(inventoryRuleConditions.value).some((options: string) => {
+    return !props.ruleConditions[options]
+  })
+
+  areFiltersUpdated.value = areFiltersUpdated.value ? areFiltersUpdated.value : Object.keys(props.ruleConditions).some((options: string) => {
+    return !inventoryRuleConditions.value[options]
+  })
+}
 
 function addConditionOption(condition: any) {
   const isConditionOptionAlreadyApplied = isConditionOptionSelected(condition.enumCode)?.fieldName
@@ -101,6 +114,8 @@ function addConditionOption(condition: any) {
       })
     }
   }
+
+  checkFilters()
 }
 
 function saveConditionOptions() {

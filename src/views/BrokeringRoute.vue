@@ -372,6 +372,13 @@ async function runNow() {
 }
 
 async function redirect(orderRouting: Route) {
+  let isRoutingArchived = currentRoutingGroup.value["routings"].some((routing: any) => routing.orderRoutingId === orderRouting.orderRoutingId && routing.statusId === "ROUTING_ARCHIVED" )
+
+  if(isRoutingArchived) {
+    showToast(translate("Save changes before moving to the details page of unarchived route"))
+    return;
+  }
+
   await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }

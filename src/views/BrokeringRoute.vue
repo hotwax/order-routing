@@ -81,7 +81,7 @@
                 <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
                 <p>{{ getDate(groupHistory[0].startTime) }}</p>
               </ion-label>
-              <ion-badge color="dark">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+              <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
             </ion-item>
           </main>
           <aside>

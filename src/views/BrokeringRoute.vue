@@ -75,7 +75,7 @@
               <h2>{{ translate("History") }}</h2>
               <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
             </ion-item>
-            <p class="empty-state" v-if="!groupHistory.length">{{ translate("No available history for this group") }}</p>
+            <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
             <ion-item v-else>
               <ion-label>
                 <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
@@ -352,6 +352,27 @@ async function runNow() {
         {
           text: translate("Run now"),
           handler: async () => {
+            // Checking that if we already have the job schedule before calling runNow, because if the job scheduler is not present then runNow action can't be performed
+            // If the scheduler for the job is available then we will have jobName, if not then first scheduling the job in draft status just to create a routing schedule and then calling runNow action
+            if(!job.value.jobName) {
+              const payload = {
+                routingGroupId: props.routingGroupId,
+                paused: "Y",
+              }
+
+              try {
+                const resp = await OrderRoutingService.scheduleBrokering(payload)
+                if(hasError(resp)) {
+                  throw resp.data
+                }
+                // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
+                job.value.jobName = resp.data.jobName
+              } catch(err) {
+                logger.error(err)
+                return;
+              }
+            }
+
             try {
               const resp = await OrderRoutingService.runNow(props.routingGroupId)
               if(!hasError(resp) && resp.data.jobRunId) {

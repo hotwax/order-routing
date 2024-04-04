@@ -17,7 +17,7 @@
           <h3>{{ getTime(history.startTime) }}</h3>
           <p>{{ getDate(history.startTime) }}</p>
         </ion-label>
-        <ion-badge color="dark">{{ timeTillRun(history.endTime) }}</ion-badge>
+        <ion-badge color="dark" v-if="history.endTime">{{ timeTillRun(history.endTime) }}</ion-badge>
       </ion-item>
     </ion-list>
   </ion-content>

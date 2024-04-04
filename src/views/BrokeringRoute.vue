@@ -81,7 +81,7 @@
                 <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
                 <p>{{ getDate(groupHistory[0].startTime) }}</p>
               </ion-label>
-              <ion-badge color="dark">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+              <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
             </ion-item>
           </main>
           <aside>
@@ -372,6 +372,13 @@ async function runNow() {
 }
 
 async function redirect(orderRouting: Route) {
+  let isRoutingArchived = currentRoutingGroup.value["routings"].some((routing: any) => routing.orderRoutingId === orderRouting.orderRoutingId && routing.statusId === "ROUTING_ARCHIVED" )
+
+  if(isRoutingArchived) {
+    showToast(translate("Save changes before moving to the details page of unarchived route"))
+    return;
+  }
+
   await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }

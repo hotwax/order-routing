@@ -357,7 +357,7 @@ async function runNow() {
             if(!job.value.jobName) {
               const payload = {
                 routingGroupId: props.routingGroupId,
-                paused: "Y",
+                paused: "Y",  // passing Y as we just need to configure the scheduler and do not need to schedule it in active state
               }
 
               try {

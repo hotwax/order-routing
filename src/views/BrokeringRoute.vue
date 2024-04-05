@@ -636,7 +636,7 @@ section {
 }
 
 section > * {
-  flex: .33;
+  flex-grow: .3;
 }
 
 ion-content > div {

@@ -636,7 +636,7 @@ section {
 }
 
 section > * {
-  min-width: 40ch;
+  flex: .33;
 }
 
 ion-content > div {

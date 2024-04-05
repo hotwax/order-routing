@@ -16,7 +16,7 @@
       </ion-list>
 
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button @click="saveSortOptions()">
+        <ion-fab-button :disabled="!areFiltersUpdated" @click="saveSortOptions()">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
       </ion-fab>
@@ -57,12 +57,25 @@ const props = defineProps({
   }
 })
 let routingFilters = ref({}) as any
+let areFiltersUpdated = ref(false)
 
 onMounted(() => {
   routingFilters.value = props.orderRoutingFilters ? JSON.parse(JSON.stringify(props.orderRoutingFilters)) : {}
 })
 
+function checkFilters() {
+  areFiltersUpdated.value = false;
+  areFiltersUpdated.value = Object.keys(routingFilters.value).some((options: string) => {
+    return !props.orderRoutingFilters[options]
+  })
+
+  areFiltersUpdated.value = areFiltersUpdated.value ? areFiltersUpdated.value : Object.keys(props.orderRoutingFilters).some((options: string) => {
+    return !routingFilters.value[options]
+  })
+}
+
 function addSortOption(sort: any) {
+
   const isSortOptionAlreadyApplied = isSortOptionSelected(sort.enumCode)?.fieldName
 
   if(isSortOptionAlreadyApplied) {
@@ -83,6 +96,8 @@ function addSortOption(sort: any) {
       }
     }
   }
+
+  checkFilters()
 }
 
 function saveSortOptions() {

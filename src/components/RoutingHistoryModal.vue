@@ -12,7 +12,7 @@
   
   <ion-content>
     <ion-list>
-      <ion-item>
+      <ion-item lines="full">
         <ion-label>
           <h1>{{ routingName }}</h1>
           <p>{{ groupName }}</p>

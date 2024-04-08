@@ -14,12 +14,9 @@
     </ion-header>
 
     <ion-content>
-      <div class="find">
-        <section class="search">
-          <ion-searchbar :placeholder="translate('Search groups')" v-model="queryString" @keyup.enter="filterGroups()" />
-        </section>
-
-        <aside class="filters">
+      <!-- Adding find class only when we are displaying product stores, as adding this class takes specific space on page -->
+      <div :class="userProfile?.stores?.length > 1 ? 'find' : ''">
+        <aside class="filters" v-if="userProfile?.stores?.length > 1">
           <ion-list>
             <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
             <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
@@ -83,7 +80,7 @@ import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
-import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSearchbar, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
 import { addOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
@@ -99,7 +96,6 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS)
 
 let isLoading = ref(false)
-let queryString = ref("")
 let brokeringGroups = ref([]) as any
 
 onIonViewWillEnter(async () => {
@@ -113,12 +109,6 @@ onIonViewWillEnter(async () => {
 function timeTillRun(time: any) {
   const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
   return DateTime.local().plus(timeDiff).toRelative();
-}
-
-function filterGroups() {
-  // Before filtering the groups, reassinging it with state, if we have searched for a specific character and then updates the search string then we need to again filter on all the groups and not on the previously searched results
-  brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
-  brokeringGroups.value = brokeringGroups.value.filter((group: any) => group.groupName.toLowerCase().includes(queryString.value.toLowerCase()))
 }
 
 async function addNewRun() {

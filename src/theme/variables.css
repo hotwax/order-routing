@@ -305,14 +305,6 @@ http://ionicframework.com/docs/theming/ */
     margin: var(--spacer-lg);
   }
 
-  .filters {
-    margin-top: var(--spacer-lg);
-  }
-
-  .filters {
-    margin-top: var(--spacer-lg);
-  }
-
   .find > .filters{
     display: unset;
   }

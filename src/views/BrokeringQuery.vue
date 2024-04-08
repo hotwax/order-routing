@@ -184,16 +184,6 @@
               <ion-card>
                 <ion-card-header>
                   <ion-card-title>
-                    {{ translate("Allocated Items") }}
-                  </ion-card-title>
-                </ion-card-header>
-                <ion-item lines="none">
-                  <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
-                </ion-item>
-              </ion-card>
-              <ion-card>
-                <ion-card-header>
-                  <ion-card-title>
                     {{ translate("Partially available") }}
                   </ion-card-title>
                 </ion-card-header>
@@ -234,6 +224,9 @@
                   </ion-select>
                 </ion-item>
                 <ion-item lines="none">
+                  <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
+                </ion-item>
+                <ion-item lines="none" v-show="!inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue">
                   <ion-label>{{ translate("Auto cancel days") }}</ion-label>
                   <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue ? `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` : translate("select days") }}</ion-chip>
                 </ion-item>

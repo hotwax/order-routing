@@ -87,7 +87,7 @@
           <aside>
             <ion-item>
               <!-- If we does not have a schedule available then displaying the status for group schedule as draft -->
-              <ion-select :label="translate('Status')" interface="popover" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+              <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
                 <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
                 <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
               </ion-select>

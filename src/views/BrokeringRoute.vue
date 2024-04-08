@@ -36,7 +36,7 @@
                   <ion-icon :icon="timeOutline" slot="start" />
                   <ion-label>{{ translate("Last run") }}</ion-label>
                   <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
+                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
                   </ion-chip>
                 </ion-item>
                 <ion-item lines="none">

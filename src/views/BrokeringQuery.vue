@@ -13,10 +13,10 @@
           <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="save">{{ translate("Save changes") }}</ion-button>
           <ion-item>
             <ion-icon slot="start" :icon="pulseOutline" />
-            <ion-select :label="translate('Status')" interface="popover" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
+            <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
+              <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
               <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
               <ion-select-option value="ROUTING_ARCHIVED">{{ translate("Archive") }}</ion-select-option>
-              <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
             </ion-select>
           </ion-item>
           <ion-item lines="full">
@@ -113,9 +113,9 @@
             <div>
               <ion-item>
                 <ion-icon slot="start" :icon="bookmarkOutline" />
-                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
-                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
                   <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
                   <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
                 </ion-select>
               </ion-item>

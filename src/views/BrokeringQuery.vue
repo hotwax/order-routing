@@ -10,7 +10,7 @@
               <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="saveChanges">{{ translate("Save changes") }}</ion-button>
+          <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="save">{{ translate("Save changes") }}</ion-button>
           <ion-item>
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-select :label="translate('Status')" interface="popover" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
@@ -964,28 +964,6 @@ function doReorder(event: CustomEvent) {
 
   inventoryRules.value = updatedSeq
   hasUnsavedChanges.value = true
-}
-
-async function saveChanges() {
-  const confirmAlert = await alertController
-    .create({
-      header: translate("Confirm"),
-      message: translate("Make sure that you've reviewed the selected filters and conditions before saving."),
-      buttons: [
-        {
-          text: translate("Cancel"),
-          role: "cancel",
-        },
-        {
-          text: translate("Save"),
-          handler: async () => {
-            await save()
-          }
-        }
-      ]
-    });
-
-  return confirmAlert.present();
 }
 
 async function save() {

@@ -205,7 +205,6 @@ onIonViewWillEnter(async () => {
 
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
-  let canLeave = false;
 
   // If there are no unsaved changes do not create and present the alert
   if(!hasUnsavedChanges.value) {
@@ -213,19 +212,16 @@ onBeforeRouteLeave(async (to) => {
   }
 
   const alert = await alertController.create({
-    header: translate("Leave page"),
-    message: translate("Any edits made on this page will be lost."),
+    header: translate("Save changes"),
+    message: translate("Do you want to save your changes before leaving this page?"),
     buttons: [
       {
-        text: translate("STAY"),
-        handler: () => {
-          canLeave = false;
-        },
+        text: translate("Discard")
       },
       {
-        text: translate("LEAVE"),
-        handler: () => {
-          canLeave = true;
+        text: translate("Save"),
+        handler: async () => {
+          await saveRoutingGroup();
         },
       },
     ],
@@ -233,7 +229,7 @@ onBeforeRouteLeave(async (to) => {
 
   alert.present();
   await alert.onDidDismiss();
-  return canLeave;
+  return;
 })
 
 function updateCronExpression(event: CustomEvent) {

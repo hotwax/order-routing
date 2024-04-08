@@ -14,8 +14,9 @@
     </ion-header>
 
     <ion-content>
-      <div class="find">
-        <aside class="filters">
+      <!-- Adding find class only when we are displaying product stores, as adding this class takes specific space on page -->
+      <div :class="userProfile?.stores?.length > 1 ? 'find' : ''">
+        <aside class="filters" v-if="userProfile?.stores?.length > 1">
           <ion-list>
             <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
             <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">

@@ -184,16 +184,6 @@
               <ion-card>
                 <ion-card-header>
                   <ion-card-title>
-                    {{ translate("Allocated Items") }}
-                  </ion-card-title>
-                </ion-card-header>
-                <ion-item lines="none">
-                  <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
-                </ion-item>
-              </ion-card>
-              <ion-card>
-                <ion-card-header>
-                  <ion-card-title>
                     {{ translate("Partially available") }}
                   </ion-card-title>
                 </ion-card-header>
@@ -232,6 +222,9 @@
                   <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
                     <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
                   </ion-select>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>{{ translate("Auto cancel days") }}</ion-label>

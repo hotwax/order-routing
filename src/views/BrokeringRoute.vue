@@ -41,10 +41,14 @@
                 </ion-item>
                 <ion-item lines="none">
                   <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : ''" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
-                  <ion-button fill="clear" color="medium" slot="end" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
-                    {{ translate("Archive") }}
-                    <ion-icon slot="end" :icon="archiveOutline" />
-                  </ion-button>
+                  <div slot="end">
+                    <ion-button fill="clear" color="medium" @click.stop="cloneRouting(routing)">
+                      <ion-icon slot="icon-only" :icon="copyOutline" />
+                    </ion-button>
+                    <ion-button fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
+                      <ion-icon slot="icon-only" :icon="archiveOutline" />
+                    </ion-button>
+                  </div>
                 </ion-item>
               </ion-card>
             </ion-reorder-group>
@@ -148,7 +152,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, archiveOutline, copyOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, nextTick, ref } from "vue";
@@ -622,6 +626,136 @@ async function editGroupDescription() {
   // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
   await nextTick()
   descRef.value.$el.setFocus();
+}
+
+async function cloneRouting(routing: any) {
+  emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
+
+  const payload = {
+    orderRoutingId: "",
+    routingGroupId: props.routingGroupId,
+    statusId: "ROUTING_DRAFT",
+    routingName: routing.routingName + " copy",
+    sequenceNum: orderRoutings.value.length && orderRoutings.value[orderRoutings.value.length - 1].sequenceNum >= 0 ? orderRoutings.value[orderRoutings.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new route seqNum to 0, also considering archivedRouting when calculating new seqNum
+    description: "",
+    createdDate: DateTime.now().toMillis()
+  }
+
+  const orderRoutingId = await store.dispatch("orderRouting/createOrderRouting", payload)
+
+  if(!orderRoutingId) {
+    showToast(translate("Failed to clone order routing"))
+    emitter.emit("dismissLoader")
+    return;
+  }
+
+  let parentRouting = {} as any;
+
+  // Fetch rules and order filters for the parent routing
+  try {
+    const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
+
+    if(!hasError(resp) && resp.data) {
+      parentRouting = resp.data
+    } else {
+      throw resp.data
+    }
+  } catch(err) {
+    showToast(translate("Failed to clone the routing filters and rules"))
+    logger.error(err);
+    emitter.emit("dismissLoader");
+    return;
+  }
+
+  if(parentRouting?.rules?.length) {
+    const parentRoutingRules = await Promise.all(parentRouting.rules.map((rule: any) => OrderRoutingService.fetchRule(rule.routingRuleId)))
+    parentRouting["rulesInformation"] = parentRoutingRules.reduce((rulesInformation: any, rule: any) => {
+      rulesInformation[rule.data.ruleName] = rule.data
+      return rulesInformation
+    }, {})
+  }
+
+  const routingPayload = {
+    orderRoutingId,
+    routingGroupId: parentRouting.routingGroupId,
+    orderFilters: parentRouting.orderFilters?.length ? parentRouting.orderFilters.reduce((filters: any, filter: any) => {
+      filters.push({
+        conditionTypeEnumId: filter.conditionTypeEnumId,
+        fieldName: filter.fieldName,
+        fieldValue: filter.fieldValue,
+        operator: filter.operator,
+        sequenceNum: filter.sequenceNum,
+        createdDate: DateTime.now().toMillis(),
+        orderRoutingId
+      })
+      return filters
+    }, []) : [],
+    rules: parentRouting.rules?.length ? parentRouting.rules.reduce((rules: any, rule: any) => {
+      rules.push({
+        assignmentEnumId: rule.assignmentEnumId,
+        createdDate: DateTime.now().toMillis(),
+        ruleName: rule.ruleName,
+        sequenceNum: rule.sequenceNum,
+        statusId: rule.statusId,
+        orderRoutingId
+      })
+      return rules
+    }, []) : []
+  }
+
+  if(!routingPayload.orderFilters.length && !routingPayload.rules.length) {
+    emitter.emit("dismissLoader")
+    return;
+  }
+
+  await store.dispatch("orderRouting/updateRouting", routingPayload)
+
+  let clonedRoutingRules = {} as any;
+  if(Object.keys(parentRouting["rulesInformation"])?.length) {
+    try {
+      const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
+      if(!hasError(resp) && resp.data?.rules?.length) {
+        clonedRoutingRules = resp.data.rules.reduce((rules: any, rule: any) => {
+          rules[rule.data.ruleName] = rule.data.routingRuleId
+          return rules
+        }, {})
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+  }
+
+  if(Object.keys(clonedRoutingRules).length) {
+    await Promise.all(Object.values(parentRouting["rulesInformation"]).map((rule: any) => {
+      store.dispatch("orderRouting/updateRule", {
+        routingRuleId: clonedRoutingRules[rule.ruleName],
+        orderRoutingId,
+        inventoryFilters: rule.inventoryFilters.map((filter: any) => ({
+          createdDate: DateTime.now().toMillis(),
+          conditionTypeEnumId: filter.conditionTypeEnumId,
+          fieldName: filter.fieldName,
+          fieldValue: filter.fieldValue,
+          operator: filter.operator,
+          sequenceNum: filter.sequenceNum,
+        })),
+        actions: rule.actions.map((filter: any) => ({
+          actionTypeEnumId: filter.actionTypeEnumId,
+          actionValue: filter.actionValue,
+          createdDate: DateTime.now().toMillis(),
+        }))
+      })
+    }))
+  }
+
+  // update the routing order for reordering and the cloned updated routings again
+  if(orderRoutingId) {
+    orderRoutings.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
+    initializeOrderRoutings();
+  }
+
+  emitter.emit("dismissLoader")
 }
 </script>
 

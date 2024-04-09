@@ -792,7 +792,7 @@ async function cloneRule() {
   const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
 
   if(!routingRuleId) {
-    showToast('Failed to clone the rule')
+    showToast(translate("Failed to clone the rule"))
     emitter.emit("dismissLoader")
     return;
   }

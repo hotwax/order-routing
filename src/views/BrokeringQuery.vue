@@ -701,7 +701,8 @@ async function selectValue(id: string, header: string) {
     if(!result.role && value) {
       filter.fieldValue = value
       // When selecting a filter value making the operator to default `equals` if not present already
-      filter.operator = filter.operator || "equals"
+      // For proximity filter we need to have less-equals as operator
+      filter.operator = (id === "PROXIMITY" ? "less-equals" : filter.operator || "equals")
       updateRule()
     }
   })

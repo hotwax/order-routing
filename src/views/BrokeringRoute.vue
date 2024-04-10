@@ -631,10 +631,11 @@ async function editGroupDescription() {
 async function cloneRouting(routing: any) {
   emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
 
+  // payload for creating the cloned copy of current routing
   const payload = {
     orderRoutingId: "",
     routingGroupId: props.routingGroupId,
-    statusId: "ROUTING_DRAFT",
+    statusId: "ROUTING_DRAFT",  // when cloning a routing, the new routing will be in draft status
     routingName: routing.routingName + " copy",
     sequenceNum: orderRoutings.value.length && orderRoutings.value[orderRoutings.value.length - 1].sequenceNum >= 0 ? orderRoutings.value[orderRoutings.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new route seqNum to 0, also considering archivedRouting when calculating new seqNum
     description: "",
@@ -643,6 +644,7 @@ async function cloneRouting(routing: any) {
 
   const orderRoutingId = await store.dispatch("orderRouting/createOrderRouting", payload)
 
+  // No need to perform any action if we do not get routingId in return after routing creation
   if(!orderRoutingId) {
     showToast(translate("Failed to clone order routing"))
     emitter.emit("dismissLoader")
@@ -651,7 +653,7 @@ async function cloneRouting(routing: any) {
 
   let parentRouting = {} as any;
 
-  // Fetch rules and order filters for the parent routing
+  // Fetch rules and order filters for the parent routing, as we need to create copy of the rules and filters
   try {
     const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
 
@@ -675,6 +677,7 @@ async function cloneRouting(routing: any) {
     }, {})
   }
 
+  // Payload for applying routing filters and rules in the cloned routing
   const routingPayload = {
     orderRoutingId,
     routingGroupId: parentRouting.routingGroupId,
@@ -696,7 +699,7 @@ async function cloneRouting(routing: any) {
         createdDate: DateTime.now().toMillis(),
         ruleName: rule.ruleName,
         sequenceNum: rule.sequenceNum,
-        statusId: rule.statusId,
+        statusId: "RULE_DRAFT",
         orderRoutingId
       })
       return rules
@@ -711,12 +714,14 @@ async function cloneRouting(routing: any) {
   await store.dispatch("orderRouting/updateRouting", routingPayload)
 
   let clonedRoutingRules = {} as any;
+
+  // As we do not have routingRuleId's for the rules created inside the cloned routing, hence fetching the rule ids
   if(Object.keys(parentRouting["rulesInformation"])?.length) {
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
       if(!hasError(resp) && resp.data?.rules?.length) {
         clonedRoutingRules = resp.data.rules.reduce((rules: any, rule: any) => {
-          rules[rule.data.ruleName] = rule.data.routingRuleId
+          rules[rule.ruleName] = rule.routingRuleId
           return rules
         }, {})
       } else {
@@ -732,19 +737,19 @@ async function cloneRouting(routing: any) {
       store.dispatch("orderRouting/updateRule", {
         routingRuleId: clonedRoutingRules[rule.ruleName],
         orderRoutingId,
-        inventoryFilters: rule.inventoryFilters.map((filter: any) => ({
+        inventoryFilters: rule.inventoryFilters?.length ? rule.inventoryFilters.map((filter: any) => ({
           createdDate: DateTime.now().toMillis(),
           conditionTypeEnumId: filter.conditionTypeEnumId,
           fieldName: filter.fieldName,
           fieldValue: filter.fieldValue,
           operator: filter.operator,
           sequenceNum: filter.sequenceNum,
-        })),
-        actions: rule.actions.map((filter: any) => ({
+        })) : [],
+        actions: rule.actions?.length ? rule.actions.map((filter: any) => ({
           actionTypeEnumId: filter.actionTypeEnumId,
           actionValue: filter.actionValue,
           createdDate: DateTime.now().toMillis(),
-        }))
+        })) : []
       })
     }))
   }

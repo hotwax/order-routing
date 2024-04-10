@@ -67,12 +67,14 @@
             </ion-card>
           </section>
         </main>
-        <main class="empty-state" v-else>
-          <img src="../assets/images/BrokeringRunsEmptyState.png" />
-          <ion-button @click="addNewRun">
-            {{ translate("Create brokering run") }}
-            <ion-icon slot="end" :icon="arrowForwardOutline"></ion-icon>
-          </ion-button>
+        <main v-else>
+          <div class="empty-state">
+            <img src="../assets/images/BrokeringRunsEmptyState.png" />
+            <ion-button @click="addNewRun">
+              {{ translate("Create brokering run") }}
+              <ion-icon slot="end" :icon="arrowForwardOutline"></ion-icon>
+            </ion-button>
+          </div>
         </main>
       </div>
     </ion-content>
@@ -174,11 +176,6 @@ async function redirect(group: Group) {
 </script>
 
 <style scoped>
-.empty-state {
-  align-items: center;
-  gap: 0px;
-}
-
 @media (min-width: 991px) {
   main {
     display: flex;

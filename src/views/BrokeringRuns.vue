@@ -30,7 +30,7 @@
         <main v-if="isLoading">
           <ion-item lines="none">
             <ion-spinner name="crescent" slot="start" />
-            {{ translate("Fetching groups") }}
+            {{ translate("Fetching runs") }}
           </ion-item>
         </main>
         <main v-else-if="brokeringGroups.length">
@@ -67,8 +67,12 @@
             </ion-card>
           </section>
         </main>
-        <main v-else>
-          {{ translate("No runs scheduled") }}
+        <main class="empty-state" v-else>
+          <img src="../assets/images/BrokeringRunsEmptyState.png" />
+          <ion-button @click="addNewRun">
+            {{ translate("Create brokering run") }}
+            <ion-icon slot="end" :icon="arrowForwardOutline"></ion-icon>
+          </ion-button>
         </main>
       </div>
     </ion-content>
@@ -81,7 +85,7 @@ import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
-import { addOutline } from "ionicons/icons"
+import { addOutline, arrowForwardOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -170,6 +174,11 @@ async function redirect(group: Group) {
 </script>
 
 <style scoped>
+.empty-state {
+  align-items: center;
+  gap: 0px;
+}
+
 @media (min-width: 991px) {
   main {
     display: flex;

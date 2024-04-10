@@ -11,7 +11,7 @@
     <ion-content>
       <div>
         <div>
-          <ion-list>
+          <ion-list v-if="routingsForReorder.length">
             <ion-list-header>
               <ion-label>{{ translate("Order batches") }}</ion-label>
               <ion-button color="primary" fill="clear" @click="createOrderRoute">
@@ -53,6 +53,13 @@
               </ion-card>
             </ion-reorder-group>
           </ion-list>
+          <div class="empty-state">
+            <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
+            <ion-button @click="createOrderRoute">
+              <ion-icon slot="start" :icon="addOutline"></ion-icon>
+              {{ translate("Create order batch") }}
+            </ion-button>
+          </div>
           <div>
             <ion-item button lines="none" @click="openArchivedRoutingModal()">
               <ion-icon slot="start" :icon="archiveOutline" />
@@ -152,7 +159,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, archiveOutline, copyOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, addOutline, archiveOutline, copyOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, nextTick, ref } from "vue";

@@ -81,163 +81,172 @@
             </ion-reorder-group>
           </ion-item-group>
         </section>
-        <section id="inventory-sequence" class="menu">
-          <ion-list>
-            <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
-                <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
-                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
-                </ion-label>
-                <!-- Don't display reordering option when there is a single rule -->
-                <ion-reorder v-show="inventoryRules.length > 1" />
-              </ion-item>
-            </ion-reorder-group>
-          </ion-list>
-          <ion-button fill="outline" @click="addInventoryRule">
-            {{ translate("Add inventory rule") }}
-            <ion-icon :icon="addCircleOutline"/>
-          </ion-button>
-        </section>
-        <div v-if="selectedRoutingRule?.routingRuleId">
-          <ion-card class="rule-info">
-            <ion-item lines="none">
-              <ion-label>
-                <p>{{ getRuleIndex() }}</p>
-                <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
-              </ion-label>
-              <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-              <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
-            </ion-item>
-            <div>
-              <ion-item>
-                <ion-icon slot="start" :icon="bookmarkOutline" />
-                <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
-                  <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
-                  <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
-                  <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-              <ion-item>
-                <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
-                <ion-button slot="end" size="small" @click="cloneRule" fill="outline">
-                  <ion-icon slot="start" :icon="copyOutline"/>
-                  {{ translate("Clone") }}
-                </ion-button>
-              </ion-item>
-            </div>
-          </ion-card>
-          <section class="filters">
-            <ion-card>
-              <ion-item>
-                <ion-icon slot="start" :icon="filterOutline"/>
-                <h4>{{ translate("Filters") }}</h4>
-                <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
-                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                </ion-button>
-              </ion-item>
-              <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ translate("Select filter to apply") }}</p>
-              <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
-                <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                  <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-              <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
-                <!-- TODO: Confirm on the possible options -->
-                <ion-label>{{ translate("Proximity") }}</ion-label>
-                <ion-chip outline>
-                  <ion-select :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
-                    <ion-select-option value="METRIC">{{ translate("kms") }}</ion-select-option>
-                    <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
-                  </ion-select>
-                </ion-chip>
-                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
-              </ion-item>
-              <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
-                <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
-                <ion-chip outline>
-                  <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
-                    <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
-                    <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
-                  </ion-select>
-                </ion-chip>
-                <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
-              </ion-item>
-            </ion-card>
-            <ion-card>
-              <ion-item>
-                <ion-icon slot="start" :icon="swapVerticalOutline"/>
-                <h4>{{ translate("Sort") }}</h4>
-                <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
-                  <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                </ion-button>
-              </ion-item>
-              <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">{{ translate("Select sorting to apply") }}</p>
-              <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-                <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-                  <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
-                  <ion-reorder />
+        <section v-if="inventoryRules.length" id="inventory-rules">
+          <section id="inventory-sequence" class="menu">
+            <ion-list>
+              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
+                <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
+                  <ion-label>
+                    <h2>{{ rule.ruleName }}</h2>
+                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
+                  </ion-label>
+                  <!-- Don't display reordering option when there is a single rule -->
+                  <ion-reorder v-show="inventoryRules.length > 1" />
                 </ion-item>
               </ion-reorder-group>
+            </ion-list>
+            <ion-button fill="outline" @click="addInventoryRule">
+              {{ translate("Add inventory rule") }}
+              <ion-icon :icon="addCircleOutline"/>
+            </ion-button>
+          </section>
+          <div v-if="selectedRoutingRule?.routingRuleId">
+            <ion-card class="rule-info">
+              <ion-item lines="none">
+                <ion-label>
+                  <p>{{ getRuleIndex() }}</p>
+                  <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+                </ion-label>
+                <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+                <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+              </ion-item>
+              <div>
+                <ion-item>
+                  <ion-icon slot="start" :icon="bookmarkOutline" />
+                  <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                    <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                    <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                    <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item>
+                  <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
+                  <ion-button slot="end" size="small" @click="cloneRule" fill="outline">
+                    <ion-icon slot="start" :icon="copyOutline"/>
+                    {{ translate("Clone") }}
+                  </ion-button>
+                </ion-item>
+              </div>
             </ion-card>
-          </section>
-          <section>
-            <h2 class="ion-padding-start">{{ translate("Actions") }}</h2>
-            <div class="actions">
+            <section class="filters">
               <ion-card>
-                <ion-card-header>
-                  <ion-card-title>
-                    {{ translate("Partially available") }}
-                  </ion-card-title>
-                </ion-card-header>
-                <ion-card-content>
-                  {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
-                </ion-card-content>
-                <ion-item lines="none">
-                  <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
-                  <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                <ion-item>
+                  <ion-icon slot="start" :icon="filterOutline"/>
+                  <h4>{{ translate("Filters") }}</h4>
+                  <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                    <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                  </ion-button>
                 </ion-item>
-                <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
-                  <ion-label class="ion-text-wrap">
-                    <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
-                  </ion-label>
+                <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ translate("Select filter to apply") }}</p>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
+                  <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
+                  <!-- TODO: Confirm on the possible options -->
+                  <ion-label>{{ translate("Proximity") }}</ion-label>
+                  <ion-chip outline>
+                    <ion-select :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
+                      <ion-select-option value="METRIC">{{ translate("kms") }}</ion-select-option>
+                      <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
+                    </ion-select>
+                  </ion-chip>
+                  <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
+                </ion-item>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
+                  <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
+                  <ion-chip outline>
+                    <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                      <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
+                      <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
+                    </ion-select>
+                  </ion-chip>
+                  <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
                 </ion-item>
               </ion-card>
               <ion-card>
-                <ion-card-header>
-                  <ion-card-title>
-                    {{ translate("Unavailable items") }}
-                  </ion-card-title>
-                </ion-card-header>
-                <ion-item lines="none">
-                  <ion-select :placeholder="translate('action')" :label="translate('Move items to')" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
-                    <ion-select-option :value="actionEnums['NEXT_RULE'].id">
-                      {{ translate("Next rule") }}
-                      <ion-icon :icon="playForwardOutline"/>
-                    </ion-select-option>
-                    <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
-                      {{ translate("Queue") }}
-                      <ion-icon :icon="golfOutline"/>
-                    </ion-select-option>
-                  </ion-select>
+                <ion-item>
+                  <ion-icon slot="start" :icon="swapVerticalOutline"/>
+                  <h4>{{ translate("Sort") }}</h4>
+                  <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                    <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                  </ion-button>
                 </ion-item>
-                <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
-                  <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
-                    <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-                <ion-item lines="none">
-                  <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
-                </ion-item>
-                <ion-item lines="none" v-show="!inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue">
-                  <ion-label>{{ translate("Auto cancel days") }}</ion-label>
-                  <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue ? `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` : translate("select days") }}</ion-chip>
-                </ion-item>
+                <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">{{ translate("Select sorting to apply") }}</p>
+                <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
+                  <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
+                    <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
+                    <ion-reorder />
+                  </ion-item>
+                </ion-reorder-group>
               </ion-card>
-            </div>
-          </section>
-        </div>
-        <div class="empty-state" v-else>{{ translate("Failed to identify selected inventory rule, please select a rule or refresh") }}</div>
+            </section>
+            <section>
+              <h2 class="ion-padding-start">{{ translate("Actions") }}</h2>
+              <div class="actions">
+                <ion-card>
+                  <ion-card-header>
+                    <ion-card-title>
+                      {{ translate("Partially available") }}
+                    </ion-card-title>
+                  </ion-card-header>
+                  <ion-card-content>
+                    {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
+                  </ion-card-content>
+                  <ion-item lines="none">
+                    <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
+                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                  </ion-item>
+                  <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
+                    <ion-label class="ion-text-wrap">
+                      <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-card>
+                <ion-card>
+                  <ion-card-header>
+                    <ion-card-title>
+                      {{ translate("Unavailable items") }}
+                    </ion-card-title>
+                  </ion-card-header>
+                  <ion-item lines="none">
+                    <ion-select :placeholder="translate('action')" :label="translate('Move items to')" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
+                      <ion-select-option :value="actionEnums['NEXT_RULE'].id">
+                        {{ translate("Next rule") }}
+                        <ion-icon :icon="playForwardOutline"/>
+                      </ion-select-option>
+                      <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
+                        {{ translate("Queue") }}
+                        <ion-icon :icon="golfOutline"/>
+                      </ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                  <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
+                    <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                      <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                  <ion-item lines="none">
+                    <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
+                  </ion-item>
+                  <ion-item lines="none" v-show="!inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue">
+                    <ion-label>{{ translate("Auto cancel days") }}</ion-label>
+                    <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue ? `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` : translate("select days") }}</ion-chip>
+                  </ion-item>
+                </ion-card>
+              </div>
+            </section>
+          </div>
+          <div class="empty-state" v-else>{{ translate("Failed to identify selected inventory rule, please select a rule or refresh") }}</div>
+        </section>
+        <section v-else class="empty-state">
+          <img src="../assets/images/InventoryRuleEmptyState.png" />
+          <ion-button @click="addInventoryRule">
+            {{ translate("Add inventory rule") }}
+            <ion-icon slot="end" :icon="addCircleOutline"></ion-icon>
+          </ion-button>
+        </section>
       </main>
     </ion-content>
   </ion-page>
@@ -1189,9 +1198,9 @@ async function save() {
   gap: var(--spacer-xs)
 }
 
-ion-content > main {
+ion-content > main, #inventory-rules {
   display: grid;
-  grid-template-columns: repeat(2, minmax(375px, 25%)) 1fr;
+  grid-template-columns: minmax(375px, 25%) 1fr;
   height: 100%;
 }
 

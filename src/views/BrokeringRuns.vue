@@ -30,7 +30,7 @@
         <main v-if="isLoading">
           <ion-item lines="none">
             <ion-spinner name="crescent" slot="start" />
-            {{ translate("Fetching groups") }}
+            {{ translate("Fetching runs") }}
           </ion-item>
         </main>
         <main v-else-if="brokeringGroups.length">
@@ -68,7 +68,13 @@
           </section>
         </main>
         <main v-else>
-          {{ translate("No runs scheduled") }}
+          <div class="empty-state">
+            <img src="../assets/images/BrokeringRunsEmptyState.png" />
+            <ion-button @click="addNewRun">
+              {{ translate("Create brokering run") }}
+              <ion-icon slot="end" :icon="arrowForwardOutline"></ion-icon>
+            </ion-button>
+          </div>
         </main>
       </div>
     </ion-content>
@@ -81,7 +87,7 @@ import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
-import { addOutline } from "ionicons/icons"
+import { addOutline, arrowForwardOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";

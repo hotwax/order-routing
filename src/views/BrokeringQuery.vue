@@ -635,9 +635,9 @@ function isPromiseDateFilterApplied() {
 function getPromiseDateValue() {
   const value = orderRoutingFilterOptions.value?.[ruleEnums["PROMISE_DATE"].code]?.fieldValue
   if(value || value == 0) {
-    return value == 0 ? "already passed" : value.startsWith("-") ? `${value.replace("-", "")} days passed` : `upcoming in ${value} days`
+    return value == 0 ? translate("already passed") : value.startsWith("-") ? `${value.replace("-", "")} days passed` : `upcoming in ${value} days`
   }
-  return "select range"
+  return translate("select range")
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {

@@ -238,7 +238,7 @@
               </div>
             </section>
           </div>
-          <div class="empty-state" v-else>{{ translate("Failed to identify selected inventory rule, please select a rule or refresh") }}</div>
+          <div class="empty-state" v-else>{{ translate("Please select a rule or refresh") }}</div>
         </section>
         <section v-else class="empty-state">
           <img src="../assets/images/InventoryRuleEmptyState.png" />

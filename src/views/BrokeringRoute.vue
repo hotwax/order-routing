@@ -53,7 +53,7 @@
               </ion-card>
             </ion-reorder-group>
           </ion-list>
-          <div class="empty-state">
+          <div v-else class="empty-state">
             <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
             <ion-button @click="createOrderRoute">
               <ion-icon slot="start" :icon="addOutline"></ion-icon>

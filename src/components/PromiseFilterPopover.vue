@@ -4,13 +4,13 @@
       <ion-list-header>
         <ion-label>{{ translate("Promise date") }}</ion-label>
       </ion-list-header>
-      <ion-item button @click="updatePromiseDate()">
+      <ion-item :color="value == 0 ? 'light' : ''" button @click="updatePromiseDate()">
         <ion-label>{{ translate("Already passed") }}</ion-label>
       </ion-item>
-      <ion-item button @click="updatePromiseDate('Upcoming duration')">
+      <ion-item :color="value > 0 ? 'light' : ''" button @click="updatePromiseDate('Upcoming duration')">
         <ion-label>{{ translate("Upcoming duration") }}</ion-label>
       </ion-item>
-      <ion-item button lines="none" @click="updatePromiseDate('Passed duration', true)">
+      <ion-item :color="value < 0 ? 'light' : ''" button lines="none" @click="updatePromiseDate('Passed duration', true)">
         <ion-label>{{ translate("Passed duration") }}</ion-label>
       </ion-item>
     </ion-list>
@@ -19,10 +19,14 @@
 
 <script setup lang="ts">
 import { translate } from "@/i18n";
+import { showToast } from "@/utils";
 import { IonContent, IonItem, IonLabel, IonList, IonListHeader, alertController, popoverController } from "@ionic/vue";
+import { defineProps } from "vue";
+
+const props = defineProps([ "value" ])
 
 async function updatePromiseDate(header = '', isPastDuration = false) {
-  let duration = 0
+  let duration = "0"
 
   if(!header) {
     popoverController.dismiss({ duration })
@@ -35,11 +39,21 @@ async function updatePromiseDate(header = '', isPastDuration = false) {
       text: translate("Cancel"),
       role: "cancel"
     }, {
-      text: translate("Save")
+      text: translate("Save"),
+      handler: (data: any) => {
+        const duration = data?.duration;
+        if(!duration) {
+          showToast(translate("Enter a valid value"))
+          return false;
+        }
+      }
     }],
     inputs: [{
       name: "duration",
-      placeholder: translate("duration")
+      placeholder: translate("duration"),
+      min: 0,
+      type: "number",
+      value: props.value?.replace("-", "")
     }]
   })
 
@@ -49,9 +63,12 @@ async function updatePromiseDate(header = '', isPastDuration = false) {
       return;
     }
 
-    // TODO: add checks for duration value
     const duration = result.data?.values?.duration;
-    popoverController.dismiss({ duration, isPastDuration })
+
+    // Remove all the characters except numbers
+    const value = duration.replace(/[^0-9 ]/g, "");
+
+    popoverController.dismiss({ duration: value, isPastDuration })
   })
 
   return durationAlert.present();

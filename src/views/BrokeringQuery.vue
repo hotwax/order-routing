@@ -55,8 +55,7 @@
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
-                <!-- TODO: need to display a string in place of just the value -->
-                {{ getFilterValue(orderRoutingFilterOptions, ruleEnums, "PROMISE_DATE").fieldValue || getFilterValue(orderRoutingFilterOptions, ruleEnums, "PROMISE_DATE").fieldValue == 0 ? getFilterValue(orderRoutingFilterOptions, ruleEnums, "PROMISE_DATE").fieldValue : translate("select range") }}
+                {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
@@ -633,6 +632,14 @@ function isPromiseDateFilterApplied() {
   return filter?.fieldValue || filter?.fieldValue == 0
 }
 
+function getPromiseDateValue() {
+  const value = orderRoutingFilterOptions.value?.[ruleEnums["PROMISE_DATE"].code]?.fieldValue
+  if(value || value == 0) {
+    return value == 0 ? translate("already passed") : value.startsWith("-") ? `${value.replace("-", "")} days passed` : `upcoming in ${value} days`
+  }
+  return translate("select range")
+}
+
 function getFilterValue(options: any, enums: any, parameter: string) {
   return options?.[enums[parameter].code]
 }
@@ -666,6 +673,9 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
   const popover = await popoverController
     .create({
       component: PromiseFilterPopover,
+      componentProps: {
+        value: getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue
+      },
       event: ev,
       translucent: true,
       showBackdrop: true

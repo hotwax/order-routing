@@ -10,7 +10,116 @@
     </ion-header>
     <ion-content>
       <div>
-        <div>
+        <main>
+          <section class="route-details">
+            <ion-card class="info">
+              <div class="ion-padding">
+                <ion-label>
+                  <h1>{{ currentRoutingGroup.groupName }}</h1>
+                  <p>{{ currentRoutingGroup.routingGroupId }}</p>
+                </ion-label>
+                <div>
+                  <ion-button fill="outline" size="small">
+                    <ion-icon slot="start" :icon="pencilOutline" />
+                    {{ translate("Rename") }}
+                  </ion-button>
+                  <ion-button fill="outline" size="small">
+                    <ion-icon slot="start" :icon="copyOutline" />
+                    {{ translate("Clone") }}
+                  </ion-button>
+                </div>
+              </div>
+              <div>
+                <ion-item>
+                  <ion-label>{{ translate("Created at") }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-label>{{ translate("Updated at") }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <!-- If we does not have a schedule available then displaying the status for group schedule as draft -->
+                  <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+                    <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
+                    <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </div>
+            </ion-card>
+          </section>
+          <section class="route-details">
+            <ion-card>
+              <ion-item lines="none">
+                <h2>{{ translate("Description") }}</h2>
+                <ion-button v-if="description || isDescUpdating" fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
+                  {{ translate(isDescUpdating ? "Save" : "Edit") }}
+                </ion-button>
+              </ion-item>
+              <ion-item class="ion-margin" v-show="description || isDescUpdating" :color="isDescUpdating ? 'light' : ''" lines="none">
+                <!-- Used keydown event as ionic provides the keydown event to be overridden -->
+                <ion-textarea ref="descRef" v-show="isDescUpdating" aria-label="description" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription"></ion-textarea>
+                <!-- Using regex to replace all \n with br tag to correctly display the user entered description -->
+                <ion-label v-show="!isDescUpdating" v-html="description.replace(/(?:\n|\n)/g, '<br />')"></ion-label>
+              </ion-item>
+              <ion-button v-if="!description && !isDescUpdating" @click="editGroupDescription()" fill="outline" expand="block">
+                {{ translate("Add") }}
+                <ion-icon slot="end" :icon="addCircleOutline" />
+              </ion-button>
+            </ion-card>
+            <div>
+              <ion-card>
+                <ion-item lines="none">
+                  <h2>{{ translate("Scheduler") }}</h2>
+                  <!-- When the group is in draft status, do not display the time delta badge -->
+                  <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
+                </ion-item>
+                <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
+                  <ion-label color="danger" class="ion-text-wrap">
+                    {{ translate("Connection configuration is missing for oms.") }}
+                  </ion-label>
+                  <ion-button fill="clear" @click="checkOmsConnectionStatus">
+                    <ion-icon slot="icon-only" :icon="refreshOutline" />
+                  </ion-button>
+                </ion-item>
+                <ion-item>
+                  <ion-icon slot="start" :icon="timeOutline"/>
+                  <ion-label>{{ translate("Run time") }}</ion-label>
+                  <!-- When the group is in draft status, do not display the runTime from the schedule -->
+                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-icon slot="start" :icon="timerOutline"/>
+                  <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
+                  <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
+                  <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
+                  <ion-select :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
+                    <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none" button @click="runNow()">
+                  <ion-icon slot="start" :icon="flashOutline"/>
+                  <ion-label>{{ translate("Run Now") }}</ion-label>
+                </ion-item>
+              </ion-card>
+              <ion-card>
+                <ion-item lines="none">
+                  <h2>{{ translate("Execution history") }}</h2>
+                  <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
+                </ion-item>
+                <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
+                <ion-item v-else>
+                  <ion-label>
+                    <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
+                    <p>{{ getDate(groupHistory[0].startTime) }}</p>
+                  </ion-label>
+                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+                </ion-item>
+              </ion-card>
+            </div>
+          </section>
+        </main>
+        <aside>
           <ion-list v-if="routingsForReorder.length">
             <ion-list-header>
               <ion-label>{{ translate("Order batches") }}</ion-label>
@@ -52,6 +161,12 @@
                 </ion-item>
               </ion-card>
             </ion-reorder-group>
+            <ion-card v-if="getArchivedOrderRoutings().length">
+              <ion-item button lines="none" @click="openArchivedRoutingModal()">
+                <ion-label>{{ translate("Archived") }}</ion-label>
+                <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ translate("rules") }}</ion-badge>
+              </ion-item>
+            </ion-card>
           </ion-list>
           <div v-else class="empty-state">
             <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
@@ -60,106 +175,25 @@
               {{ translate("Create order batch") }}
             </ion-button>
           </div>
-          <div>
-            <ion-item button lines="none" @click="openArchivedRoutingModal()">
-              <ion-icon slot="start" :icon="archiveOutline" />
-              <ion-label>{{ translate("Archive") }}</ion-label>
-              <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ translate("rules") }}</ion-badge>
-            </ion-item>
-          </div>
-        </div>
-        <section class="ion-padding">
-          <main>
+          <div class="save-batches" v-if="hasUnsavedChanges">
             <ion-item lines="none">
-              <h2>{{ translate("Description") }}</h2>
-              <ion-button fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
-                {{ translate(isDescUpdating ? "Save" : description ? "Edit" : "Add") }}
+              <ion-icon slot="start" :icon="listOutline" />
+              <ion-label>{{ translate("Save batch sequence?") }}</ion-label>
+              <ion-button fill="outline" @click="saveRoutingGroup">
+                {{ translate("Save") }}
+                <ion-icon slot="end" :icon="saveOutline" />
               </ion-button>
             </ion-item>
-            <ion-item :color="isDescUpdating ? 'light' : ''" lines="none">
-              <!-- Used keydown event as ionic provides the keydown event to be overridden -->
-              <ion-textarea ref="descRef" v-show="isDescUpdating" aria-label="description" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription"></ion-textarea>
-              <!-- Using regex to replace all \n with br tag to correctly display the user entered description -->
-              <ion-label v-show="!isDescUpdating" v-html="description.replace(/(?:\n|\n)/g, '<br />')"></ion-label>
-            </ion-item>
-            <ion-item lines="none">
-              <h2>{{ translate("History") }}</h2>
-              <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
-            </ion-item>
-            <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
-            <ion-item v-else>
-              <ion-label>
-                <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
-                <p>{{ getDate(groupHistory[0].startTime) }}</p>
-              </ion-label>
-              <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
-            </ion-item>
-          </main>
-          <aside>
-            <ion-item>
-              <!-- If we does not have a schedule available then displaying the status for group schedule as draft -->
-              <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
-                <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
-                <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
-              </ion-select>
-            </ion-item>
-            <ion-card>
-              <ion-item lines="none">
-                <h2>{{ translate("Scheduler") }}</h2>
-                <!-- When the group is in draft status, do not display the time delta badge -->
-                <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
-              </ion-item>
-              <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
-                <ion-label color="danger" class="ion-text-wrap">
-                  {{ translate("Connection configuration is missing for oms.") }}
-                </ion-label>
-                <ion-button fill="clear" @click="checkOmsConnectionStatus">
-                  <ion-icon slot="icon-only" :icon="refreshOutline" />
-                </ion-button>
-              </ion-item>
-              <ion-item>
-                <ion-icon slot="start" :icon="timeOutline"/>
-                <ion-label>{{ translate("Run time") }}</ion-label>
-                <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
-              </ion-item>
-              <ion-item lines="none">
-                <ion-icon slot="start" :icon="timerOutline"/>
-                <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
-                <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
-                <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
-                <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
-                  <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-            </ion-card>
-            <div class="actions desktop-only">
-              <div>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="saveChanges()">{{ translate("Save changes") }}</ion-button>
-                <ion-button :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" size="small" fill="outline" @click="runNow()">{{ translate("Run Now") }}</ion-button>
-              </div>
-            </div>
-            <ion-item>
-              {{ `Created at ${getDateAndTime(currentRoutingGroup.createdDate)}` }}
-            </ion-item>
-            <ion-item>
-              {{ `Updated at ${getDateAndTime(currentRoutingGroup.lastUpdatedStamp)}` }}
-            </ion-item>
-          </aside>
-        </section>
+          </div>
+        </aside>
       </div>
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
-          <ion-icon :icon="saveOutline" />
-        </ion-fab-button>
-      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, addOutline, archiveOutline, copyOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, nextTick, ref } from "vue";
@@ -245,6 +279,7 @@ onBeforeRouteLeave(async (to) => {
 
 function updateCronExpression(event: CustomEvent) {
   job.value.cronExpression = event.detail.value
+  saveChanges()
 }
 
 function initializeOrderRoutings() {
@@ -262,6 +297,10 @@ async function saveChanges() {
       message: translate("Are you sure you want to save these changes?"),
       buttons: [{
         text: translate("Cancel"),
+        handler: () => {
+          // If clicking cancel reverting the value for cronExpression to original value, so that user does not gets confused that whether the value is changed or not
+          job.value.cronExpression = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"].cronExpression : ''
+        },
         role: "cancel"
       }, {
         text: translate("Save"),
@@ -318,8 +357,12 @@ async function saveSchedule() {
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)){
+    if(!hasError(resp)) {
       showToast(translate("Job updated"))
+      await store.dispatch("orderRouting/setCurrentGroup", JSON.parse(JSON.stringify({
+        ...currentRoutingGroup.value,
+        schedule: job.value
+      })))
     } else {
       throw resp.data
     }
@@ -411,8 +454,25 @@ async function redirect(orderRouting: Route) {
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
-function updateGroupStatus(event: CustomEvent) {
+async function updateGroupStatus(event: CustomEvent) {
   job.value.paused = event.detail.value
+
+  const payload = {
+    routingGroupId: props.routingGroupId,
+    paused: job.value.paused
+  }
+
+  try {
+    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    if(!hasError(resp)){
+      showToast(translate("Group status updated"))
+    } else {
+      throw resp.data
+    }
+  } catch(err) {
+    showToast(translate("Failed to update group status"))
+    logger.error(err)
+  }
 }
 
 async function createOrderRoute() {
@@ -772,37 +832,43 @@ async function cloneRouting(routing: any) {
 </script>
 
 <style scoped>
-section {
-  display: flex;
-  justify-content: space-between;
-}
-
-section > * {
-  flex-grow: .3;
-}
-
 ion-content > div {
   display: grid;
-  grid-template-columns: minmax(375px, 25%) 1fr;
+  grid-template-columns: 1fr minmax(375px, 25%);
   height: 100%;
 }
 
-ion-content > div > div {
+.save-batches {
+  border-top: 1px solid #92949C;
+}
+
+aside {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border-right: 1px solid #92949C;
+  border-left: 1px solid #92949C;
 }
 
-.actions > ion-button {
-  margin: var(--spacer-sm);
+.route-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  align-items: start;
 }
 
-@media (min-width: 991px) {
-  .actions {
-    display: flex;
-    justify-content: space-between;
-    margin: var(--spacer-base) var(--spacer-sm) var(--spacer-base);
-  }
+.info {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(345px, 1fr));
+}
+
+.info > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+ion-card > ion-button[expand="block"] {
+  margin-inline: var(--spacer-sm);
+  margin-bottom: var(--spacer-sm);
 }
 </style>

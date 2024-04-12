@@ -33,7 +33,10 @@
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
-            <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">{{ translate("Select filter to apply") }}</p>
+            <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
+              {{ translate("Add order filters.") }} <br />
+              {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
+            </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
               <ion-select multiple :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
@@ -72,7 +75,10 @@
               </ion-button>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
-            <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">{{ translate("Select sorting to apply") }}</p>
+            <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
+              {{ translate("Add sorting rules.") }} <br />
+              {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
+            </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="false">
               <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
                 <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
@@ -1237,5 +1243,9 @@ ion-chip > ion-select {
 
 ion-input.ruleName {
   --background: var(--ion-color-light)
+}
+
+.empty-state {
+  text-align: center;
 }
 </style>

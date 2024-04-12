@@ -297,6 +297,10 @@ async function saveChanges() {
       message: translate("Are you sure you want to save these changes?"),
       buttons: [{
         text: translate("Cancel"),
+        handler: () => {
+          // If clicking cancel reverting the value for cronExpression to original value, so that user does not gets confused that whether the value is changed or not
+          job.value.cronExpression = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"].cronExpression : ''
+        },
         role: "cancel"
       }, {
         text: translate("Save"),
@@ -353,8 +357,12 @@ async function saveSchedule() {
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)){
+    if(!hasError(resp)) {
       showToast(translate("Job updated"))
+      await store.dispatch("orderRouting/setCurrentGroup", JSON.parse(JSON.stringify({
+        ...currentRoutingGroup.value,
+        schedule: job.value
+      })))
     } else {
       throw resp.data
     }

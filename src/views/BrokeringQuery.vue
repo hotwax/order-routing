@@ -146,8 +146,8 @@
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
                   <!-- TODO: Confirm on the possible options -->
                   <ion-label>{{ translate("Proximity") }}</ion-label>
-                  <ion-chip outline>
-                    <ion-select :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
+                  <ion-chip outline @click.stop="chipClickEvent(measurementRef)">
+                    <ion-select @click.stop ref="measurementRef" :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
                       <ion-select-option value="METRIC">{{ translate("kms") }}</ion-select-option>
                       <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
                     </ion-select>
@@ -156,8 +156,9 @@
                 </ion-item>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
                   <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
-                  <ion-chip outline>
-                    <ion-select :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                  <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
+                    <!-- Added click.stop to override the default click event of ion-select, as we handled the click event using ion-chip -->
+                    <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
                       <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
                       <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                     </ion-select>
@@ -304,6 +305,9 @@ let hasUnsavedChanges = ref(false)
 let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
 
+const operatorRef = ref()
+const measurementRef = ref()
+
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
@@ -362,6 +366,16 @@ onBeforeRouteLeave(async (to) => {
   await alert.onDidDismiss();
   return;
 })
+
+/*
+When using ion-select inside ion-chip, if the user clicks on ion-chip and not on ion-select, the select popover does not open.
+This happens because ionic does not provide any events for ion-chip OOTB.
+
+Defined ref for specific select those are inside ion-chip and on clicking the chip, explicitely calling the click event of ion-select that triggers the select options to be displayed
+*/
+async function chipClickEvent(ref: any) {
+  ref.$el.click();
+}
 
 function getRouteIndex() {
   // Filtering archived routes as the index and total count needs to calculated by excluding the archived routes

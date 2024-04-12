@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/tabs/brokering" />
         </ion-buttons>
-        <ion-title>{{ currentRoutingGroup.groupName }}</ion-title>
+        <ion-title>{{ groupName }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -15,18 +15,24 @@
             <ion-card class="info">
               <div class="ion-padding">
                 <ion-label>
-                  <h1>{{ currentRoutingGroup.groupName }}</h1>
+                  <h1 v-show="!isGroupNameUpdating">{{ groupName }}</h1>
+                  <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'groupName' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
                   <p>{{ currentRoutingGroup.routingGroupId }}</p>
                 </ion-label>
                 <div>
-                  <ion-button fill="outline" size="small">
+                  <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
                     <ion-icon slot="start" :icon="pencilOutline" />
                     {{ translate("Rename") }}
                   </ion-button>
-                  <ion-button fill="outline" size="small">
+                  <ion-button v-show="isGroupNameUpdating" fill="outline" size="small" @click="updateGroupName()">
+                    <ion-icon slot="start" :icon="saveOutline" />
+                    {{ translate("Save") }}
+                  </ion-button>
+                  <!-- <ion-button fill="outline" size="small">
                     <ion-icon slot="start" :icon="copyOutline" />
                     {{ translate("Clone") }}
-                  </ion-button>
+                  </ion-button> -->
                 </div>
               </div>
               <div>
@@ -192,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -223,6 +229,9 @@ let description = ref("")
 let isDescUpdating = ref(false)
 let hasUnsavedChanges = ref(false)
 const descRef = ref()
+let groupName = ref("")
+let isGroupNameUpdating = ref(false)
+const groupNameRef = ref()
 
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
@@ -242,6 +251,7 @@ onIonViewWillEnter(async () => {
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
   description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
+  groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
   
   if(orderRoutings.value.length) {
     initializeOrderRoutings();
@@ -536,6 +546,26 @@ function getArchivedOrderRoutings() {
   return orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_ARCHIVED")
 }
 
+async function editGroupName() {
+  isGroupNameUpdating.value = !isGroupNameUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  groupNameRef.value.$el.setFocus();
+}
+
+async function updateGroupName() {
+  if(groupName.value.trim() && groupName.value.trim() !== currentRoutingGroup.value.groupName.trim()) {
+    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
+    if(routingGroupId) {
+      await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, groupName: groupName.value })
+    } else {
+      groupName.value = currentRoutingGroup.value.groupName.trim()
+    }
+  }
+
+  isGroupNameUpdating.value = false
+}
+
 async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId
   // If the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
@@ -543,6 +573,8 @@ async function updateGroupDescription() {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
+    } else {
+      description.value = currentRoutingGroup.value.description
     }
   }
   isDescUpdating.value = false
@@ -870,5 +902,9 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
+}
+
+ion-input.groupName {
+  --background: var(--ion-color-light)
 }
 </style>

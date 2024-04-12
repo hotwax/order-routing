@@ -21,9 +21,13 @@
                   <p>{{ currentRoutingGroup.routingGroupId }}</p>
                 </ion-label>
                 <div>
-                  <ion-button fill="outline" size="small" @click="isGroupNameUpdating ? updateGroupName() : editGroupName()">
+                  <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
                     <ion-icon slot="start" :icon="pencilOutline" />
                     {{ translate("Rename") }}
+                  </ion-button>
+                  <ion-button v-show="isGroupNameUpdating" fill="outline" size="small" @click="updateGroupName()">
+                    <ion-icon slot="start" :icon="saveOutline" />
+                    {{ translate("Save") }}
                   </ion-button>
                   <!-- <ion-button fill="outline" size="small">
                     <ion-icon slot="start" :icon="copyOutline" />
@@ -554,6 +558,8 @@ async function updateGroupName() {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, groupName: groupName.value })
+    } else {
+      groupName.value = currentRoutingGroup.value.groupName.trim()
     }
   }
 
@@ -567,6 +573,8 @@ async function updateGroupDescription() {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
       await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
+    } else {
+      description.value = currentRoutingGroup.value.description
     }
   }
   isDescUpdating.value = false

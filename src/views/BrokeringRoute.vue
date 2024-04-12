@@ -849,10 +849,6 @@ aside {
   border-left: 1px solid #92949C;
 }
 
-.actions > ion-button {
-  margin: var(--spacer-sm);
-}
-
 .route-details {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -874,13 +870,5 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
-}
-
-@media (min-width: 991px) {
-  .actions {
-    display: flex;
-    justify-content: space-between;
-    margin: var(--spacer-base) var(--spacer-sm) var(--spacer-base);
-  }
 }
 </style>

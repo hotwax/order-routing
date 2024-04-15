@@ -283,7 +283,13 @@ onBeforeRouteLeave(async (to) => {
   });
 
   alert.present();
-  await alert.onDidDismiss();
+  const data = await alert.onDidDismiss();
+
+  // If clicking backdrop just close the modal and do not redirect the user to previous page
+  if(data?.role === "backdrop") {
+    return false;
+  }
+
   return;
 })
 

@@ -26,7 +26,8 @@ const login = async (username: string, password: string): Promise <any> => {
 }
 
 const getUserProfile = async (token: any): Promise<any> => {
-  const baseURL = store.getters["user/getBaseUrl"];
+  const url = store.getters["user/getBaseUrl"]
+  const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   try {
     const resp = await client({
       url: "user/profile",
@@ -46,7 +47,8 @@ const getUserProfile = async (token: any): Promise<any> => {
 
 const getEComStores = async (token: any): Promise<any> => {
   try {
-    const baseURL = store.getters["user/getBaseUrl"];
+    const url = store.getters["user/getBaseUrl"]
+    const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
     const resp = await client({
       url: "user/productStore",
       method: "GET",

@@ -368,12 +368,17 @@ onBeforeRouteLeave(async (to) => {
     ],
   });
 
+  alert.present();
+  const data = await alert.onDidDismiss()
+
+  // If clicking backdrop just close the modal and do not redirect the user to previous page
+  if(data?.role === "backdrop") {
+    return false;
+  }
+
   // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
   store.dispatch("orderRouting/updateRoutingRuleId", "")
   store.dispatch("orderRouting/clearRules")
-
-  alert.present();
-  await alert.onDidDismiss();
   return;
 })
 

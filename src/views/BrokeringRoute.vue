@@ -29,10 +29,10 @@
                     <ion-icon slot="start" :icon="saveOutline" />
                     {{ translate("Save") }}
                   </ion-button>
-                  <!-- <ion-button fill="outline" size="small">
+                  <ion-button fill="outline" size="small" @click="cloneGroup()">
                     <ion-icon slot="start" :icon="copyOutline" />
                     {{ translate("Clone") }}
-                  </ion-button> -->
+                  </ion-button>
                 </div>
               </div>
               <div>
@@ -731,6 +731,26 @@ async function editGroupDescription() {
   // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
   await nextTick()
   descRef.value.$el.setFocus();
+}
+
+async function cloneGroup() {
+  const payload = {
+    routingGroupId: currentRoutingGroup.value.routingGroupId,
+    newGroupName: `${currentRoutingGroup.value.groupName} copy`
+  }
+  try {
+    const resp = await OrderRoutingService.cloneGroup(payload)
+
+    if(!hasError(resp)) {
+      // Not fetching the groups list as after cloning as we do not need any information from the newly cloned group
+      showToast(translate("Brokering run cloned"))
+    } else {
+      throw resp.data
+    }
+  } catch(err) {
+    showToast(translate("Failed to clone brokering run"))
+    logger.error(err)
+  }
 }
 
 async function cloneRouting(routing: any) {

@@ -52,6 +52,14 @@ const updateRoutingGroup = async (payload: any): Promise<any> => {
   })
 }
 
+const cloneGroup = async (payload: any): Promise<any> => {
+  return api({
+    url: `groups/${payload.routingGroupId}/clone`,
+    method: "POST",
+    data: payload
+  })
+}
+
 const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
   return api({
     url: `routings/${orderRoutingId}`,
@@ -138,6 +146,7 @@ const runNow = async (routingGroupId: string): Promise<any> => {
 }
 
 export const OrderRoutingService = {
+  cloneGroup,
   createOrderRouting,
   createRoutingGroup,
   createRoutingRule,

@@ -83,6 +83,14 @@ const createOrderRouting = async (payload: any): Promise<any> => {
   })
 }
 
+const cloneRouting = async (payload: any): Promise<any> => {
+  return await api({
+    url: `routings/${payload.orderRoutingId}/clone`,
+    method: "POST",
+    data: payload
+  })
+}
+
 const updateRouting = async (payload: any): Promise<any> => {
   return api({
     url: `routings/${payload.orderRoutingId}`,
@@ -122,6 +130,14 @@ const fetchRule = async (routingRuleId: string): Promise<any> => {
   });
 }
 
+const cloneRule = async (payload: any): Promise<any> => {
+  return await api({
+    url: `rules/${payload.routingRuleId}/clone`,
+    method: "POST",
+    data: payload
+  })
+}
+
 const updateRule = async (payload: any): Promise<any> => {
   return api({
     url: `rules/${payload.routingRuleId}`,
@@ -148,6 +164,8 @@ const runNow = async (routingGroupId: string): Promise<any> => {
 export const OrderRoutingService = {
   cloneGroup,
   createOrderRouting,
+  cloneRouting,
+  cloneRule,
   createRoutingGroup,
   createRoutingRule,
   deleteRoutingFilter,

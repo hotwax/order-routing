@@ -34,7 +34,7 @@ const sortSequence = (sequence: Array<Group | Route | Rule>, sortOnField = "sequ
 }
 
 const getTime = (time: any) => {
-  // Directly using TIME_SIMPLE for formatting the time does not work, as the Intl is set in that way. So, using hourCycle to always get the time in 12-hour format
+  // Directly using TIME_SIMPLE for formatting the time results the time always in 24-hour format, as the Intl is set in that way. So, using hourCycle to always get the time in 12-hour format
   // https://github.com/moment/luxon/issues/998
   return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.TIME_SIMPLE, hourCycle: "h12" }) : "-";
 }
@@ -48,8 +48,9 @@ function getDateAndTime(time: any) {
 }
 
 function getDateAndTimeShort(time: any) {
-  // format: hh:mm(localized 24-hour time) date/month
-  return time ? DateTime.fromMillis(time).toFormat("T dd/LL") : "-";
+  // format: hh:mm(localized 12-hour time) date/month
+  // Using toLocaleString as toFormat is not converting the time in 12-hour format
+  return time ? DateTime.fromMillis(time).toLocaleString({ hour: "numeric", minute: "numeric", day: "numeric", month: "numeric", hourCycle: "h12" }) : "-";
 }
 
 function timeTillRun(endTime: any) {

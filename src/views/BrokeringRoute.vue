@@ -624,7 +624,7 @@ async function openArchivedRoutingModal() {
     component: ArchivedRoutingModal,
     componentProps: {
       archivedRoutings: getArchivedOrderRoutings(),
-      // Passed a function as prop to update the routings whenever archive is clicked for a routing
+      // Passed a function as prop to update the routings whenever routing is unarchived from a modal
       saveRoutings: (routings: any) => {
         if(routings) {
           hasUnsavedChanges.value = true

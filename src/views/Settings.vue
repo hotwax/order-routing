@@ -142,7 +142,7 @@ function logout() {
 }
 
 function getDateTime(time: any) {
-  return time ? DateTime.fromMillis(time).toLocaleString(DateTime.DATETIME_MED) : "";
+  return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
 }
 
 function goToOms() {

@@ -11,9 +11,29 @@ import emitter from "@/event-bus"
 import { Settings } from 'luxon'
 import store from "./store";
 import { translate } from "@/i18n"
+import { initialise, resetConfig } from '@/adapter'
+
+const userProfile = computed(() => store.getters["user/getUserProfile"])
+const userToken = computed(() => store.getters["user/getUserToken"])
+const instanceUrl = computed(() => store.getters["user/getInstanceUrl"])
 
 const loader = ref(null) as any
-const userProfile = computed(() => store.getters["user/getUserProfile"])
+const maxAge = process.env.VUE_APP_CACHE_MAX_AGE ? parseInt(process.env.VUE_APP_CACHE_MAX_AGE) : 0
+
+initialise({
+  token: userToken.value,
+  instanceUrl: instanceUrl.value,
+  cacheMaxAge: maxAge,
+  events: {
+    unauthorised: unauthorised(),
+    responseError: () => {
+      setTimeout(() => dismissLoader(), 100);
+    },
+    queueTask: (payload: any) => {
+      emitter.emit("queueTask", payload);
+    }
+  }
+})
 
 async function presentLoader(options = { message: "Click the backdrop to dismiss.", backdropDismiss: true }) {
   // When having a custom message remove already existing loader, if not removed it takes into account the already existing loader
@@ -37,6 +57,13 @@ function dismissLoader() {
   }
 }
 
+async function unauthorised() {
+  // Mark the user as unauthorised, this will help in not making the logout api call in actions
+  store.dispatch("user/logout", { isUserUnauthorised: true });
+  const redirectUrl = window.location.origin + '/login';
+  window.location.href = `${process.env.VUE_APP_LOGIN_URL}?redirectUrl=${redirectUrl}`;
+}
+
 onMounted(async () => {
   loader.value = await loadingController
     .create({
@@ -56,5 +83,7 @@ onMounted(async () => {
 onUnmounted(() => {
   emitter.off("presentLoader", presentLoader);
   emitter.off("dismissLoader", dismissLoader);
+
+  resetConfig()
 })
 </script>

@@ -698,7 +698,8 @@ async function updateAutoCancelDays() {
     {
       text: translate("Save"),
       handler: (data) => {
-        if(data?.autoCancelDays || data.autoCancelDays === 0) {
+        // Added check for `>= 0` as we not need to allow negative values for autoCancelDays value
+        if(data?.autoCancelDays && data.autoCancelDays >= 0) {
           if(inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue) {
             inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue = data.autoCancelDays
           } else {

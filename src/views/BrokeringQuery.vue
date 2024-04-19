@@ -137,14 +137,16 @@
                   </ion-select>
                 </ion-item>
                 <ion-item>
-                  <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">
-                    <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
-                    {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
-                  </ion-button>
-                  <ion-button slot="end" size="small" @click="cloneRule" fill="outline">
-                    <ion-icon slot="start" :icon="copyOutline"/>
-                    {{ translate("Clone") }}
-                  </ion-button>
+                  <div slot="end">
+                    <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">
+                      <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
+                      {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
+                    </ion-button>
+                    <ion-button size="small" @click="cloneRule" fill="outline">
+                      <ion-icon slot="start" :icon="copyOutline"/>
+                      {{ translate("Clone") }}
+                    </ion-button>
+                  </div>
                 </ion-item>
               </div>
             </ion-card>

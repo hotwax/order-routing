@@ -253,11 +253,19 @@
                     </ion-select>
                   </ion-item>
                   <ion-item lines="none">
-                    <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
+                    <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="clearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
                   </ion-item>
                   <ion-item lines="none" v-show="!inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue">
                     <ion-label>{{ translate("Auto cancel days") }}</ion-label>
-                    <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue ? `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` : translate("select days") }}</ion-chip>
+                    <ion-chip outline @click="updateAutoCancelDays()">
+                      <template v-if="inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue">
+                        <ion-icon :icon="closeCircleOutline" @click.stop="removeAutoCancelDays()"/>
+                        <ion-label>{{ `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` }}</ion-label>
+                      </template>
+                      <template v-else>
+                        {{ translate("select days") }}
+                      </template>
+                    </ion-chip>
                   </ion-item>
                 </ion-card>
               </div>
@@ -285,7 +293,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { addCircleOutline, bookmarkOutline, chevronUpOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import store from "@/store";
@@ -681,6 +689,11 @@ function updateRuleActionValue(value: string) {
   updateRule()
 }
 
+async function removeAutoCancelDays() {
+  delete inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]
+  updateRule()
+}
+
 async function updateAutoCancelDays() {
   const alert = await alertController.create({
     header: translate("Auto cancel days"),
@@ -860,7 +873,7 @@ function updateRuleFilterValue(event: CustomEvent, id: string) {
   updateRule()
 }
 
-function updateClearAutoCancelDays(checked: any) {
+function clearAutoCancelDays(checked: any) {
   if(inventoryRuleActions.value[actionEnums["RM_AUTO_CANCEL_DATE"].id]) {
     inventoryRuleActions.value[actionEnums["RM_AUTO_CANCEL_DATE"].id].actionValue = checked
   } else {

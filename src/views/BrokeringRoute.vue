@@ -477,12 +477,14 @@ async function updateGroupStatus(event: CustomEvent) {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: job.value.paused
+    paused: job.value.paused,
+    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
+      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
       showToast(translate("Group status updated"))
     } else {
       throw resp.data

@@ -116,8 +116,8 @@ const actions: ActionTree<UserState, RootState> = {
   * Set User Instance Url
   */
   setUserInstanceUrl({ commit }, payload) {
-    commit(types.USER_INSTANCE_URL_UPDATED, payload)
-    updateInstanceUrl(payload)
+    const maargUrl = payload.includes("dev-oms") ? JSON.parse(process.env.VUE_APP_MAARG_URL)["dev-oms"] : "dev-maarg"
+    commit(types.USER_INSTANCE_URL_UPDATED, maargUrl)
   },
 
   setEcomStore({ commit, state }, payload) {

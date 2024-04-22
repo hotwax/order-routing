@@ -125,7 +125,7 @@
                   <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
                 </ion-label>
                 <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                <ion-input :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+                <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
               </ion-item>
               <div>
                 <ion-item>
@@ -138,7 +138,7 @@
                 </ion-item>
                 <ion-item>
                   <div slot="end">
-                    <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">
+                    <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
                       <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                       {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                     </ion-button>
@@ -351,6 +351,7 @@ let isRouteNameUpdating = ref(false)
 const routeNameRef = ref()
 const operatorRef = ref()
 const measurementRef = ref()
+const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -902,6 +903,13 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   hasUnsavedChanges.value = true
 }
 
+async function editRuleName() {
+  isRuleNameUpdating.value = !isRuleNameUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  ruleNameRef.value.$el.setFocus();
+}
+
 function updateRuleName(routingRuleId: string) {
   // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
   currentRouting.value["rules"].map((inventoryRule: any) => {
@@ -909,6 +917,7 @@ function updateRuleName(routingRuleId: string) {
       hasUnsavedChanges.value = true
     }
   })
+  isRuleNameUpdating.value = false;
 }
 
 async function cloneRule() {

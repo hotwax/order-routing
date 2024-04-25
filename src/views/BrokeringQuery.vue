@@ -705,7 +705,13 @@ async function updateAutoCancelDays() {
       placeholder: translate("auto cancel days"),
       type: "number",
       min: 0,
-      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue
+      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue,
+      attributes: {
+        // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
+        onkeydown: ($event: any) => {
+          if(/[`!@#$%^&*()_+\-=\\|,.<>?~]/.test($event.key)) $event.preventDefault();
+        }
+      }
     }],
     buttons: [{
       text: translate("Cancel"),
@@ -726,10 +732,8 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          // If we have received an empty/undefined value for autoCancelDays then considered that it needs to be removed
-          if(inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue) {
-            delete inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]
-          }
+          showToast(translate("Enter a valid value"))
+          return false;
         }
         updateRule()
       }

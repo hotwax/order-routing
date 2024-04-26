@@ -793,7 +793,7 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
 
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
-  const enumInfo: any = Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code)
+  const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
 
   return enumInfo?.description
 }

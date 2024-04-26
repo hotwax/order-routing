@@ -9,8 +9,11 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-list>
-        <ion-item v-for="sort in Object.values(enums[props.parentEnumId] ? enums[props.parentEnumId] : {})" :key="sort.enumId">
+      <div v-if="!enums[props.parentEnumId]" class="empty-state">
+        <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
+      </div>
+      <ion-list v-else>
+        <ion-item v-for="sort in Object.values(enums[props.parentEnumId])" :key="sort.enumId">
           <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
         </ion-item>
       </ion-list>

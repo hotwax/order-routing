@@ -770,7 +770,7 @@ function getPromiseDateValue() {
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {
-  return options?.[enums[parameter].code]
+  return enums[parameter] ? options?.[enums[parameter].code] : undefined
 }
 
 function getSelectedValue(options: any, enumerations: any, parameter: string) {

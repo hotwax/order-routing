@@ -48,6 +48,8 @@
   "Failed to create brokering run": "Failed to create brokering run",
   "Failed to create inventory rule": "Failed to create inventory rule",
   "Failed to create order routing": "Failed to create order routing",
+  "Failed to fetch filter options": "Failed to fetch filter options",
+  "Failed to fetch sort options": "Failed to fetch sort options",
   "Failed to update group information": "Failed to update group information",
   "Failed to update group status": "Failed to update group status",
   "Failed to schedule service": "Failed to schedule service",

@@ -171,7 +171,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
-        currentRoute["rules"] = sortSequence(currentRoute["rules"])
+        currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
       } else {
         throw resp.data
       }

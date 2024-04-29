@@ -164,13 +164,14 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
-    let currentRoute = {}
+    let currentRoute = {} as any
 
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
+        currentRoute["rules"] = sortSequence(currentRoute["rules"])
       } else {
         throw resp.data
       }

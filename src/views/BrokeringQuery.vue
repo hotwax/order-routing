@@ -121,7 +121,7 @@
             </ion-list>
             <ion-button fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
-              <ion-icon :icon="addCircleOutline"/>
+              <ion-icon :icon="addCircleOutline" slot="end"/>
             </ion-button>
           </section>
           <div v-if="selectedRoutingRule?.routingRuleId">

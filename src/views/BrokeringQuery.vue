@@ -527,7 +527,7 @@ async function updateRouteName() {
   isRouteNameUpdating.value = false
 }
 
-async function fetchRuleInformation(routingRuleId: string) {
+async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) {
   // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
   isRuleNameUpdating.value = false
 
@@ -535,12 +535,12 @@ async function fetchRuleInformation(routingRuleId: string) {
 
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
-  if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
+  if(selectedRoutingRule.value.routingRuleId === routingRuleId && !forceUpdate) {
     return;
   }
 
   // Only fetch the rules information, if already not present, as we are updating rule values
-  if(!rulesInformation.value[routingRuleId]) {
+  if(!rulesInformation.value[routingRuleId] || forceUpdate) {
     rulesInformation.value[routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", routingRuleId)
   }
 
@@ -1307,7 +1307,9 @@ async function save() {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(currentRuleId.value);
+    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
+    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
+    await fetchRuleInformation(currentRuleId.value, true);
   }
 
   hasUnsavedChanges.value = false

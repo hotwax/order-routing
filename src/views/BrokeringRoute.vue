@@ -17,7 +17,7 @@
                 <ion-label>
                   <h1 v-show="!isGroupNameUpdating">{{ groupName }}</h1>
                   <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'groupName' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
+                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
                   <p>{{ currentRoutingGroup.routingGroupId }}</p>
                 </ion-label>
                 <div>
@@ -477,12 +477,14 @@ async function updateGroupStatus(event: CustomEvent) {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: job.value.paused
+    paused: job.value.paused,
+    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
+      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
       showToast(translate("Group status updated"))
     } else {
       throw resp.data
@@ -912,9 +914,5 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
-}
-
-ion-input.groupName {
-  --background: var(--ion-color-light)
 }
 </style>

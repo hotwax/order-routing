@@ -22,7 +22,7 @@ const getters: GetterTree <UserState, RootState> = {
     return state.currentEComStore
   },
   getBaseUrl(state) {
-    let baseURL = state.instanceUrl;
+    const baseURL = state.instanceUrl;
     return baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
   }
 }

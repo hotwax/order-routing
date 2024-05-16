@@ -338,7 +338,7 @@ async function fetchGroupHistory() {
   }
 
   try {
-    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName)
+    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
 
     if(!hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
@@ -641,6 +641,7 @@ async function openArchivedRoutingModal() {
 }
 
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  await store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
@@ -724,6 +725,7 @@ async function updateRoutingGroup(payload: any) {
 }
 
 async function showGroupHistory() {
+  await fetchGroupHistory()
   const groupHistoryModal = await modalController.create({
     component: GroupHistoryModal,
     componentProps: { groupHistory: groupHistory.value }

@@ -17,7 +17,7 @@
                 <ion-label>
                   <h1 v-show="!isGroupNameUpdating">{{ groupName }}</h1>
                   <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'groupName' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
+                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
                   <p>{{ currentRoutingGroup.routingGroupId }}</p>
                 </ion-label>
                 <div>
@@ -338,7 +338,7 @@ async function fetchGroupHistory() {
   }
 
   try {
-    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName)
+    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
 
     if(!hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
@@ -477,12 +477,14 @@ async function updateGroupStatus(event: CustomEvent) {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: job.value.paused
+    paused: job.value.paused,
+    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
+      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
       showToast(translate("Group status updated"))
     } else {
       throw resp.data
@@ -639,6 +641,7 @@ async function openArchivedRoutingModal() {
 }
 
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  await store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
@@ -722,6 +725,7 @@ async function updateRoutingGroup(payload: any) {
 }
 
 async function showGroupHistory() {
+  await fetchGroupHistory()
   const groupHistoryModal = await modalController.create({
     component: GroupHistoryModal,
     componentProps: { groupHistory: groupHistory.value }
@@ -912,9 +916,5 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
-}
-
-ion-input.groupName {
-  --background: var(--ion-color-light)
 }
 </style>

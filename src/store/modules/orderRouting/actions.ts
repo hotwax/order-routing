@@ -164,13 +164,14 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
-    let currentRoute = {}
+    let currentRoute = {} as any
 
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
+        currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
       } else {
         throw resp.data
       }
@@ -185,18 +186,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },
 
-  async fetchRoutingHistory({ commit, state }, routingGroupId) {
-    const history = Object.values(state.routingHistory)[0] as any
-
-    // If the routing history for the current group is already available then don't fetch the history again
-    if(history?.length && history[0].routingGroupId === routingGroupId) {
-      return;
-    }
-
+  async fetchRoutingHistory({ commit }, routingGroupId) {
     let routingHistory = {}
 
     try {
-      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId)
+      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId, { orderByField: "startDate DESC" })
   
       if(!hasError(resp)) {
         // Sorting the history based on startTime, as we does not get the records in sorted order from api

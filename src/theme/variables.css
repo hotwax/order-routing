@@ -262,6 +262,10 @@ http://ionicframework.com/docs/theming/ */
   text-align: center;
 }
 
+ion-input.name {
+  --background: var(--ion-color-light)
+}
+
 .pointer {
   cursor: pointer;
 }

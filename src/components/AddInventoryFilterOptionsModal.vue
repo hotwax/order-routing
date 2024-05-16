@@ -9,7 +9,10 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-list>
+      <div v-if="!enumerations.length" class="empty-state">
+        <p>{{ translate(`Failed to fetch ${props.label?.toLowerCase()} options`) }}</p>
+      </div>
+      <ion-list v-else>
         <ion-item v-for="condition in enumerations" :key="condition.enumId">
           <ion-checkbox :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">{{ condition.description || condition.enumCode }}</ion-checkbox>
         </ion-item>
@@ -66,7 +69,7 @@ const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultVa
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
-  enumerations.value = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId))
+  enumerations.value = enums.value[props.parentEnumId] ? Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId)) : []
 })
 
 function checkFilters() {

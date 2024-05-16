@@ -1,16 +1,34 @@
 <template>
   <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button :default-href="`/tabs/brokering/${currentRoutingGroup.routingGroupId}/routes`" />
+        </ion-buttons>
+        <ion-title>{{ currentRouting.routingName }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
     <ion-content>
       <main>
         <section id="order-filters" class="menu">
           <ion-item lines="none">
-            <ion-label><h1>{{ currentRouting.routingName }}</h1></ion-label>
-            <ion-chip slot="end" outline @click="router.go(-1)">
+            <ion-label>
+              <h1 v-show="!isRouteNameUpdating">{{ currentRouting.routingName }}</h1>
+              <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+              <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
+            </ion-label>
+            <ion-chip slot="end" outline>
               {{ getRouteIndex() }}
-              <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
-          <ion-button class="ion-margin" expand="block" :disabled="!hasUnsavedChanges" @click="save">{{ translate("Save changes") }}</ion-button>
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
+            <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
+            {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
+          </ion-button>
+          <!-- <ion-button color="medium" fill="outline" size="small">
+            <ion-icon slot="start" :icon="copyOutline" />
+            {{ translate("Clone") }}
+          </ion-button> -->
           <ion-item>
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
@@ -103,7 +121,7 @@
             </ion-list>
             <ion-button fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
-              <ion-icon :icon="addCircleOutline"/>
+              <ion-icon :icon="addCircleOutline" slot="end"/>
             </ion-button>
           </section>
           <div v-if="selectedRoutingRule?.routingRuleId">
@@ -114,7 +132,7 @@
                   <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
                 </ion-label>
                 <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                <ion-input :class="isRuleNameUpdating ? 'ruleName' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+                <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
               </ion-item>
               <div>
                 <ion-item>
@@ -126,11 +144,16 @@
                   </ion-select>
                 </ion-item>
                 <ion-item>
-                  <ion-button slot="end" size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">{{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}</ion-button>
-                  <ion-button slot="end" size="small" @click="cloneRule" fill="outline">
-                    <ion-icon slot="start" :icon="copyOutline"/>
-                    {{ translate("Clone") }}
-                  </ion-button>
+                  <div slot="end">
+                    <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
+                      <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
+                      {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
+                    </ion-button>
+                    <ion-button size="small" @click="cloneRule" fill="outline">
+                      <ion-icon slot="start" :icon="copyOutline"/>
+                      {{ translate("Clone") }}
+                    </ion-button>
+                  </div>
                 </ion-item>
               </div>
             </ion-card>
@@ -239,11 +262,19 @@
                     </ion-select>
                   </ion-item>
                   <ion-item lines="none">
-                    <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="updateClearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
+                    <ion-toggle :checked="inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue" @ionChange="clearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
                   </ion-item>
                   <ion-item lines="none" v-show="!inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue">
                     <ion-label>{{ translate("Auto cancel days") }}</ion-label>
-                    <ion-chip outline @click="updateAutoCancelDays()">{{ inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue ? `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` : translate("select days") }}</ion-chip>
+                    <ion-chip outline @click="updateAutoCancelDays()">
+                      <template v-if="inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue">
+                        <ion-icon :icon="closeCircleOutline" @click.stop="removeAutoCancelDays()"/>
+                        <ion-label>{{ `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` }}</ion-label>
+                      </template>
+                      <template v-else>
+                        {{ translate("select days") }}
+                      </template>
+                    </ion-chip>
                   </ion-item>
                 </ion-card>
               </div>
@@ -259,18 +290,24 @@
           </ion-button>
         </section>
       </main>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
+          <ion-icon :icon="saveOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, copyOutline, filterOutline, golfOutline, optionsOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { IonBackButton, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, bookmarkOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, nextTick, ref } from "vue";
 import store from "@/store";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { getDateAndTimeShort, showToast, sortSequence } from "@/utils";
+import { getDateAndTimeShort, hasError, showToast, sortSequence } from "@/utils";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -279,6 +316,7 @@ import { DateTime } from "luxon";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
+import { OrderRoutingService } from "@/services/RoutingService";
 
 const router = useRouter();
 const props = defineProps({
@@ -314,9 +352,13 @@ let rulesInformation = ref({}) as any
 let hasUnsavedChanges = ref(false)
 let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
+let routeName = ref("")
+let isRouteNameUpdating = ref(false)
 
+const routeNameRef = ref()
 const operatorRef = ref()
 const measurementRef = ref()
+const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
@@ -337,6 +379,8 @@ onIonViewWillEnter(async () => {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     await fetchRuleInformation(currentRuleId.value || inventoryRules.value[0].routingRuleId);
   }
+
+  routeName.value = currentRouting.value["routingName"] ? currentRouting.value["routingName"] : ""
 
   routingStatus.value = currentRouting.value.statusId
   emitter.emit("dismissLoader")
@@ -439,7 +483,51 @@ async function initializeInventoryRules(rule: any) {
   }) || ""
 }
 
-async function fetchRuleInformation(routingRuleId: string) {
+async function editRouteName() {
+  isRouteNameUpdating.value = !isRouteNameUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  routeNameRef.value.$el.setFocus();
+}
+
+async function updateRouteName() {
+  if(routeName.value.trim() && routeName.value.trim() !== currentRouting.value.routingName.trim()) {
+
+    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+
+    const payload = {
+      orderRoutingId: props.orderRoutingId,
+      routingName: routeName.value
+    }
+
+    let orderRoutingId = ''
+    try {
+      const resp = await OrderRoutingService.updateRouting(payload);
+
+      if(!hasError(resp) && resp.data.orderRoutingId) {
+        orderRoutingId = resp.data.orderRoutingId
+        showToast(translate("Order routing information updated"))
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      showToast(translate("Failed to update routing information"))
+      logger.error(err);
+    }
+
+    if(orderRoutingId) {
+      await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, routingName: routeName.value })
+    } else {
+      routeName.value = currentRouting.value.routingName.trim()
+    }
+
+    emitter.emit("dismissLoader")
+  }
+
+  isRouteNameUpdating.value = false
+}
+
+async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) {
   // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
   isRuleNameUpdating.value = false
 
@@ -447,12 +535,12 @@ async function fetchRuleInformation(routingRuleId: string) {
 
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
-  if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
+  if(selectedRoutingRule.value.routingRuleId === routingRuleId && !forceUpdate) {
     return;
   }
 
   // Only fetch the rules information, if already not present, as we are updating rule values
-  if(!rulesInformation.value[routingRuleId]) {
+  if(!rulesInformation.value[routingRuleId] || forceUpdate) {
     rulesInformation.value[routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", routingRuleId)
   }
 
@@ -611,6 +699,11 @@ function updateRuleActionValue(value: string) {
   updateRule()
 }
 
+async function removeAutoCancelDays() {
+  delete inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]
+  updateRule()
+}
+
 async function updateAutoCancelDays() {
   const alert = await alertController.create({
     header: translate("Auto cancel days"),
@@ -619,7 +712,13 @@ async function updateAutoCancelDays() {
       placeholder: translate("auto cancel days"),
       type: "number",
       min: 0,
-      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue
+      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue,
+      attributes: {
+        // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
+        onkeydown: ($event: any) => {
+          if(/[`!@#$%^&*()_+\-=\\|,.<>?~]/.test($event.key)) $event.preventDefault();
+        }
+      }
     }],
     buttons: [{
       text: translate("Cancel"),
@@ -628,7 +727,8 @@ async function updateAutoCancelDays() {
     {
       text: translate("Save"),
       handler: (data) => {
-        if(data?.autoCancelDays || data.autoCancelDays === 0) {
+        // Added check for `>= 0` as we not need to allow negative values for autoCancelDays value
+        if(data?.autoCancelDays && data.autoCancelDays >= 0) {
           if(inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue) {
             inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue = data.autoCancelDays
           } else {
@@ -639,10 +739,8 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          // If we have received an empty/undefined value for autoCancelDays then considered that it needs to be removed
-          if(inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue) {
-            delete inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]
-          }
+          showToast(translate("Enter a valid value"))
+          return false;
         }
         updateRule()
       }
@@ -679,7 +777,7 @@ function getPromiseDateValue() {
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {
-  return options?.[enums[parameter].code]
+  return enums[parameter] ? options?.[enums[parameter].code] : undefined
 }
 
 function getSelectedValue(options: any, enumerations: any, parameter: string) {
@@ -702,7 +800,7 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
 
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
-  const enumInfo: any = Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code)
+  const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
 
   return enumInfo?.description
 }
@@ -789,7 +887,7 @@ function updateRuleFilterValue(event: CustomEvent, id: string) {
   updateRule()
 }
 
-function updateClearAutoCancelDays(checked: any) {
+function clearAutoCancelDays(checked: any) {
   if(inventoryRuleActions.value[actionEnums["RM_AUTO_CANCEL_DATE"].id]) {
     inventoryRuleActions.value[actionEnums["RM_AUTO_CANCEL_DATE"].id].actionValue = checked
   } else {
@@ -816,6 +914,13 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   hasUnsavedChanges.value = true
 }
 
+async function editRuleName() {
+  isRuleNameUpdating.value = !isRuleNameUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  ruleNameRef.value.$el.setFocus();
+}
+
 function updateRuleName(routingRuleId: string) {
   // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
   currentRouting.value["rules"].map((inventoryRule: any) => {
@@ -823,6 +928,7 @@ function updateRuleName(routingRuleId: string) {
       hasUnsavedChanges.value = true
     }
   })
+  isRuleNameUpdating.value = false;
 }
 
 async function cloneRule() {
@@ -1201,7 +1307,9 @@ async function save() {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(currentRuleId.value);
+    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
+    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
+    await fetchRuleInformation(currentRuleId.value, true);
   }
 
   hasUnsavedChanges.value = false
@@ -1244,10 +1352,6 @@ ion-content > main, #inventory-rules {
 ion-chip > ion-select {
   /* Adding min-height as auto-styling is getting appLied when not using legacy select option */
   min-height: unset;
-}
-
-ion-input.ruleName {
-  --background: var(--ion-color-light)
 }
 
 .empty-state {

@@ -107,6 +107,7 @@ const api = async (customConfig: any) => {
  * @return {Promise} Response from API as returned by Axios
  */
 const client = (config: any) => {
+  console.log('config', JSON.stringify(config))
   return axios.request(config);
 }
 

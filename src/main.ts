@@ -51,7 +51,8 @@ const app = createApp(App)
     loader,
     appLoginUrl: process.env.VUE_APP_LOGIN_URL as string,
     getConfig,
-    initialise
+    initialise,
+    isMaargLogin: true
   });
 
 // Filters are removed in Vue 3 and global filter introduced https://v3.vuejs.org/guide/migration/filters.html#global-filters

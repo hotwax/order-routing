@@ -9,7 +9,7 @@ import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings } from "luxon"
 import { useAuthStore } from '@hotwax/dxp-components'
-import { logout, resetConfig, updateInstanceUrl, updateToken } from '@/adapter'
+import { logout, resetConfig, updateToken } from '@/adapter'
 
 const actions: ActionTree<UserState, RootState> = {
 
@@ -25,23 +25,25 @@ const actions: ActionTree<UserState, RootState> = {
       dispatch("setUserInstanceUrl", oms);
 
       emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
-      const userProfile = await UserService.getUserProfile(token);
+      const api_key = await UserService.login(token)
+      console.log("api_key in action", api_key)
+      const userProfile = await UserService.getUserProfile(api_key);
 
       // TODO: fetch only associated product stores for user, currently api does not support this
-      userProfile.stores = await UserService.getEComStores(token);
+      userProfile.stores = await UserService.getEComStores(api_key);
 
       if (userProfile.timeZone) {
         Settings.defaultZone = userProfile.timeZone;
       }
 
-      updateToken(token)
+      updateToken(api_key)
 
-      commit(types.USER_TOKEN_CHANGED, { newToken: token })
+      commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
       emitter.emit("dismissLoader")
-      return Promise.resolve({ token })
     } catch (err: any) {
+      console.log('err', err)
       emitter.emit("dismissLoader")
       showToast(translate(err));
       logger.error("error", err);
@@ -116,8 +118,7 @@ const actions: ActionTree<UserState, RootState> = {
   * Set User Instance Url
   */
   setUserInstanceUrl({ commit }, payload) {
-    const maargUrl = payload.includes("dev-oms") ? JSON.parse(process.env.VUE_APP_MAARG_URL)["dev-oms"] : "dev-maarg"
-    commit(types.USER_INSTANCE_URL_UPDATED, maargUrl)
+    commit(types.USER_INSTANCE_URL_UPDATED, payload)
   },
 
   setEcomStore({ commit, state }, payload) {

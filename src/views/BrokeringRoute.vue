@@ -725,6 +725,7 @@ async function updateRoutingGroup(payload: any) {
 }
 
 async function showGroupHistory() {
+  await fetchGroupHistory()
   const groupHistoryModal = await modalController.create({
     component: GroupHistoryModal,
     componentProps: { groupHistory: groupHistory.value }

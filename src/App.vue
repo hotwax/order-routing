@@ -25,7 +25,6 @@ initialise({
   instanceUrl: instanceUrl.value,
   cacheMaxAge: maxAge,
   events: {
-    unauthorised: unauthorised(),
     responseError: () => {
       setTimeout(() => dismissLoader(), 100);
     },
@@ -55,13 +54,6 @@ function dismissLoader() {
     loader.value.dismiss();
     loader.value = null as any;
   }
-}
-
-async function unauthorised() {
-  // Mark the user as unauthorised, this will help in not making the logout api call in actions
-  store.dispatch("user/logout", { isUserUnauthorised: true });
-  const redirectUrl = window.location.origin + '/login';
-  window.location.href = `${process.env.VUE_APP_LOGIN_URL}?redirectUrl=${redirectUrl}&isMaargLogin=true`;
 }
 
 onMounted(async () => {

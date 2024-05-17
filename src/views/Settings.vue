@@ -137,7 +137,8 @@ async function changeTimeZone() {
 
 function logout() {
   store.dispatch("user/logout").then(() => {
-    router.push("/login");
+    const redirectUrl = window.location.origin + '/login'
+    window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })
 }
 

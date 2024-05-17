@@ -1,4 +1,4 @@
-import api, {client} from "@/api"
+import api, { client } from "@/api"
 import store from "@/store";
 import { hasError } from "@/utils";
 
@@ -6,20 +6,19 @@ const login = async (token: string): Promise <any> => {
   const url = store.getters["user/getBaseUrl"]
   const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   let api_key = ""
+
   try {
     const resp = await client({
       url: "login", 
       method: "post",
       baseURL,
-      data: {
+      params: {
         token
       },
       headers: {
         "Content-Type": "application/json"
       }
     }) as any;
-
-    console.log('resp', resp)
 
     if(!hasError(resp) && (resp.data.api_key || resp.data.token)) {
       api_key = resp.data.api_key || resp.data.token
@@ -29,7 +28,6 @@ const login = async (token: string): Promise <any> => {
   } catch(err) {
     return Promise.reject("Sorry, login failed. Please try again");
   }
-  console.log('api_key=========', api_key)
   return Promise.resolve(api_key)
 }
 

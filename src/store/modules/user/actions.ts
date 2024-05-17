@@ -9,7 +9,7 @@ import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings } from "luxon"
 import { useAuthStore } from '@hotwax/dxp-components'
-import { logout, resetConfig, updateToken } from '@/adapter'
+import { resetConfig } from '@/adapter'
 
 const actions: ActionTree<UserState, RootState> = {
 
@@ -26,7 +26,6 @@ const actions: ActionTree<UserState, RootState> = {
 
       emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
       const api_key = await UserService.login(token)
-      console.log("api_key in action", api_key)
       const userProfile = await UserService.getUserProfile(api_key);
 
       // TODO: fetch only associated product stores for user, currently api does not support this
@@ -36,14 +35,11 @@ const actions: ActionTree<UserState, RootState> = {
         Settings.defaultZone = userProfile.timeZone;
       }
 
-      updateToken(api_key)
-
       commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
       emitter.emit("dismissLoader")
     } catch (err: any) {
-      console.log('err', err)
       emitter.emit("dismissLoader")
       showToast(translate(err));
       logger.error("error", err);
@@ -54,31 +50,8 @@ const actions: ActionTree<UserState, RootState> = {
   /**
   * Logout user
   */
-  async logout ({ commit }, payload) {
-    // store the url on which we need to redirect the user after logout api completes in case of SSO enabled
-    let redirectionUrl = ''
-
+  async logout({ commit }) {
     emitter.emit('presentLoader', { message: 'Logging out', backdropDismiss: false })
-
-    // Calling the logout api to flag the user as logged out, only when user is authorised
-    // if the user is already unauthorised then not calling the logout api as it returns 401 again that results in a loop, thus there is no need to call logout api if the user is unauthorised
-    if(!payload?.isUserUnauthorised) {
-      let resp;
-
-      // wrapping the parsing logic in try catch as in some case the logout api makes redirection, and then we are unable to parse the resp and thus the logout process halts
-      try {
-        resp = await logout();
-
-        // Added logic to remove the `//` from the resp as in case of get request we are having the extra characters and in case of post we are having 403
-        resp = JSON.parse(resp.startsWith('//') ? resp.replace('//', '') : resp)
-      } catch(err) {
-        console.error('Error parsing data', err)
-      }
-
-      if(resp?.logoutAuthType == 'SAML2SSO') {
-        redirectionUrl = resp.logoutUrl
-      }
-    }
 
     const authStore = useAuthStore()
 
@@ -91,13 +64,7 @@ const actions: ActionTree<UserState, RootState> = {
     // reset plugin state on logout
     authStore.$reset()
 
-    // If we get any url in logout api resp then we will redirect the user to the url
-    if(redirectionUrl) {
-      window.location.href = redirectionUrl
-    }
-
     emitter.emit('dismissLoader')
-    return redirectionUrl;
   },
   
   /**

@@ -100,6 +100,7 @@
   "Order Rule Sort": "Order Rule Sort",
   "Order routing information updated": "Order routing information updated",
   "Orders will be brokered based on order date if no sorting is specified.": "Orders will be brokered based on order date if no sorting is specified.",
+  "Origin Facility Group": "Origin Facility Group",
   "operator": "operator",
   "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.": "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.",
   "Partially available": "Partially available",

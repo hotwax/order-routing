@@ -13,9 +13,12 @@
         <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
       </div>
       <ion-list v-else>
-        <ion-item v-for="sort in Object.values(enums[props.parentEnumId])" :key="sort.enumId">
-          <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
-        </ion-item>
+        <!-- Added this div as we need to hide ProductCategory option from filters, need to remove this once we add support for ProductCategory filter-->
+        <div v-for="sort in Object.values(enums[props.parentEnumId])" :key="sort.enumId">
+          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY'">
+            <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
+          </ion-item>
+        </div>
       </ion-list>
 
       <ion-fab vertical="bottom" horizontal="end" slot="fixed">

@@ -16,15 +16,13 @@ const getters: GetterTree <UserState, RootState> = {
     return state.current
   },
   getInstanceUrl(state) {
-    const baseUrl = process.env.VUE_APP_BASE_URL;
-    return baseUrl ? baseUrl : state.instanceUrl;
+    return state.instanceUrl;
   },
   getCurrentEComStore(state) {
     return state.currentEComStore
   },
   getBaseUrl(state) {
-    let baseURL = process.env.VUE_APP_BASE_URL;
-    if (!baseURL) baseURL = state.instanceUrl;
+    const baseURL = state.instanceUrl;
     return baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
   }
 }

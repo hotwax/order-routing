@@ -23,6 +23,10 @@
             </ion-card-header>
           </ion-item>
           <ion-button color="danger" @click="logout()">{{ translate("Logout") }}</ion-button>
+          <ion-button fill="outline" @click="goToLaunchpad()">
+            {{ translate("Go to Launchpad") }}
+            <ion-icon slot="end" :icon="openOutline" />
+          </ion-button>
           <!-- Commenting this code as we currently do not have reset password functionality -->
           <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
         </ion-card>
@@ -43,7 +47,7 @@
           <ion-card-content>
             {{ $t('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button @click="goToOms(omsRedirectionInfo.token, omsRedirectionInfo.url)" fill="clear">
+          <ion-button :disabled="!omsRedirectionInfo.token || !omsRedirectionInfo.url" @click="goToOms(omsRedirectionInfo.token, omsRedirectionInfo.url)" fill="clear">
             {{ $t('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -143,6 +147,10 @@ function logout() {
 
 function getDateTime(time: any) {
   return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
+}
+
+function goToLaunchpad() {
+  window.location.href = `${process.env.VUE_APP_LOGIN_URL}`
 }
 </script>
 

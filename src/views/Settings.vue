@@ -43,7 +43,7 @@
           <ion-card-content>
             {{ $t('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button @click="goToOms()" fill="clear">
+          <ion-button @click="goToOms(omsRedirectionInfo.token, omsRedirectionInfo.url)" fill="clear">
             {{ $t('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -99,22 +99,21 @@
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useStore } from "vuex";
-import { useRouter } from "vue-router";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
+import { goToOms } from "@hotwax/dxp-components";
 
 const store = useStore()
-const router = useRouter()
 const appVersion = ref("")
 const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any
 
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
-const token = computed(() => store.getters["user/getUserToken"])
 const oms = computed(() => store.getters["user/getInstanceUrl"])
+const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 
 onMounted(() => {
   appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
@@ -144,12 +143,6 @@ function logout() {
 
 function getDateTime(time: any) {
   return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
-}
-
-function goToOms() {
-  const link = (oms.value.startsWith('http') ? oms.value.replace(/\/api\/?|\/$/, "") : `https://${oms.value}.hotwax.io`) + `/qapps?token=${token.value}`
-
-  window.open(link, '_blank', 'noopener, noreferrer')
 }
 </script>
 

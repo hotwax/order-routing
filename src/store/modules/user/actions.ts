@@ -21,7 +21,7 @@ const actions: ActionTree<UserState, RootState> = {
       // TODO: implement support for permission check
 
       // TODO: oms here is of ofbiz we need to check how to get the maarg url from here as we need to hit all apis on maarg
-      const { token, oms } = payload;
+      const { token, oms, omsRedirectionUrl } = payload;
       dispatch("setUserInstanceUrl", oms);
 
       emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
@@ -35,6 +35,9 @@ const actions: ActionTree<UserState, RootState> = {
         Settings.defaultZone = userProfile.timeZone;
       }
 
+      if(omsRedirectionUrl && token) {
+        dispatch("setOmsRedirectionInfo", { url: omsRedirectionUrl, token })
+      }
       commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
@@ -50,7 +53,7 @@ const actions: ActionTree<UserState, RootState> = {
   /**
   * Logout user
   */
-  async logout({ commit }) {
+  async logout({ commit, dispatch }) {
     emitter.emit('presentLoader', { message: 'Logging out', backdropDismiss: false })
 
     const authStore = useAuthStore()
@@ -59,6 +62,7 @@ const actions: ActionTree<UserState, RootState> = {
     commit(types.USER_END_SESSION)
     this.dispatch("orderRouting/clearRouting")
     this.dispatch("util/clearUtilState")
+    dispatch("setOMSRedirectionInfo", { url: "", token: "" })
     resetConfig();
 
     // reset plugin state on logout
@@ -86,6 +90,10 @@ const actions: ActionTree<UserState, RootState> = {
   */
   setUserInstanceUrl({ commit }, payload) {
     commit(types.USER_INSTANCE_URL_UPDATED, payload)
+  },
+
+  setOmsRedirectionInfo({ commit }, payload) {
+    commit(types.USER_OMS_REDIRECTION_INFO_UPDATED, payload)
   },
 
   setEcomStore({ commit, state }, payload) {

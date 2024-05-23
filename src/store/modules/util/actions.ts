@@ -102,8 +102,7 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
-      facilityGroupTypeId: "BROKERING_GROUP"
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId
     }
 
     try {

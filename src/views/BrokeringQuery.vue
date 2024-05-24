@@ -154,10 +154,10 @@
                       <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                       {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                     </ion-button>
-                    <ion-button size="small" @click="cloneRule" fill="outline">
+                    <!-- <ion-button size="small" @click="cloneRule" fill="outline">
                       <ion-icon slot="start" :icon="copyOutline"/>
                       {{ translate("Clone") }}
-                    </ion-button>
+                    </ion-button> -->
                   </div>
                 </ion-item>
               </div>
@@ -946,69 +946,24 @@ function updateRuleName(routingRuleId: string) {
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning rule ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
-  const payload = {
-    routingRuleId: "",
-    orderRoutingId: props.orderRoutingId,
-    ruleName: selectedRoutingRule.value.ruleName + ' copy',
-    statusId: "RULE_DRAFT", // by default when cloning the rule the new rule will be in draft status
-    sequenceNum: inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0, that will result in again setting the new route seqNum to 0,
-    assignmentEnumId: selectedRoutingRule.value.assignmentEnumId,
-    createdDate: DateTime.now().toMillis()
+  try {
+    const resp = await OrderRoutingService.cloneRule({
+      routingRuleId: selectedRoutingRule.value.routingRuleId,
+      newOrderRoutingId: props.orderRoutingId,
+      newRuleName: `${selectedRoutingRule.value.ruleName} copy`
+    })
+
+    if(hasError(resp) || !resp.data.newRoutingRuleId) {
+      throw resp.data
+    }
+
+    await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  } catch (err) {
+    logger.error(err)
+    showToast(translate("Failed to clone rule"))
   }
-
-  const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
-
-  if(!routingRuleId) {
-    showToast(translate("Failed to clone the rule"))
-    emitter.emit("dismissLoader")
-    return;
-  }
-
-  const sortOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-  const filterOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-  const actionOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] : {}
-
-  let inventoryFilters = [] as any, actions = [] as any
-
-  Object.values(sortOptions).map((option: any) => {
-    inventoryFilters.push({
-      createdDate: DateTime.now().toMillis(),
-      conditionTypeEnumId: option.conditionTypeEnumId,
-      fieldName: option.fieldName,
-      sequenceNum: option.sequenceNum
-    })
-  })
-
-  Object.values(filterOptions).map((option: any) => {
-    inventoryFilters.push({
-      createdDate: DateTime.now().toMillis(),
-      conditionTypeEnumId: option.conditionTypeEnumId,
-      fieldName: option.fieldName,
-      fieldValue: option.fieldValue,
-      operator: option.operator,
-      sequenceNum: option.sequenceNum
-    })
-  })
-
-  Object.values(actionOptions).map((option: any) => {
-    actions.push({
-      actionTypeEnumId: option.actionTypeEnumId,
-      actionValue: option.actionValue,
-      createdDate: DateTime.now().toMillis(),
-    })
-  })
-
-  await store.dispatch("orderRouting/updateRule", {
-    routingRuleId,
-    orderRoutingId: props.orderRoutingId,
-    inventoryFilters,
-    actions
-  })
-
-  inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
-  fetchRuleInformation(routingRuleId)
 
   emitter.emit("dismissLoader")
 }

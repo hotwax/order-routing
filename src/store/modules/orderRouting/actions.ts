@@ -163,6 +163,32 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId;
   },
 
+  async cloneOrderRouting({ dispatch }, payload) {
+    let orderRoutingId = ""
+
+    try {
+      const resp = await OrderRoutingService.cloneRouting({
+        orderRoutingId: payload.orderRoutingId,
+        newRoutingName: `${payload.orderRoutingName} copy`,
+        newRoutingGroupId: payload.routingGroupId // group in which this routing needs to be cloned
+      })
+
+      if(!hasError(resp) && resp?.data.newOrderRoutingId) {
+        orderRoutingId = resp.data.newOrderRoutingId
+        showToast(translate("Routing cloned"))
+
+        // TODO: check if we can get all the information in response so we do not need to make an api call here
+        // Fetching the group information again as we do not have the complete information for the cloned route
+        await dispatch("fetchCurrentRoutingGroup", payload.routingGroupId)
+      }
+    } catch(err) {
+      showToast(translate("Failed to clone order routing"))
+      logger.error(err)
+    }
+
+    return orderRoutingId;
+  },
+
   async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
     let currentRoute = {} as any
 

@@ -46,6 +46,7 @@
   "Error getting user profile": "Error getting user profile",
   "Execution history": "Execution history",
   "Failed to clone brokering run": "Failed to clone brokering run",
+  "Failed to clone rule": "Failed to clone rule",
   "Failed to clone the rule": "Failed to clone the rule",
   "Failed to create brokering run": "Failed to create brokering run",
   "Failed to create inventory rule": "Failed to create inventory rule",

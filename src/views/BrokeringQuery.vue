@@ -154,10 +154,10 @@
                       <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                       {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                     </ion-button>
-                    <ion-button size="small" @click="cloneRule" fill="outline">
+                    <!-- <ion-button size="small" @click="cloneRule" fill="outline">
                       <ion-icon slot="start" :icon="copyOutline"/>
                       {{ translate("Clone") }}
-                    </ion-button>
+                    </ion-button> -->
                   </div>
                 </ion-item>
               </div>
@@ -946,13 +946,24 @@ function updateRuleName(routingRuleId: string) {
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning rule ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
-  await OrderRoutingService.cloneRule({
-    routingRuleId: selectedRoutingRule.value.routingRuleId,
-    newOrderRoutingId: props.orderRoutingId,
-    newRuleName: `${selectedRoutingRule.value.ruleName} copy`
-  })
+  try {
+    const resp = await OrderRoutingService.cloneRule({
+      routingRuleId: selectedRoutingRule.value.routingRuleId,
+      newOrderRoutingId: props.orderRoutingId,
+      newRuleName: `${selectedRoutingRule.value.ruleName} copy`
+    })
+
+    if(hasError(resp) || !resp.data.newRoutingRuleId) {
+      throw resp.data
+    }
+
+    await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  } catch (err) {
+    logger.error(err)
+    showToast(translate("Failed to clone rule"))
+  }
 
   emitter.emit("dismissLoader")
 }

@@ -259,6 +259,9 @@
                         {{ translate("Queue") }}
                         <ion-icon :icon="golfOutline"/>
                       </ion-select-option>
+                      <ion-select-option value="">
+                        {{ translate("None") }}
+                      </ion-select-option>
                     </ion-select>
                   </ion-item>
                   <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
@@ -688,11 +691,13 @@ function updateOrderRouting(value: string) {
 function updateUnfillableActionType(value: string) {
   const actionType = ruleActionType.value
   ruleActionType.value = value
-
-  inventoryRuleActions.value[ruleActionType.value] = {
-    actionTypeEnumId: value,
-    actionValue: "", // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update if required from some other function
-    createdDate: DateTime.now().toMillis()
+  // Create the new action type only when we have not selected none option, otherwise just delete the previous selected action type
+  if(value) {
+    inventoryRuleActions.value[ruleActionType.value] = {
+      actionTypeEnumId: value,
+      actionValue: "", // after changing action type, as next_rule action does not need to have a value, so in all cases making intially the value as empty and will update if required from some other function
+      createdDate: DateTime.now().toMillis()
+    }
   }
   // deleting previous action type, but using the data of previous action
   delete inventoryRuleActions.value[actionType]

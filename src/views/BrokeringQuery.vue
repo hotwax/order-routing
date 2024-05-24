@@ -663,6 +663,16 @@ async function addInventoryRule() {
 
       const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
       if(routingRuleId) {
+        // Updating the rule action to NEXT_RULE by default after creation
+        await store.dispatch("orderRouting/updateRule", {
+          routingRuleId,
+          orderRoutingId: props.orderRoutingId,
+          actions: [{
+            actionTypeEnumId: "ORA_NEXT_RULE",
+            actionValue: "",
+            createdDate: DateTime.now().toMillis()
+          }]
+        })
         // TODO: Fix warning of duplicate keys when creating a new rule
         inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
         fetchRuleInformation(routingRuleId)

@@ -22,17 +22,19 @@ const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<
   });
 }
 
-const fetchRoutingHistory = async (routingGroupId: string): Promise<any> => {
+const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise<any> => {
   return api({
     url: `groups/${routingGroupId}/routingRuns`,
-    method: "GET"
+    method: "GET",
+    params
   });
 }
 
-const fetchGroupHistory = async (jobName: string): Promise<any> => {
+const fetchGroupHistory = async (jobName: string, params: any): Promise<any> => {
   return api({
     url: `serviceJobRuns/${jobName}`,
-    method: "GET"
+    method: "GET",
+    params
   });
 }
 

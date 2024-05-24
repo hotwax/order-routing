@@ -45,22 +45,33 @@ import { defineProps, ref } from "vue";
 const props = defineProps({
   archivedRoutings: {
     required: true
-  }
+  },
+  saveRoutings: {
+    required: true
+  } as any
 })
 
 let routings = ref(props.archivedRoutings) as any
-let routingsToUpdate = ref([]) as any
 
+// Not passing any data on modal close as we are updating the routings on every button click.
 function closeModal() {
-  modalController.dismiss({ dismissed: true, routings: routingsToUpdate.value.length ? routingsToUpdate.value.concat(routings.value) : [] });
+  modalController.dismiss();
 }
 
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {
-  routingsToUpdate.value.push({
-    ...routing,
-    [fieldToUpdate]: value
-  })
   // remove the updated routing from the archivedRoutings
   routings.value = routings.value.filter((route: Route) => route.orderRoutingId !== routing.orderRoutingId)
+
+  /*
+  Instead of updating the same on closeModal we are updating it on every routing unarchive action, as if a user
+  unarchives multiple routings and then click backdrop then the updated data can't be sent back to the parent component.
+  Thus used this approach to update the parent data on every routing unarchive click
+
+  As we need the feature to save the routing status even when backdrop is clicked thus added above approach
+  */
+  props.saveRoutings([{
+    ...routing,
+    [fieldToUpdate]: value
+  }, ...routings.value])
 }
 </script>

@@ -46,7 +46,9 @@ axios.interceptors.response.use(function (response) {
     const { status } = error.response;
     if (status === StatusCodes.UNAUTHORIZED) {
       store.dispatch("user/logout");
-      router.push("/login")
+      const redirectUrl = window.location.origin + '/login';
+      // Explicitly passing isLoggedOut as in case of maarg apps we need to call the logout api in launchpad
+      window.location.href = `${process.env.VUE_APP_LOGIN_URL}?redirectUrl=${redirectUrl}&isLoggedOut=true`;
     }
   }
   // Any status codes that falls outside the range of 2xx cause this function to trigger

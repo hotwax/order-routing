@@ -17,7 +17,7 @@
                 <ion-label>
                   <h1 v-show="!isGroupNameUpdating">{{ groupName }}</h1>
                   <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'groupName' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
+                  <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
                   <p>{{ currentRoutingGroup.routingGroupId }}</p>
                 </ion-label>
                 <div>
@@ -126,47 +126,49 @@
           </section>
         </main>
         <aside>
-          <ion-list v-if="routingsForReorder.length">
-            <ion-list-header>
-              <ion-label>{{ translate("Order batches") }}</ion-label>
-              <ion-button color="primary" fill="clear" @click="createOrderRoute">
-                {{ translate("New") }}
-                <ion-icon :icon="addCircleOutline" />
-              </ion-button>
-            </ion-list-header>
-            <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-card class="pointer" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
-                <ion-item lines="full">
-                  <ion-label>
-                    <h1>{{ routing.routingName }}</h1>
-                  </ion-label>
-                  <ion-reorder>
-                    <ion-chip outline>
-                      <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
-                      <ion-icon :icon="reorderTwoOutline"/>
+          <ion-list v-if="orderRoutings.length">
+            <template v-if="routingsForReorder.length">
+              <ion-list-header>
+                <ion-label>{{ translate("Order batches") }}</ion-label>
+                <ion-button color="primary" fill="clear" @click="createOrderRoute">
+                  {{ translate("New") }}
+                  <ion-icon :icon="addCircleOutline" />
+                </ion-button>
+              </ion-list-header>
+              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
+                <ion-card class="pointer" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
+                  <ion-item lines="full">
+                    <ion-label>
+                      <h1>{{ routing.routingName }}</h1>
+                    </ion-label>
+                    <ion-reorder>
+                      <ion-chip outline>
+                        <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
+                        <ion-icon :icon="reorderTwoOutline"/>
+                      </ion-chip>
+                    </ion-reorder>
+                  </ion-item>
+                  <ion-item lines="full">
+                    <ion-icon :icon="timeOutline" slot="start" />
+                    <ion-label>{{ translate("Last run") }}</ion-label>
+                    <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
+                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
                     </ion-chip>
-                  </ion-reorder>
-                </ion-item>
-                <ion-item lines="full">
-                  <ion-icon :icon="timeOutline" slot="start" />
-                  <ion-label>{{ translate("Last run") }}</ion-label>
-                  <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                    <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
-                  </ion-chip>
-                </ion-item>
-                <ion-item lines="none">
-                  <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : ''" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
-                  <div slot="end">
-                    <ion-button fill="clear" color="medium" @click.stop="cloneRouting(routing)">
-                      <ion-icon slot="icon-only" :icon="copyOutline" />
-                    </ion-button>
-                    <ion-button fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
-                      <ion-icon slot="icon-only" :icon="archiveOutline" />
-                    </ion-button>
-                  </div>
-                </ion-item>
-              </ion-card>
-            </ion-reorder-group>
+                  </ion-item>
+                  <ion-item lines="none">
+                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : ''" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                    <div slot="end">
+                      <ion-button fill="clear" color="medium" @click.stop="cloneRouting(routing)">
+                        <ion-icon slot="icon-only" :icon="copyOutline" />
+                      </ion-button>
+                      <ion-button fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
+                        <ion-icon slot="icon-only" :icon="archiveOutline" />
+                      </ion-button>
+                    </div>
+                  </ion-item>
+                </ion-card>
+              </ion-reorder-group>
+            </template>
             <ion-card v-if="getArchivedOrderRoutings().length">
               <ion-item button lines="none" @click="openArchivedRoutingModal()">
                 <ion-label>{{ translate("Archived") }}</ion-label>
@@ -336,7 +338,7 @@ async function fetchGroupHistory() {
   }
 
   try {
-    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName)
+    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
 
     if(!hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
@@ -475,12 +477,14 @@ async function updateGroupStatus(event: CustomEvent) {
 
   const payload = {
     routingGroupId: props.routingGroupId,
-    paused: job.value.paused
+    paused: job.value.paused,
+    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)){
+      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
       showToast(translate("Group status updated"))
     } else {
       throw resp.data
@@ -620,21 +624,24 @@ function doReorder(event: CustomEvent) {
 async function openArchivedRoutingModal() {
   const archivedRoutingModal = await modalController.create({
     component: ArchivedRoutingModal,
-    componentProps: { archivedRoutings: getArchivedOrderRoutings() }
-  })
-
-  archivedRoutingModal.onDidDismiss().then((result: any) => {
-    if(result.data?.routings?.length) {
-      hasUnsavedChanges.value = true
-      orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(result.data?.routings))
+    componentProps: {
+      archivedRoutings: getArchivedOrderRoutings(),
+      // Passed a function as prop to update the routings whenever routing is unarchived from a modal
+      saveRoutings: (routings: any) => {
+        if(routings) {
+          hasUnsavedChanges.value = true
+          orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+        }
+        initializeOrderRoutings()
+      }
     }
-    initializeOrderRoutings()
   })
 
   archivedRoutingModal.present();
 }
 
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  await store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
@@ -718,6 +725,7 @@ async function updateRoutingGroup(payload: any) {
 }
 
 async function showGroupHistory() {
+  await fetchGroupHistory()
   const groupHistoryModal = await modalController.create({
     component: GroupHistoryModal,
     componentProps: { groupHistory: groupHistory.value }
@@ -811,9 +819,5 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
-}
-
-ion-input.groupName {
-  --background: var(--ion-color-light)
 }
 </style>

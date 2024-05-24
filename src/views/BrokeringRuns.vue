@@ -113,6 +113,10 @@ onIonViewWillEnter(async () => {
 })
 
 function timeTillRun(time: any) {
+  if(!time) {
+    return;
+  }
+
   const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
   return DateTime.local().plus(timeDiff).toRelative();
 }

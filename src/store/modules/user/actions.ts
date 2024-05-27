@@ -62,7 +62,7 @@ const actions: ActionTree<UserState, RootState> = {
     commit(types.USER_END_SESSION)
     this.dispatch("orderRouting/clearRouting")
     this.dispatch("util/clearUtilState")
-    dispatch("setOMSRedirectionInfo", { url: "", token: "" })
+    dispatch("setOmsRedirectionInfo", { url: "", token: "" })
     resetConfig();
 
     // reset plugin state on logout

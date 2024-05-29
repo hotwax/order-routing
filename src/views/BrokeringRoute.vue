@@ -788,6 +788,8 @@ ion-content > div {
 }
 
 .save-batches {
+  position: sticky;
+  bottom: 0;
   border-top: 1px solid #92949C;
 }
 

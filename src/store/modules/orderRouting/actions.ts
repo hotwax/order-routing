@@ -15,7 +15,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     let routingGroups = [] as any;
     // filter groups on the basis of productStoreId
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId
+      productStoreId: store.state.user.currentEComStore.productStoreId,
+      pageSize: 200
     }
 
     try {
@@ -216,7 +217,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     let routingHistory = {}
 
     try {
-      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId, { orderByField: "startDate DESC" })
+      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId, { orderByField: "startDate DESC", pageSize: 500 })
   
       if(!hasError(resp)) {
         // Sorting the history based on startTime, as we does not get the records in sorted order from api

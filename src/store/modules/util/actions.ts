@@ -15,7 +15,10 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     try {
-      const resp = await UtilService.fetchEnums(payload);
+      const resp = await UtilService.fetchEnums({
+        ...payload,
+        pageSize: 500
+      });
 
       if(!hasError(resp) && resp.data.length) {
         enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
@@ -45,7 +48,8 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      parentTypeId: "VIRTUAL_FACILITY"
+      parentTypeId: "VIRTUAL_FACILITY",
+      pageSize: 200
     }
 
     try {
@@ -74,7 +78,8 @@ const actions: ActionTree<UtilState, RootState> = {
 
     // Fetching shipping methods for productStore of the currentGroup
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+      pageSize: 200
     }
 
     try {
@@ -102,7 +107,8 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+      pageSize: 200
     }
 
     try {

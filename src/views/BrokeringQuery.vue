@@ -1315,7 +1315,7 @@ function updatePartialGroupItemsAllocation(checked: boolean) {
 }
 
 function isPartialGroupItemsAllocationActive() {
-  return inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code].fieldValue  === "Y" ? true : false;
+  return inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code].fieldValue  === 'Y' ? true : false;
 }
 </script>
 

@@ -242,6 +242,9 @@
                       <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
                     </ion-label>
                   </ion-item>
+                  <ion-item lines="none">
+                    <ion-toggle :disabled="selectedRoutingRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
+                  </ion-item>
                 </ion-card>
                 <ion-card>
                   <ion-card-header>
@@ -1293,6 +1296,26 @@ async function save() {
 
   hasUnsavedChanges.value = false
   emitter.emit("dismissLoader")
+}
+
+function updatePartialGroupItemsAllocation(checked: boolean) {
+  if(inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code]){
+    inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code].fieldValue = checked ? 'Y' : 'N'
+  } else {
+    inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code] = {
+      routingRuleId: selectedRoutingRule.value.routingRuleId,
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName: conditionFilterEnums["SPLIT_ITEM_GROUP"].code,
+      fieldValue: checked ? "Y" : "N",
+      sequenceNum: Object.keys(inventoryRuleFilterOptions.value).length && inventoryRuleFilterOptions.value[Object.keys(inventoryRuleFilterOptions.value)[Object.keys(inventoryRuleFilterOptions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleFilterOptions.value[Object.keys(inventoryRuleFilterOptions.value)[Object.keys(inventoryRuleFilterOptions.value).length - 1]].sequenceNum + 5 : 0,
+      createdDate: DateTime.now().toMillis()
+    }
+  }
+  updateRule()
+}
+
+function isPartialGroupItemsAllocationActive() {
+  return inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code].fieldValue  === 'Y' ? true : false;
 }
 </script>
 

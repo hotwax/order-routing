@@ -39,6 +39,36 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_ENUMS_UPDATED, enums)
   },
 
+  async fetchOmsEnums({ commit, state }, payload) {
+    let enums = {
+      ...state.enums
+    }
+
+    try {
+      const resp = await UtilService.fetchOmsEnums({
+        ...payload,
+        pageSize: 500
+      });
+
+      if(!hasError(resp) && resp.data.length) {
+        enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+          if(enumerations[data.enumTypeId]) {
+            enumerations[data.enumTypeId][data.enumId] = data
+          } else {
+            enumerations[data.enumTypeId] = {
+              [data.enumId]: data
+            }
+          }
+          return enumerations
+        }, enums)
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    commit(types.UTIL_ENUMS_UPDATED, enums)
+  },
+
   async fetchFacilities({ commit, state }) {
     let facilities = JSON.parse(JSON.stringify(state.facilities))
 

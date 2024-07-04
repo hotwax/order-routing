@@ -108,6 +108,7 @@
   "Origin Facility Group": "Origin Facility Group",
   "operator": "operator",
   "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.": "Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.",
+  "Partially allocate grouped items": "Partially allocate grouped items",
   "Partially available": "Partially available",
   "Passed duration": "Passed duration",
   "Password":  "Password",

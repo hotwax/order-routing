@@ -5,12 +5,12 @@
         <ion-buttons slot="start">
           <ion-back-button :default-href="`/tabs/brokering/${currentRoutingGroup.routingGroupId}/routes`" />
         </ion-buttons>
-        <ion-title>{{ currentRouting.routingName }}</ion-title>
+        <ion-title>{{ translate("Routing") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
       <main>
-        <section id="order-filters" class="menu">
+        <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
               <h1 v-show="!isRouteNameUpdating">{{ currentRouting.routingName }}</h1>

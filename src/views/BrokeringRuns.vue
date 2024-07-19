@@ -59,7 +59,7 @@
                 <ion-label>
                   {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-label>
-                <ion-badge slot="end" color="dark">{{ translate("Draft") }}</ion-badge>
+                <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
               </ion-item>
               <ion-item lines="none">
                 {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}

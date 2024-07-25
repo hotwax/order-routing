@@ -586,7 +586,7 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
   
   const inventoryFilterOptionsModal = await modalController.create({
     component: AddInventoryFilterOptionsModal,
-    componentProps: { ruleConditions: conditionTypeEnumId === "ENTCT_FILTER" ? inventoryRuleFilterOptions.value : inventoryRuleSortOptions.value, routingRuleId: selectedRoutingRule.value.routingRuleId, parentEnumId, conditionTypeEnumId, label }
+    componentProps: { ruleConditions: conditionTypeEnumId === "ENTCT_FILTER" ? inventoryRuleFilterOptions.value : inventoryRuleSortOptions.value, routingRuleId: selectedRoutingRule.value.routingRuleId, parentEnumId, conditionTypeEnumId, label, filterOptions: inventoryRuleFilterOptions.value } // Passing filterOptions always as we need to make some sort options dependent on filters, so instead of updating the original flow, just passing the filter options always and will add the check on them.
   })
 
   inventoryFilterOptionsModal.onDidDismiss().then((result: any) => {

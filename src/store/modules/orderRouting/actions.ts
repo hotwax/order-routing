@@ -419,6 +419,14 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async clearRules({ commit }) {
     commit(types.ORDER_ROUTING_RULES_UPDATED, {})
+  },
+
+  async updateGroupStatus({ commit, state }, payload) {
+    const routingGroups = JSON.parse(JSON.stringify(state.groups))
+    const routingGroup = routingGroups.find((routingGroup: any) => routingGroup.routingGroupId === payload.routingGroupId)
+    routingGroup["schedule"]["paused"] = payload.value
+    commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
+    return routingGroups
   }
 }
 

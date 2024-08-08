@@ -63,6 +63,9 @@
               </ion-item>
               <ion-item lines="none">
                 {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
+                <ion-button fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
+                  <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
+                </ion-button>
               </ion-item>
             </ion-card>
           </section>
@@ -82,12 +85,13 @@
 </template>
 
 <script setup lang="ts">
+import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
-import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter } from "@ionic/vue";
-import { addOutline, arrowForwardOutline } from "ionicons/icons"
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addOutline, arrowForwardOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -175,6 +179,23 @@ function getScheduleFrequency(cronExp: string) {
 
 async function redirect(group: Group) {
   router.push(`brokering/${group.routingGroupId}/routes`)
+}
+
+async function groupActionsPopover(group: Group, ev: Event) {
+  const popover = await popoverController.create({
+    component: GroupActionsPopover,
+    showBackdrop: false,
+    event: ev,
+    componentProps: { group }
+  });
+
+  popover.onDidDismiss().then((result: any) => {
+    if(result.data?.routingGroups?.length) {
+      brokeringGroups.value = JSON.parse(JSON.stringify(result.data.routingGroups))
+    }
+  })
+
+  return popover.present()
 }
 
 </script>

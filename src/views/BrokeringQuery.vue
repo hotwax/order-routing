@@ -114,15 +114,19 @@
           <section id="inventory-sequence" class="menu">
             <ion-list>
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-                <ion-item lines="full" v-for="rule in inventoryRules" :key="rule.routingRuleId && inventoryRules.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
+                <ion-item lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
                   <ion-label>
                     <h2>{{ rule.ruleName }}</h2>
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                   </ion-label>
                   <!-- Don't display reordering option when there is a single rule -->
-                  <ion-reorder v-show="inventoryRules.length > 1" />
+                  <ion-reorder v-show="rulesForReorder.length > 1" />
                 </ion-item>
               </ion-reorder-group>
+              <ion-item v-if="getArchivedOrderRules().length > 0" button @click="openArchivedRuleModal()" lines="full">
+                <ion-label>{{ translate("Archived") }}</ion-label>
+                <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
+              </ion-item>
             </ion-list>
             <ion-button fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
@@ -309,7 +313,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, nextTick, ref } from "vue";
@@ -325,6 +329,7 @@ import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
+import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 
 const router = useRouter();
 const props = defineProps({
@@ -362,6 +367,7 @@ let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
 let routeName = ref("")
 let isRouteNameUpdating = ref(false)
+let rulesForReorder = ref([]) as any
 
 const routeNameRef = ref()
 const operatorRef = ref()
@@ -385,7 +391,8 @@ onIonViewWillEnter(async () => {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(currentRuleId.value || inventoryRules.value[0].routingRuleId);
+    initializeInventoryRules()
+    await fetchRuleInformation(currentRuleId.value || rulesForReorder.value[0].routingRuleId);
   }
 
   routeName.value = currentRouting.value["routingName"] ? currentRouting.value["routingName"] : ""
@@ -446,7 +453,7 @@ async function chipClickEvent(ref: any) {
 
 function getRouteIndex() {
   // Filtering archived routes as the index and total count needs to calculated by excluding the archived routes
-  const activeAndDraftRoute = currentRoutingGroup.value["routings"].filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED")
+  const activeAndDraftRoute = currentRoutingGroup.value["routings"]?.filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED")
   const total = activeAndDraftRoute.length
   const currentRouteIndex: any = Object.keys(activeAndDraftRoute).find((key: any) => activeAndDraftRoute[key].orderRoutingId === props.orderRoutingId)
 
@@ -455,8 +462,8 @@ function getRouteIndex() {
 }
 
 function getRuleIndex() {
-  const total = inventoryRules.value.length
-  const currentRuleIndex: any = Object.keys(inventoryRules.value).find((key: any) => inventoryRules.value[key].routingRuleId == selectedRoutingRule.value.routingRuleId)
+  const total = rulesForReorder.value.length
+  const currentRuleIndex: any = Object.keys(rulesForReorder.value).find((key: any) => rulesForReorder.value[key].routingRuleId == selectedRoutingRule.value.routingRuleId)
 
   // adding one (1) as currentRuleIndex will have the index based on array, and used + as currentRuleIndex is a string
   return `${+currentRuleIndex + 1}/${total}`
@@ -487,7 +494,7 @@ function initializeOrderRoutingOptions() {
   orderRoutingSortOptions.value = orderRouteFilters["ENTCT_SORT_BY"] ? orderRouteFilters["ENTCT_SORT_BY"] : {}
 }
 
-async function initializeInventoryRules(rule: any) {
+async function initializeInventoryRule(rule: any) {
   const inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
 
   inventoryRuleActions.value = rule["actions"] || {}
@@ -567,15 +574,15 @@ async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) 
     rulesInformation.value = JSON.parse(JSON.stringify(routingRules.value))
   }
 
-  // Using currentRouting["rules"] deep-cloned object here, as we will update the change in rules with route changes and not with rules filter changes
-  selectedRoutingRule.value = inventoryRules.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
+  // Using rulesForReorder object here, as we will update the change in rules only those are not archived
+  selectedRoutingRule.value = rulesForReorder.value.find((rule: Rule) => rule.routingRuleId === routingRuleId)
 
   // If failed to fetch the current routing rule information
   if(!selectedRoutingRule.value || !rulesInformation.value[routingRuleId]?.routingRuleId) {
     selectedRoutingRule.value = {}
   }
 
-  initializeInventoryRules(rulesInformation.value[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation.value[routingRuleId])) : {});
+  initializeInventoryRule(rulesInformation.value[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation.value[routingRuleId])) : {});
 }
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
@@ -678,6 +685,7 @@ async function addInventoryRule() {
         })
         // TODO: Fix warning of duplicate keys when creating a new rule
         inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+        initializeInventoryRules()
         fetchRuleInformation(routingRuleId)
       }
     }
@@ -938,7 +946,14 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
       inventoryRule.statusId = event.detail.value
     }
   })
+
+  // When archiving a rule, we do not want that rule details to be dispalyed any more thus clearing selectedRoutingRule
+  if(event.detail.value === "RULE_ARCHIVED") {
+    selectedRoutingRule.value = {}
+  }
+
   hasUnsavedChanges.value = true
+  initializeInventoryRules()
 }
 
 async function editRuleName() {
@@ -1150,10 +1165,10 @@ function findActionDiff(previousSeq: any, updatedSeq: any) {
 }
 
 function doReorder(event: CustomEvent) {
-  const previousSeq = JSON.parse(JSON.stringify(inventoryRules.value))
+  const previousSeq = JSON.parse(JSON.stringify(rulesForReorder.value))
 
   // returns the updated sequence after reordering
-  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(inventoryRules.value)));
+  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(rulesForReorder.value)));
 
   let diffSeq = findRulesDiff(previousSeq, updatedSeq)
 
@@ -1164,7 +1179,7 @@ function doReorder(event: CustomEvent) {
 
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
 
-  inventoryRules.value = updatedSeq
+  rulesForReorder.value = updatedSeq
   hasUnsavedChanges.value = true
 }
 
@@ -1316,6 +1331,37 @@ function updatePartialGroupItemsAllocation(checked: boolean) {
 
 function isPartialGroupItemsAllocationActive() {
   return inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code]?.fieldValue === 'Y';
+}
+
+function initializeInventoryRules() {
+  rulesForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRules()))
+}
+
+function getActiveAndDraftOrderRules() {
+  return inventoryRules.value.filter((rule: Rule) => rule.statusId !== "RULE_ARCHIVED")
+}
+
+function getArchivedOrderRules() {
+  return inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_ARCHIVED")
+}
+
+async function openArchivedRuleModal() {
+  const archivedRuleModal = await modalController.create({
+    component: ArchivedRuleModal,
+    componentProps: {
+      archivedRules: getArchivedOrderRules(),
+      // Passed a function as prop to update the rules whenever rule is unarchived from a modal
+      saveRules: (rules: any) => {
+        if(rules) {
+          hasUnsavedChanges.value = true
+          inventoryRules.value = sortSequence(getActiveAndDraftOrderRules().concat(rules))
+        }
+        initializeInventoryRules()
+      }
+    }
+  })
+
+  archivedRuleModal.present();
 }
 </script>
 

@@ -30,6 +30,8 @@ npm-debug.log*
 /plugins
 /www
 
+.firebase
+
 .env
 .env.*
 !.env.example

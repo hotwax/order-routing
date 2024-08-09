@@ -5,7 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/tabs/brokering" />
         </ion-buttons>
-        <ion-title>{{ groupName }}</ion-title>
+        <ion-title>{{ translate("Routing Run") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -13,14 +13,14 @@
         <main>
           <section class="route-details">
             <ion-card class="info">
-              <div class="ion-padding">
-                <ion-label>
-                  <h1 v-show="!isGroupNameUpdating">{{ groupName }}</h1>
+              <div>
+                <ion-card-header>
+                  <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
                   <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
                   <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
-                  <p>{{ currentRoutingGroup.routingGroupId }}</p>
-                </ion-label>
-                <div>
+                  <ion-card-subtitle>{{ currentRoutingGroup.routingGroupId }}</ion-card-subtitle>
+                </ion-card-header>
+                <div class="ion-padding">
                   <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
                     <ion-icon slot="start" :icon="pencilOutline" />
                     {{ translate("Rename") }}
@@ -157,7 +157,7 @@
                     </ion-chip>
                   </ion-item>
                   <ion-item lines="none">
-                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : ''" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                     <div slot="end">
                       <ion-button fill="clear" color="medium" @click.stop="cloneRouting(routing)">
                         <ion-icon slot="icon-only" :icon="copyOutline" />
@@ -173,7 +173,7 @@
             <ion-card v-if="getArchivedOrderRoutings().length">
               <ion-item button lines="none" @click="openArchivedRoutingModal()">
                 <ion-label>{{ translate("Archived") }}</ion-label>
-                <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ translate("rules") }}</ion-badge>
+                <ion-badge color="medium">{{ getArchivedOrderRoutings().length }}{{ translate(getArchivedOrderRoutings().length > 1 ? "rules" : "rule") }}</ion-badge>
               </ion-item>
             </ion-card>
           </ion-list>
@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";

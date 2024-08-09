@@ -15,7 +15,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     let routingGroups = [] as any;
     // filter groups on the basis of productStoreId
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId
+      productStoreId: store.state.user.currentEComStore.productStoreId,
+      pageSize: 200
     }
 
     try {
@@ -163,14 +164,41 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     return orderRoutingId;
   },
 
+  async cloneOrderRouting({ dispatch }, payload) {
+    let orderRoutingId = ""
+
+    try {
+      const resp = await OrderRoutingService.cloneRouting({
+        orderRoutingId: payload.orderRoutingId,
+        newRoutingName: `${payload.orderRoutingName} copy`,
+        newRoutingGroupId: payload.routingGroupId // group in which this routing needs to be cloned
+      })
+
+      if(!hasError(resp) && resp?.data.newOrderRoutingId) {
+        orderRoutingId = resp.data.newOrderRoutingId
+        showToast(translate("Routing cloned"))
+
+        // TODO: check if we can get all the information in response so we do not need to make an api call here
+        // Fetching the group information again as we do not have the complete information for the cloned route
+        await dispatch("fetchCurrentRoutingGroup", payload.routingGroupId)
+      }
+    } catch(err) {
+      showToast(translate("Failed to clone order routing"))
+      logger.error(err)
+    }
+
+    return orderRoutingId;
+  },
+
   async fetchCurrentOrderRouting({ dispatch }, orderRoutingId) {
-    let currentRoute = {}
+    let currentRoute = {} as any
 
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
+        currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
       } else {
         throw resp.data
       }
@@ -185,18 +213,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     commit(types.ORDER_ROUTING_CURRENT_ROUTE_UPDATED, payload)
   },
 
-  async fetchRoutingHistory({ commit, state }, routingGroupId) {
-    const history = Object.values(state.routingHistory)[0] as any
-
-    // If the routing history for the current group is already available then don't fetch the history again
-    if(history?.length && history[0].routingGroupId === routingGroupId) {
-      return;
-    }
-
+  async fetchRoutingHistory({ commit }, routingGroupId) {
     let routingHistory = {}
 
     try {
-      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId)
+      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId, { orderByField: "startDate DESC", pageSize: 500 })
   
       if(!hasError(resp)) {
         // Sorting the history based on startTime, as we does not get the records in sorted order from api

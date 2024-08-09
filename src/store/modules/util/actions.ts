@@ -15,7 +15,40 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     try {
-      const resp = await UtilService.fetchEnums(payload);
+      const resp = await UtilService.fetchEnums({
+        ...payload,
+        pageSize: 500
+      });
+
+      if(!hasError(resp) && resp.data.length) {
+        enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+          if(enumerations[data.enumTypeId]) {
+            enumerations[data.enumTypeId][data.enumId] = data
+          } else {
+            enumerations[data.enumTypeId] = {
+              [data.enumId]: data
+            }
+          }
+          return enumerations
+        }, enums)
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    commit(types.UTIL_ENUMS_UPDATED, enums)
+  },
+
+  async fetchOmsEnums({ commit, state }, payload) {
+    let enums = {
+      ...state.enums
+    }
+
+    try {
+      const resp = await UtilService.fetchOmsEnums({
+        ...payload,
+        pageSize: 500
+      });
 
       if(!hasError(resp) && resp.data.length) {
         enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
@@ -45,7 +78,8 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      parentTypeId: "VIRTUAL_FACILITY"
+      parentTypeId: "VIRTUAL_FACILITY",
+      pageSize: 200
     }
 
     try {
@@ -74,7 +108,8 @@ const actions: ActionTree<UtilState, RootState> = {
 
     // Fetching shipping methods for productStore of the currentGroup
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+      pageSize: 200
     }
 
     try {
@@ -103,7 +138,7 @@ const actions: ActionTree<UtilState, RootState> = {
 
     const payload = {
       productStoreId: store.state.orderRouting.currentGroup.productStoreId,
-      facilityGroupTypeId: "BROKERING_GROUP"
+      pageSize: 200
     }
 
     try {

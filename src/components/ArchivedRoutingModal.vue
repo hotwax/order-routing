@@ -72,6 +72,6 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
   props.saveRoutings([{
     ...routing,
     [fieldToUpdate]: value
-  }])
+  }, ...routings.value])
 }
 </script>

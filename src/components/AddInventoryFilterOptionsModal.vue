@@ -9,7 +9,10 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-list>
+      <div v-if="!enumerations.length" class="empty-state">
+        <p>{{ translate(`Failed to fetch ${props.label?.toLowerCase()} options`) }}</p>
+      </div>
+      <ion-list v-else>
         <ion-item v-for="condition in enumerations" :key="condition.enumId">
           <ion-checkbox :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">{{ condition.description || condition.enumCode }}</ion-checkbox>
         </ion-item>
@@ -60,13 +63,13 @@ let inventoryRuleConditions = ref({}) as any
 let enumerations = ref([]) as any
 let areFiltersUpdated = ref(false)
 
-const hiddenOptions = ["IIP_MSMNT_SYSTEM"]
+const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP"]
 // managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
 const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultValue: "IMPERIAL" }} as any
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
-  enumerations.value = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId))
+  enumerations.value = enums.value[props.parentEnumId] ? Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !hiddenOptions.includes(enumeration.enumId)) : []
 })
 
 function checkFilters() {

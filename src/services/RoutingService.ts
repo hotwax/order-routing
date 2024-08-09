@@ -22,17 +22,19 @@ const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<
   });
 }
 
-const fetchRoutingHistory = async (routingGroupId: string): Promise<any> => {
+const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise<any> => {
   return api({
     url: `groups/${routingGroupId}/routingRuns`,
-    method: "GET"
+    method: "GET",
+    params
   });
 }
 
-const fetchGroupHistory = async (jobName: string): Promise<any> => {
+const fetchGroupHistory = async (jobName: string, params: any): Promise<any> => {
   return api({
     url: `serviceJobRuns/${jobName}`,
-    method: "GET"
+    method: "GET",
+    params
   });
 }
 
@@ -47,6 +49,14 @@ const createRoutingGroup = async (payload: any): Promise<any> => {
 const updateRoutingGroup = async (payload: any): Promise<any> => {
   return api({
     url: `groups/${payload.routingGroupId}`,
+    method: "POST",
+    data: payload
+  })
+}
+
+const cloneGroup = async (payload: any): Promise<any> => {
+  return api({
+    url: `groups/${payload.routingGroupId}/clone`,
     method: "POST",
     data: payload
   })
@@ -70,6 +80,14 @@ const createRoutingRule = async (payload: any): Promise<any> => {
 const createOrderRouting = async (payload: any): Promise<any> => {
   return await api({
     url: "routings",
+    method: "POST",
+    data: payload
+  })
+}
+
+const cloneRouting = async (payload: any): Promise<any> => {
+  return await api({
+    url: `routings/${payload.orderRoutingId}/clone`,
     method: "POST",
     data: payload
   })
@@ -114,6 +132,14 @@ const fetchRule = async (routingRuleId: string): Promise<any> => {
   });
 }
 
+const cloneRule = async (payload: any): Promise<any> => {
+  return await api({
+    url: `rules/${payload.routingRuleId}/clone`,
+    method: "POST",
+    data: payload
+  })
+}
+
 const updateRule = async (payload: any): Promise<any> => {
   return api({
     url: `rules/${payload.routingRuleId}`,
@@ -138,7 +164,10 @@ const runNow = async (routingGroupId: string): Promise<any> => {
 }
 
 export const OrderRoutingService = {
+  cloneGroup,
   createOrderRouting,
+  cloneRouting,
+  cloneRule,
   createRoutingGroup,
   createRoutingRule,
   deleteRoutingFilter,

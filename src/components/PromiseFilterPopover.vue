@@ -53,7 +53,13 @@ async function updatePromiseDate(header = '', isPastDuration = false) {
       placeholder: translate("duration"),
       min: 0,
       type: "number",
-      value: props.value?.replace("-", "")
+      value: props.value > 0 && !isPastDuration ? props.value : props.value < 0 && isPastDuration ? props.value?.replace("-", "") : '', // Prefill the value only when the previously selected option and current selection matches
+      attributes: {
+        // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
+        onkeydown: ($event: any) => {
+          if(/[`!@#$%^&*()_+\-=\\|,.<>?~]/.test($event.key)) $event.preventDefault();
+        }
+      }
     }]
   })
 

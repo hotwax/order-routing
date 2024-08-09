@@ -1,5 +1,13 @@
 <template>
   <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button :default-href="`/tabs/brokering/${currentRoutingGroup.routingGroupId}/routes`" />
+        </ion-buttons>
+        <ion-title>{{ currentRouting.routingName }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
     <ion-content>
       <main>
         <section id="order-filters" class="menu">
@@ -9,9 +17,8 @@
               <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
               <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
             </ion-label>
-            <ion-chip slot="end" outline @click="router.go(-1)">
+            <ion-chip slot="end" outline>
               {{ getRouteIndex() }}
-              <ion-icon :icon="chevronUpOutline" />
             </ion-chip>
           </ion-item>
           <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
@@ -77,6 +84,11 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
+              <ion-select multiple :placeholder="translate('facility group')" :label="translate('Origin Facility Group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
+                <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
           </ion-item-group>
           <ion-item-group>
             <ion-item-divider color="light">
@@ -114,7 +126,7 @@
             </ion-list>
             <ion-button fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
-              <ion-icon :icon="addCircleOutline"/>
+              <ion-icon :icon="addCircleOutline" slot="end"/>
             </ion-button>
           </section>
           <div v-if="selectedRoutingRule?.routingRuleId">
@@ -125,11 +137,11 @@
                   <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
                 </ion-label>
                 <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                <ion-input :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+                <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
               </ion-item>
               <div>
                 <ion-item>
-                  <ion-icon slot="start" :icon="bookmarkOutline" />
+                  <ion-icon slot="start" :icon="pulseOutline" />
                   <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
                     <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
                     <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
@@ -138,14 +150,14 @@
                 </ion-item>
                 <ion-item>
                   <div slot="end">
-                    <ion-button size="small" @click="isRuleNameUpdating = !isRuleNameUpdating; updateRuleName(selectedRoutingRule.routingRuleId)" fill="outline">
+                    <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
                       <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                       {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                     </ion-button>
-                    <ion-button size="small" @click="cloneRule" fill="outline">
+                    <!-- <ion-button size="small" @click="cloneRule" fill="outline">
                       <ion-icon slot="start" :icon="copyOutline"/>
                       {{ translate("Clone") }}
-                    </ion-button>
+                    </ion-button> -->
                   </div>
                 </ion-item>
               </div>
@@ -162,7 +174,7 @@
                 <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ translate("Select filter to apply") }}</p>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                   <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -230,6 +242,9 @@
                       <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
                     </ion-label>
                   </ion-item>
+                  <ion-item lines="none">
+                    <ion-toggle :disabled="selectedRoutingRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
+                  </ion-item>
                 </ion-card>
                 <ion-card>
                   <ion-card-header>
@@ -294,8 +309,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonToggle, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, bookmarkOutline, chevronUpOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { IonBackButton, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { addCircleOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import store from "@/store";
@@ -351,10 +366,11 @@ let isRouteNameUpdating = ref(false)
 const routeNameRef = ref()
 const operatorRef = ref()
 const measurementRef = ref()
+const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
+  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
   store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
@@ -446,6 +462,15 @@ function getRuleIndex() {
   return `${+currentRuleIndex + 1}/${total}`
 }
 
+function getFacilityGroupsForBrokering() {
+  return Object.values(facilityGroups.value)?.reduce((facilityGroups: any, group: any) => {
+    if(group.facilityGroupTypeId === "BROKERING_GROUP") {
+      facilityGroups[group.facilityGroupId] = group
+    }
+    return facilityGroups
+  }, {})
+}
+
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
@@ -519,7 +544,7 @@ async function updateRouteName() {
   isRouteNameUpdating.value = false
 }
 
-async function fetchRuleInformation(routingRuleId: string) {
+async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) {
   // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
   isRuleNameUpdating.value = false
 
@@ -527,12 +552,12 @@ async function fetchRuleInformation(routingRuleId: string) {
 
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
-  if(selectedRoutingRule.value.routingRuleId === routingRuleId) {
+  if(selectedRoutingRule.value.routingRuleId === routingRuleId && !forceUpdate) {
     return;
   }
 
   // Only fetch the rules information, if already not present, as we are updating rule values
-  if(!rulesInformation.value[routingRuleId]) {
+  if(!rulesInformation.value[routingRuleId] || forceUpdate) {
     rulesInformation.value[routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", routingRuleId)
   }
 
@@ -641,6 +666,16 @@ async function addInventoryRule() {
 
       const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
       if(routingRuleId) {
+        // Updating the rule action to NEXT_RULE by default after creation
+        await store.dispatch("orderRouting/updateRule", {
+          routingRuleId,
+          orderRoutingId: props.orderRoutingId,
+          actions: [{
+            actionTypeEnumId: "ORA_NEXT_RULE",
+            actionValue: "",
+            createdDate: DateTime.now().toMillis()
+          }]
+        })
         // TODO: Fix warning of duplicate keys when creating a new rule
         inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
         fetchRuleInformation(routingRuleId)
@@ -704,7 +739,13 @@ async function updateAutoCancelDays() {
       placeholder: translate("auto cancel days"),
       type: "number",
       min: 0,
-      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue
+      value: inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue,
+      attributes: {
+        // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
+        onkeydown: ($event: any) => {
+          if(/[`!@#$%^&*()_+\-=\\|,.<>?~]/.test($event.key)) $event.preventDefault();
+        }
+      }
     }],
     buttons: [{
       text: translate("Cancel"),
@@ -725,10 +766,8 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          // If we have received an empty/undefined value for autoCancelDays then considered that it needs to be removed
-          if(inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]?.actionValue) {
-            delete inventoryRuleActions.value[actionEnums["AUTO_CANCEL_DAYS"].id]
-          }
+          showToast(translate("Enter a valid value"))
+          return false;
         }
         updateRule()
       }
@@ -765,7 +804,7 @@ function getPromiseDateValue() {
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {
-  return options?.[enums[parameter].code]
+  return enums[parameter] ? options?.[enums[parameter].code] : undefined
 }
 
 function getSelectedValue(options: any, enumerations: any, parameter: string) {
@@ -782,13 +821,13 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
   if(value?.length > 1) {
     return `${value.length} ${translate("selected")}`
   } else {
-    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description || value[0] : facilities.value[value[0]]?.facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
   }
 }
 
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
-  const enumInfo: any = Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code)
+  const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
 
   return enumInfo?.description
 }
@@ -902,6 +941,13 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
   hasUnsavedChanges.value = true
 }
 
+async function editRuleName() {
+  isRuleNameUpdating.value = !isRuleNameUpdating.value;
+  // Waiting for DOM updations before focus inside the text-area, as it is conditionally rendered in the DOM
+  await nextTick()
+  ruleNameRef.value.$el.setFocus();
+}
+
 function updateRuleName(routingRuleId: string) {
   // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
   currentRouting.value["rules"].map((inventoryRule: any) => {
@@ -909,72 +955,28 @@ function updateRuleName(routingRuleId: string) {
       hasUnsavedChanges.value = true
     }
   })
+  isRuleNameUpdating.value = false;
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning rule ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
-  const payload = {
-    routingRuleId: "",
-    orderRoutingId: props.orderRoutingId,
-    ruleName: selectedRoutingRule.value.ruleName + ' copy',
-    statusId: "RULE_DRAFT", // by default when cloning the rule the new rule will be in draft status
-    sequenceNum: inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0, that will result in again setting the new route seqNum to 0,
-    assignmentEnumId: selectedRoutingRule.value.assignmentEnumId,
-    createdDate: DateTime.now().toMillis()
+  try {
+    const resp = await OrderRoutingService.cloneRule({
+      routingRuleId: selectedRoutingRule.value.routingRuleId,
+      newOrderRoutingId: props.orderRoutingId,
+      newRuleName: `${selectedRoutingRule.value.ruleName} copy`
+    })
+
+    if(hasError(resp) || !resp.data.newRoutingRuleId) {
+      throw resp.data
+    }
+
+    await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  } catch (err) {
+    logger.error(err)
+    showToast(translate("Failed to clone rule"))
   }
-
-  const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
-
-  if(!routingRuleId) {
-    showToast(translate("Failed to clone the rule"))
-    emitter.emit("dismissLoader")
-    return;
-  }
-
-  const sortOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-  const filterOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-  const actionOptions = rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] ? rulesInformation.value[selectedRoutingRule.value.routingRuleId]["actions"] : {}
-
-  let inventoryFilters = [] as any, actions = [] as any
-
-  Object.values(sortOptions).map((option: any) => {
-    inventoryFilters.push({
-      createdDate: DateTime.now().toMillis(),
-      conditionTypeEnumId: option.conditionTypeEnumId,
-      fieldName: option.fieldName,
-      sequenceNum: option.sequenceNum
-    })
-  })
-
-  Object.values(filterOptions).map((option: any) => {
-    inventoryFilters.push({
-      createdDate: DateTime.now().toMillis(),
-      conditionTypeEnumId: option.conditionTypeEnumId,
-      fieldName: option.fieldName,
-      fieldValue: option.fieldValue,
-      operator: option.operator,
-      sequenceNum: option.sequenceNum
-    })
-  })
-
-  Object.values(actionOptions).map((option: any) => {
-    actions.push({
-      actionTypeEnumId: option.actionTypeEnumId,
-      actionValue: option.actionValue,
-      createdDate: DateTime.now().toMillis(),
-    })
-  })
-
-  await store.dispatch("orderRouting/updateRule", {
-    routingRuleId,
-    orderRoutingId: props.orderRoutingId,
-    inventoryFilters,
-    actions
-  })
-
-  inventoryRules.value = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
-  fetchRuleInformation(routingRuleId)
 
   emitter.emit("dismissLoader")
 }
@@ -1287,11 +1289,33 @@ async function save() {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    await fetchRuleInformation(currentRuleId.value);
+    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
+    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
+    await fetchRuleInformation(currentRuleId.value, true);
   }
 
   hasUnsavedChanges.value = false
   emitter.emit("dismissLoader")
+}
+
+function updatePartialGroupItemsAllocation(checked: boolean) {
+  if(inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code]){
+    inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code].fieldValue = checked ? 'Y' : 'N'
+  } else {
+    inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code] = {
+      routingRuleId: selectedRoutingRule.value.routingRuleId,
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName: conditionFilterEnums["SPLIT_ITEM_GROUP"].code,
+      fieldValue: checked ? "Y" : "N",
+      sequenceNum: Object.keys(inventoryRuleFilterOptions.value).length && inventoryRuleFilterOptions.value[Object.keys(inventoryRuleFilterOptions.value)[Object.keys(inventoryRuleFilterOptions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleFilterOptions.value[Object.keys(inventoryRuleFilterOptions.value)[Object.keys(inventoryRuleFilterOptions.value).length - 1]].sequenceNum + 5 : 0,
+      createdDate: DateTime.now().toMillis()
+    }
+  }
+  updateRule()
+}
+
+function isPartialGroupItemsAllocationActive() {
+  return inventoryRuleFilterOptions.value[conditionFilterEnums["SPLIT_ITEM_GROUP"].code]?.fieldValue === 'Y';
 }
 </script>
 

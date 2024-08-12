@@ -14,7 +14,15 @@
       </div>
       <ion-list v-else>
         <ion-item v-for="condition in enumerations" :key="condition.enumId">
-          <ion-checkbox :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">{{ condition.description || condition.enumCode }}</ion-checkbox>
+          <ion-checkbox :disabled="isConditionDisabled(condition.enumId)" :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">
+            <template v-if="isConditionDisabled(condition.enumId)">
+              {{ condition.description || condition.enumCode }}<br/>
+              <ion-note>{{ `Only applicable when ${dependentOptions[condition.enumId].label} is selected` }}</ion-note>
+            </template>
+            <template v-else>
+              {{ condition.description || condition.enumCode }}
+            </template>
+          </ion-checkbox>
         </ion-item>
       </ion-list>
 
@@ -28,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonList, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonList, IonNote, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
@@ -57,13 +65,20 @@ const props = defineProps({
   },
   label: {
     type: String
+  },
+  filterOptions: {
+    type: Object
   }
 })
 let inventoryRuleConditions = ref({}) as any
 let enumerations = ref([]) as any
 let areFiltersUpdated = ref(false)
 
+// Added those enums here that needs to be hidden form the UI
 const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP"]
+
+// Add entries for the enums those are dependent on another filter {enumId: { code, label }}
+const dependentOptions = {"ISP_CUST_SEQ": { code: "facilityGroupId", label: "Facility group" }} as any
 // managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
 const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultValue: "IMPERIAL" }} as any
 
@@ -131,5 +146,14 @@ function isConditionOptionSelected(code: string) {
 
 function closeModal(action = "close") {
   modalController.dismiss({ dismissed: true, filters: inventoryRuleConditions.value }, action)
+}
+
+function isConditionDisabled(enumId: string) {
+  if(!dependentOptions[enumId]) {
+    return false;
+  }
+
+  // Added check on code as we only have code once a filter is selected
+  return !props.filterOptions?.[dependentOptions[enumId].code]
 }
 </script>

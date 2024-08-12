@@ -787,7 +787,8 @@ async function updateAutoCancelDays() {
 function updatePartialAllocation(checked: any) {
   inventoryRules.value.map((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
-      inventoryRule.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
+      // Updating selected routing rule explicitely as we are using rulesForReorder for fetching selected values
+      inventoryRule.assignmentEnumId = selectedRoutingRule.value.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
     }
   })
   hasUnsavedChanges.value = true

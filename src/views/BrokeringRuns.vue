@@ -4,7 +4,7 @@
       <ion-toolbar>
         <ion-title>{{ translate("Brokering Runs") }}</ion-title>
         
-        <ion-buttons slot="end">
+        <ion-buttons slot="end" v-if="brokeringGroups.length">
           <ion-button color="primary" @click="addNewRun">
             {{ translate("New Run") }}
             <ion-icon :icon="addOutline" />

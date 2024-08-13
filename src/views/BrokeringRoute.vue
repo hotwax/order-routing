@@ -97,7 +97,7 @@
                   <ion-select :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                     <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                   </ion-select> -->
-                  <ion-label>{{ cronstrue.toString(job.cronExpression) || job.cronExpression }}</ion-label>
+                  <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-icon slot="start" :icon="timeOutline"/>
@@ -297,6 +297,15 @@ onBeforeRouteLeave(async (to) => {
 
   return;
 })
+
+function getCronString() {
+  try {
+    return cronstrue.toString(job.value.cronExpression)
+  } catch(e) {
+    logger.error(e)
+    return ""
+  }
+}
 
 function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))

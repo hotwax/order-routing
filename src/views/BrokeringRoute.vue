@@ -91,20 +91,21 @@
                     <ion-icon slot="icon-only" :icon="refreshOutline" />
                   </ion-button>
                 </ion-item>
-                <ion-item>
-                  <ion-icon slot="start" :icon="timeOutline"/>
-                  <ion-label>{{ translate("Run time") }}</ion-label>
-                  <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
-                </ion-item>
-                <ion-item>
+                <ion-item detail button @click="openScheduleModal">
                   <ion-icon slot="start" :icon="timerOutline"/>
                   <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
-                  <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
+                  <!-- <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
                   <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
                   <ion-select :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                     <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
-                  </ion-select>
+                  </ion-select> -->
+                  <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-icon slot="start" :icon="timeOutline"/>
+                  <ion-label>{{ translate("Next run") }}</ion-label>
+                  <!-- When the group is in draft status, do not display the runTime from the schedule -->
+                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
                 <ion-item :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none" button @click="runNow()">
                   <ion-icon slot="start" :icon="flashOutline"/>
@@ -219,6 +220,8 @@ import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
+import cronstrue from "cronstrue"
+import ScheduleModal from "@/components/ScheduleModal.vue";
 
 const router = useRouter();
 const store = useStore();
@@ -229,7 +232,6 @@ const props = defineProps({
   }
 })
 
-const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
 let routingsForReorder = ref([])
 let description = ref("")
 let isDescUpdating = ref(false)
@@ -300,9 +302,13 @@ onBeforeRouteLeave(async (to) => {
   return;
 })
 
-function updateCronExpression(event: CustomEvent) {
-  job.value.cronExpression = event.detail.value
-  saveChanges()
+function getCronString() {
+  try {
+    return cronstrue.toString(job.value.cronExpression)
+  } catch(e) {
+    logger.error(e)
+    return ""
+  }
 }
 
 function initializeOrderRoutings() {
@@ -311,28 +317,6 @@ function initializeOrderRoutings() {
 
 async function checkOmsConnectionStatus() {
   await store.dispatch("util/checkOmsConnectionStatus")
-}
-
-async function saveChanges() {
-  const alert = await alertController
-    .create({
-      header: translate("Save changes"),
-      message: translate("Are you sure you want to save these changes?"),
-      buttons: [{
-        text: translate("Cancel"),
-        handler: () => {
-          // If clicking cancel reverting the value for cronExpression to original value, so that user does not gets confused that whether the value is changed or not
-          job.value.cronExpression = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"].cronExpression : ''
-        },
-        role: "cancel"
-      }, {
-        text: translate("Save"),
-        handler: async () => {
-          await saveSchedule()
-        }
-      }]
-    });
-  return alert.present();
 }
 
 async function fetchGroupHistory() {
@@ -382,10 +366,9 @@ async function saveSchedule() {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!hasError(resp)) {
       showToast(translate("Job updated"))
-      await store.dispatch("orderRouting/setCurrentGroup", JSON.parse(JSON.stringify({
-        ...currentRoutingGroup.value,
-        schedule: job.value
-      })))
+      // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
+      await store.dispatch("orderRouting/fetchCurrentGroupSchedule", { routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
+      job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
     } else {
       throw resp.data
     }
@@ -653,6 +636,22 @@ async function openRoutingHistoryModal(orderRoutingId: string, routingName: stri
   })
 
   routingHistoryModal.present();
+}
+
+async function openScheduleModal() {
+  const scheduleModal = await modalController.create({
+    component: ScheduleModal,
+    componentProps: { cronExpression: job.value.cronExpression }
+  })
+
+  scheduleModal.onDidDismiss().then(async (result: any) => {
+    if(result?.data?.expression) {
+      job.value.cronExpression = result.data.expression
+      await saveSchedule()
+    }
+  })
+
+  scheduleModal.present();
 }
 
 async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: string) {

@@ -1,5 +1,7 @@
 <template>
-  <ion-page>
+  <!-- Adding pointerup event on page as when we start reordering and then if we move the pointer on any component of the page and stop reordering, then also we need to update the value of isReordering variable to enable the card -->
+  <!-- If not adding this on page and if the user drops the pointer outside of reorder component then multiple clicks are required on the route card to move to the details page -->
+  <ion-page @pointerup="isReordering = false">
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -137,12 +139,13 @@
                 </ion-button>
               </ion-list-header>
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-                <ion-card class="pointer" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
+                <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
                       <h1>{{ routing.routingName }}</h1>
                     </ion-label>
-                    <ion-reorder>
+                    <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
+                    <ion-reorder @pointerdown="isReordering = true">
                       <ion-chip outline>
                         <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
                         <ion-icon :icon="reorderTwoOutline"/>
@@ -239,6 +242,7 @@ const groupNameRef = ref()
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
+let isReordering = ref(false) // To handle the case of click event being triggered when dropping pointer outside of ion-reorder, more details on PR associated with issue #138
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
@@ -822,5 +826,10 @@ aside {
 ion-card > ion-button[expand="block"] {
   margin-inline: var(--spacer-sm);
   margin-bottom: var(--spacer-sm);
+}
+
+/* We need to disable pointer events from the card, but we do not want its styling to be changed thus defined this class to unset the opacity when reordering is enabled */
+.reordering-enabled.card-disabled {
+  opacity: unset;
 }
 </style>

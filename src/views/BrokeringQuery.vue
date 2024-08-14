@@ -47,13 +47,17 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
-              {{ translate("Add order filters.") }} <br />
+              {{ translate("Add order filters.") }} <br /><br />
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                {{ translate("Add filters") }}
+                <ion-icon slot="end" :icon="optionsOutline"/>
+              </ion-button>
             </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
@@ -93,14 +97,18 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
-              {{ translate("Add sorting rules.") }} <br />
+              {{ translate("Add sorting rules.") }} <br /><br />
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                {{ translate("Add sorting") }}
+                <ion-icon slot="end" :icon="optionsOutline"/>
+              </ion-button>
             </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="false">
               <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
@@ -171,11 +179,19 @@
                 <ion-item>
                   <ion-icon slot="start" :icon="filterOutline"/>
                   <h4>{{ translate("Filters") }}</h4>
-                  <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                  <ion-button v-if="inventoryRuleFilterOptions && Object.keys(inventoryRuleFilterOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                     <ion-icon slot="icon-only" :icon="optionsOutline"/>
                   </ion-button>
                 </ion-item>
-                <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">{{ translate("Select filter to apply") }}</p>
+                <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">
+                  {{ translate("Add inventory lookup filters.") }}<br /><br />
+                  {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
+                  <a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}
+                  <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                    {{ translate("Add filters") }}
+                    <ion-icon slot="end" :icon="optionsOutline"/>
+                  </ion-button>
+                </p>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                   <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
                     <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
@@ -212,11 +228,17 @@
                 <ion-item>
                   <ion-icon slot="start" :icon="swapVerticalOutline"/>
                   <h4>{{ translate("Sort") }}</h4>
-                  <ion-button slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                  <ion-button v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                     <ion-icon slot="icon-only" :icon="optionsOutline"/>
                   </ion-button>
                 </ion-item>
-                <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">{{ translate("Select sorting to apply") }}</p>
+                <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">
+                  {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
+                  <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                    {{ translate("Add sorting") }}
+                    <ion-icon slot="end" :icon="optionsOutline"/>
+                  </ion-button>
+                </p>
                 <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
                   <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
                     <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
@@ -1405,5 +1427,6 @@ ion-chip > ion-select {
 
 .empty-state {
   text-align: center;
+  margin: 0;
 }
 </style>

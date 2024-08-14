@@ -119,6 +119,7 @@
   "Please select a scheduling for job": "Please select a scheduling for job",
   "Product Store": "Product Store",
   "Promise date": "Promise date",
+  "Provide a valid cron expression": "Provide a valid cron expression",
   "Proximity": "Proximity",
   "priority": "priority",
   "Queue": "Queue",

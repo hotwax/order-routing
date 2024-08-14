@@ -21,7 +21,7 @@
       </ion-item>
       <ion-item>
         <ion-icon slot="start" :icon="timeOutline"/>
-        <ion-label>{{ isExpressionValid && getCronString ? getNextExecutionTime : "Provide a valid cron expression" }}</ion-label>
+        <ion-label>{{ isExpressionValid && getCronString ? getNextExecutionTime : translate("Provide a valid cron expression") }}</ion-label>
       </ion-item>
     </ion-list>
 

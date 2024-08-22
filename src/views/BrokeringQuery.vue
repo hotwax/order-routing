@@ -194,7 +194,16 @@
                 </p>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                   <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
+                  <ion-select :placeholder="translate('facility group')" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
+                    <div slot="label">
+                      <ion-label>{{ translate("Group") }}</ion-label>
+                      <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                    </div>
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -714,6 +723,14 @@ async function addInventoryRule() {
   })
 
   return newRuleAlert.present();
+}
+
+function isFacilityGroupSelected(facilityGroupId: string, type: string) {
+  if(type === "excluded") {
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP').fieldValue
+  } else {
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue
+  }
 }
 
 // When changing the selected rule, updating any changes made in filter, sort and actions of the current rule
@@ -1287,6 +1304,19 @@ async function save() {
     const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
     const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
     const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
+
+    // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
+
+    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
 
     return {
       routingRuleId: ruleId,

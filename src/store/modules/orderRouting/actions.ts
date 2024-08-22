@@ -372,6 +372,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
         if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
           rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
+
+            if(filter.operator === "not-equals") {
+              filter.fieldName += "_excluded"
+            }
+
             if(filters[filter.conditionTypeEnumId]) {
               filters[filter.conditionTypeEnumId][filter.fieldName] = filter
             } else {

@@ -52,7 +52,6 @@
               </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
-              {{ translate("Add order filters.") }} <br /><br />
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 {{ translate("Add filters") }}
@@ -103,7 +102,6 @@
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
-              {{ translate("Add sorting rules.") }} <br /><br />
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 {{ translate("Add sorting") }}
@@ -184,9 +182,8 @@
                   </ion-button>
                 </ion-item>
                 <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">
-                  {{ translate("Add inventory lookup filters.") }}<br /><br />
                   {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
-                  <a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}
+                  <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
                   <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                     {{ translate("Add filters") }}
                     <ion-icon slot="end" :icon="optionsOutline"/>

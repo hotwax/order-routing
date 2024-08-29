@@ -32,6 +32,22 @@ const actions: ActionTree<UtilState, RootState> = {
           return enumerations
         }, enums)
 
+        console.log('enums', enums)
+
+        if(enums["ORD_FILTER_PRM_TYPE"]) {
+          Object.values(enums["ORD_FILTER_PRM_TYPE"]).reduce((filters: any, filter: any) => {
+            filters[filter.enumId + "_EXCLUDED"] = {
+              "enumId": filter.enumId + "_EXCLUDED",
+              "enumTypeId": filter.enumTypeId,
+              "enumCode": filter.enumCode + "_excluded",
+              "sequenceNum": 5,
+              "description": filter.description
+            }
+
+            return filters;
+          }, enums["ORD_FILTER_PRM_TYPE"])
+        }
+
         if(enums["INV_FILTER_PRM_TYPE"] && enums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP"]) {
           enums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP_EXCLUDED"] = {
             "enumId": "IIP_FACILITY_GROUP_EXCLUDED",

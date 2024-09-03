@@ -177,11 +177,11 @@
                 <ion-item>
                   <ion-icon slot="start" :icon="filterOutline"/>
                   <h4>{{ translate("Filters") }}</h4>
-                  <ion-button v-if="inventoryRuleFilterOptions && Object.keys(inventoryRuleFilterOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                  <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                     <ion-icon slot="icon-only" :icon="optionsOutline"/>
                   </ion-button>
                 </ion-item>
-                <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">
+                <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
                   {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
                   <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
                   <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
@@ -815,6 +815,11 @@ function updatePartialAllocation(checked: any) {
     }
   })
   hasUnsavedChanges.value = true
+}
+
+function isInventoryRuleFiltersApplied() {
+  const ruleFilters = Object.keys(inventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"].code);
+  return ruleFilters.length
 }
 
 function isPromiseDateFilterApplied() {

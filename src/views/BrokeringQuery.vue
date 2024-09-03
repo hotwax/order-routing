@@ -257,8 +257,7 @@
                     {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
                   </ion-card-content>
                   <ion-item lines="none">
-                    <!-- When selecting promiseDate route filter we will show the partial allocation option as checked on UI, but will not update its value on backend. Discussed with Aditya Sir -->
-                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
                   </ion-item>
                   <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
                     <ion-label class="ion-text-wrap">
@@ -808,6 +807,11 @@ function updatePartialAllocation(checked: any) {
     if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
       // Updating selected routing rule explicitely as we are using rulesForReorder for fetching selected values
       inventoryRule.assignmentEnumId = selectedRoutingRule.value.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
+
+      // When enabling partial allocation, updating the value of partial group item allocation by default,
+      // as when partial allocation is enabled we are saying to partial allocate all items of orders thus need to make
+      // group items allocation enabled as well in this case.
+      updatePartialGroupItemsAllocation(checked)
     }
   })
   hasUnsavedChanges.value = true
@@ -818,7 +822,6 @@ function isPromiseDateFilterApplied() {
     return;
   }
 
-  // When user updates partial allocation and then selects promiseDate filter then we will assume that the user wants to change the value for partialAllocation on server and thus we will not revert any change made in the partial allocation action and update its value on server
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE")
   return filter?.fieldValue || filter?.fieldValue == 0
 }
@@ -876,6 +879,9 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
     if(result.data?.duration || result.data?.duration == 0) {
       getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
       hasUnsavedChanges.value = true
+
+      // When selecting promiseDate route filter value, we also need to enable partial allocation and make its value change on the server
+      updatePartialAllocation(true);
     }
     getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").operator = "less-equals"
   })

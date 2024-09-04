@@ -220,6 +220,12 @@
                     <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
                   </div>
                 </ion-item>
+
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
+                  <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
+                    {{ translate("Turn of the facility order limit check") }}
+                  </ion-toggle>
+                </ion-item>
               </ion-card>
               <ion-card>
                 <ion-item>
@@ -949,7 +955,11 @@ function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
 }
 
 function updateRuleFilterValue(event: CustomEvent, id: string) {
-  inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value
+  if(id === "FACILITY_ORDER_LIMIT") {
+    inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked === true ? "Y" : "N"
+  } else {
+    inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value
+  }
   updateRule()
 }
 

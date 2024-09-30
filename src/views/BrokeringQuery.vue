@@ -52,7 +52,6 @@
               </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
-              {{ translate("Add order filters.") }} <br /><br />
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 {{ translate("Add filters") }}
@@ -156,7 +155,6 @@
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
-              {{ translate("Add sorting rules.") }} <br /><br />
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 {{ translate("Add sorting") }}
@@ -232,14 +230,13 @@
                 <ion-item>
                   <ion-icon slot="start" :icon="filterOutline"/>
                   <h4>{{ translate("Filters") }}</h4>
-                  <ion-button v-if="inventoryRuleFilterOptions && Object.keys(inventoryRuleFilterOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                  <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                     <ion-icon slot="icon-only" :icon="optionsOutline"/>
                   </ion-button>
                 </ion-item>
-                <p class="empty-state" v-if="!inventoryRuleFilterOptions || !Object.keys(inventoryRuleFilterOptions).length">
-                  {{ translate("Add inventory lookup filters.") }}<br /><br />
+                <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
                   {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
-                  <a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}
+                  <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
                   <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                     {{ translate("Add filters") }}
                     <ion-icon slot="end" :icon="optionsOutline"/>
@@ -285,6 +282,12 @@
                     <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
                   </div>
                 </ion-item>
+
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
+                  <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
+                    {{ translate("Turn of the facility order limit check") }}
+                  </ion-toggle>
+                </ion-item>
               </ion-card>
               <ion-card>
                 <ion-item>
@@ -322,7 +325,7 @@
                     {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
                   </ion-card-content>
                   <ion-item lines="none">
-                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI' || isPromiseDateFilterApplied()" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
                   </ion-item>
                   <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
                     <ion-label class="ion-text-wrap">
@@ -880,9 +883,19 @@ function updatePartialAllocation(checked: any) {
     if(inventoryRule.routingRuleId === selectedRoutingRule.value.routingRuleId) {
       // Updating selected routing rule explicitely as we are using rulesForReorder for fetching selected values
       inventoryRule.assignmentEnumId = selectedRoutingRule.value.assignmentEnumId = checked ? "ORA_MULTI" : "ORA_SINGLE"
+
+      // When enabling partial allocation, updating the value of partial group item allocation by default,
+      // as when partial allocation is enabled we are saying to partial allocate all items of orders thus need to make
+      // group items allocation enabled as well in this case.
+      updatePartialGroupItemsAllocation(checked)
     }
   })
   hasUnsavedChanges.value = true
+}
+
+function isInventoryRuleFiltersApplied() {
+  const ruleFilters = Object.keys(inventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"].code);
+  return ruleFilters.length
 }
 
 function isPromiseDateFilterApplied() {
@@ -890,7 +903,6 @@ function isPromiseDateFilterApplied() {
     return;
   }
 
-  // When user updates partial allocation and then selects promiseDate filter then we will assume that the user wants to change the value for partialAllocation on server and thus we will not revert any change made in the partial allocation action and update its value on server
   const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE")
   return filter?.fieldValue || filter?.fieldValue == 0
 }
@@ -950,6 +962,9 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
       // Making partial allocation value to `MULTI` when applying promise date filter
       updatePartialAllocation(true);
       hasUnsavedChanges.value = true
+
+      // When selecting promiseDate route filter value, we also need to enable partial allocation and make its value change on the server
+      updatePartialAllocation(true);
     }
     getFilterValue(orderRoutingFilterOptions.value, ruleEnums, type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE").operator = "less-equals"
   })
@@ -1013,7 +1028,11 @@ function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
 }
 
 function updateRuleFilterValue(event: CustomEvent, id: string) {
-  inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value
+  if(id === "FACILITY_ORDER_LIMIT") {
+    inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked ? "Y" : "N"
+  } else {
+    inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value
+  }
   updateRule()
 }
 

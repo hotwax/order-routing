@@ -9,6 +9,15 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
+      <ion-segment v-model="segmentSelected" v-if="conditionTypeEnumId === 'ENTCT_FILTER'">
+        <ion-segment-button value="included">
+          <ion-label>{{ translate("Include") }}</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="excluded">
+          <ion-label>{{ translate("Exclude") }}</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
       <div v-if="!enums[props.parentEnumId]" class="empty-state">
         <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
       </div>
@@ -31,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonList, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
@@ -64,6 +73,7 @@ const props = defineProps({
 })
 let routingFilters = ref({}) as any
 let areFiltersUpdated = ref(false)
+let segmentSelected = ref("included")
 
 onMounted(() => {
   routingFilters.value = props.orderRoutingFilters ? JSON.parse(JSON.stringify(props.orderRoutingFilters)) : {}
@@ -115,6 +125,7 @@ function isSortOptionSelected(code: string) {
 }
 
 function closeModal(action = "close") {
+  console.log('routingFilters.value',routingFilters.value)
   modalController.dismiss({ dismissed: true, filters: routingFilters.value }, action)
 }
 </script>

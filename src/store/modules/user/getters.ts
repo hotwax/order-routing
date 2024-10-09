@@ -27,6 +27,9 @@ const getters: GetterTree <UserState, RootState> = {
   },
   getOmsRedirectionInfo(state) {
     return state.omsRedirectionInfo;
-  }
+  },
+  getUserPermissions (state) {
+    return state.permissions;
+  },
 }
 export default getters;

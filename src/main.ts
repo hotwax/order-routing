@@ -33,6 +33,9 @@ import i18n from "./i18n"
 import store from "./store"
 import { DateTime } from "luxon";
 import logger from './logger';
+import permissionPlugin from '@/authorization';
+import permissionRules from '@/authorization/Rules';
+import permissionActions from '@/authorization/Actions';
 
 const app = createApp(App)
   .use(IonicVue, {
@@ -44,6 +47,10 @@ const app = createApp(App)
   .use(router)
   .use(i18n)
   .use(store)
+  .use(permissionPlugin, {
+    rules: permissionRules,
+    actions: permissionActions
+  })
   .use(dxpComponents, {
     defaultImgUrl: require("@/assets/images/defaultImage.png"),
     login,

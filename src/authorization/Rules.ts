@@ -1,0 +1,3 @@
+export default {
+  "ORDER_ROUTING_APP_VIEW": "ORDER_ROUTING_APP_VIEW"
+}

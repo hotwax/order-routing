@@ -7,6 +7,7 @@ import createPersistedState from "vuex-persistedstate";
 import userModule from "./modules/user";
 import utilModule from "./modules/util"
 import orderRoutingModule from "./modules/orderRouting"
+import { setPermissions } from "@/authorization"
 
 // TODO check how to register it from the components only
 // Handle same module registering multiple time on page refresh
@@ -32,6 +33,8 @@ const store = createStore<RootState>({
     "orderRouting": orderRoutingModule
   },
 })
+
+setPermissions(store.getters['user/getUserPermissions']);
 
 export default store
 export function useStore(): typeof store {

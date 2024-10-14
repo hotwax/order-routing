@@ -30,10 +30,7 @@ const actions: ActionTree<UserState, RootState> = {
       // Prepare permissions list
       const serverPermissionsFromRules = getServerPermissionsFromRules();
       if (permissionId) serverPermissionsFromRules.push(permissionId);
-      if(omsRedirectionUrl && token) {
-        dispatch("setOmsRedirectionInfo", { url: omsRedirectionUrl, token })
-      }
-
+      
       const serverPermissions: Array<string> = await UserService.getUserPermissions({
         permissionIds: [...new Set(serverPermissionsFromRules)]
       }, omsRedirectionUrl, token);
@@ -52,19 +49,22 @@ const actions: ActionTree<UserState, RootState> = {
           return Promise.reject(new Error(permissionError));
         }
       }
-
+      
       emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
       const api_key = await UserService.login(token)
       const userProfile = await UserService.getUserProfile(api_key);
-
+      
       // TODO: fetch only associated product stores for user, currently api does not support this
       userProfile.stores = await UserService.getEComStores(api_key);
-
+      
       if (userProfile.timeZone) {
         Settings.defaultZone = userProfile.timeZone;
       }
       
       setPermissions(appPermissions);
+      if(omsRedirectionUrl && token) {
+        dispatch("setOmsRedirectionInfo", { url: omsRedirectionUrl, token })
+      }
       commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_PERMISSIONS_UPDATED, appPermissions);

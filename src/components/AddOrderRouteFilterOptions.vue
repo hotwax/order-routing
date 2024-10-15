@@ -23,8 +23,8 @@
       </div>
       <ion-list v-else>
         <!-- Added this div as we need to hide ProductCategory option from filters, need to remove this once we add support for ProductCategory filter-->
-        <div v-for="sort in Object.values(enums[props.parentEnumId])" :key="sort.enumId">
-          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY'">
+        <div v-for="sort in getOptions()" :key="sort.enumId">
+          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY' && sort.enumId !== 'OIP_PROD_CATEGORY_EXCLUDED'">
             <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
           </ion-item>
         </div>
@@ -79,6 +79,16 @@ onMounted(() => {
   routingFilters.value = props.orderRoutingFilters ? JSON.parse(JSON.stringify(props.orderRoutingFilters)) : {}
 })
 
+function getOptions() {
+  if(props.conditionTypeEnumId === "ENTCT_FILTER") {
+    const excludeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
+    const includeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
+    return segmentSelected.value === "excluded" ? excludeOptions : includeOptions
+  }
+
+  return Object.values(enums.value[props.parentEnumId])
+}
+
 function checkFilters() {
   areFiltersUpdated.value = false;
   areFiltersUpdated.value = Object.keys(routingFilters.value).some((options: string) => {
@@ -125,7 +135,6 @@ function isSortOptionSelected(code: string) {
 }
 
 function closeModal(action = "close") {
-  console.log('routingFilters.value',routingFilters.value)
   modalController.dismiss({ dismissed: true, filters: routingFilters.value }, action)
 }
 </script>

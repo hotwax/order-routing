@@ -933,7 +933,7 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
   if(value?.length > 1) {
     return `${value.length} ${translate("selected")}`
   } else {
-    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" || parameter === "SHIPPING_METHOD_EXCLUDED" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" || parameter === "SALES_CHANNEL_EXCLUDED" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" || parameter === "ORIGIN_FACILITY_GROUP_EXCLUDED" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
   }
 }
 
@@ -1010,7 +1010,6 @@ function updateOperator(event: CustomEvent) {
 }
 
 function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
-  console.log('id', id)
   let value = event.detail.value
   let operator = id.includes("_EXCLUDED") ? "not-equals" : "equals"
   // When the filter has multiple selection support then we will receive an array in the event value and thus creating a string before updating the same as the fieldValue supports a string as value
@@ -1340,6 +1339,19 @@ async function save() {
 
   const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
   const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
+
+  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
 
   const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
   const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })

@@ -42,7 +42,6 @@ const props = defineProps(["group"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 
 async function updateGroupStatus(paused: string) {
-  console.log(props.group)
   let routingGroups = [];
   const payload = {
     routingGroupId: props.group.routingGroupId,
@@ -52,13 +51,7 @@ async function updateGroupStatus(paused: string) {
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
-    console.log('resp', resp, hasError(resp))
-    if(!hasError(resp)){
-      props.group.schedule = {
-        ...props.group.schedule,
-        cronExpression: payload.cronExpression,
-        cronDescription: 
-      }
+    if(!hasError(resp)) {
       showToast(translate("Group status updated"))
       routingGroups = await store.dispatch("orderRouting/updateGroupStatus", { routingGroupId: props.group.routingGroupId, value: paused })
     } else {

@@ -198,6 +198,15 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
+
+        if(currentRoute["orderFilters"]?.length) {
+          currentRoute["orderFilters"].map((filter: any) => {
+            if(filter.operator === "not-equals" || filter.operator === "not-in") {
+              filter.fieldName += "_excluded"
+            }
+          })
+        }
+
         currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
       } else {
         throw resp.data

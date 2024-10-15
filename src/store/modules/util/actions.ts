@@ -32,8 +32,6 @@ const actions: ActionTree<UtilState, RootState> = {
           return enumerations
         }, enums)
 
-        console.log('enums', enums)
-
         if(enums["ORD_FILTER_PRM_TYPE"]) {
           Object.values(enums["ORD_FILTER_PRM_TYPE"]).reduce((filters: any, filter: any) => {
             filters[filter.enumId + "_EXCLUDED"] = {

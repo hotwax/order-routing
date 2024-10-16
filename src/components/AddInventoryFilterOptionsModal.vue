@@ -80,7 +80,7 @@ let enumerations = ref([]) as any
 let areFiltersUpdated = ref(false)
 
 // Added those enums here that needs to be hidden form the UI
-const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP"]
+const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP", "IFP_SHIP_THREHOLD"]
 
 // Add entries for the enums those are dependent on another filter {enumId: { code, label }}
 const dependentOptions = {"ISP_CUST_SEQ": { code: "facilityGroupId", label: "Facility group" }} as any

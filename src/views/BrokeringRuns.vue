@@ -7,7 +7,7 @@
         <ion-buttons slot="end" v-if="brokeringGroups.length">
           <ion-button color="primary" @click="addNewRun">
             {{ translate("New Run") }}
-            <ion-icon :icon="addOutline" />
+            <ion-icon :icon="arrowForwardOutline" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>

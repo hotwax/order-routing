@@ -198,6 +198,15 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
       if(!hasError(resp) && resp.data) {
         currentRoute = resp.data
+
+        if(currentRoute["orderFilters"]?.length) {
+          currentRoute["orderFilters"].map((filter: any) => {
+            if(filter.operator === "not-equals" || filter.operator === "not-in") {
+              filter.fieldName += "_excluded"
+            }
+          })
+        }
+
         currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
       } else {
         throw resp.data
@@ -372,6 +381,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
         if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
           rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
+
+            if(filter.operator === "not-equals") {
+              filter.fieldName += "_excluded"
+            }
+
             if(filters[filter.conditionTypeEnumId]) {
               filters[filter.conditionTypeEnumId][filter.fieldName] = filter
             } else {

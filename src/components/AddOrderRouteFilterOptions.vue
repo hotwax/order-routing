@@ -9,13 +9,22 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
+      <ion-segment v-model="segmentSelected" v-if="conditionTypeEnumId === 'ENTCT_FILTER'">
+        <ion-segment-button value="included">
+          <ion-label>{{ translate("Include") }}</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="excluded">
+          <ion-label>{{ translate("Exclude") }}</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
       <div v-if="!enums[props.parentEnumId]" class="empty-state">
         <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
       </div>
       <ion-list v-else>
         <!-- Added this div as we need to hide ProductCategory option from filters, need to remove this once we add support for ProductCategory filter-->
-        <div v-for="sort in Object.values(enums[props.parentEnumId])" :key="sort.enumId">
-          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY'">
+        <div v-for="sort in getOptions()" :key="sort.enumId">
+          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY' && sort.enumId !== 'OIP_PROD_CATEGORY_EXCLUDED'">
             <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
           </ion-item>
         </div>
@@ -31,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonList, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
@@ -64,10 +73,21 @@ const props = defineProps({
 })
 let routingFilters = ref({}) as any
 let areFiltersUpdated = ref(false)
+let segmentSelected = ref("included")
 
 onMounted(() => {
   routingFilters.value = props.orderRoutingFilters ? JSON.parse(JSON.stringify(props.orderRoutingFilters)) : {}
 })
+
+function getOptions() {
+  if(props.conditionTypeEnumId === "ENTCT_FILTER") {
+    const excludeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
+    const includeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
+    return segmentSelected.value === "excluded" ? excludeOptions : includeOptions
+  }
+
+  return Object.values(enums.value[props.parentEnumId])
+}
 
 function checkFilters() {
   areFiltersUpdated.value = false;

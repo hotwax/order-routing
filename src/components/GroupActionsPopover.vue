@@ -45,12 +45,13 @@ async function updateGroupStatus(paused: string) {
   let routingGroups = [];
   const payload = {
     routingGroupId: props.group.routingGroupId,
-    paused
+    paused,
+    cronExpression: props.group.schedule?.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)){
+    if(!hasError(resp)) {
       showToast(translate("Group status updated"))
       routingGroups = await store.dispatch("orderRouting/updateGroupStatus", { routingGroupId: props.group.routingGroupId, value: paused })
     } else {

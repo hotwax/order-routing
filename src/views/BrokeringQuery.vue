@@ -64,13 +64,42 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-label>{{ translate("Queue") }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
+                <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-label>{{ translate('Shipping method') }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
+                <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
               <ion-select :placeholder="translate('priority')" interface="popover" :label="translate('Order priority')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
+                <ion-select-option value="HIGH">{{ translate("High") }}</ion-select-option>
+                <ion-select-option value="MEDIUM">{{ translate("Medium") }}</ion-select-option>
+                <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
+              <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY_EXCLUDED')">
+                <div slot="label">
+                  <ion-label>{{ translate('Order priority') }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
                 <ion-select-option value="HIGH">{{ translate("High") }}</ion-select-option>
                 <ion-select-option value="MEDIUM">{{ translate("Medium") }}</ion-select-option>
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
@@ -82,13 +111,37 @@
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+              <ion-label>{{ translate("Promise date") }}</ion-label>
+              <ion-chip outline @click="selectPromiseFilterValue($event, excluded)">
+                {{ getPromiseDateValue() }}
+              </ion-chip>
+            </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
               <ion-select multiple :placeholder="translate('sales channel')" :label="translate('Sales Channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-label>{{ translate('Sales Channel') }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
+                <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
               <ion-select multiple :placeholder="translate('facility group')" :label="translate('Origin Facility Group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
+                <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-label>{{ translate('Origin Facility Group') }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
@@ -191,7 +244,16 @@
                 </p>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                   <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
+                  <ion-select :placeholder="translate('facility group')" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
+                    <div slot="label">
+                      <ion-label>{{ translate("Group") }}</ion-label>
+                      <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                    </div>
+                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -723,6 +785,14 @@ async function addInventoryRule() {
   return newRuleAlert.present();
 }
 
+function isFacilityGroupSelected(facilityGroupId: string, type: string) {
+  if(type === "excluded") {
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP').fieldValue
+  } else {
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue
+  }
+}
+
 // When changing the selected rule, updating any changes made in filter, sort and actions of the current rule
 function updateRule() {
   rulesInformation.value[selectedRoutingRule.value.routingRuleId]["inventoryFilters"] = { "ENTCT_FILTER": inventoryRuleFilterOptions.value, "ENTCT_SORT_BY": inventoryRuleSortOptions.value }
@@ -868,7 +938,7 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
   if(value?.length > 1) {
     return `${value.length} ${translate("selected")}`
   } else {
-    return parameter === "SHIPPING_METHOD" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
+    return parameter === "SHIPPING_METHOD" || parameter === "SHIPPING_METHOD_EXCLUDED" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" || parameter === "SALES_CHANNEL_EXCLUDED" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" || parameter === "ORIGIN_FACILITY_GROUP_EXCLUDED" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
   }
 }
 
@@ -879,12 +949,12 @@ function getLabel(parentType: string, code: string) {
   return enumInfo?.description
 }
 
-async function selectPromiseFilterValue(ev: CustomEvent) {
+async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
   const popover = await popoverController
     .create({
       component: PromiseFilterPopover,
       componentProps: {
-        value: getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue
+        value: getFilterValue(orderRoutingFilterOptions.value, ruleEnums, type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE").fieldValue
       },
       event: ev,
       translucent: true,
@@ -893,13 +963,15 @@ async function selectPromiseFilterValue(ev: CustomEvent) {
 
   popover.onDidDismiss().then((result: any) => {
     if(result.data?.duration || result.data?.duration == 0) {
-      getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+      getFilterValue(orderRoutingFilterOptions.value, ruleEnums, type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE").fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+      // Making partial allocation value to `MULTI` when applying promise date filter
+      updatePartialAllocation(true);
       hasUnsavedChanges.value = true
 
       // When selecting promiseDate route filter value, we also need to enable partial allocation and make its value change on the server
       updatePartialAllocation(true);
     }
-    getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE").operator = "less-equals"
+    getFilterValue(orderRoutingFilterOptions.value, ruleEnums, type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE").operator = "less-equals"
   })
 
   return popover.present();
@@ -944,11 +1016,11 @@ function updateOperator(event: CustomEvent) {
 
 function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
   let value = event.detail.value
-  let operator = "equals"
+  let operator = id.includes("_EXCLUDED") ? "not-equals" : "equals"
   // When the filter has multiple selection support then we will receive an array in the event value and thus creating a string before updating the same as the fieldValue supports a string as value
   if(multi && value.length > 1) {
     value = value.join(',')
-    operator = "in"
+    operator = id.includes("_EXCLUDED") ? "not-in" : "in"
   } else if(multi) {
     // When filter is having a single option selected with multiple selection enabled, we will receive an array with single value, but as we need to pass a string, so fetching the 0th index from the array
     value = value[0]
@@ -1275,6 +1347,19 @@ async function save() {
   const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
   const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
 
+  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
   const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
   const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
   // Diff found for removing and updating filters
@@ -1312,6 +1397,19 @@ async function save() {
     const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
     const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
     const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
+
+    // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
+
+    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
 
     return {
       routingRuleId: ruleId,

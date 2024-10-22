@@ -12,12 +12,17 @@
       <div v-if="!enumerations.length" class="empty-state">
         <p>{{ translate(`Failed to fetch ${props.label?.toLowerCase()} options`) }}</p>
       </div>
+
       <ion-list v-else>
         <ion-item v-for="condition in enumerations" :key="condition.enumId">
           <ion-checkbox :disabled="isConditionDisabled(condition.enumId)" :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">
             <template v-if="isConditionDisabled(condition.enumId)">
-              {{ condition.description || condition.enumCode }}<br/>
+              <ion-label>{{ condition.description || condition.enumCode }}</ion-label>
               <ion-note>{{ `Only applicable when ${dependentOptions[condition.enumId].label} is selected` }}</ion-note>
+            </template>
+            <template v-else-if="condition.enumCode.includes('_excluded')">
+              <ion-label>{{ condition.description || condition.enumCode }}</ion-label>
+              <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
             </template>
             <template v-else>
               {{ condition.description || condition.enumCode }}
@@ -36,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonList, IonNote, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
@@ -75,7 +80,7 @@ let enumerations = ref([]) as any
 let areFiltersUpdated = ref(false)
 
 // Added those enums here that needs to be hidden form the UI
-const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP"]
+const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP", "IFP_SHIP_THREHOLD"]
 
 // Add entries for the enums those are dependent on another filter {enumId: { code, label }}
 const dependentOptions = {"ISP_CUST_SEQ": { code: "facilityGroupId", label: "Facility group" }} as any
@@ -118,7 +123,8 @@ function addConditionOption(condition: any) {
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: condition.enumCode,
         sequenceNum: Object.keys(inventoryRuleConditions.value).length && inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
-        createdDate: DateTime.now().toMillis()
+        createdDate: DateTime.now().toMillis(),
+        operator: condition.enumCode.includes("_excluded") ? "not-equals" : ""
       }
 
       // Adding associatedEnum out of ternary, as we will always get the conditionTypeEnumId, as the filter will already handle that

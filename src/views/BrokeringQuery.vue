@@ -1034,7 +1034,7 @@ function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
 function updateRuleFilterValue(event: CustomEvent, id: string) {
   if(id === "FACILITY_ORDER_LIMIT") {
     inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked ? "Y" : "N"
-  } else if (id === "SHIP_THREHOLD") {
+  } else if(id === "SHIP_THREHOLD") {
     inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked ? "Y" : "N"
   } else {
     inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value

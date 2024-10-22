@@ -91,7 +91,7 @@ import { translate } from "@/i18n";
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addOutline, arrowForwardOutline, ellipsisVerticalOutline } from "ionicons/icons"
+import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";

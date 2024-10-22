@@ -226,6 +226,11 @@
                     {{ translate("Turn of the facility order limit check") }}
                   </ion-toggle>
                 </ion-item>
+                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THREHOLD')">
+                  <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THREHOLD').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'SHIP_THREHOLD')">
+                    {{ translate("Shipment threshold check") }}
+                  </ion-toggle>
+                </ion-item>
               </ion-card>
               <ion-card>
                 <ion-item>
@@ -956,6 +961,8 @@ function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
 
 function updateRuleFilterValue(event: CustomEvent, id: string) {
   if(id === "FACILITY_ORDER_LIMIT") {
+    inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked ? "Y" : "N"
+  } else if (id === "SHIP_THREHOLD") {
     inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.checked ? "Y" : "N"
   } else {
     inventoryRuleFilterOptions.value[conditionFilterEnums[id].code].fieldValue = event.detail.value

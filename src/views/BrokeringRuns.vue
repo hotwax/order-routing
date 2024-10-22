@@ -7,7 +7,7 @@
         <ion-buttons slot="end" v-if="brokeringGroups.length">
           <ion-button color="primary" @click="addNewRun">
             {{ translate("New Run") }}
-            <ion-icon :icon="arrowForwardOutline" />
+            <ion-icon :icon="addOutline" />
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -75,7 +75,7 @@
             <img src="../assets/images/BrokeringRunsEmptyState.png" />
             <ion-button @click="addNewRun">
               {{ translate("Create brokering run") }}
-              <ion-icon slot="end" :icon="arrowForwardOutline"></ion-icon>
+              <ion-icon slot="end" :icon="addOutline"></ion-icon>
             </ion-button>
           </div>
         </main>

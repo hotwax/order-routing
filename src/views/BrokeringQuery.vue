@@ -25,6 +25,10 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small">
+            <ion-icon slot="start" :icon="speedometerOutline" />
+            {{ translate("Test") }}
+          </ion-button>
           <!-- <ion-button color="medium" fill="outline" size="small">
             <ion-icon slot="start" :icon="copyOutline" />
             {{ translate("Clone") }}
@@ -217,6 +221,10 @@
                       <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                       {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                     </ion-button>
+                    <ion-button fill="outline" size="small">
+                      <ion-icon slot="start" :icon="speedometerOutline" />
+                      {{ translate("Test") }}
+                    </ion-button>
                     <!-- <ion-button size="small" @click="cloneRule" fill="outline">
                       <ion-icon slot="start" :icon="copyOutline"/>
                       {{ translate("Clone") }}
@@ -400,7 +408,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { addCircleOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, speedometerOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import store from "@/store";

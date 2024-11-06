@@ -782,9 +782,9 @@ async function addInventoryRule() {
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
   if(type === "excluded") {
-    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP').fieldValue
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP')?.fieldValue
   } else {
-    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')?.fieldValue
   }
 }
 
@@ -1076,14 +1076,34 @@ async function editRuleName() {
   ruleNameRef.value.$el.setFocus();
 }
 
-function updateRuleName(routingRuleId: string) {
-  // Checking the updated name with the original object, as we have reference to inventoryRules that will also gets updated on updating selectedRoutingRule
+async function updateRuleName(routingRuleId: string) {
+  let isUpdateRequired = false;
+
   currentRouting.value["rules"].map((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === routingRuleId && inventoryRule.ruleName.trim() !== selectedRoutingRule.value.ruleName.trim()) {
-      hasUnsavedChanges.value = true
+      isUpdateRequired = true
     }
   })
-  isRuleNameUpdating.value = false;
+
+  if(isUpdateRequired) {
+    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+
+    let ruleId = await store.dispatch("orderRouting/updateRule", {
+      routingRuleId,
+      orderRoutingId: props.orderRoutingId,
+      ruleName: selectedRoutingRule.value.ruleName.trim()
+    })
+
+    if(ruleId) {
+      showToast(translate("Order rule information updated"))
+    } else {
+      showToast(translate("Failed to update rule information"))
+    }
+
+    emitter.emit("dismissLoader")
+  }
+
+  isRuleNameUpdating.value = false
 }
 
 async function cloneRule() {

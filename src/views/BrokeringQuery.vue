@@ -782,9 +782,9 @@ async function addInventoryRule() {
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
   if(type === "excluded") {
-    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP').fieldValue
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP')?.fieldValue
   } else {
-    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue
+    return facilityGroupId == getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')?.fieldValue
   }
 }
 

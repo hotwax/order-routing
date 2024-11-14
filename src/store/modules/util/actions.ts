@@ -34,12 +34,14 @@ const actions: ActionTree<UtilState, RootState> = {
 
         if(enums["ORD_FILTER_PRM_TYPE"]) {
           Object.values(enums["ORD_FILTER_PRM_TYPE"]).reduce((filters: any, filter: any) => {
-            filters[filter.enumId + "_EXCLUDED"] = {
-              "enumId": filter.enumId + "_EXCLUDED",
-              "enumTypeId": filter.enumTypeId,
-              "enumCode": filter.enumCode + "_excluded",
-              "sequenceNum": 5,
-              "description": filter.description
+            if (!filter.enumId.includes("_EXCLUDED")) {
+              filters[filter.enumId + "_EXCLUDED"] = {
+                "enumId": filter.enumId + "_EXCLUDED",
+                "enumTypeId": filter.enumTypeId,
+                "enumCode": filter.enumCode + "_excluded",
+                "sequenceNum": 5,
+                "description": filter.description
+              }
             }
 
             return filters;

@@ -274,7 +274,7 @@
                   <div>
                     <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
                       <!-- Added click.stop to override the default click event of ion-select, as we handled the click event using ion-chip -->
-                      <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                      <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event, 'BRK_SAFETY_STOCK')">
                         <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
                         <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                       </ion-select>
@@ -290,7 +290,16 @@
                 </ion-item>
                 <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THREHOLD')">
                   <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
-                  <ion-chip slot="end" outline @click="selectValue('SHIP_THREHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue : "-" }}</ion-chip>
+                  <div>
+                    <ion-chip outline @click.stop="chipClickEvent(operatorThresholdRef)">
+                      <!-- Added click.stop to override the default click event of ion-select, as we handled the click event using ion-chip -->
+                      <ion-select @click.stop ref="operatorThresholdRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THREHOLD').operator" @ionChange="updateOperator($event, 'SHIP_THREHOLD')">
+                        <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
+                        <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
+                      </ion-select>
+                    </ion-chip>
+                    <ion-chip outline @click="selectValue('SHIP_THREHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THREHOLD").fieldValue : "-" }}</ion-chip>
+                  </div>
                 </ion-item>
               </ion-card>
               <ion-card>
@@ -461,6 +470,7 @@ let rulesForReorder = ref([]) as any
 
 const routeNameRef = ref()
 const operatorRef = ref()
+const operatorThresholdRef = ref()
 const measurementRef = ref()
 const ruleNameRef = ref()
 
@@ -1008,8 +1018,8 @@ async function selectValue(id: string, header: string) {
   return valueAlert.present();
 }
 
-function updateOperator(event: CustomEvent) {
-  getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "BRK_SAFETY_STOCK").operator = event.detail.value
+function updateOperator(event: CustomEvent, enumId: string) {
+  getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, enumId).operator = event.detail.value
   updateRule()
 }
 

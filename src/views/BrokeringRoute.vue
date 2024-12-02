@@ -280,7 +280,10 @@ onBeforeRouteLeave(async (to) => {
     message: translate("Do you want to save your changes before leaving this page?"),
     buttons: [
       {
-        text: translate("Discard")
+        text: translate("Discard"),
+        handler: async () => {
+          hasUnsavedChanges.value = false;
+        }
       },
       {
         text: translate("Save"),

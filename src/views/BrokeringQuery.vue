@@ -1170,7 +1170,7 @@ function doConditionSortReorder(event: CustomEvent) {
 
 function findRulesDiff(previousSeq: any, updatedSeq: any) {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
-    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName) return diff
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId && updatedSeq[key].statusId === previousSeq[key].statusId && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId && updatedSeq[key].ruleName === previousSeq[key].ruleName && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
     return {
       ...diff,
       [key]: updatedSeq[key]
@@ -1313,6 +1313,16 @@ function doReorder(event: CustomEvent) {
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
 
   rulesForReorder.value = updatedSeq
+
+  // Once the reordering is completed then update the original rules array with the updated sequenceNum
+  // This is required as we will find a final diff of rules before saving changes
+  inventoryRules.value.map((rule: Rule) => {
+    const updatedRule = updatedSeq.find((seq: any) => seq.routingRuleId === rule.routingRuleId)
+    if(updatedRule) {
+      rule.sequenceNum = updatedRule.sequenceNum
+    }
+  })
+
   hasUnsavedChanges.value = true
 }
 
@@ -1331,12 +1341,6 @@ async function save() {
   // Find diff for inventory rules
   if(currentRouting.value["rules"]) {
     let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
-  
-    const updatedSeqenceNum = currentRouting.value["rules"].map((rule: Rule) => rule.sequenceNum)
-    Object.keys(diffSeq).map((key: any) => {
-      diffSeq[key].sequenceNum = updatedSeqenceNum[key]
-    })
-  
     diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   
     if(diffSeq.length) {
@@ -1493,7 +1497,9 @@ function isPartialGroupItemsAllocationActive() {
 }
 
 function initializeInventoryRules() {
-  rulesForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRules()))
+  // Sorting the sequence once again here, as after making some changes in the rules like status, enumId etc
+  // the original reordered sequence is lost thus before updating the variable sorting it first and then saving changes
+  rulesForReorder.value = sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
 }
 
 function getActiveAndDraftOrderRules() {

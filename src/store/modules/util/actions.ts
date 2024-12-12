@@ -104,8 +104,7 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      parentTypeId: "VIRTUAL_FACILITY",
-      pageSize: 200
+      pageSize: 500
     }
 
     try {

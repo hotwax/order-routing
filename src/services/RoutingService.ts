@@ -1,4 +1,5 @@
-import api from "@/api"
+import api, { client } from "@/api"
+import store from "@/store";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -163,7 +164,48 @@ const runNow = async (routingGroupId: string): Promise<any> => {
   });
 }
 
+const findOrder = async (payload: any): Promise<any> => {
+  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  let baseURL = omsRedirectionInfo.url;
+  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
+  return client({
+    url: "solr-query",
+    method: "post",
+    baseURL: baseURL,
+    data: payload,
+    headers: {
+      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
+const brokerOrder = async(payload: any): Promise<any> => {
+  return api({
+    url: `groups/${payload.routingGroupId}/run`,
+    method: "POST",
+    data: payload
+  })
+}
+
+const getOrderFacilityChangeInfo = async (payload: any): Promise<any> => {
+  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  let baseURL = omsRedirectionInfo.url;
+  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
+  return client({
+    url: "performFind",
+    method: "post",
+    baseURL: baseURL,
+    data: payload,
+    headers: {
+      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
 export const OrderRoutingService = {
+  brokerOrder,
   cloneGroup,
   createOrderRouting,
   cloneRouting,
@@ -180,6 +222,8 @@ export const OrderRoutingService = {
   fetchRoutingHistory,
   fetchRoutingScheduleInformation,
   fetchRule,
+  findOrder,
+  getOrderFacilityChangeInfo,
   runNow,
   scheduleBrokering,
   updateRouting,

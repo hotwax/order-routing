@@ -7,7 +7,6 @@ const getters: GetterTree<ProductState, RootState> = {
     return state.products
   },
   getProductById: (state) => (id: string) => {
-    console.log('id', id)
     return state.products[id] || {}
   },
   getProductStock: (state) => (productId: string, facilityId: string) => {

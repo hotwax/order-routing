@@ -61,13 +61,13 @@ const actions: ActionTree<UserState, RootState> = {
         Settings.defaultZone = userProfile.timeZone;
       }
       
-      setPermissions(appPermissions);
+      // setPermissions(appPermissions);
       if(omsRedirectionUrl && token) {
         dispatch("setOmsRedirectionInfo", { url: omsRedirectionUrl, token })
       }
       commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
-      commit(types.USER_PERMISSIONS_UPDATED, appPermissions);
+      // commit(types.USER_PERMISSIONS_UPDATED, appPermissions);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
       emitter.emit("dismissLoader")
     } catch (err: any) {
@@ -90,6 +90,7 @@ const actions: ActionTree<UserState, RootState> = {
     commit(types.USER_END_SESSION)
     this.dispatch("orderRouting/clearRouting")
     this.dispatch("util/clearUtilState")
+    this.dispatch("product/clearProductState")
     dispatch("setOmsRedirectionInfo", { url: "", token: "" })
     resetConfig();
     resetPermissions();

@@ -43,7 +43,9 @@
                 </ion-label>
               </ion-item>
               <ion-item v-if="group.description">
-                {{ group.description }}
+                <ion-label>
+                  {{ group.description }}
+                </ion-label>
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
@@ -212,7 +214,7 @@ async function groupActionsPopover(group: Group, ev: Event) {
   }
 
   main > section {
-    min-width: 50ch;
+    max-width: 50ch;
   }
 }
 </style>

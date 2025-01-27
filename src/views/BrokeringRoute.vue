@@ -86,7 +86,7 @@
                     {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
                   </ion-label>
                 </ion-item>
-                <ion-button fill="outline" expand="block">
+                <ion-button fill="outline" expand="block" @click="router.push(`/tabs/brokering/${props.routingGroupId}/routes/test`)">
                   <ion-icon slot="start" :icon="speedometerOutline" />
                   {{ translate("Test drive") }}
                 </ion-button>

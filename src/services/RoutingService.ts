@@ -204,6 +204,22 @@ const getOrderFacilityChangeInfo = async (payload: any): Promise<any> => {
   });
 }
 
+const resetOrder = async(payload: any): Promise<any> => {
+  return api({
+    url: `orders/${payload.orderId}/reject`,
+    method: "POST",
+    data: payload
+  })
+}
+
+const getRecentOrderFacilityChangeInfo = async(payload: any): Promise<any> => {
+  return api({
+    url: `orders/${payload.orderId}/routing-history/recent`,
+    method: "GET",
+    data: payload
+  })
+}
+
 export const OrderRoutingService = {
   brokerOrder,
   cloneGroup,
@@ -224,6 +240,8 @@ export const OrderRoutingService = {
   fetchRule,
   findOrder,
   getOrderFacilityChangeInfo,
+  getRecentOrderFacilityChangeInfo,
+  resetOrder,
   runNow,
   scheduleBrokering,
   updateRouting,

@@ -318,7 +318,9 @@ async function getOrderBrokeringInfo() {
         }))
 
         // Removing the previous ship group from the order
-        delete currentOrder.value.groups[currentShipGroupId.value]
+        if(currentShipGroupId.value !== orderBrokeringInfo.shipGroupSeqId) {
+          delete currentOrder.value.groups[currentShipGroupId.value]
+        }
 
         // Updating the value of current ship group with the new ship group
         currentShipGroupId.value = orderBrokeringInfo.shipGroupSeqId

@@ -71,13 +71,13 @@
                 </ion-item>
               </div>
 
-              <ion-row>
+              <ion-row class="ion-margin-start">
                 <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in currentOrder.groups" :key="shipGroupSeqId" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="currentShipGroupId !== shipGroupSeqId">
                   {{ index + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
                 </ion-chip>
               </ion-row>
 
-              <div class="ship-groups">
+              <div class="ship-groups ion-margin">
                 <div class="order-group">
                   <ion-button class="ion-margin-horizontal" v-if="isOrderBrokered" @click="resetOrder()">
                     <ion-icon slot="start" :icon="arrowUndoOutline" />
@@ -105,7 +105,7 @@
                       </ion-thumbnail>
                       <ion-label>
                         {{ getProduct(item.productId).productName }}
-                        <p v-if="isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }}</p>
+                        <p v-if="isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
                       </ion-label>
                       <ion-badge slot="end">{{ item.orderItemStatusDesc }}</ion-badge>
                     </ion-item>
@@ -149,10 +149,12 @@
             <ion-item-group v-for="routing in group.routings" :key="routing.orderRoutingId" class="ion-margin-vertical">
               <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
               <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': brokeringRule === rule.routingRuleId }">
-                <div>
-                  <ion-label>{{ rule.ruleName }}</ion-label>
-                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
-                </div>
+                <!-- <div slot="start"> -->
+                  <ion-label>
+                    {{ rule.ruleName }}
+                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                  </ion-label>
+                <!-- </div> -->
                 <ion-button fill="clear" slot="end" @click.stop="openRuleDetails(rule)">{{ "Details" }}</ion-button>
               </ion-item>
               <p v-if="!routing.rules?.length" class="ion-text-center">{{ "No rules found" }}</p>
@@ -217,6 +219,7 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 const currentShipGroup = computed(() => currentShipGroupId.value ? currentOrder.value.groups[currentShipGroupId.value] : [])
 const carriers = computed(() => store.getters["util/getCarriers"])
 const facilities = computed(() => store.getters["util/getPhysicalFacilities"])
+const virtualFacilities = computed(() => store.getters["util/getVirtualFacilities"])
 const getProduct = computed(() => (id: string) => store.getters["product/getProductById"](id)) as any
 const getProductStock = computed(() => (productId: string, facilityId: string) => store.getters["product/getProductStock"](productId, facilityId)) as any
 
@@ -321,7 +324,7 @@ async function searchOrders() {
         "defType": "edismax"
       },
       "query": `(*${queryString.value.trim()}*) OR "${queryString.value.trim()}"^100`,
-      "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED)"
+      "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED OR ORDER_COMPLETED)"
     }
   }
 
@@ -518,7 +521,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
   try {
     let resp = await OrderRoutingService.getRecentOrderFacilityChangeInfo(payload)
 
-    const orderBrokeringInfo = resp.data.routingHistoryList?.find((history: any) => history.orderItemSeqId === currentShipGroup.value[0].orderItemSeqId)
+    const orderBrokeringInfo = resp.data?.routingHistoryList?.find((history: any) => history.orderItemSeqId === currentShipGroup.value[0].orderItemSeqId)
     
     if(!hasError(resp) && orderBrokeringInfo) {
       // TODO: need to update the logic once the broker api returns correct data
@@ -530,8 +533,9 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
         // Adding a new ship group to the order
         currentOrder.value.groups[orderBrokeringInfo.shipGroupSeqId] = currentOrder.value.groups[currentShipGroupId.value].map((item: any) => ({
           ...item,
+          fromFacilityId: orderBrokeringInfo.fromFacilityId,
           facilityId: orderBrokeringInfo.facilityId,
-          facilityName: facilities.value[orderBrokeringInfo.facilityId]?.facilityName,
+          facilityName: facilities.value[orderBrokeringInfo.facilityId]?.facilityName ?? virtualFacilities.value[orderBrokeringInfo.facilityId]?.facilityName,
           shipGroupSeqId: orderBrokeringInfo.shipGroupSeqId
         }))
 
@@ -567,7 +571,11 @@ async function openRouteDetails(routing: any) {
 }
 
 async function openRuleDetails(rule: any) {
-  currentRule.value = rule
+  const ruleInfo = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
+  currentRule.value = {
+    ...rule,
+    ...ruleInfo
+  }
   await menuController.open("rule-details");
 }
 
@@ -581,7 +589,7 @@ async function resetOrder() {
         shipmentMethodTypeId: item.shipmentMethodTypeId,
         quantity: item.quantity,
         orderItemSeqId: item.orderItemSeqId,
-        toFacilityId: "_NA_", // TODO: pass the parkingId from where it was released
+        toFacilityId: item.fromFacilityId ?? "_NA_", // TODO: pass the parkingId from where it was released
         recordVariance: "N",
         rejectReason: "NO_VARIANCE_LOG"
       }))
@@ -589,6 +597,10 @@ async function resetOrder() {
 
     // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
     if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
+      eligibleOrderRoutings.value = []
+      brokeringRoute.value = ""
+      brokeringRule.value = ""
+      errorMessage.value = ""
       getOrderBrokeringInfo(true);
     } else {
       throw resp.data;

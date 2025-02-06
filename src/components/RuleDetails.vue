@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-menu-toggle>
+          <ion-menu-toggle menu="rule-details">
             <ion-button>
               <ion-icon slot="icon-only" :icon="arrowBackOutline" />
             </ion-button>
@@ -108,11 +108,11 @@
               </ion-card-header>
               <ion-item lines="none" v-if="actionEnums['NEXT_RULE'].id && actionEnums['MOVE_TO_QUEUE'].id">
                 <ion-label>{{ translate("Move items to") }}</ion-label>
-                <ion-label slot="end">{{ actionEnums["NEXT_RULE"].id ? translate("Next rule") : translate("Queue") }}</ion-label>
+                <ion-label slot="end">{{ ruleActionType === actionEnums['MOVE_TO_QUEUE'].id ? translate("Queue") : translate("Next rule") }}</ion-label>
               </ion-item>
               <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
                 <ion-label>{{ translate("Queue") }}</ion-label>
-                <ion-label slot="end">{{ inventoryRuleActions[ruleActionType]?.actionValue }}</ion-label>
+                <ion-label slot="end">{{ facilities[inventoryRuleActions[ruleActionType]?.actionValue]?.facilityName || inventoryRuleActions[ruleActionType]?.actionValue }}</ion-label>
               </ion-item>
               <ion-item lines="none">
                 <ion-toggle disabled :checked="JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)">{{ translate("Clear auto cancel days") }}</ion-toggle>

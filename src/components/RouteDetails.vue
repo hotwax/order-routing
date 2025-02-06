@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-menu-toggle>
+          <ion-menu-toggle menu="route-details">
             <ion-button>
               <ion-icon slot="icon-only" :icon="arrowBackOutline" />
             </ion-button>

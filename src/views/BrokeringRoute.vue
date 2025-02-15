@@ -830,6 +830,10 @@ ion-card > ion-button[expand="block"] {
   margin-bottom: var(--spacer-sm);
 }
 
+ion-reorder ion-chip {
+  cursor: grab;
+}
+
 /* We need to disable pointer events from the card, but we do not want its styling to be changed thus defined this class to unset the opacity when reordering is enabled */
 .reordering-enabled.card-disabled {
   opacity: unset;

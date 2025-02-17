@@ -94,7 +94,7 @@
                     </ion-item>
                     <ion-item>
                       <ion-label>
-                        {{ currentShipGroup[0].shipmentMethodTypeId }}
+                        {{ shippingMethods[currentShipGroup[0].shipmentMethodTypeId]?.description || currentShipGroup[0].shipmentMethodTypeId }}
                         <p>{{ carriers[currentShipGroup[0].carrierPartyId]?.name || currentShipGroup[0].carrierPartyId }}</p>
                       </ion-label>
                       <ion-note slot="end">{{ carriers[currentShipGroup[0].carrierPartyId]?.deliveryDays?.[currentShipGroup[0].shipmentMethodTypeId] || "-" }}{{ " days" }}</ion-note>
@@ -222,13 +222,13 @@ const facilities = computed(() => store.getters["util/getPhysicalFacilities"])
 const virtualFacilities = computed(() => store.getters["util/getVirtualFacilities"])
 const getProduct = computed(() => (id: string) => store.getters["product/getProductById"](id)) as any
 const getProductStock = computed(() => (productId: string, facilityId: string) => store.getters["product/getProductStock"](productId, facilityId)) as any
+const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 
 onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
 
-  store.dispatch("util/fetchFacilities")
-  store.dispatch("util/fetchStatusInformation")
+  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })
@@ -420,7 +420,7 @@ function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
   currentShipGroupId.value = shipGroupId
 
   const shipGroupFacilityId = shipGroup[0].facilityId
-  isOrderBrokered.value = facilities.value[shipGroupFacilityId] || shipGroupFacilityId
+  isOrderBrokered.value = facilities.value[shipGroupFacilityId]
 
   // If order is already brokered then fetch the brokering info for order
   if(isOrderBrokered.value) {

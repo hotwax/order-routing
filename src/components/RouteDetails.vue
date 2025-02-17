@@ -32,7 +32,7 @@
             <ion-icon :icon="timeOutline" slot="start" />
             <ion-label>{{ translate("Last run") }}</ion-label>
             <ion-chip outline @click.stop="openRoutingHistoryModal()">
-              <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : "-" }}</ion-label>
+              <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
             </ion-chip>
           </ion-item>
           <ion-item-group>
@@ -170,10 +170,8 @@ const routingHistory = computed(() => store.getters["orderRouting/getRoutingHist
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 function getRouteIndex() {
-  // Filtering archived routes as the index and total count needs to calculated by excluding the archived routes
-  const activeAndDraftRoute = props.group["routings"]?.filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED")
-  const total = activeAndDraftRoute?.length
-  const currentRouteIndex: any = activeAndDraftRoute ? Object.keys(activeAndDraftRoute).find((key: any) => activeAndDraftRoute[key].orderRoutingId === props.routing.orderRoutingId) : 0
+  const total = props.group["routings"]?.length
+  const currentRouteIndex: any = props.group["routings"] ? Object.keys(props.group["routings"]).find((key: any) => props.group["routings"][key].orderRoutingId === props.routing.orderRoutingId) : 0
 
   // adding one (1) as currentRouteIndex will have the index based on array, and used + as currentRouteIndex is a string
   return `${+currentRouteIndex + 1}/${total}`
@@ -217,7 +215,7 @@ function getPromiseDateValue() {
 }
 
 async function openRoutingHistoryModal() {
-  await store.dispatch("orderRouting/fetchRoutingHistory", props.routing.routingGroupId)
+  await store.dispatch("orderRouting/fetchRoutingHistory", props.group.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[props.routing.orderRoutingId], routingName: props.routing.routingName, groupName: props.group.groupName }

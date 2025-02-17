@@ -104,8 +104,7 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      parentTypeId: "VIRTUAL_FACILITY",
-      pageSize: 200
+      pageSize: 500
     }
 
     try {
@@ -224,6 +223,78 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     commit(types.UTIL_STATUSES_UPDATED, statuses)
+  },
+
+  async fetchCarrierInformation({ commit, state }, carrierIds: Array<any>) {
+    let carriers = JSON.parse(JSON.stringify(state.carriers))
+    const carrierPartyIds = carrierIds.filter((id: any) => !carriers[id])
+
+    if(!carrierPartyIds.length) {
+      return;
+    }
+
+    const payload = {
+      inputFields: {
+        partyId: carrierIds,
+        partyId_op: "in"
+      },
+      distinct: "Y",
+      viewSize: carrierIds.length,
+      entityName: "PartyNameView",
+    }
+
+    try {
+      const resp = await UtilService.getCarrierInformation(payload);
+
+      if(!hasError(resp) && resp.data.docs?.length) {
+        // Using only groupName as we will always pass carrier id, that only has groupName with it
+        carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+          carriers[carrier.partyId] = {
+            name: carrier.groupName
+          }
+          return carriers
+        }, carriers)
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    const deliveryDaysPayload = {
+      inputFields: {
+        partyId: carrierIds,
+        partyId_op: "in",
+        roleTypeId: "CARRIER",
+        deliveryDays_op: "not-empty"
+      },
+      distinct: "Y",
+      viewSize: 200,
+      entityName: "CarrierShipmentMethod",
+    }
+
+    try {
+      const resp = await UtilService.getCarrierDeliveryDays(deliveryDaysPayload);
+
+      if(!hasError(resp) && resp.data.docs?.length) {
+        carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+          if(carriers[carrier.partyId]["deliveryDays"]) {
+            carriers[carrier.partyId]["deliveryDays"] = {
+              ...carriers[carrier.partyId]["deliveryDays"],
+              [carrier.shipmentMethodTypeId]: carrier.deliveryDays
+            }
+          } else {
+            carriers[carrier.partyId]["deliveryDays"] = {
+              [carrier.shipmentMethodTypeId]: carrier.deliveryDays
+            }
+          }
+
+          return carriers
+        }, carriers)
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    commit(types.UTIL_CARRIERS_UPDATED, carriers)
   },
 
   async clearUtilState({ commit }) {

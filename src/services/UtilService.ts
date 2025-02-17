@@ -1,4 +1,5 @@
-import api from "@/api"
+import api, { client } from "@/api"
+import store from "@/store";
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
@@ -55,6 +56,38 @@ const checkOmsConnection = async (): Promise<any> => {
   });
 }
 
+const getCarrierInformation = async (payload: any): Promise<any> => {
+  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  let baseURL = omsRedirectionInfo.url;
+  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
+  return client({
+    url: "performFind",
+    method: "post",
+    baseURL: baseURL,
+    data: payload,
+    headers: {
+      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
+const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
+  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  let baseURL = omsRedirectionInfo.url;
+  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
+  return client({
+    url: "performFind",
+    method: "post",
+    baseURL: baseURL,
+    data: payload,
+    headers: {
+      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
 export const UtilService = {
   checkOmsConnection,
   fetchEnums,
@@ -62,5 +95,7 @@ export const UtilService = {
   fetchFacilityGroups,
   fetchOmsEnums,
   fetchShippingMethods,
-  fetchStatusInformation
+  fetchStatusInformation,
+  getCarrierInformation,
+  getCarrierDeliveryDays
 }

@@ -48,6 +48,11 @@ const routes: Array<RouteRecordRaw> = [
         props: true
       },
       {
+        path: "brokering/:routingGroupId/routes/test",
+        component: () => import("@/views/BrokeringRunTest.vue"),
+        props: true
+      },
+      {
         path: "brokering/:routingGroupId/:orderRoutingId/rules",
         component: () => import("@/views/BrokeringQuery.vue"),
         props: true

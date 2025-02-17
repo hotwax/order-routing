@@ -155,9 +155,9 @@
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
                   </ion-label>
                 <!-- </div> -->
-                <ion-button fill="clear" slot="end" @click.stop="openRuleDetails(rule)">{{ "Details" }}</ion-button>
+                <ion-button fill="clear" slot="end" @click.stop="openRuleDetails(rule)">{{ translate("Details") }}</ion-button>
               </ion-item>
-              <p v-if="!routing.rules?.length" class="ion-text-center">{{ "No rules found" }}</p>
+              <p v-if="!routing.rules?.length" class="ion-text-center">{{ translate("No rules available") }}</p>
             </ion-item-group>
           </ion-list>
         </aside>
@@ -420,7 +420,7 @@ function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
   currentShipGroupId.value = shipGroupId
 
   const shipGroupFacilityId = shipGroup[0].facilityId
-  isOrderBrokered.value = facilities.value[shipGroupFacilityId]
+  isOrderBrokered.value = facilities.value[shipGroupFacilityId] || shipGroupFacilityId
 
   // If order is already brokered then fetch the brokering info for order
   if(isOrderBrokered.value) {

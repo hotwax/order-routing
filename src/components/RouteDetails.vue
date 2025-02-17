@@ -39,7 +39,7 @@
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
             </ion-item-divider>
-            <p class="empty-state" v-if="routing.filterConditions && !Object.keys(routing.filterConditions)?.length">
+            <p class="empty-state" v-if="!routing.filtersCount">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
             </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
@@ -116,7 +116,7 @@
               <ion-label>{{ translate("Sort") }}</ion-label>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
-            <p class="empty-state" v-if="routing.sortConditions && !Object.keys(routing.sortConditions)?.length">
+            <p class="empty-state" v-if="!routing.sortCount">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
             </p>
             <ion-item v-for="(sort, code) in routing.sortConditions" :key="code">

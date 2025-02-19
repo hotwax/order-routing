@@ -22,8 +22,8 @@
                   <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
                 </ion-card-header>
                 <div class="ion-padding">
-                  <ion-button fill="outline" size="small">
-                    <ion-icon slot="start" :icon="speedometerOutline" @click="router.go(-1)"/>
+                  <ion-button fill="outline" size="small" @click="router.go(-1)">
+                    <ion-icon slot="start" :icon="speedometerOutline"/>
                     {{ translate("Exit test mode") }}
                   </ion-button>
                 </div>
@@ -495,10 +495,10 @@ async function brokerOrder() {
       productStoreId: currentEComStore.value.productStoreId
     })
 
-    // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
-    if(!hasError(resp) && resp.data.messages) {
+    // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
+    if(!hasError(resp) && resp.data.attemptedItemCount) {
       // Removed the eligible routings once the order is brokered
-      eligibleOrderRoutings.value = []
+      // eligibleOrderRoutings.value = []
       getOrderBrokeringInfo(true);
     } else {
       throw resp.data;
@@ -597,11 +597,12 @@ async function resetOrder() {
 
     // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
     if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
-      eligibleOrderRoutings.value = []
       brokeringRoute.value = ""
       brokeringRule.value = ""
       errorMessage.value = ""
-      getOrderBrokeringInfo(true);
+      await getOrderBrokeringInfo(true);
+      isOrderBrokered.value = false;
+      getEligibleRoutesForBrokering();
     } else {
       throw resp.data;
     }

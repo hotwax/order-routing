@@ -1,5 +1,7 @@
 import api, { client } from "@/api"
+import logger from "@/logger";
 import store from "@/store";
+import { hasError } from "@/utils";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -164,20 +166,79 @@ const runNow = async (routingGroupId: string): Promise<any> => {
   });
 }
 
-const findOrder = async (payload: any): Promise<any> => {
+const findOrder = async (queryString: string): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
   let baseURL = omsRedirectionInfo.url;
   baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
-  return client({
-    url: "solr-query",
-    method: "post",
-    baseURL: baseURL,
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
-      'Content-Type': 'application/json'
+
+  let orders = []
+  let errorMessage = "";
+  const orderCarrierPartyIds: Array<string> = [];
+  const payload = {
+    "json": {
+      "params": {
+        "rows": "10",
+        "group": true,
+        "group.field": "orderId",
+        "group.limit": 1000,
+        "group.ngroups": true,
+        "q.op": "AND",
+        "start": 0,
+        "qf": "orderId^10 search_orderIdentifications search_goodIdentifications orderNotes^5 externalOrderId^5 customerPartyName^20  productId^3 productName parentProductName internalName parentProductId",
+        "defType": "edismax"
+      },
+      "query": `(*${queryString.trim()}*) OR "${queryString.trim()}"^100`,
+      "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED OR ORDER_COMPLETED)"
     }
-  });
+  }
+
+  try {
+    const resp = await client({
+      url: "solr-query",
+      method: "post",
+      baseURL: baseURL,
+      data: payload,
+      headers: {
+        Authorization:  'Bearer ' + omsRedirectionInfo.token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if(!hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
+      const productIds: Array<string> = [];
+      orders = resp.data.grouped?.orderId?.groups.map((group: any) => {
+        const groups = group.doclist.docs.reduce((shipGroups: any, item: any) => {
+          productIds.push(item.productId)
+          orderCarrierPartyIds.push(item.carrierPartyId)
+          shipGroups[item.shipGroupSeqId] ? shipGroups[item.shipGroupSeqId].push(item) : shipGroups[item.shipGroupSeqId] = [item]
+          return shipGroups
+        }, {})
+
+        return {
+          orderId: group.doclist.docs[0].orderId,
+          orderName: group.doclist.docs[0].orderName,
+          orderStatusDesc: group.doclist.docs[0].orderStatusDesc,
+          groups
+        }
+      })
+
+      store.dispatch("util/fetchCarrierInformation", [...new Set(orderCarrierPartyIds)])
+
+      if(productIds.length) {
+        store.dispatch("product/fetchProducts", productIds)
+      }
+    } else {
+      throw resp
+    }
+  } catch(error) {
+    logger.error(error)
+    errorMessage = "Unable to find order"
+  }
+
+  return {
+    orders,
+    errorMessage
+  }
 }
 
 const brokerOrder = async(payload: any): Promise<any> => {
@@ -186,22 +247,6 @@ const brokerOrder = async(payload: any): Promise<any> => {
     method: "POST",
     data: payload
   })
-}
-
-const getOrderFacilityChangeInfo = async (payload: any): Promise<any> => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
-  return client({
-    url: "performFind",
-    method: "post",
-    baseURL: baseURL,
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
-      'Content-Type': 'application/json'
-    }
-  });
 }
 
 const resetOrder = async(payload: any): Promise<any> => {
@@ -239,7 +284,6 @@ export const OrderRoutingService = {
   fetchRoutingScheduleInformation,
   fetchRule,
   findOrder,
-  getOrderFacilityChangeInfo,
   getRecentOrderFacilityChangeInfo,
   resetOrder,
   runNow,

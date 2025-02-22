@@ -46,16 +46,18 @@
             </ion-card>
             <template v-if="!currentOrder.orderId">
               <ion-searchbar v-model="queryString" @keyup.enter="queryString = $event.target.value; searchOrders()"/>
-              <ion-list>
+              <ion-list v-if="orders.length">
                 <ion-item v-for="order in orders" :key="order.groupId">
                   <ion-label>
-                    {{ order.orderId }}
-                    <p>{{ order.orderName }}</p>
+                    {{ order.orderName }}
+                    <p>{{ order.orderId }}</p>
                     <p>{{ order.orderStatusDesc }}</p>
                   </ion-label>
                   <ion-button slot="end" fill="outline" @click="updateCurrentOrder(order)">{{ translate("Test Order") }}</ion-button>
                 </ion-item>
               </ion-list>
+              <!-- Added error message check as in case of no order found we display an error message thus not need to display this helper string -->
+              <p class="ion-text-center" v-else-if="!errorMessage">{{ translate("Enter order id, product id or customer name to search") }}</p>
             </template>
             <template v-else>
               <div class="order-test-header">
@@ -149,12 +151,10 @@
             <ion-item-group v-for="routing in group.routings" :key="routing.orderRoutingId" class="ion-margin-vertical">
               <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
               <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': brokeringRule === rule.routingRuleId }">
-                <!-- <div slot="start"> -->
-                  <ion-label>
-                    {{ rule.ruleName }}
-                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
-                  </ion-label>
-                <!-- </div> -->
+                <ion-label>
+                  <h2>{{ rule.ruleName }}</h2>
+                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                </ion-label>
                 <ion-button fill="clear" slot="end" @click.stop="openRuleDetails(rule)">{{ translate("Details") }}</ion-button>
               </ion-item>
               <p v-if="!routing.rules?.length" class="ion-text-center">{{ translate("No rules available") }}</p>
@@ -196,7 +196,6 @@ let currentOrder = ref({}) as any
 let orders = ref([]) as any
 let queryString = ref("")
 let errorMessage = ref("")
-let orderCarrierPartyIds: Ref<string[]> = ref([])
 let currentShipGroupId = ref("")
 let isOrderBrokered = ref(false)
 let brokeringDecisionReason = ref("")
@@ -310,56 +309,12 @@ async function searchOrders() {
     return;
   }
 
-  const payload = {
-    "json": {
-      "params": {
-        "rows": "10",
-        "group": true,
-        "group.field": "orderId",
-        "group.limit": 1000,
-        "group.ngroups": true,
-        "q.op": "AND",
-        "start": 0,
-        "qf": "orderId^10 search_orderIdentifications search_goodIdentifications orderNotes^5 externalOrderId^5 customerPartyName^20  productId^3 productName parentProductName internalName parentProductId",
-        "defType": "edismax"
-      },
-      "query": `(*${queryString.value.trim()}*) OR "${queryString.value.trim()}"^100`,
-      "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED OR ORDER_COMPLETED)"
-    }
-  }
+  const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
 
-  try {
-    const resp = await OrderRoutingService.findOrder(payload) as any;
-
-    if(!hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
-      const productIds: Array<string> = [];
-      orders.value = resp.data.grouped?.orderId?.groups.map((group: any) => {
-        const groups = group.doclist.docs.reduce((shipGroups: any, item: any) => {
-          productIds.push(item.productId)
-          orderCarrierPartyIds.value.push(item.carrierPartyId)
-          shipGroups[item.shipGroupSeqId] ? shipGroups[item.shipGroupSeqId].push(item) : shipGroups[item.shipGroupSeqId] = [item]
-          return shipGroups
-        }, {})
-
-        return {
-          orderId: group.doclist.docs[0].orderId,
-          orderName: group.doclist.docs[0].orderName,
-          orderStatusDesc: group.doclist.docs[0].orderStatusDesc,
-          groups
-        }
-      })
-
-      store.dispatch("util/fetchCarrierInformation", [...new Set(orderCarrierPartyIds.value)])
-
-      if(productIds.length) {
-        store.dispatch("product/fetchProducts", productIds)
-      }
-    } else {
-      throw resp
-    }
-  } catch(error) {
-    logger.error(error)
-    errorMessage.value = "Unable to find order"
+  if(resp.errorMessage) {
+    errorMessage.value = resp.errorMessage
+  } else {
+    orders.value = resp.orders
   }
 }
 
@@ -439,47 +394,50 @@ function getEligibleRoutesForBrokering() {
   const shipGroup = currentShipGroup.value[0]
 
   group.value.routings.map((routing: any) => {
-    // If the current routing do not have filters applied it means that this routing will pick all the orders, thus adding such routings in the eligible routing array
-    if(!routing.orderFilters?.length) {
-      eligibleRoutings.push(routing.orderRoutingId)
+    // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
+    if(routing.statusId !== "ROUTING_ACTIVE") {
       return
     }
 
     const orderFilters = routing.orderFilters?.filter((orderFilter: any) => orderFilter.conditionTypeEnumId === "ENTCT_FILTER")
 
-    if(orderFilters?.length) {
-      // TODO: we can use some method here
-      const matchedFilters = orderFilters.filter((orderFilter: any) => {
-        const key = orderFilter.fieldName
-        const value = orderFilter.fieldValue
+    // If the current routing do not have filters applied it means that this routing will pick all the orders, thus adding such routings in the eligible routing array
+    if(!orderFilters?.length) {
+      eligibleRoutings.push(routing.orderRoutingId)
+      return
+    }
 
-        if(excludedFilters.includes(key)) {
-          return true;
-        }
+    // TODO: we can use some method here
+    const matchedFilters = orderFilters.filter((orderFilter: any) => {
+      const key = orderFilter.fieldName
+      const value = orderFilter.fieldValue
 
-        switch(orderFilter.operator) {
-          case "in":
-            return value.split(",").includes(shipGroup[key])
-          case "not-in":
-            return !value.split(",").includes(shipGroup[key])
-          case "equals":
-            return shipGroup[key] === value
-          case "not-equals":
-            return shipGroup[key] !== value
-          default:
-            return true
-        }
-      })
-
-      // If all of the filters are matched and the corresponding route has some rules available
-      if(matchedFilters.length === orderFilters.length && routing.rules?.length) {
-        eligibleRoutings.push(routing.orderRoutingId)
+      if(excludedFilters.includes(key)) {
+        return true;
       }
+
+      switch(orderFilter.operator) {
+        case "in":
+          return value.split(",").includes(shipGroup[key])
+        case "not-in":
+          return !value.split(",").includes(shipGroup[key])
+        case "equals":
+          return shipGroup[key] === value
+        case "not-equals":
+          return shipGroup[key] !== value
+        default:
+          return true
+      }
+    })
+
+    // If all of the filters are matched and the corresponding route has some rules available
+    if(matchedFilters.length === orderFilters.length && routing.rules?.length) {
+      eligibleRoutings.push(routing.orderRoutingId)
     }
   })
 
   if(!eligibleRoutings.length) {
-    errorMessage.value = "This order will not be brokered in this routing because of the selected order filters."
+    errorMessage.value = "This order will not be brokered in this routing because of the selected order filters or no route is in active status."
     return;
   }
 

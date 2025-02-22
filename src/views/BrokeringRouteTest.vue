@@ -4,14 +4,13 @@
     <ion-list v-if="!currentOrder.orderId">
       <ion-item v-for="order in orders" :key="order.groupId">
         <ion-label>
-          {{ order.orderId }}
-          <p>{{ order.orderName }}</p>
+          {{ order.orderName }}
+          <p>{{ order.orderId }}</p>
           <p>{{ order.orderStatusDesc }}</p>
         </ion-label>
         <ion-button slot="end" fill="outline" @click="updateCurrentOrder(order)">{{ translate("Test Order") }}</ion-button>
       </ion-item>
     </ion-list>
-
     <template v-else>
       <div class="order-test-header">
         <ion-item lines="none">
@@ -27,16 +26,15 @@
       </div>
 
       <ion-row>
-        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in currentOrder.groups" :key="shipGroupSeqId" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="currentShipGroupId.value !== shipGroupSeqId">
+        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in currentOrder.groups" :key="shipGroupSeqId" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="currentShipGroupId !== shipGroupSeqId">
           {{ index + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
         </ion-chip>
       </ion-row>
 
       <div class="ship-groups">
         <div class="order-group">
-          <!-- TODO: Add support to reset order, currently the button is always disabled, will be eneabled once implemented -->
-          <ion-button class="ion-margin-horizontal" v-if="isOrderBrokered" :disabled="true && hasUnmatchedFilters">
-            <ion-icon :icon="arrowUndoOutline" />
+          <ion-button class="ion-margin-horizontal" v-if="isOrderBrokered" @click="resetOrder()">
+            <ion-icon slot="start" :icon="arrowUndoOutline" />
             {{ translate("Reset order") }}
           </ion-button>
           <ion-card class="order-items" v-if="currentShipGroup[0]?.shipGroupSeqId">
@@ -50,7 +48,7 @@
             </ion-item>
             <ion-item>
               <ion-label>
-                {{ currentShipGroup[0].shipmentMethodTypeId }}
+                {{ shippingMethods[currentShipGroup[0].shipmentMethodTypeId]?.description || currentShipGroup[0].shipmentMethodTypeId }}
                 <p>{{ carriers[currentShipGroup[0].carrierPartyId]?.name || currentShipGroup[0].carrierPartyId }}</p>
               </ion-label>
               <ion-note slot="end">{{ carriers[currentShipGroup[0].carrierPartyId]?.deliveryDays?.[currentShipGroup[0].shipmentMethodTypeId] || "-" }}{{ " days" }}</ion-note>
@@ -112,18 +110,20 @@ let queryString = ref("")
 let orders = ref([]) as any
 let currentOrder = ref({}) as any
 let currentShipGroupId = ref("") as any
-let orderCarrierPartyIds = ref([]) as any
 let errorMessage = ref("")
 let brokeringDecisionReason = ref("")
 let isOrderBrokered = ref(false)
 let hasUnmatchedFilters = ref(false)
+let isOrderAlreadyBrokered = ref(false)
 
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const currentShipGroup = computed(() => currentShipGroupId.value ? currentOrder.value.groups[currentShipGroupId.value] : [])
 const carriers = computed(() => store.getters["util/getCarriers"])
 const facilities = computed(() => store.getters["util/getPhysicalFacilities"])
+const virtualFacilities = computed(() => store.getters["util/getVirtualFacilities"])
 const getProduct = computed(() => (id: string) => store.getters["product/getProductById"](id)) as any
 const getProductStock = computed(() => (productId: string, facilityId: string) => store.getters["product/getProductStock"](productId, facilityId)) as any
+const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 
 async function searchOrders() {
   orders.value = []
@@ -133,77 +133,43 @@ async function searchOrders() {
     return;
   }
 
-  const payload = {
-    "json": {
-      "params": {
-        "rows": "10",
-        "group": true,
-        "group.field": "orderId",
-        "group.limit": 1000,
-        "group.ngroups": true,
-        "q.op": "AND",
-        "start": 0
-      },
-      "query":"(*:*)",
-      "filter": `docType: ORDER AND orderId: ${queryString.value} AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED)`
-    }
-  }
+  const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
 
-  try {
-    const resp = await OrderRoutingService.findOrder(payload) as any;
-
-    if(!hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
-      const productIds: Array<string> = [];
-      orders.value = resp.data.grouped?.orderId?.groups.map((group: any) => {
-        const groups = group.doclist.docs.reduce((shipGroups: any, item: any) => {
-          productIds.push(item.productId)
-          orderCarrierPartyIds.value.push(item.carrierPartyId)
-          shipGroups[item.shipGroupSeqId] ? shipGroups[item.shipGroupSeqId].push(item) : shipGroups[item.shipGroupSeqId] = [item]
-          return shipGroups
-        }, {})
-
-        return {
-          orderId: group.doclist.docs[0].orderId,
-          orderName: group.doclist.docs[0].orderName,
-          orderStatusDesc: group.doclist.docs[0].orderStatusDesc,
-          groups
-        }
-      })
-
-      store.dispatch("util/fetchCarrierInformation", [...new Set(orderCarrierPartyIds.value)])
-
-      if(productIds.length) {
-        store.dispatch("product/fetchProducts", productIds)
-      }
-    } else {
-      throw resp
-    }
-  } catch(error) {
-    logger.error(error)
-    errorMessage.value = "Unable to find order"
+  if(resp.errorMessage) {
+    errorMessage.value = resp.errorMessage
+  } else {
+    orders.value = resp.orders
   }
 }
 
 function updateCurrentOrder(order?: any) {
-  if(!order?.orderId) {
-    queryString.value = ""
-    orders.value = []
-    currentOrder.value = {}
-    currentShipGroupId.value = ""
-    isOrderBrokered.value = false
-    hasUnmatchedFilters.value = false
-    emitter.emit("selectedRule", "")
-    emitter.emit("updateUnmatchedFilters", []);
+  if(order?.orderId) {
+    currentOrder.value = order
+    // By default select the first shipGroup
+    const orderShipGroup: any = Object.values(order.groups)[0]
+    updateCurrentShipGroupId(orderShipGroup[0].shipGroupSeqId, orderShipGroup)
     return;
   }
 
-  currentOrder.value = order
+  queryString.value = ""
+  orders.value = []
+  currentOrder.value = {}
+  currentShipGroupId.value = ""
+  isOrderBrokered.value = false
+  hasUnmatchedFilters.value = false
+  emitter.emit("selectedRule", "")
+  emitter.emit("updateUnmatchedFilters", []);
+  return;
 }
 
 function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
+  emitter.emit("selectedRule", "")
+  emitter.emit("updateUnmatchedFilters", []);
+  currentShipGroupId.value = ""
+  errorMessage.value = ""
+  isOrderAlreadyBrokered.value = false
+
   if(!shipGroupId) {
-    emitter.emit("selectedRule", "")
-    emitter.emit("updateUnmatchedFilters", []);
     currentShipGroupId.value = ""
     return;
   }
@@ -221,7 +187,8 @@ function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
 
   // If order is already brokered then fetch the brokering info for order
   if(isOrderBrokered.value) {
-    getOrderBrokeringInfo()
+    isOrderAlreadyBrokered.value = true
+    getOrderBrokeringInfo(!isOrderBrokered.value)
   } else {
     checkOrderBrokeringPossibility();
   }
@@ -276,44 +243,42 @@ async function brokerOrder() {
       productStoreId: currentEComStore.value.productStoreId
     })
 
-    // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
-    if(!hasError(resp) && resp.data.messages) {
-      getOrderBrokeringInfo();
+    // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
+    if(!hasError(resp) && resp.data.attemptedItemCount) {
+      getOrderBrokeringInfo(true);
     } else {
       throw resp.data;
     }
   } catch(err) {
-    errorMessage.value = "This order will not be brokered in this routing because of the selected order filters."
+    errorMessage.value = "Failed to broker order using this routing, try with some other routing"
     logger.error(err)
   }
 }
 
-async function getOrderBrokeringInfo() {
+async function getOrderBrokeringInfo(updateOrderInfo = false) {
+  // TODO: add support to pass orderItemSeqId when fetching recent brokering info
   const payload = {
-    inputFields: {
-      orderId: currentOrder.value.orderId,
-    },
-    orderBy: "changeDatetime DESC",
-    entityName: "OrderFacilityChange"
+    orderId: currentOrder.value.orderId,
+    orderItemSeqId: currentShipGroup.value[0].orderItemSeqId
   }
 
   try {
-    let resp = await OrderRoutingService.getOrderFacilityChangeInfo(payload)
+    let resp = await OrderRoutingService.getRecentOrderFacilityChangeInfo(payload)
 
-    if(!hasError(resp) && resp.data.docs?.length) {
-      const orderBrokeringInfo = resp.data.docs[0]
-
+    const orderBrokeringInfo = resp.data?.routingHistoryList?.find((history: any) => history.orderItemSeqId === currentShipGroup.value[0].orderItemSeqId)
+    if(!hasError(resp) && orderBrokeringInfo) {
       // TODO: need to update the logic once the broker api returns correct data
       // If the order is brokered by the user then update the order shipGroup info
-      if(!isOrderBrokered.value) {
+      if(updateOrderInfo) {
         isOrderBrokered.value = true
 
         // Not using solr query to fetch the updated information as solr doc updation is async and thus might take some time to update
         // Adding a new ship group to the order
         currentOrder.value.groups[orderBrokeringInfo.shipGroupSeqId] = currentOrder.value.groups[currentShipGroupId.value].map((item: any) => ({
           ...item,
+          fromFacilityId: orderBrokeringInfo.fromFacilityId,
           facilityId: orderBrokeringInfo.facilityId,
-          facilityName: facilities.value[orderBrokeringInfo.facilityId]?.facilityName,
+          facilityName: facilities.value[orderBrokeringInfo.facilityId]?.facilityName ?? virtualFacilities.value[orderBrokeringInfo.facilityId]?.facilityName,
           shipGroupSeqId: orderBrokeringInfo.shipGroupSeqId
         }))
 
@@ -339,6 +304,39 @@ async function getOrderBrokeringInfo() {
   } catch(err) {
     logger.error(err)
     errorMessage.value = "Unable to fetch brokering information for this order."
+  }
+}
+
+async function resetOrder() {
+  try {
+    let resp = await OrderRoutingService.resetOrder({
+      orderId: currentOrder.value.orderId,
+      notify: false,
+      items: currentShipGroup.value.map((item: any) => ({
+        facilityId: item.facilityId,
+        shipmentMethodTypeId: item.shipmentMethodTypeId,
+        quantity: item.quantity,
+        orderItemSeqId: item.orderItemSeqId,
+        toFacilityId: item.fromFacilityId ?? "_NA_", // TODO: pass the parkingId from where it was released
+        recordVariance: "N",
+        rejectReason: "NO_VARIANCE_LOG"
+      }))
+    })
+
+    // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
+    if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
+      emitter.emit("selectedRule", "")
+      emitter.emit("updateUnmatchedFilters", []);
+      errorMessage.value = ""
+      await getOrderBrokeringInfo(true);
+      isOrderBrokered.value = false;
+      checkOrderBrokeringPossibility();
+    } else {
+      throw resp.data;
+    }
+  } catch(err) {
+    showToast(translate("Unable to reset the order"))
+    logger.error(err)
   }
 }
 </script>

@@ -136,7 +136,7 @@ onIonViewWillEnter(async () => {
   emitter.on("updateBrokeringInfo", updateBrokeringInfo)
   emitter.on("updateEligibleOrderRoutings", updateEligibleOrderRoutings)
 
-  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
+  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })

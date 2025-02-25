@@ -49,6 +49,7 @@
   "duration": "duration",
   "Edit": "Edit",
   "Enter a valid value": "Enter a valid value",
+  "Enter order id, product id or customer name to search": "Enter order id, product id or customer name to search",
   "Error getting user profile": "Error getting user profile",
   "Exclude": "Exclude",
   "Excluded": "Excluded",

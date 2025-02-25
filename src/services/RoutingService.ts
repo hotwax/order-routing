@@ -225,7 +225,7 @@ const findOrder = async (queryString: string): Promise<any> => {
       store.dispatch("util/fetchCarrierInformation", [...new Set(orderCarrierPartyIds)])
 
       if(productIds.length) {
-        store.dispatch("product/fetchProducts", productIds)
+        await store.dispatch("product/fetchProducts", productIds)
       }
     } else {
       throw resp

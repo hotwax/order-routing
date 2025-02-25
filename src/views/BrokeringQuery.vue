@@ -27,7 +27,7 @@
           </ion-button>
           <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges">
             <ion-icon slot="start" :icon="speedometerOutline" />
-            {{ translate(isRoutingTestEnabled ? "Exit Test Mode" : "Test") }}
+            {{ translate(isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
           <!-- <ion-button color="medium" fill="outline" size="small">
             <ion-icon slot="start" :icon="copyOutline" />

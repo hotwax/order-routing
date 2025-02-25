@@ -132,11 +132,9 @@
 <script setup lang="ts">
 import { translate } from "@/i18n";
 import store from "@/store";
-import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
-import { arrowBackOutline, bookmarkOutline, filterOutline, golfOutline, playForwardOutline, pulseOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
-import { computed, defineProps, onMounted, ref } from "vue"
-import RoutingHistoryModal from "./RoutingHistoryModal.vue";
-import { getDateAndTimeShort } from "@/utils";
+import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
+import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"
+import { computed, defineProps, ref } from "vue"
 
 const props = defineProps({
   group: {
@@ -149,7 +147,6 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
 let inventoryRuleFilterOptions = ref({}) as any
@@ -161,7 +158,6 @@ const enums = computed(() => store.getters["util/getEnums"])
 const facilities = computed(() => store.getters["util/getVirtualFacilities"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 
 function getRuleIndex() {

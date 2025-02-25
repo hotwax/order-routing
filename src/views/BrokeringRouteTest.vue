@@ -1,16 +1,20 @@
 <template>
   <div class="ion-margin">
-    <ion-searchbar v-if="!currentOrder.orderId" v-model="queryString" @keyup.enter="queryString = $event.target.value; searchOrders()"/>
-    <ion-list v-if="!currentOrder.orderId">
-      <ion-item v-for="order in orders" :key="order.groupId">
-        <ion-label>
-          {{ order.orderName }}
-          <p>{{ order.orderId }}</p>
-          <p>{{ order.orderStatusDesc }}</p>
-        </ion-label>
-        <ion-button slot="end" fill="outline" @click="updateCurrentOrder(order)">{{ translate("Test Order") }}</ion-button>
-      </ion-item>
-    </ion-list>
+    <template v-if="!currentOrder.orderId">
+      <ion-searchbar v-model="queryString" @keyup.enter="queryString = $event.target.value; searchOrders()"/>
+      <ion-list v-if="orders.length">
+        <ion-item v-for="order in orders" :key="order.groupId">
+          <ion-label>
+            {{ order.orderName }}
+            <p>{{ order.orderId }}</p>
+            <p>{{ order.orderStatusDesc }}</p>
+          </ion-label>
+          <ion-button slot="end" fill="outline" @click="updateCurrentOrder(order)">{{ translate("Test Order") }}</ion-button>
+        </ion-item>
+      </ion-list>
+      <!-- Added error message check as in case of no order found we display an error message thus not need to display this helper string -->
+      <p class="ion-text-center" v-else-if="!errorMessage">{{ translate("Enter order id, product id or customer name to search") }}</p>
+    </template>
     <template v-else>
       <div class="order-test-header">
         <ion-item lines="none">
@@ -31,16 +35,16 @@
         </ion-chip>
       </ion-row>
 
-      <div class="ship-groups">
+      <div class="ship-groups ion-margin">
         <div class="order-group">
           <ion-button class="ion-margin-horizontal" v-if="isOrderBrokered" @click="resetOrder()">
             <ion-icon slot="start" :icon="arrowUndoOutline" />
             {{ translate("Reset order") }}
           </ion-button>
           <ion-card class="order-items" v-if="currentShipGroup[0]?.shipGroupSeqId">
-            <ion-item-divider color="light">
+            <!-- <ion-item-divider color="light">
               <ion-label>{{ currentShipGroup[0].facilityName || currentShipGroup[0].facilityId }}</ion-label>
-            </ion-item-divider>
+            </ion-item-divider> -->
             <ion-item v-if="isOrderBrokered && brokeringDecisionReason">
               <ion-label>
                 {{ brokeringDecisionReason }}
@@ -51,7 +55,7 @@
                 {{ shippingMethods[currentShipGroup[0].shipmentMethodTypeId]?.description || currentShipGroup[0].shipmentMethodTypeId }}
                 <p>{{ carriers[currentShipGroup[0].carrierPartyId]?.name || currentShipGroup[0].carrierPartyId }}</p>
               </ion-label>
-              <ion-note slot="end">{{ carriers[currentShipGroup[0].carrierPartyId]?.deliveryDays?.[currentShipGroup[0].shipmentMethodTypeId] || "-" }}{{ " days" }}</ion-note>
+              <ion-note slot="end" v-if="carriers[currentShipGroup[0].carrierPartyId]?.deliveryDays?.[currentShipGroup[0].shipmentMethodTypeId]">{{ carriers[currentShipGroup[0].carrierPartyId]?.deliveryDays?.[currentShipGroup[0].shipmentMethodTypeId] }} {{ translate("days") }}</ion-note>
             </ion-item>
             <ion-item v-for="item in currentShipGroup" :key="item.orderItemSeqId">
               <ion-thumbnail slot="start">
@@ -59,7 +63,7 @@
               </ion-thumbnail>
               <ion-label>
                 {{ getProduct(item.productId).productName }}
-                <p v-if="isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }}</p>
+                <p v-if="isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
               <ion-badge slot="end">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
@@ -76,9 +80,9 @@
 </template>
 
 <script setup lang="ts">
-import { IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
+import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, Ref, ref } from "vue";
 import store from "@/store";
 import { hasError, showToast } from "@/utils";
 import logger from "@/logger";
@@ -90,19 +94,17 @@ import emitter from "@/event-bus";
 const props = defineProps({
   orderRoutingId: {
     type: String,
-    required: true
+    default: ""
   },
   routingGroupId: {
     type: String,
     required: true
   },
-  isRoutingTestEnabled: {
-    type: Boolean,
-    required: true,
-    default: false
+  routingGroup: {
+    type: Object
   },
   orderRoutingFilterOptions: {
-    required: true
+    required: false
   }
 })
 
@@ -115,6 +117,9 @@ let brokeringDecisionReason = ref("")
 let isOrderBrokered = ref(false)
 let hasUnmatchedFilters = ref(false)
 let isOrderAlreadyBrokered = ref(false)
+
+let brokeringRoute = ref("")
+let brokeringRule = ref("")
 
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const currentShipGroup = computed(() => currentShipGroupId.value ? currentOrder.value.groups[currentShipGroupId.value] : [])
@@ -142,7 +147,7 @@ async function searchOrders() {
   }
 }
 
-function updateCurrentOrder(order?: any) {
+async function updateCurrentOrder(order?: any) {
   if(order?.orderId) {
     currentOrder.value = order
     // By default select the first shipGroup
@@ -151,21 +156,48 @@ function updateCurrentOrder(order?: any) {
     return;
   }
 
+  // If the order is already in brokered state, then do not display the reset alert
+  // TODO: need to check why we have added brokeringRoute.value check
+  // if(!isOrderAlreadyBrokered.value && brokeringRoute.value) {
+  if(!isOrderAlreadyBrokered.value && brokeringRoute.value) {
+    const alert = await alertController
+      .create({
+        header: translate("Reset order before leaving"),
+        message: translate("Testing an order also allocates it to inventory in the OMS. Make sure to reset tested orders before trying another order or exiting test mode."),
+        buttons: [{
+          text: translate("Dismiss"),
+          role: "cancel"
+        }]
+      });
+
+    return alert.present();
+  }
+
   queryString.value = ""
   orders.value = []
   currentOrder.value = {}
   currentShipGroupId.value = ""
   isOrderBrokered.value = false
+  errorMessage.value = ""
+  isOrderAlreadyBrokered.value = false
   hasUnmatchedFilters.value = false
+  brokeringRoute.value = ""
+  brokeringRule.value = ""
   emitter.emit("selectedRule", "")
   emitter.emit("updateUnmatchedFilters", []);
+  emitter.emit("updateBrokeringInfo", { brokeringRoute: brokeringRoute.value, brokeringRule: brokeringRule.value })
+  emitter.emit("updateEligibleOrderRoutings", []);
   return;
 }
 
 function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
+  brokeringRoute.value = ""
+  brokeringRule.value = ""
   emitter.emit("selectedRule", "")
   emitter.emit("updateUnmatchedFilters", []);
-  currentShipGroupId.value = ""
+  emitter.emit("updateBrokeringInfo", { brokeringRoute: brokeringRoute.value, brokeringRule: brokeringRule.value })
+  emitter.emit("updateEligibleOrderRoutings", []);
+  // currentShipGroupId.value = ""
   errorMessage.value = ""
   isOrderAlreadyBrokered.value = false
 
@@ -183,15 +215,75 @@ function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
 
   const shipGroupFacilityId = shipGroup[0].facilityId
   isOrderBrokered.value = facilities.value[shipGroupFacilityId]
-  hasUnmatchedFilters.value = false
+  // hasUnmatchedFilters.value = false
 
   // If order is already brokered then fetch the brokering info for order
   if(isOrderBrokered.value) {
     isOrderAlreadyBrokered.value = true
     getOrderBrokeringInfo(!isOrderBrokered.value)
-  } else {
+  } else if(props.orderRoutingId) {
     checkOrderBrokeringPossibility();
+  } else {
+    getEligibleRoutesForBrokering();
   }
+}
+
+function getEligibleRoutesForBrokering() {
+  // Defined excluded filters as we are not directly getting information for these params in order, thus for now excluded these when checking for brokering possibility
+  // TODO: add support to honor the below excluded filters
+  const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
+  const eligibleRoutings = [] as any
+  const shipGroup = currentShipGroup.value[0]
+
+  props.routingGroup.routings.map((routing: any) => {
+    // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
+    if(routing.statusId !== "ROUTING_ACTIVE") {
+      return
+    }
+
+    const orderFilters = routing.orderFilters?.filter((orderFilter: any) => orderFilter.conditionTypeEnumId === "ENTCT_FILTER")
+
+    // If the current routing do not have filters applied it means that this routing will pick all the orders, thus adding such routings in the eligible routing array
+    if(!orderFilters?.length) {
+      eligibleRoutings.push(routing.orderRoutingId)
+      return
+    }
+
+    // TODO: we can use some method here
+    const matchedFilters = orderFilters.filter((orderFilter: any) => {
+      const key = orderFilter.fieldName
+      const value = orderFilter.fieldValue
+
+      if(excludedFilters.includes(key)) {
+        return true;
+      }
+
+      switch(orderFilter.operator) {
+        case "in":
+          return value.split(",").includes(shipGroup[key])
+        case "not-in":
+          return !value.split(",").includes(shipGroup[key])
+        case "equals":
+          return shipGroup[key] === value
+        case "not-equals":
+          return shipGroup[key] !== value
+        default:
+          return true
+      }
+    })
+
+    // If all of the filters are matched and the corresponding route has some rules available
+    if(matchedFilters.length === orderFilters.length && routing.rules?.length) {
+      eligibleRoutings.push(routing.orderRoutingId)
+    }
+  })
+
+  if(!eligibleRoutings.length) {
+    errorMessage.value = "This order will not be brokered in this routing because of the selected order filters or no route is in active status."
+    return;
+  }
+
+  emitter.emit("updateEligibleOrderRoutings", eligibleRoutings);
 }
 
 function checkOrderBrokeringPossibility() {
@@ -235,13 +327,18 @@ function checkOrderBrokeringPossibility() {
 
 async function brokerOrder() {
   try {
-    let resp = await OrderRoutingService.brokerOrder({
+    const payload = {
       routingGroupId: props.routingGroupId,
-      orderRoutingId: props.orderRoutingId,
       orderId: currentOrder.value.orderId,
       shipGroupSeqId: currentShipGroupId.value,
       productStoreId: currentEComStore.value.productStoreId
-    })
+    } as any
+
+    if(props.orderRoutingId) {
+      payload["orderRoutingId"] = props.orderRoutingId
+    }
+
+    let resp = await OrderRoutingService.brokerOrder(payload)
 
     // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
     if(!hasError(resp) && resp.data.attemptedItemCount) {
@@ -250,9 +347,11 @@ async function brokerOrder() {
       throw resp.data;
     }
   } catch(err) {
-    errorMessage.value = "Failed to broker order using this routing, try with some other routing"
+    errorMessage.value = props.orderRoutingId ? "Failed to broker order using this routing, try with some other routing" : "Failed to broker order using this group, try with some other group"
     logger.error(err)
   }
+
+  emitter.emit("updateEligibleOrderRoutings", []);
 }
 
 async function getOrderBrokeringInfo(updateOrderInfo = false) {
@@ -282,7 +381,8 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
           shipGroupSeqId: orderBrokeringInfo.shipGroupSeqId
         }))
 
-        // Removing the previous ship group from the order
+        // Removing the previous ship group from the order only if the shipGroup is changed
+        // As there might be a case where same shipGroup is updated as brokering is not successfull
         if(currentShipGroupId.value !== orderBrokeringInfo.shipGroupSeqId) {
           delete currentOrder.value.groups[currentShipGroupId.value]
         }
@@ -291,11 +391,20 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
         currentShipGroupId.value = orderBrokeringInfo.shipGroupSeqId
       }
 
+      // TODO: what if the rule brokered the order but after that the rule is updated, this might create confusion
+      if(orderBrokeringInfo.routingGroupId === props.routingGroupId) {
+        brokeringRoute.value = orderBrokeringInfo.orderRoutingId
+        brokeringRule.value = orderBrokeringInfo.routingRuleId
+        emitter.emit("updateBrokeringInfo", { brokeringRoute: brokeringRoute.value, brokeringRule: brokeringRule.value })        
+        if(orderBrokeringInfo.orderRoutingId === props.orderRoutingId) {
+          emitter.emit("selectedRule", orderBrokeringInfo.routingRuleId)
+        }
+      }
+
       // If the order is brokered using the selected order routing, then highlight the rule that brokered the order
       // TODO: what if the rule brokered the order but after that the rule is updated, this might create confusion
-      if(orderBrokeringInfo.routingGroupId === props.routingGroupId && orderBrokeringInfo.orderRoutingId === props.orderRoutingId) {
-        emitter.emit("selectedRule", orderBrokeringInfo.routingRuleId)
-      }
+      // if(orderBrokeringInfo.routingGroupId === props.routingGroupId && orderBrokeringInfo.orderRoutingId === props.orderRoutingId) {
+      // }
       store.dispatch("product/fetchStock", currentOrder.value.groups[currentShipGroupId.value])
       brokeringDecisionReason.value = orderBrokeringInfo.comments
     } else {
@@ -317,7 +426,7 @@ async function resetOrder() {
         shipmentMethodTypeId: item.shipmentMethodTypeId,
         quantity: item.quantity,
         orderItemSeqId: item.orderItemSeqId,
-        toFacilityId: item.fromFacilityId ?? "_NA_", // TODO: pass the parkingId from where it was released
+        toFacilityId: item.fromFacilityId ?? "_NA_",
         recordVariance: "N",
         rejectReason: "NO_VARIANCE_LOG"
       }))
@@ -325,12 +434,20 @@ async function resetOrder() {
 
     // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
     if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
+      brokeringRoute.value = ""
+      brokeringRule.value = ""
+      emitter.emit("updateBrokeringInfo", { brokeringRoute: brokeringRoute.value, brokeringRule: brokeringRule.value })
       emitter.emit("selectedRule", "")
       emitter.emit("updateUnmatchedFilters", []);
       errorMessage.value = ""
       await getOrderBrokeringInfo(true);
       isOrderBrokered.value = false;
-      checkOrderBrokeringPossibility();
+
+      if(props.orderRoutingId) {
+        checkOrderBrokeringPossibility();
+      } else {
+        getEligibleRoutesForBrokering();
+      }
     } else {
       throw resp.data;
     }

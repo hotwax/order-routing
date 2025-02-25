@@ -138,6 +138,8 @@ onIonViewWillEnter(async () => {
 
   await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
+  await fetchJobInformation()
+
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })
 
@@ -236,6 +238,21 @@ async function openRuleDetails(rule: any) {
     ...ruleInfo
   }
   await menuController.open("rule-details");
+}
+
+async function fetchJobInformation() {
+  job.value = {}
+  try {
+    const resp = await OrderRoutingService.fetchRoutingScheduleInformation(props.routingGroupId);
+
+    if(!hasError(resp) && resp.data?.schedule) {
+      job.value = resp.data.schedule
+    } else {
+      throw resp.data
+    }
+  } catch(err) {
+    logger.error(err);
+  }
 }
 </script>
 

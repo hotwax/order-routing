@@ -134,6 +134,7 @@ async function searchOrders() {
     return;
   }
 
+  emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
   const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
 
   if(resp.errorMessage) {
@@ -143,6 +144,7 @@ async function searchOrders() {
   } else {
     orders.value = resp.orders
   }
+  emitter.emit("dismissLoader")
 }
 
 async function updateCurrentOrder(order?: any) {
@@ -336,6 +338,7 @@ function checkOrderBrokeringPossibility() {
 }
 
 async function brokerOrder() {
+  emitter.emit("presentLoader", { message: "Brokering order...", backdropDismiss: false })
   try {
     const payload = {
       routingGroupId: props.routingGroupId,
@@ -366,6 +369,8 @@ async function brokerOrder() {
   await store.dispatch("orderRouting/updateRoutingTestInfo", [
     { key: "eligibleOrderRoutings", value: [] }
   ])
+
+  emitter.emit("dismissLoader")
 }
 
 async function getOrderBrokeringInfo(updateOrderInfo = false) {
@@ -441,6 +446,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
 }
 
 async function resetOrder() {
+  emitter.emit("presentLoader", { message: "Resetting order...", backdropDismiss: false })
   try {
     let resp = await OrderRoutingService.resetOrder({
       orderId: testRoutingInfo.value.currentOrderId,
@@ -483,6 +489,8 @@ async function resetOrder() {
     showToast(translate("Unable to reset the order"))
     logger.error(err)
   }
+
+  emitter.emit("dismissLoader")
 }
 </script>
 

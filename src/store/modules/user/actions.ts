@@ -89,6 +89,7 @@ const actions: ActionTree<UserState, RootState> = {
     // TODO add any other tasks if need
     commit(types.USER_END_SESSION)
     this.dispatch("orderRouting/clearRouting")
+    this.dispatch("orderRouting/clearRoutingTestInfo")
     this.dispatch("util/clearUtilState")
     this.dispatch("product/clearProductState")
     dispatch("setOmsRedirectionInfo", { url: "", token: "" })

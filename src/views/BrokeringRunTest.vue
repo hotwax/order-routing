@@ -22,7 +22,7 @@
                   <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
                 </ion-card-header>
                 <div class="ion-padding">
-                  <ion-button fill="outline" size="small" @click="router.go(-1)">
+                  <ion-button fill="outline" size="small" @click="exitTestMode">
                     <ion-icon slot="start" :icon="speedometerOutline"/>
                     {{ translate("Exit test mode") }}
                   </ion-button>
@@ -48,7 +48,7 @@
           </section>
           <section class="route-details">
             <ion-list v-if="group.routings?.length">
-              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="{ 'selected-rule': eligibleOrderRoutings.includes(routing.orderRoutingId) || brokeringRoute === routing.orderRoutingId }">
+              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId }">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
@@ -75,7 +75,7 @@
           <ion-list>
             <ion-item-group v-for="routing in group.routings" :key="routing.orderRoutingId" class="ion-margin-vertical">
               <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
-              <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)">
+              <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)">
                 <ion-label>
                   <h2>{{ rule.ruleName }}</h2>
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
@@ -91,9 +91,9 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
-import { useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, Ref, ref } from "vue";
 import { Group } from "@/types";
@@ -116,9 +116,6 @@ const props = defineProps({
 })
 
 let group = ref({}) as any
-let eligibleOrderRoutings: Ref<string[]> = ref([])
-let brokeringRoute = ref("")
-let brokeringRule = ref("")
 let currentRoute = ref({})
 let currentRule = ref({})
 
@@ -128,13 +125,11 @@ let orderRoutings = ref([]) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 
 onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
-
-  emitter.on("updateBrokeringInfo", updateBrokeringInfo)
-  emitter.on("updateEligibleOrderRoutings", updateEligibleOrderRoutings)
 
   await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
@@ -143,9 +138,19 @@ onIonViewWillEnter(async () => {
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })
 
-onIonViewWillLeave(() => {
-  emitter.off("updateBrokeringInfo", updateBrokeringInfo)
-  emitter.off("updateEligibleOrderRoutings", updateEligibleOrderRoutings)
+onIonViewWillLeave(async () => {
+  await store.dispatch("orderRouting/clearRoutingTestInfo")
+})
+
+onBeforeRouteLeave(async (to: any) => {
+  if(to.path === '/login') return;
+
+  if(testRoutingInfo.value.currentOrderId) {
+    exitTestMode();
+    return false;
+  } else {
+    return true;
+  }
 })
 
 async function fetchRoutingGroupInformation() {
@@ -217,15 +222,6 @@ async function fetchRoutingsInformation() {
   })
 }
 
-function updateBrokeringInfo(brokeringInfo: any) {
-  brokeringRoute.value = brokeringInfo.brokeringRoute
-  brokeringRule.value = brokeringInfo.brokeringRule
-}
-
-function updateEligibleOrderRoutings(orderRoutings: any) {
-  eligibleOrderRoutings.value = orderRoutings
-}
-
 async function openRouteDetails(routing: any) {
   currentRoute.value = routing
   await menuController.open("route-details");
@@ -253,6 +249,28 @@ async function fetchJobInformation() {
   } catch(err) {
     logger.error(err);
   }
+}
+
+async function exitTestMode() {
+  // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && testRoutingInfo.value.brokeringRoute) {
+    const alert = await alertController
+      .create({
+        header: translate("Reset order before leaving"),
+        message: translate("Testing an order also allocates it to inventory in the OMS. Make sure to reset tested orders before trying another order or exiting test mode."),
+        buttons: [{
+          text: translate("Dismiss"),
+          role: "cancel"
+        }]
+      });
+
+    return alert.present();
+  }
+
+  await store.dispatch("orderRouting/clearRoutingTestInfo")
+
+  router.go(-1);
+  return;
 }
 </script>
 

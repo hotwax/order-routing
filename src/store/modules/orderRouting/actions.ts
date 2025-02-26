@@ -441,6 +441,16 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     routingGroup["schedule"]["paused"] = payload.value
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
     return routingGroups
+  },
+
+  updateRoutingTestInfo({ commit }, payload) {
+    payload.map((testInfo: any) => {
+      commit(types.ORDER_ROUTING_TEST_UPDATED, testInfo)
+    })
+  },
+
+  clearRoutingTestInfo({ commit }) {
+    commit(types.ORDER_ROUTING_TEST_CLEARED)
   }
 }
 

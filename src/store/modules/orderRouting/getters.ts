@@ -20,6 +20,9 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   },
   getCurrentRuleId(state) {
     return state.currentRuleId
+  },
+  getTestRoutingInfo(state) {
+    return state.testRouting
   }
 }
 

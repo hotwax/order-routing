@@ -17,7 +17,7 @@ import productModule from "./modules/product"
 const state: any = {}
 
 const persistState = createPersistedState({
-  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId", "product"],
+  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId", "product", "orderRouting.testRouting"],
   fetchBeforeUse: true
 })
 

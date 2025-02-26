@@ -272,6 +272,7 @@ onIonViewWillEnter(async () => {
   await fetchGroupHistory()
   store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
+  store.dispatch("orderRouting/clearRoutingTestInfo")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []

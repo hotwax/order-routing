@@ -13,7 +13,7 @@
         <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
-              <h1 v-show="!isRouteNameUpdating || isRoutingTestEnabled">{{ currentRouting.routingName }}</h1>
+              <h1 v-show="!isRouteNameUpdating || testRoutingInfo.isRoutingTestEnabled">{{ currentRouting.routingName }}</h1>
               <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
               <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
             </ion-label>
@@ -21,19 +21,19 @@
               {{ getRouteIndex() }}
             </ion-chip>
           </ion-item>
-          <ion-button v-if="!isRoutingTestEnabled" class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
+          <ion-button v-if="!testRoutingInfo.isRoutingTestEnabled" class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
           <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges">
             <ion-icon slot="start" :icon="speedometerOutline" />
-            {{ translate(isRoutingTestEnabled ? "Exit test mode" : "Test") }}
+            {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
           <!-- <ion-button color="medium" fill="outline" size="small">
             <ion-icon slot="start" :icon="copyOutline" />
             {{ translate("Clone") }}
           </ion-button> -->
-          <ion-item :disabled="isRoutingTestEnabled">
+          <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled">
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
               <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
@@ -51,19 +51,19 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button :disabled="isRoutingTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
-              <ion-button :disabled="isRoutingTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button :disabled="testRoutingInfo.isRoutingTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 {{ translate("Add filters") }}
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['QUEUE']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -72,7 +72,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE_EXCLUDED', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['QUEUE_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline"/>
@@ -82,7 +82,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['SHIPPING_METHOD']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -91,7 +91,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD_EXCLUDED', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['SHIPPING_METHOD_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline"/>
@@ -101,7 +101,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['PRIORITY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -112,7 +112,7 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY_EXCLUDED')">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['PRIORITY_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -124,21 +124,21 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
               <ion-icon v-show="isFilterUnmatched(ruleEnums['PROMISE_DATE']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
               <ion-icon v-show="isFilterUnmatched(ruleEnums['PROMISE_DATE_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event, 'excluded')">
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['SALES_CHANNEL']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -147,7 +147,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL_EXCLUDED', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['SALES_CHANNEL_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -157,7 +157,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
               <ion-select multiple :placeholder="translate('facility group')" :label="translate('Origin Facility Group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['ORIGIN_FACILITY_GROUP']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -166,7 +166,7 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
+            <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP_EXCLUDED', true)">
                 <div slot="label">
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['ORIGIN_FACILITY_GROUP_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
@@ -180,20 +180,20 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button :disabled="isRoutingTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button :disabled="testRoutingInfo.isRoutingTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
-              <ion-button :disabled="isRoutingTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button :disabled="testRoutingInfo.isRoutingTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 {{ translate("Add sorting") }}
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isRoutingTestEnabled">
-              <ion-item :disabled="isRoutingTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
+            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="testRoutingInfo.isRoutingTestEnabled">
+              <ion-item :disabled="testRoutingInfo.isRoutingTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
                 <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
@@ -203,8 +203,8 @@
         <section v-if="inventoryRules.length" id="inventory-rules">
           <section id="inventory-sequence" class="menu">
             <ion-list>
-              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isRoutingTestEnabled">
-                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isRoutingTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': selectedRuleId === rule.routingRuleId }">
+              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="testRoutingInfo.isRoutingTestEnabled">
+                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!testRoutingInfo.isRoutingTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
                     <h2>{{ rule.ruleName }}</h2>
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
@@ -218,12 +218,12 @@
                 <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
               </ion-item>
             </ion-list>
-            <ion-button v-if="!isRoutingTestEnabled" fill="outline" @click="addInventoryRule">
+            <ion-button v-if="!testRoutingInfo.isRoutingTestEnabled" fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
               <ion-icon :icon="addCircleOutline" slot="end"/>
             </ion-button>
           </section>
-          <template v-if="!isRoutingTestEnabled">
+          <template v-if="!testRoutingInfo.isRoutingTestEnabled">
           <div v-if="selectedRoutingRule?.routingRuleId">
             <ion-card class="rule-info">
               <ion-item lines="none">
@@ -416,7 +416,7 @@
           </div>
           <div class="empty-state" v-else>{{ translate("Please select a rule or refresh") }}</div>
           </template>
-          <BrokeringRouteTest v-if="isRoutingTestEnabled" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions" isRoutingTestEnabled/>
+          <BrokeringRouteTest v-if="testRoutingInfo.isRoutingTestEnabled" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions" isRoutingTestEnabled/>
         </section>
         <section v-else class="empty-state">
           <img src="../assets/images/InventoryRuleEmptyState.png" />
@@ -427,7 +427,7 @@
         </section>
       </main>
 
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed" v-if="!isRoutingTestEnabled">
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" v-if="!testRoutingInfo.isRoutingTestEnabled">
         <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
@@ -477,8 +477,9 @@ const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
+const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 
-const isFilterUnmatched = computed(() => (id: string) => isRoutingTestEnabled.value && unmatchedFilters.value.includes(id))
+const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -495,9 +496,6 @@ let routingStatus = ref("")
 let routeName = ref("")
 let isRouteNameUpdating = ref(false)
 let rulesForReorder = ref([]) as any
-let isRoutingTestEnabled = ref(false)
-let selectedRuleId = ref("")
-let unmatchedFilters = ref([]) as any
 
 const routeNameRef = ref()
 const operatorRef = ref()
@@ -505,8 +503,6 @@ const measurementRef = ref()
 const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
-  emitter.on("selectedRule", updateSelectedRule)
-
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
   store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
@@ -535,6 +531,11 @@ onIonViewWillEnter(async () => {
 
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
+
+  if(testRoutingInfo.value.currentOrderId) {
+    exitTestMode();
+    return false;
+  }
 
   if(!hasUnsavedChanges.value) {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
@@ -583,26 +584,50 @@ async function chipClickEvent(ref: any) {
   ref.$el.click();
 }
 
-function updateSelectedRule(ruleId: any) {
-  selectedRuleId.value = ruleId
-}
+async function exitTestMode() {
+  // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && testRoutingInfo.value.brokeringRoute) {
+    const alert = await alertController
+      .create({
+        header: translate("Reset order before leaving"),
+        message: translate("Testing an order also allocates it to inventory in the OMS. Make sure to reset tested orders before trying another order or exiting test mode."),
+        buttons: [{
+          text: translate("Dismiss"),
+          role: "cancel"
+        }]
+      });
 
-function updateUnmatchedFilters(filters: any) {
-  unmatchedFilters.value = filters
+    return alert.present();
+  }
+
+  await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    { key: "currentOrder", value: {} },
+    { key: "currentOrderId", value: "" },
+    { key: "currentShipGroupId", value: "" },
+    { key: "brokeringRoute", value: "" },
+    { key: "brokeringRule", value: "" },
+    { key: "isOrderBrokered", value: false },
+    { key: "isOrderAlreadyBrokered", value: false },
+    { key: "errorMessage", value: "" },
+    { key: "eligibleOrderRoutings", value: [] },
+    { key: "selectedRuleId", value: "" },
+    { key: "unmatchedOrderFilters", value: [] },
+    { key: "isRoutingTestEnabled", value: false }
+  ])
+  return;
 }
 
 function enableRoutingTest() {
-  isRoutingTestEnabled.value = !isRoutingTestEnabled.value
-
-  if(isRoutingTestEnabled.value) {
-    emitter.on("selectedRule", updateSelectedRule)
-    emitter.on("updateUnmatchedFilters", updateUnmatchedFilters)
-  } else {
-    updateSelectedRule("")
-    updateUnmatchedFilters([])
-    emitter.off("selectedRule", updateSelectedRule)
-    emitter.off("updateUnmatchedFilters", updateUnmatchedFilters)
+  if(testRoutingInfo.value.currentOrderId) {
+    exitTestMode();
+    return;
   }
+
+  store.dispatch("orderRouting/updateRoutingTestInfo", [
+    { key: "isRoutingTestEnabled", value: !testRoutingInfo.value.isRoutingTestEnabled },
+    { key: "selectedRuleId", value: "" },
+    { key: "unmatchedOrderFilters", value: [] }
+  ])
 }
 
 function getRouteIndex() {

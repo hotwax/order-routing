@@ -28,5 +28,26 @@ const mutations: MutationTree<OrderRoutingState> = {
     state.currentRoute = {}
     state.routingHistory = {}
   },
+  [types.ORDER_ROUTING_TEST_UPDATED](state, payload) {
+    state.testRouting[payload.key] = payload.value
+  },
+  [types.ORDER_ROUTING_TEST_CLEARED](state) {
+    state.testRouting = {
+      currentOrderId: "",
+      currentOrder: {},
+      currentShipGroupId: "",
+      errorMessage: "",
+      brokeringDesicionReason: "",
+      isOrderBrokered: false,
+      hasUnmatchedFilters: false,
+      isOrderAlreadyBrokered: false,
+      brokeringRoute: "",
+      brokeringRule: "",
+      eligibleOrderRoutings: [],
+      selectedRuleId: "",
+      unmatchedOrderFilters: [],
+      isRoutingTestEnabled: false
+    }
+  }
 }
 export default mutations;

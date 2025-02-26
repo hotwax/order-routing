@@ -13,7 +13,23 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
     currentGroup: {},
     currentRoute: {},
     routingHistory: {},
-    currentRuleId: ""
+    currentRuleId: "",
+    testRouting: {
+      currentOrderId: "",
+      currentOrder: {},
+      currentShipGroupId: "",
+      errorMessage: "",
+      brokeringDesicionReason: "",
+      isOrderBrokered: false,
+      hasUnmatchedFilters: false,
+      isOrderAlreadyBrokered: false,
+      brokeringRoute: "",
+      brokeringRule: "",
+      eligibleOrderRoutings: [],
+      selectedRuleId: "",
+      unmatchedOrderFilters: [],
+      isRoutingTestEnabled: false
+    }
   },
   getters,
   actions,

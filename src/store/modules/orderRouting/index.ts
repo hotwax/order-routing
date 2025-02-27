@@ -28,7 +28,8 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
       eligibleOrderRoutings: [],
       selectedRuleId: "",
       unmatchedOrderFilters: [],
-      isRoutingTestEnabled: false
+      isRoutingTestEnabled: false,
+      isRuleTestEnabled: false
     }
   },
   getters,

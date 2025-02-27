@@ -46,7 +46,8 @@ const mutations: MutationTree<OrderRoutingState> = {
       eligibleOrderRoutings: [],
       selectedRuleId: "",
       unmatchedOrderFilters: [],
-      isRoutingTestEnabled: false
+      isRoutingTestEnabled: false,
+      isRuleTestEnabled: false
     }
   }
 }

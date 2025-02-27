@@ -89,6 +89,10 @@ import Image from "@/components/Image.vue"
 import emitter from "@/event-bus";
 
 const props = defineProps({
+  routingRuleId: {
+    type: String,
+    default: ""
+  },
   orderRoutingId: {
     type: String,
     default: ""
@@ -177,19 +181,7 @@ async function updateCurrentOrder(order?: any) {
   queryString.value = ""
   orders.value = []
 
-  await store.dispatch("orderRouting/updateRoutingTestInfo", [
-    { key: "currentOrder", value: {} },
-    { key: "currentOrderId", value: "" },
-    { key: "currentShipGroupId", value: "" },
-    { key: "brokeringRoute", value: "" },
-    { key: "brokeringRule", value: "" },
-    { key: "isOrderBrokered", value: false },
-    { key: "isOrderAlreadyBrokered", value: false },
-    { key: "errorMessage", value: "" },
-    { key: "eligibleOrderRoutings", value: [] },
-    { key: "selectedRuleId", value: "" },
-    { key: "unmatchedOrderFilters", value: [] }
-  ])
+  await store.dispatch("orderRouting/clearRoutingTestInfo")
   // hasUnmatchedFilters.value = false
   return;
 }
@@ -217,12 +209,12 @@ async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
 
   const shipGroupFacilityId = shipGroup[0].facilityId
   await store.dispatch("orderRouting/updateRoutingTestInfo", [
-    { key: "currentShipGroupId", value: shipGroupId },
-    { key: "isOrderBrokered", value: !!facilities.value[shipGroupFacilityId] }
+    { key: "currentShipGroupId", value: shipGroupId }
   ])
   // hasUnmatchedFilters.value = false
 
-  if(testRoutingInfo.value.isOrderBrokered) {
+  const isOrderBrokered = facilities.value[shipGroupFacilityId]
+  if(isOrderBrokered) {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
       { key: "isOrderAlreadyBrokered", value: true }
     ])
@@ -231,7 +223,7 @@ async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
   } else {
     getEligibleRoutesForBrokering();
   }
-  getOrderBrokeringInfo(!testRoutingInfo.value.isOrderBrokered)
+  getOrderBrokeringInfo()
 }
 
 function getEligibleRoutesForBrokering() {
@@ -351,6 +343,10 @@ async function brokerOrder() {
       payload["orderRoutingId"] = props.orderRoutingId
     }
 
+    if(props.routingRuleId) {
+      payload["routingRuleId"] = props.routingRuleId
+    }
+
     let resp = await OrderRoutingService.brokerOrder(payload)
 
     // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
@@ -361,7 +357,10 @@ async function brokerOrder() {
     }
   } catch(err) {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "errorMessage", value: props.orderRoutingId ? "Failed to broker order using this routing, try with some other routing" : "Failed to broker order using this group, try with some other group"}
+      {
+        key: "errorMessage",
+        value: props.routingRuleId ? "Failed to broker order using this rule, try with some other rule" : props.orderRoutingId ? "Failed to broker order using this routing, try with some other routing" : "Failed to broker order using this group, try with some other group"
+      }
     ])
     logger.error(err)
   }
@@ -418,7 +417,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
           { key: "brokeringRule", value: orderBrokeringInfo.routingRuleId }
         ])
 
-        if(orderBrokeringInfo.orderRoutingId === props.orderRoutingId) {
+        if(orderBrokeringInfo.orderRoutingId === props.orderRoutingId || (testRoutingInfo.value.isRuleTestEnabled && orderBrokeringInfo.routingRuleId === props.routingRuleId )) {
           await store.dispatch("orderRouting/updateRoutingTestInfo", [
             { key: "selectedRuleId", value: orderBrokeringInfo.routingRuleId }
           ])

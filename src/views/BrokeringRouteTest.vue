@@ -77,9 +77,9 @@
 </template>
 
 <script setup lang="ts">
-import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail, onIonViewWillEnter } from "@ionic/vue";
+import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
-import { computed, defineProps, onMounted, Ref, ref } from "vue";
+import { computed, defineProps, onMounted, ref } from "vue";
 import store from "@/store";
 import { hasError, showToast } from "@/utils";
 import logger from "@/logger";
@@ -439,7 +439,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
   } catch(err) {
     logger.error(err)
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "errorMessage", value: "Unable to fetch brokering information for this order." }
+      { key: "brokeringDecisionReason", value: "Unable to fetch brokering information for this order." }
     ])
   }
 }

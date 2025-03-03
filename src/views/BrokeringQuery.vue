@@ -13,7 +13,7 @@
         <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
-              <h1 v-show="!isRouteNameUpdating">{{ currentRouting.routingName }}</h1>
+              <h1 v-show="!isRouteNameUpdating || isTestEnabled">{{ currentRouting.routingName }}</h1>
               <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
               <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
             </ion-label>
@@ -21,15 +21,19 @@
               {{ getRouteIndex() }}
             </ion-chip>
           </ion-item>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
+          <ion-button v-if="!isTestEnabled" class="ion-margin-start" color="medium" fill="outline" size="small" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
+          </ion-button>
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled">
+            <ion-icon slot="start" :icon="speedometerOutline" />
+            {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
           <!-- <ion-button color="medium" fill="outline" size="small">
             <ion-icon slot="start" :icon="copyOutline" />
             {{ translate("Clone") }}
           </ion-button> -->
-          <ion-item>
+          <ion-item :disabled="isTestEnabled">
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateOrderRouting($event.detail.value)">
               <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
@@ -47,56 +51,71 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
-              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button :disabled="isTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 {{ translate("Add filters") }}
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
-              <ion-select multiple :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
+              <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['QUEUE']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Queue") }}
+                </div>
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE_EXCLUDED', true)">
                 <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['QUEUE_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline"/>
                   <ion-label>{{ translate("Queue") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :label="translate('Shipping method')" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
+              <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['SHIPPING_METHOD']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Shipping method") }}
+                </div>
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD_EXCLUDED', true)">
                 <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['SHIPPING_METHOD_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline"/>
                   <ion-label>{{ translate('Shipping method') }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
-              <ion-select :placeholder="translate('priority')" interface="popover" :label="translate('Order priority')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
+              <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['PRIORITY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Order priority") }}
+                </div>
                 <ion-select-option value="HIGH">{{ translate("High") }}</ion-select-option>
                 <ion-select-option value="MEDIUM">{{ translate("Medium") }}</ion-select-option>
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY_EXCLUDED')">
                 <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['PRIORITY_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   <ion-label>{{ translate('Order priority') }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
@@ -105,40 +124,52 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
+              <ion-icon v-show="isFilterUnmatched(ruleEnums['PROMISE_DATE']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+              <ion-icon v-show="isFilterUnmatched(ruleEnums['PROMISE_DATE_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
               <ion-label>{{ translate("Promise date") }}</ion-label>
-              <ion-chip outline @click="selectPromiseFilterValue($event, excluded)">
+              <ion-chip outline @click="selectPromiseFilterValue($event, 'excluded')">
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
-              <ion-select multiple :placeholder="translate('sales channel')" :label="translate('Sales Channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
+              <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['SALES_CHANNEL']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Sales Channel") }}
+                </div>
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL_EXCLUDED', true)">
                 <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['SALES_CHANNEL_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   <ion-label>{{ translate('Sales Channel') }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
               <ion-select multiple :placeholder="translate('facility group')" :label="translate('Origin Facility Group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['ORIGIN_FACILITY_GROUP']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Origin Facility Group") }}
+                </div>
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP_EXCLUDED', true)">
                 <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['ORIGIN_FACILITY_GROUP_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   <ion-label>{{ translate('Origin Facility Group') }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
@@ -149,20 +180,20 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
-              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button :disabled="isTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 {{ translate("Add sorting") }}
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="false">
-              <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
+            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
+              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
                 <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
@@ -172,8 +203,8 @@
         <section v-if="inventoryRules.length" id="inventory-rules">
           <section id="inventory-sequence" class="menu">
             <ion-list>
-              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-                <ion-item lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="fetchRuleInformation(rule.routingRuleId)" button>
+              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isTestEnabled">
+                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
                     <h2>{{ rule.ruleName }}</h2>
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
@@ -187,202 +218,212 @@
                 <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
               </ion-item>
             </ion-list>
-            <ion-button fill="outline" @click="addInventoryRule">
+            <ion-button v-if="!isTestEnabled" fill="outline" @click="addInventoryRule">
               {{ translate("Add inventory rule") }}
               <ion-icon :icon="addCircleOutline" slot="end"/>
             </ion-button>
           </section>
-          <div v-if="selectedRoutingRule?.routingRuleId">
-            <ion-card class="rule-info">
-              <ion-item lines="none">
-                <ion-label>
-                  <p>{{ getRuleIndex() }}</p>
-                  <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
-                </ion-label>
-                <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-                <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
-              </ion-item>
-              <div>
-                <ion-item>
-                  <ion-icon slot="start" :icon="pulseOutline" />
-                  <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
-                    <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
-                    <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
-                    <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
-                  </ion-select>
+          <template v-if="!testRoutingInfo.isRoutingTestEnabled">
+            <div v-if="selectedRoutingRule?.routingRuleId">
+              <ion-card class="rule-info">
+                <ion-item lines="none">
+                  <ion-label>
+                    <p>{{ getRuleIndex() }}</p>
+                    <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+                  </ion-label>
+                  <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
+                  <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
                 </ion-item>
-                <ion-item>
-                  <div slot="end">
-                    <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
-                      <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
-                      {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
-                    </ion-button>
-                    <!-- <ion-button size="small" @click="cloneRule" fill="outline">
-                      <ion-icon slot="start" :icon="copyOutline"/>
-                      {{ translate("Clone") }}
-                    </ion-button> -->
-                  </div>
-                </ion-item>
-              </div>
-            </ion-card>
-            <section class="filters">
-              <ion-card>
-                <ion-item>
-                  <ion-icon slot="start" :icon="filterOutline"/>
-                  <h4>{{ translate("Filters") }}</h4>
-                  <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
-                    <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                  </ion-button>
-                </ion-item>
-                <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
-                  {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
-                  <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
-                  <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
-                    {{ translate("Add filters") }}
-                    <ion-icon slot="end" :icon="optionsOutline"/>
-                  </ion-button>
-                </p>
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
-                  <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
-                  <ion-select :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
-                    <div slot="label">
-                      <ion-label>{{ translate("Group") }}</ion-label>
-                      <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                <div>
+                  <ion-item :disabled="testRoutingInfo.isRuleTestEnabled">
+                    <ion-icon slot="start" :icon="pulseOutline" />
+                    <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                      <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+                      <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+                      <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                  <ion-item lines="none">
+                    <div slot="end">
+                      <ion-button v-if="!testRoutingInfo.isRuleTestEnabled" size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
+                        <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
+                        {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
+                      </ion-button>
+                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges">
+                        <ion-icon slot="start" :icon="speedometerOutline" />
+                        {{ translate(testRoutingInfo.isRuleTestEnabled ? "Exit test mode" : "Test") }}
+                      </ion-button>
+                      <!-- <ion-button size="small" @click="cloneRule" fill="outline">
+                        <ion-icon slot="start" :icon="copyOutline"/>
+                        {{ translate("Clone") }}
+                      </ion-button> -->
                     </div>
-                    <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
-                  <!-- TODO: Confirm on the possible options -->
-                  <ion-label>{{ translate("Proximity") }}</ion-label>
-                  <div>
-                    <ion-chip outline @click.stop="chipClickEvent(measurementRef)">
-                      <ion-select @click.stop ref="measurementRef" :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
-                        <ion-select-option value="METRIC">{{ translate("kms") }}</ion-select-option>
-                        <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
+                  </ion-item>
+                </div>
+              </ion-card>
+              <template v-if="!testRoutingInfo.isRuleTestEnabled">
+                <section class="filters">
+                  <ion-card>
+                    <ion-item>
+                      <ion-icon slot="start" :icon="filterOutline"/>
+                      <h4>{{ translate("Filters") }}</h4>
+                      <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                        <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                      </ion-button>
+                    </ion-item>
+                    <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
+                      {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
+                      <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
+                      <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                        {{ translate("Add filters") }}
+                        <ion-icon slot="end" :icon="optionsOutline"/>
+                      </ion-button>
+                    </p>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
+                      <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
-                    </ion-chip>
-                    <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
-                  </div>
-                </ion-item>
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
-                  <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
-                  <div>
-                    <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
-                      <!-- Added click.stop to override the default click event of ion-select, as we handled the click event using ion-chip -->
-                      <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
-                        <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
-                        <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
+                    </ion-item>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
+                      <ion-select :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
+                        <div slot="label">
+                          <ion-label>{{ translate("Group") }}</ion-label>
+                          <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                        </div>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
-                    </ion-chip>
-                    <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
-                  </div>
-                </ion-item>
+                    </ion-item>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
+                      <!-- TODO: Confirm on the possible options -->
+                      <ion-label>{{ translate("Proximity") }}</ion-label>
+                      <div>
+                        <ion-chip outline @click.stop="chipClickEvent(measurementRef)">
+                          <ion-select @click.stop ref="measurementRef" :placeholder="translate('measurement unit')" aria-label="measurement" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'MEASUREMENT_SYSTEM')?.fieldValue" @ionChange="updateRuleFilterValue($event, 'MEASUREMENT_SYSTEM')">
+                            <ion-select-option value="METRIC">{{ translate("kms") }}</ion-select-option>
+                            <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
+                          </ion-select>
+                        </ion-chip>
+                        <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
+                      </div>
+                    </ion-item>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
+                      <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
+                      <div>
+                        <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
+                          <!-- Added click.stop to override the default click event of ion-select, as we handled the click event using ion-chip -->
+                          <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
+                            <ion-select-option value="greater-equals">{{ translate("greater than or equal to") }}</ion-select-option>
+                            <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
+                          </ion-select>
+                        </ion-chip>
+                        <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
+                      </div>
+                    </ion-item>
 
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
-                  <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
-                    {{ translate("Turn of the facility order limit check") }}
-                  </ion-toggle>
-                </ion-item>
-                <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THRESHOLD')">
-                  <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
-                  <ion-chip slot="end" outline @click="selectValue('SHIP_THRESHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue : "-" }}</ion-chip>
-                </ion-item>
-              </ion-card>
-              <ion-card>
-                <ion-item>
-                  <ion-icon slot="start" :icon="swapVerticalOutline"/>
-                  <h4>{{ translate("Sort") }}</h4>
-                  <ion-button v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
-                    <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                  </ion-button>
-                </ion-item>
-                <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">
-                  {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
-                  <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
-                    {{ translate("Add sorting") }}
-                    <ion-icon slot="end" :icon="optionsOutline"/>
-                  </ion-button>
-                </p>
-                <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-                  <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-                    <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
-                    <ion-reorder />
-                  </ion-item>
-                </ion-reorder-group>
-              </ion-card>
-            </section>
-            <section>
-              <h2 class="ion-padding-start">{{ translate("Actions") }}</h2>
-              <div class="actions">
-                <ion-card>
-                  <ion-card-header>
-                    <ion-card-title>
-                      {{ translate("Partially available") }}
-                    </ion-card-title>
-                  </ion-card-header>
-                  <ion-card-content>
-                    {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
-                  </ion-card-content>
-                  <ion-item lines="none">
-                    <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
-                  </ion-item>
-                  <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
-                    <ion-label class="ion-text-wrap">
-                      <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
-                    </ion-label>
-                  </ion-item>
-                  <ion-item lines="none">
-                    <ion-toggle :disabled="selectedRoutingRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
-                  </ion-item>
-                </ion-card>
-                <ion-card>
-                  <ion-card-header>
-                    <ion-card-title>
-                      {{ translate("Unavailable items") }}
-                    </ion-card-title>
-                  </ion-card-header>
-                  <ion-item lines="none">
-                    <ion-select :placeholder="translate('action')" :label="translate('Move items to')" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
-                      <ion-select-option :value="actionEnums['NEXT_RULE'].id">
-                        {{ translate("Next rule") }}
-                        <ion-icon :icon="playForwardOutline"/>
-                      </ion-select-option>
-                      <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
-                        {{ translate("Queue") }}
-                        <ion-icon :icon="golfOutline"/>
-                      </ion-select-option>
-                    </ion-select>
-                  </ion-item>
-                  <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
-                    <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
-                      <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
-                    </ion-select>
-                  </ion-item>
-                  <ion-item lines="none">
-                    <ion-toggle :checked="JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)" @ionChange="clearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
-                  </ion-item>
-                  <ion-item lines="none" v-show="!JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)">
-                    <ion-label>{{ translate("Auto cancel days") }}</ion-label>
-                    <ion-chip outline @click="updateAutoCancelDays()">
-                      <template v-if="inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue">
-                        <ion-icon :icon="closeCircleOutline" @click.stop="removeAutoCancelDays()"/>
-                        <ion-label>{{ `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` }}</ion-label>
-                      </template>
-                      <template v-else>
-                        {{ translate("select days") }}
-                      </template>
-                    </ion-chip>
-                  </ion-item>
-                </ion-card>
-              </div>
-            </section>
-          </div>
-          <div class="empty-state" v-else>{{ translate("Please select a rule or refresh") }}</div>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
+                      <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
+                        {{ translate("Turn of the facility order limit check") }}
+                      </ion-toggle>
+                    </ion-item>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THRESHOLD')">
+                      <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
+                      <ion-chip slot="end" outline @click="selectValue('SHIP_THRESHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue : "-" }}</ion-chip>
+                    </ion-item>
+                  </ion-card>
+                  <ion-card>
+                    <ion-item>
+                      <ion-icon slot="start" :icon="swapVerticalOutline"/>
+                      <h4>{{ translate("Sort") }}</h4>
+                      <ion-button v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                        <ion-icon slot="icon-only" :icon="optionsOutline"/>
+                      </ion-button>
+                    </ion-item>
+                    <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">
+                      {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
+                      <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                        {{ translate("Add sorting") }}
+                        <ion-icon slot="end" :icon="optionsOutline"/>
+                      </ion-button>
+                    </p>
+                    <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
+                      <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
+                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
+                        <ion-reorder />
+                      </ion-item>
+                    </ion-reorder-group>
+                  </ion-card>
+                </section>
+                <section>
+                  <h2 class="ion-padding-start">{{ translate("Actions") }}</h2>
+                  <div class="actions">
+                    <ion-card>
+                      <ion-card-header>
+                        <ion-card-title>
+                          {{ translate("Partially available") }}
+                        </ion-card-title>
+                      </ion-card-header>
+                      <ion-card-content>
+                        {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
+                      </ion-card-content>
+                      <ion-item lines="none">
+                        <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="selectedRoutingRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+                      </ion-item>
+                      <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
+                        <ion-label class="ion-text-wrap">
+                          <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
+                        </ion-label>
+                      </ion-item>
+                      <ion-item lines="none">
+                        <ion-toggle :disabled="selectedRoutingRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
+                      </ion-item>
+                    </ion-card>
+                    <ion-card>
+                      <ion-card-header>
+                        <ion-card-title>
+                          {{ translate("Unavailable items") }}
+                        </ion-card-title>
+                      </ion-card-header>
+                      <ion-item lines="none">
+                        <ion-select :placeholder="translate('action')" :label="translate('Move items to')" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
+                          <ion-select-option :value="actionEnums['NEXT_RULE'].id">
+                            {{ translate("Next rule") }}
+                            <ion-icon :icon="playForwardOutline"/>
+                          </ion-select-option>
+                          <ion-select-option :value="actionEnums['MOVE_TO_QUEUE'].id">
+                            {{ translate("Queue") }}
+                            <ion-icon :icon="golfOutline"/>
+                          </ion-select-option>
+                        </ion-select>
+                      </ion-item>
+                      <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
+                        <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
+                          <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
+                        </ion-select>
+                      </ion-item>
+                      <ion-item lines="none">
+                        <ion-toggle :checked="JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)" @ionChange="clearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
+                      </ion-item>
+                      <ion-item lines="none" v-show="!JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)">
+                        <ion-label>{{ translate("Auto cancel days") }}</ion-label>
+                        <ion-chip outline @click="updateAutoCancelDays()">
+                          <template v-if="inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue">
+                            <ion-icon :icon="closeCircleOutline" @click.stop="removeAutoCancelDays()"/>
+                            <ion-label>{{ `${inventoryRuleActions[actionEnums["AUTO_CANCEL_DAYS"].id].actionValue} days` }}</ion-label>
+                          </template>
+                          <template v-else>
+                            {{ translate("select days") }}
+                          </template>
+                        </ion-chip>
+                      </ion-item>
+                    </ion-card>
+                  </div>
+                </section>
+              </template>
+              <BrokeringRouteTest v-if="testRoutingInfo.isRuleTestEnabled" :routingRuleId="selectedRoutingRule?.routingRuleId" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions"/>
+            </div>
+            <div class="empty-state" v-else>{{ translate("Please select a rule or refresh") }}</div>
+          </template>
+          <BrokeringRouteTest v-if="testRoutingInfo.isRoutingTestEnabled" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions"/>
         </section>
         <section v-else class="empty-state">
           <img src="../assets/images/InventoryRuleEmptyState.png" />
@@ -393,7 +434,7 @@
         </section>
       </main>
 
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" v-if="!testRoutingInfo.isRoutingTestEnabled">
         <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
@@ -404,7 +445,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addCircleOutline, closeCircleOutline, copyOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
+import { addCircleOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, speedometerOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import store from "@/store";
@@ -420,6 +461,7 @@ import { translate } from "@/i18n";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
+import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 
 const router = useRouter();
 const props = defineProps({
@@ -436,12 +478,16 @@ const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS a
 const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRulesInformation"])
-const facilities = computed(() => store.getters["util/getFacilities"])
+const facilities = computed(() => store.getters["util/getVirtualFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
+const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+
+const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
+const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any
@@ -494,6 +540,10 @@ onIonViewWillEnter(async () => {
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
 
+  if(testRoutingInfo.value.currentOrderId) {
+    return exitTestMode();
+  }
+
   if(!hasUnsavedChanges.value) {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
     store.dispatch("orderRouting/updateRoutingRuleId", "")
@@ -539,6 +589,53 @@ Defined ref for specific select those are inside ion-chip and on clicking the ch
 */
 async function chipClickEvent(ref: any) {
   ref.$el.click();
+}
+
+async function exitTestMode() {
+  // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && (testRoutingInfo.value.brokeringRoute || testRoutingInfo.value.brokeringRule)) {
+    const alert = await alertController
+      .create({
+        header: translate("Reset order before leaving"),
+        message: translate("Testing an order also allocates it to inventory in the OMS. Make sure to reset tested orders before trying another order or exiting test mode."),
+        buttons: [{
+          text: translate("Dismiss"),
+          role: "cancel"
+        }]
+      });
+
+    alert.present();
+    return false; // passing boolean to let the routeLeave hook know to change the route or not
+  }
+
+  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  return true;
+}
+
+function enableRoutingTest() {
+  if(testRoutingInfo.value.currentOrderId) {
+    exitTestMode();
+    return;
+  }
+
+  store.dispatch("orderRouting/updateRoutingTestInfo", [
+    { key: "isRoutingTestEnabled", value: !testRoutingInfo.value.isRoutingTestEnabled },
+    { key: "selectedRuleId", value: "" },
+    { key: "unmatchedOrderFilters", value: [] }
+  ])
+}
+
+function enableRuleTest() {
+  if(testRoutingInfo.value.currentOrderId) {
+    exitTestMode();
+    return;
+  }
+
+  store.dispatch("orderRouting/updateRoutingTestInfo", [
+    { key: "isRuleTestEnabled", value: !testRoutingInfo.value.isRuleTestEnabled },
+    { key: "selectedRuleId", value: "" },
+    { key: "unmatchedOrderFilters", value: [] }
+  ])
 }
 
 function getRouteIndex() {
@@ -1574,5 +1671,15 @@ ion-chip > ion-select {
 .empty-state {
   text-align: center;
   margin: 0;
+}
+
+.selected-rule {
+  box-shadow: 0px 8px 10px 0px rgba(0, 0, 0, 0.14), 0px 3px 14px 0px rgba(0, 0, 0, 0.12), 0px 4px 5px 0px rgba(0, 0, 0, 0.20);
+  scale: 1.03;
+  margin-block: var(--spacer-sm);
+}
+
+.rule-item {
+  transition: .5s all ease;
 }
 </style>

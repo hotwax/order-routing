@@ -8,6 +8,7 @@ import userModule from "./modules/user";
 import utilModule from "./modules/util"
 import orderRoutingModule from "./modules/orderRouting"
 import { setPermissions } from "@/authorization"
+import productModule from "./modules/product"
 
 // TODO check how to register it from the components only
 // Handle same module registering multiple time on page refresh
@@ -16,7 +17,7 @@ import { setPermissions } from "@/authorization"
 const state: any = {}
 
 const persistState = createPersistedState({
-  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId"],
+  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId", "product", "orderRouting.testRouting"],
   fetchBeforeUse: true
 })
 
@@ -30,7 +31,8 @@ const store = createStore<RootState>({
   modules: {
     "user": userModule,
     "util": utilModule,
-    "orderRouting": orderRoutingModule
+    "orderRouting": orderRoutingModule,
+    "product": productModule
   },
 })
 

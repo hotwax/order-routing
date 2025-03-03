@@ -58,24 +58,40 @@
             </ion-card>
           </section>
           <section class="route-details">
-            <ion-card>
-              <ion-item lines="none">
-                <h2>{{ translate("Description") }}</h2>
-                <ion-button v-if="description || isDescUpdating" fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
-                  {{ translate(isDescUpdating ? "Save" : "Edit") }}
+            <div>
+              <ion-card>
+                <ion-item lines="none">
+                  <h2>{{ translate("Description") }}</h2>
+                  <ion-button v-if="description || isDescUpdating" fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
+                    {{ translate(isDescUpdating ? "Save" : "Edit") }}
+                  </ion-button>
+                </ion-item>
+                <ion-item class="ion-margin" v-show="description || isDescUpdating" :color="isDescUpdating ? 'light' : ''" lines="none">
+                  <!-- Used keydown event as ionic provides the keydown event to be overridden -->
+                  <ion-textarea ref="descRef" v-show="isDescUpdating" aria-label="description" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription"></ion-textarea>
+                  <!-- Using regex to replace all \n with br tag to correctly display the user entered description -->
+                  <ion-label v-show="!isDescUpdating" v-html="description.replace(/(?:\n|\n)/g, '<br />')"></ion-label>
+                </ion-item>
+                <ion-button v-if="!description && !isDescUpdating" @click="editGroupDescription()" fill="outline" expand="block">
+                  {{ translate("Add") }}
+                  <ion-icon slot="end" :icon="addCircleOutline" />
                 </ion-button>
-              </ion-item>
-              <ion-item class="ion-margin" v-show="description || isDescUpdating" :color="isDescUpdating ? 'light' : ''" lines="none">
-                <!-- Used keydown event as ionic provides the keydown event to be overridden -->
-                <ion-textarea ref="descRef" v-show="isDescUpdating" aria-label="description" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription"></ion-textarea>
-                <!-- Using regex to replace all \n with br tag to correctly display the user entered description -->
-                <ion-label v-show="!isDescUpdating" v-html="description.replace(/(?:\n|\n)/g, '<br />')"></ion-label>
-              </ion-item>
-              <ion-button v-if="!description && !isDescUpdating" @click="editGroupDescription()" fill="outline" expand="block">
-                {{ translate("Add") }}
-                <ion-icon slot="end" :icon="addCircleOutline" />
-              </ion-button>
-            </ion-card>
+              </ion-card>
+              <ion-card>
+                <ion-item lines="none">
+                  <h2>{{ translate("Test drive") }}</h2>
+                </ion-item>
+                <ion-item class="ion-margin" lines="none">
+                  <ion-label>
+                    {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
+                  </ion-label>
+                </ion-item>
+                <ion-button fill="outline" expand="block" @click="router.push(`/tabs/brokering/${props.routingGroupId}/routes/test`)" :disabled="hasUnsavedChanges">
+                  <ion-icon slot="start" :icon="speedometerOutline" />
+                  {{ translate("Test drive") }}
+                </ion-button>
+              </ion-card>
+            </div>
             <div>
               <ion-card>
                 <ion-item lines="none">
@@ -206,7 +222,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, nextTick, ref } from "vue";
@@ -256,6 +272,7 @@ onIonViewWillEnter(async () => {
   await fetchGroupHistory()
   store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
+  store.dispatch("orderRouting/clearRoutingTestInfo")
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []

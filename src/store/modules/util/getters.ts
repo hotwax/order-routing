@@ -9,6 +9,22 @@ const getters: GetterTree<UtilState, RootState> = {
   getFacilities(state) {
     return state.facilities
   },
+  getVirtualFacilities(state) {
+    return Object.values(state.facilities).reduce((virtualFacilities: any, facility: any) => {
+      if(facility.parentTypeId === "VIRTUAL_FACILITY") {
+        virtualFacilities[facility.facilityId] = facility
+      }
+      return virtualFacilities;
+    }, {})
+  },
+  getPhysicalFacilities(state) {
+    return Object.values(state.facilities).reduce((virtualFacilities: any, facility: any) => {
+      if(facility.parentTypeId !== "VIRTUAL_FACILITY") {
+        virtualFacilities[facility.facilityId] = facility
+      }
+      return virtualFacilities;
+    }, {})
+  },
   getShippingMethods(state) {
     return state.shippingMethods
   },
@@ -20,6 +36,9 @@ const getters: GetterTree<UtilState, RootState> = {
   },
   getStatusDesc: (state) => (id: any) => {
     return state.statuses[id]?.description ? state.statuses[id]?.description : id
+  },
+  getCarriers(state) {
+    return state.carriers
   }
 }
 

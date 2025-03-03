@@ -547,7 +547,29 @@ async function createOrderRoute() {
 
       // update the routing order for reordering and the cloned updated routings again
       if(orderRoutingId) {
-        orderRoutings.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
+
+        // If we archive/unarchive a route and without saving the changes, creates a new route then the changes in the route status are lost.
+        // Added the below logic to maintain the state of unarchived/archived route when the status changes are not saved
+        // and user creates a new route
+        const archivedRoutingIds = getArchivedOrderRoutings()?.map((routing: Route) => routing.orderRoutingId)
+        const activeRoutingIds = orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_ACTIVE")?.map((routing: Route) => routing.orderRoutingId)
+        const draftRoutingIds = orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_DRAFT")?.map((routing: Route) => routing.orderRoutingId)
+        const routings = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
+        routings.map((routing: any) => {
+          if(archivedRoutingIds.includes(routing.orderRoutingId)) {
+            routing.statusId = "ROUTING_ARCHIVED"
+          }
+
+          if(activeRoutingIds.includes(routing.orderRoutingId)) {
+            routing.statusId = "ROUTING_ACTIVE"
+          }
+
+          if(draftRoutingIds.includes(routing.orderRoutingId)) {
+            routing.statusId = "ROUTING_DRAFT"
+          }
+        })
+
+        orderRoutings.value = routings
         initializeOrderRoutings();
       }
     }

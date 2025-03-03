@@ -870,8 +870,30 @@ async function addInventoryRule() {
             createdDate: DateTime.now().toMillis()
           }]
         })
+
+        // If we archive/unarchive a rule and without saving the changes, creates a new rule then the changes in the rule status are lost.
+        // Added the below logic to maintain the state of unarchived/archived rule when the status changes are not saved
+        // and user creates a new rule
+        const archivedRuleIds = getArchivedOrderRules()?.map((rule: Rule) => rule.routingRuleId)
+        const activeRuleIds = inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_ACTIVE")?.map((rule: Rule) => rule.routingRuleId)
+        const draftRuleIds = inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_DRAFT")?.map((rule: Rule) => rule.routingRuleId)
         // TODO: Fix warning of duplicate keys when creating a new rule
-        inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+        const routingRules = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
+        routingRules.map((rule: any) => {
+          if(archivedRuleIds.includes(rule.routingRuleId)) {
+            rule.statusId = "RULE_ARCHIVED"
+          }
+
+          if(activeRuleIds.includes(rule.routingRuleId)) {
+            rule.statusId = "RULE_ACTIVE"
+          }
+
+          if(draftRuleIds.includes(rule.routingRuleId)) {
+            rule.statusId = "RULE_DRAFT"
+          }
+        })
+
+        inventoryRules.value = sortSequence(routingRules)
         initializeInventoryRules()
         fetchRuleInformation(routingRuleId)
       }

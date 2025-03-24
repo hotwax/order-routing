@@ -80,7 +80,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   },
 
   async fetchCurrentRoutingGroup({ dispatch }, routingGroupId) {
-    emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: "Fetching rules" })
     let currentGroup = {} as any
 
     try {

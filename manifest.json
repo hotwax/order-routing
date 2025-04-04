@@ -1,7 +1,4 @@
 {
-  "name": "Order Routing - HotWax Commerce",
-  "short_name": "Order Routing",
-  "theme_color": "#FFFFFF",
   "icons": [{
       "src": "public/img/icons/favicon-16x16.png",
       "sizes": "16x16",
@@ -77,8 +74,5 @@
       "sizes": "150x150",
       "type": "image/png"
     }
-  ],
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#000000"
+  ]
 }

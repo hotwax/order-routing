@@ -50,7 +50,7 @@ const actions: ActionTree<UserState, RootState> = {
         }
       }
       
-      emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
+      emitter.emit("presentLoader", { message: "Logging in..." })
       const api_key = await UserService.login(token)
       const userProfile = await UserService.getUserProfile(api_key);
       
@@ -82,7 +82,7 @@ const actions: ActionTree<UserState, RootState> = {
   * Logout user
   */
   async logout({ commit, dispatch }) {
-    emitter.emit('presentLoader', { message: 'Logging out', backdropDismiss: false })
+    emitter.emit('presentLoader', { message: 'Logging out' })
 
     const authStore = useAuthStore()
 

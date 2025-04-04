@@ -138,7 +138,7 @@ async function searchOrders() {
     return;
   }
 
-  emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Searching orders..." })
   const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
 
   if(resp.errorMessage) {
@@ -330,7 +330,7 @@ function checkOrderBrokeringPossibility() {
 }
 
 async function brokerOrder() {
-  emitter.emit("presentLoader", { message: "Brokering order...", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Brokering order..." })
   try {
     const payload = {
       routingGroupId: props.routingGroupId,
@@ -445,7 +445,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
 }
 
 async function resetOrder() {
-  emitter.emit("presentLoader", { message: "Resetting order...", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Resetting order..." })
   try {
     let resp = await OrderRoutingService.resetOrder({
       orderId: testRoutingInfo.value.currentOrderId,

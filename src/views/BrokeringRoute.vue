@@ -750,7 +750,7 @@ async function saveRoutingGroup() {
 }
 
 async function updateRoutingGroup(payload: any) {
-  emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Updating..." })
   let routingGroupId = ''
   try {
     const resp = await OrderRoutingService.updateRoutingGroup(payload);
@@ -808,7 +808,7 @@ async function cloneGroup() {
 }
 
 async function cloneRouting(routing: any) {
-  emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Cloning route" })
 
   const orderRoutingId = await store.dispatch("orderRouting/cloneOrderRouting", {
     orderRoutingId: routing.orderRoutingId,

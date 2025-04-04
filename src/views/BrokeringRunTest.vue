@@ -154,7 +154,7 @@ onBeforeRouteLeave(async (to: any) => {
 })
 
 async function fetchRoutingGroupInformation() {
-  emitter.emit("presentLoader", { message: "Fetching information", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Fetching information" })
 
   try {
     const resp = await OrderRoutingService.fetchRoutingGroupInformation(props.routingGroupId);

@@ -293,7 +293,7 @@
                         <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
-                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
+                    <ion-item class="disable-pointer-events" v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
                       <!-- TODO: Confirm on the possible options -->
                       <ion-label>{{ translate("Proximity") }}</ion-label>
                       <div>
@@ -306,7 +306,7 @@
                         <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
                       </div>
                     </ion-item>
-                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
+                    <ion-item class="disable-pointer-events" v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
                       <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
                       <div>
                         <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
@@ -1703,5 +1703,14 @@ ion-chip > ion-select {
 
 .rule-item {
   transition: .5s all ease;
+}
+/* Sets default cursor and disables pointer interactions. */
+.disable-pointer-events {  
+  cursor: default;
+  pointer-events: none;
+}
+/* Re-enables pointer interactions on ion-chip elements within ion-item. */
+ion-item ion-chip {
+  pointer-events: auto;
 }
 </style>

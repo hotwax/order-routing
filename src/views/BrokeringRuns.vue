@@ -50,7 +50,7 @@
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
                   {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
-                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
+                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
                   {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
@@ -175,8 +175,31 @@ async function setEComStore(event: CustomEvent) {
   emitter.emit("dismissLoader")
 }
 
-function getScheduleFrequency(cronExp: string) {
-  return Object.entries(cronExpressions).find(([description, expression]) => expression === cronExp)?.[0] || "-"
+function getScheduleFrequency(brokeringGroupObj: any) {
+  const foundDescription = Object.entries(cronExpressions).find(
+    ([description, expression]) => expression === brokeringGroupObj.cronExpression
+  )?.[0];
+
+  if (foundDescription) {
+    return foundDescription;
+  }
+
+  if (brokeringGroupObj.cronDescription) {
+    const executionTimeZone = brokeringGroupObj.executionTimeZone || "";
+    let processedDescription = brokeringGroupObj.cronDescription
+      .replace(executionTimeZone, "")
+      .replace("time", "")
+      .trim();
+
+    // Capitalize the first letter if it's not a number or symbol
+    if (/^[a-z]/.test(processedDescription)) {
+      processedDescription = processedDescription.charAt(0).toUpperCase() + processedDescription.slice(1);
+    }
+
+    return processedDescription;
+  }
+
+  return "-";
 }
 
 async function redirect(group: Group) {

@@ -511,7 +511,7 @@ const measurementRef = ref()
 const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
-  emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Fetching filters and inventory rules" })
   await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
   store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
@@ -704,7 +704,7 @@ async function editRouteName() {
 async function updateRouteName() {
   if(routeName.value.trim() && routeName.value.trim() !== currentRouting.value.routingName.trim()) {
 
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: "Updating..." })
 
     const payload = {
       orderRoutingId: props.orderRoutingId,
@@ -1209,7 +1209,7 @@ async function updateRuleName(routingRuleId: string) {
   })
 
   if(isUpdateRequired) {
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: "Updating..." })
 
     let ruleId = await store.dispatch("orderRouting/updateRule", {
       routingRuleId,
@@ -1230,7 +1230,7 @@ async function updateRuleName(routingRuleId: string) {
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}` })
 
   try {
     const resp = await OrderRoutingService.cloneRule({
@@ -1450,7 +1450,7 @@ function doReorder(event: CustomEvent) {
 }
 
 async function save() {
-  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Updating inventory rules and filters" })
   const orderRouting = {
     orderRoutingId: props.orderRoutingId,
     routingGroupId: currentRouting.value.routingGroupId

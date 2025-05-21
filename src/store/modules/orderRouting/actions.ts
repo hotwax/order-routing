@@ -366,6 +366,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
   async fetchInventoryRuleInformation({ commit, state }, routingRuleId) {
     const rulesInformation = JSON.parse(JSON.stringify(state.rules))
+    // Fields for which we need to define sortBy as descending
+    const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC
 
     // Do not fetch the rule information if its already available in state. This condition will be false on refresh as state will be cleared so automatically updated information will be fetched
     // commented this, as after update we currently do not update state locally and fetch the information again for getting latest information
@@ -381,6 +383,10 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
 
         if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
           rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
+
+            if(filterSortDesc.includes(filter.fieldName)) {
+              filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
+            }
 
             if(filter.operator === "not-equals") {
               filter.fieldName += "_excluded"

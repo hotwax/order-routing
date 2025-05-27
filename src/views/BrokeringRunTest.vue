@@ -72,18 +72,20 @@
           </section>
         </main>
         <aside>
-          <ion-list>
-            <ion-item-group v-for="routing in group.routings" :key="routing.orderRoutingId" class="ion-margin-vertical">
-              <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
-              <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)">
-                <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
-                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
-                </ion-label>
-              </ion-item>
-              <p v-if="!routing.rules?.length" class="ion-text-center">{{ translate("No rules available") }}</p>
-            </ion-item-group>
+          <ion-list v-if="areRuleExistsForRoutings">
+            <template v-for="routing in group.routings" :key="routing.orderRoutingId">
+              <ion-item-group v-if="routing.rules?.length" class="ion-margin-vertical">
+                <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
+                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)">
+                  <ion-label>
+                    <h2>{{ rule.ruleName }}</h2>
+                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                  </ion-label>
+                </ion-item>
+              </ion-item-group>
+            </template>
           </ion-list>
+          <p class="ion-text-center" v-else>{{ translate("No rules available") }}</p>
         </aside>
       </div>
     </ion-content>
@@ -126,6 +128,9 @@ let orderRoutings = ref([]) as any
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+
+// Check if any of the routing contains rules or not
+const areRuleExistsForRoutings = computed(() => group.value.routings.some((routing: any) => routing.rules.length))
 
 onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()

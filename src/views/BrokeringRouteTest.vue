@@ -111,6 +111,7 @@ const props = defineProps({
 
 onMounted(() => {
   if(testRoutingInfo.value.currentOrderId) {
+    searchOrders(testRoutingInfo.value.currentOrderId);
     getOrderBrokeringInfo()
   }
 })
@@ -128,18 +129,19 @@ const getProductStock = computed(() => (productId: string, facilityId: string) =
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 
-async function searchOrders() {
+async function searchOrders(orderId = "") {
+  const searchedQuery = orderId ? orderId : queryString.value.trim()
   orders.value = []
   await store.dispatch("orderRouting/updateRoutingTestInfo", [
     { key: "errorMessage", value: "" }
   ])
-  if(!queryString.value.trim()) {
+  if(!searchedQuery) {
     showToast(translate("Enter valid order attribute for searching"))
     return;
   }
 
   emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
-  const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
+  const resp = await OrderRoutingService.findOrder(searchedQuery, orderId) as any;
 
   if(resp.errorMessage) {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
@@ -147,6 +149,11 @@ async function searchOrders() {
     ])
   } else {
     orders.value = resp.orders
+
+    // Update the current order if searching is directly performed on orderId
+    if(orderId) {
+      updateCurrentOrder(resp.orders.find((order: any) => order.orderId === orderId))
+    }
   }
   emitter.emit("dismissLoader")
 }

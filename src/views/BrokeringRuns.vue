@@ -179,7 +179,7 @@ function getScheduleFrequency(cronExp: string) {
   return Object.entries(cronExpressions).find(([description, expression]) => expression === cronExp)?.[0] || "-"
 }
 
-async function redirect(group: Group) {
+function redirect(group: Group) {
   router.push(`brokering/${group.routingGroupId}/routes`)
 }
 

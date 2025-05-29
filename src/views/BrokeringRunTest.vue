@@ -6,7 +6,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/brokering" />
+          <ion-back-button :default-href="'/tabs/brokering/'+routingGroupId+'/routes'" />
         </ion-buttons>
         <ion-title>{{ translate("Test drive") }}</ion-title>
       </ion-toolbar>
@@ -22,7 +22,7 @@
                   <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
                 </ion-card-header>
                 <div class="ion-padding">
-                  <ion-button fill="outline" size="small" @click="exitTestMode">
+                  <ion-button fill="outline" size="small" @click="exitTestMode()">
                     <ion-icon slot="start" :icon="speedometerOutline"/>
                     {{ translate("Exit test mode") }}
                   </ion-button>
@@ -130,7 +130,7 @@ const getStatusDesc = computed(() => (id: string) => store.getters["util/getStat
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 
 // Check if any of the routing contains rules or not
-const areRuleExistsForRoutings = computed(() => group.value.routings.some((routing: any) => routing.rules.length))
+const areRuleExistsForRoutings = computed(() => group.value.routings?.some((routing: any) => routing.rules?.length))
 
 onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
@@ -151,10 +151,7 @@ onBeforeRouteLeave(async (to: any) => {
   if(to.path === '/login') return;
 
   if(testRoutingInfo.value.currentOrderId) {
-    exitTestMode();
-    return false;
-  } else {
-    return true;
+    return exitTestMode(false);
   }
 })
 
@@ -256,7 +253,8 @@ async function fetchJobInformation() {
   }
 }
 
-async function exitTestMode() {
+// @params isTriggerManually - false, if the exit is triggered from the hook programmatically
+async function exitTestMode(isTriggerManually = true) {
   // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
   if(!testRoutingInfo.value.isOrderAlreadyBrokered && testRoutingInfo.value.brokeringRoute) {
     const alert = await alertController
@@ -269,13 +267,16 @@ async function exitTestMode() {
         }]
       });
 
-    return alert.present();
+    alert.present();
+    return false; // passing boolean to let the routeLeave hook know to change the route or not
   }
 
   await store.dispatch("orderRouting/clearRoutingTestInfo")
 
-  router.go(-1);
-  return;
+  if(isTriggerManually) {
+    router.go(-1);
+  }
+  return true;
 }
 </script>
 

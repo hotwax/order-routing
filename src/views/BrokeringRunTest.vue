@@ -46,9 +46,9 @@
             </ion-card>
             <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group"/>
           </section>
-          <section class="route-details">
+          <section class="route-details activate-scroll">
             <ion-list v-if="group.routings?.length">
-              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId }">
+              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId }" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
@@ -71,12 +71,12 @@
             </ion-list>
           </section>
         </main>
-        <aside>
+        <aside class="activate-scroll">
           <ion-list v-if="areRuleExistsForRoutings">
             <template v-for="routing in group.routings" :key="routing.orderRoutingId">
               <ion-item-group v-if="routing.rules?.length" class="ion-margin-vertical">
                 <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
-                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)">
+                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
                   <ion-label>
                     <h2>{{ rule.ruleName }}</h2>
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
@@ -97,7 +97,7 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, ref } from "vue";
+import { computed, defineProps, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
@@ -131,6 +131,15 @@ const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutin
 
 // Check if any of the routing contains rules or not
 const areRuleExistsForRoutings = computed(() => group.value.routings?.some((routing: any) => routing.rules?.length))
+
+// Checks if the testRouting info has been updated and scroll the route and rule into the view
+watch(testRoutingInfo.value, (routingInfo) => {
+  const routeEle = document.getElementById(`route-${routingInfo.brokeringRoute}`);
+  routeEle && (routeEle.scrollIntoView());
+
+  const ruleEle = document.getElementById(`rule-${routingInfo.brokeringRule}`);
+  ruleEle && (ruleEle.scrollIntoView());
+});
 
 onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
@@ -284,12 +293,14 @@ async function exitTestMode(isTriggerManually = true) {
 main {
   display: grid;
   grid-template-columns: 2fr 1fr;
+  overflow-y: scroll;
 }
 
 ion-content > div {
   display: grid;
   grid-template-columns: 1fr minmax(375px, 25%);
   height: 100%;
+  overflow-y: hidden;
 }
 
 aside {
@@ -324,5 +335,11 @@ ion-card > ion-button[expand="block"] {
 
 .rule-item {
   transition: .5s all ease;
+}
+
+.activate-scroll {
+  overflow-y: scroll;
+  scrollbar-width: none;  /* To hide the scrollbar from being visible */
+  scroll-behavior: smooth;
 }
 </style>

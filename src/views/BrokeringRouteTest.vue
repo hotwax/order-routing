@@ -209,11 +209,6 @@ async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
     return;
   }
 
-  // If the same ship group seq id is clicked again
-  if(testRoutingInfo.value.currentShipGroupId === shipGroupId) {
-    return;
-  }
-
   const shipGroupFacilityId = shipGroup[0].facilityId
   await store.dispatch("orderRouting/updateRoutingTestInfo", [
     { key: "currentShipGroupId", value: shipGroupId }

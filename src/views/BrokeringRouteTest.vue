@@ -37,7 +37,7 @@
 
       <div class="ship-groups ion-margin">
         <div class="order-group">
-          <ion-button class="ion-margin-horizontal" v-if="testRoutingInfo.isOrderBrokered" @click="resetOrder()">
+          <ion-button class="ion-margin-horizontal" v-if="testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered" @click="resetOrder()">
             <ion-icon slot="start" :icon="arrowUndoOutline" />
             {{ translate("Reset order") }}
           </ion-button>
@@ -65,7 +65,7 @@
               <ion-badge slot="end">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
           </ion-card>
-          <ion-button v-if="!testRoutingInfo.isOrderBrokered && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
+          <ion-button v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
             <ion-icon slot="start" :icon="compassOutline" />
             {{ translate("Broker Order") }}
           </ion-button>
@@ -111,6 +111,7 @@ const props = defineProps({
 
 onMounted(() => {
   if(testRoutingInfo.value.currentOrderId) {
+    searchOrders(testRoutingInfo.value.currentOrderId);
     getOrderBrokeringInfo()
   }
 })
@@ -128,18 +129,19 @@ const getProductStock = computed(() => (productId: string, facilityId: string) =
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 
-async function searchOrders() {
+async function searchOrders(orderId = "") {
+  const searchedQuery = orderId ? orderId : queryString.value.trim()
   orders.value = []
   await store.dispatch("orderRouting/updateRoutingTestInfo", [
     { key: "errorMessage", value: "" }
   ])
-  if(!queryString.value.trim()) {
+  if(!searchedQuery) {
     showToast(translate("Enter valid order attribute for searching"))
     return;
   }
 
   emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
-  const resp = await OrderRoutingService.findOrder(queryString.value.trim()) as any;
+  const resp = await OrderRoutingService.findOrder(searchedQuery, orderId) as any;
 
   if(resp.errorMessage) {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
@@ -147,6 +149,11 @@ async function searchOrders() {
     ])
   } else {
     orders.value = resp.orders
+
+    // Update the current order if searching is directly performed on orderId
+    if(orderId) {
+      updateCurrentOrder(resp.orders.find((order: any) => order.orderId === orderId))
+    }
   }
   emitter.emit("dismissLoader")
 }
@@ -199,11 +206,6 @@ async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
 
   if(!shipGroupId) {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [{ key: "currentShipGroupId", value: "" }])
-    return;
-  }
-
-  // If the same ship group seq id is clicked again
-  if(testRoutingInfo.value.currentShipGroupId === shipGroupId) {
     return;
   }
 
@@ -461,14 +463,15 @@ async function resetOrder() {
       }))
     })
 
-    // TODO: handle error cases, currently success and error are in the same messages property hence having issue in differentiating between the two
+    // TODO: handle error cases, currently success and error are in the same `messages` property hence having issue in differentiating between the two
     if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
       await store.dispatch("orderRouting/updateRoutingTestInfo", [
         { key: "brokeringRoute", value: "" },
         { key: "brokeringRule", value: "" },
         { key: "errorMessage", value: "" },
         { key: "selectedRuleId", value: "" },
-        { key: "unmatchedOrderFilters", value: [] }
+        { key: "unmatchedOrderFilters", value: [] },
+        { key: "isOrderAlreadyBrokered", value: false }
       ])
 
       await getOrderBrokeringInfo(true);

@@ -166,7 +166,7 @@ const runNow = async (routingGroupId: string): Promise<any> => {
   });
 }
 
-const findOrder = async (queryString: string): Promise<any> => {
+const findOrder = async (queryString: string, orderId: string): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
   let baseURL = omsRedirectionInfo.url;
   baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
@@ -190,6 +190,11 @@ const findOrder = async (queryString: string): Promise<any> => {
       "query": `(*${queryString.trim()}*) OR "${queryString.trim()}"^100`,
       "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED OR ORDER_COMPLETED)"
     }
+  }
+
+  // If having orderId, then perform searching on the same
+  if(orderId) {
+    payload.json.filter += `AND orderId: ${orderId}`
   }
 
   try {

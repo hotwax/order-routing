@@ -446,7 +446,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
   } catch(err) {
     logger.error(err)
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "brokeringDecisionReason", value: "Unable to fetch brokering information for this order." }
+      { key: "brokeringDecisionReason", value: "No brokering history for this order" }
     ])
   }
 }

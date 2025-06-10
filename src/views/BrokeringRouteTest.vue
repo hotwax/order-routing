@@ -188,7 +188,12 @@ async function updateCurrentOrder(order?: any) {
   queryString.value = ""
   orders.value = []
 
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  // Passing the value of enabled properties as saved in state, because we do not want to exit the test mode
+  // but need to clear the routing test info state
+  await store.dispatch("orderRouting/clearRoutingTestInfo", {
+    isRuleTestEnabled: testRoutingInfo.value.isRuleTestEnabled,
+    isRoutingTestEnabled: testRoutingInfo.value.isRoutingTestEnabled
+  })
   // hasUnmatchedFilters.value = false
   return;
 }

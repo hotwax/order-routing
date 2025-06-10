@@ -188,7 +188,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
         "defType": "edismax"
       },
       "query": `(*${queryString.trim()}*) OR "${queryString.trim()}"^100`,
-      "filter": "docType: ORDER AND -orderStatusId: (ORDER_REJECTED OR ORDER_CANCELLED OR ORDER_COMPLETED)"
+      "filter": `docType: ORDER AND orderStatusId: ORDER_APPROVED AND productStoreId: ${store.getters["user/getCurrentEComStore"]?.productStoreId}`
     }
   }
 

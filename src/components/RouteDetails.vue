@@ -26,7 +26,10 @@
           <ion-item>
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-label>{{ translate("Status") }}</ion-label>
-            <ion-label slot="end">{{ getStatusDesc(routing.statusId) }}</ion-label>
+            <ion-label slot="end" class="label-with-icon">
+              {{ getStatusDesc(routing.statusId) }}
+              <ion-icon v-if="unmatchedRoutingProperties['statusId']" :icon="warningOutline" color="danger"></ion-icon>
+            </ion-label>
           </ion-item>
           <ion-item lines="full">
             <ion-icon :icon="timeOutline" slot="start" />
@@ -42,74 +45,15 @@
             <p class="empty-state" v-if="!routing.filtersCount">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
             </p>
-            <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'QUEUE')">
-              <ion-label>{{ translate("Queue") }}</ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'QUEUE') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'QUEUE_EXCLUDED')">
-              <ion-label>
-                {{ translate("Queue") }}
-                <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
-              </ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'QUEUE_EXCLUDED') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'SHIPPING_METHOD')">
-              <ion-label>{{ translate("Shipping method") }}</ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'SHIPPING_METHOD') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
-              <ion-label>
-                {{ translate("Shipping method") }}
-                <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
-              </ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'PRIORITY')">
-              <ion-label>{{ translate("Order priority") }}</ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'PRIORITY') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'PRIORITY_EXCLUDED')">
-              <ion-label>
-                {{ translate("Order priority") }}
-                <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
-              </ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'PRIORITY_EXCLUDED') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'PROMISE_DATE')">
-              <ion-label>{{ translate("Promise date") }}</ion-label>
-              <ion-chip outline>
-                {{ getPromiseDateValue() }}
-              </ion-chip>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
-              <ion-label>{{ translate("Promise date") }}</ion-label>
-              <ion-chip outline>
-                {{ getPromiseDateValue() }}
-              </ion-chip>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'SALES_CHANNEL')">
-              <ion-label>{{ translate("Sales Channel") }}</ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'SALES_CHANNEL') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
-              <div>
-                <ion-label>{{ translate("Sales Channel") }}</ion-label>
-                <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
-              </div>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'SALES_CHANNEL_EXCLUDED') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
-              <ion-label>{{ translate("Origin Facility Group") }}</ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'ORIGIN_FACILITY_GROUP') }}</ion-label>
-            </ion-item>
-            <ion-item v-if="getFilterValue(routing.filterConditions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
-              <ion-label>
-                {{ translate("Origin Facility Group") }}
-                <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
-              </ion-label>
-              <ion-label slot="end">{{ getSelectedValue(routing.filterConditions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED') }}</ion-label>
-            </ion-item>
+            <OrderFilterItem
+              v-for="option in filterOptions"
+              :key="option.enumId"
+              :enumId="option.enumId"
+              :code="option.code"
+              :label="option.label"
+              :routing="routing"
+              :unmatchedRoutingProperties="unmatchedRoutingProperties"
+            />
           </ion-item-group>
           <ion-item-group>
             <ion-item-divider color="light">
@@ -144,10 +88,11 @@
 import { translate } from "@/i18n";
 import store from "@/store";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { arrowBackOutline, pulseOutline, timeOutline } from "ionicons/icons"
+import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
 import { computed, defineProps } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
 import { getDateAndTimeShort } from "@/utils";
+import OrderFilterItem from "./OrderFilterItem.vue";
 
 const props = defineProps({
   routing: {
@@ -157,10 +102,63 @@ const props = defineProps({
   group: {
     type: Object,
     required: true
+  },
+  unmatchedRoutingProperties: {
+    type: Object,
+    required: true
   }
 })
 
 const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+const filterOptions = [{
+  enumId: "QUEUE",
+  code: "facilityId",
+  label: "Queue"
+}, {
+  enumId: "QUEUE_EXCLUDED",
+  code: "facilityId",
+  label: "Queue"
+}, {
+  enumId: "SHIPPING_METHOD",
+  code: "shipmentMethodTypeId",
+  label: "Shipping method"
+}, {
+  enumId: "SHIPPING_METHOD_EXCLUDED",
+  code: "shipmentMethodTypeId",
+  label: "Shipping method"
+}, {
+  enumId: "PRIORITY",
+  code: "priority",
+  label: "Order priority"
+}, {
+  enumId: "PRIORITY_EXCLUDED",
+  code: "priority",
+  label: "Order priority"
+}, {
+  enumId: "PROMISE_DATE",
+  code: "promiseDaysCutoff",
+  label: "Promise date"
+}, {
+  enumId: "PROMISE_DATE_EXCLUDED",
+  code: "promiseDaysCutoff",
+  label: "Promise date"
+}, {
+  enumId: "SALES_CHANNEL",
+  code: "salesChannelEnumId",
+  label: "Sales Channel"
+}, {
+  enumId: "SALES_CHANNEL_EXCLUDED",
+  code: "salesChannelEnumId",
+  label: "Sales Channel"
+}, {
+  enumId: "ORIGIN_FACILITY_GROUP",
+  code: "originFacilityGroupId",
+  label: "Origin Facility Group"
+}, {
+  enumId: "ORIGIN_FACILITY_GROUP_EXCLUDED",
+  code: "originFacilityGroupId",
+  label: "Origin Facility Group"
+}]
 
 const enums = computed(() => store.getters["util/getEnums"])
 const facilities = computed(() => store.getters["util/getVirtualFacilities"])
@@ -182,36 +180,6 @@ function getLabel(parentType: string, code: string) {
   const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
 
   return enumInfo?.description
-}
-
-function getFilterValue(options: any, enums: any, parameter: string) {
-  return enums[parameter] ? options?.[enums[parameter].code] : undefined
-}
-
-function getSelectedValue(options: any, enumerations: any, parameter: string) {
-  let value = options?.[enumerations[parameter].code].fieldValue
-
-  // Initially when adding a filter no value is selected thus returning empty string
-  if(!value) {
-    return "";
-  }
-
-  value = value?.split(',')
-
-  // If having more than 1 value selected then displaying the count of selected value otherwise returning the facilityName of the selected facility
-  if(value?.length > 1) {
-    return `${value.length} ${translate("selected")}`
-  } else {
-    return parameter === "SHIPPING_METHOD" || parameter === "SHIPPING_METHOD_EXCLUDED" ? shippingMethods.value[value[0]]?.description || value[0] : parameter === "SALES_CHANNEL" || parameter === "SALES_CHANNEL_EXCLUDED" ? enums.value["ORDER_SALES_CHANNEL"] ? enums.value["ORDER_SALES_CHANNEL"][value[0]]?.description : value[0] : parameter === "ORIGIN_FACILITY_GROUP" || parameter === "ORIGIN_FACILITY_GROUP_EXCLUDED" ? facilityGroups.value[value[0]]?.facilityGroupName || value[0] : facilities.value[value[0]]?.facilityName || value[0]
-  }
-}
-
-function getPromiseDateValue() {
-  const value = props.routing.filterConditions?.[ruleEnums["PROMISE_DATE"].code]?.fieldValue
-  if(value || value == 0) {
-    return value == 0 ? translate("already passed") : value.startsWith("-") ? `${value.replace("-", "")} days passed` : `upcoming in ${value} days`
-  }
-  return translate("select range")
 }
 
 async function openRoutingHistoryModal() {

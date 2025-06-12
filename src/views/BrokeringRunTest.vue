@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <RouteDetails menu-id="route-details" side="end" :group="currentRoutingGroup" :routing="currentRoute"/>
+    <RouteDetails menu-id="route-details" side="end" :group="currentRoutingGroup" :routing="currentRoute" :unmatchedRoutingProperties="unmatchedRoutingProperties"/>
     <RuleDetails menu-id="rule-details" side="end" :group="group" :rule="currentRule"/>
 
     <ion-header>
@@ -97,8 +97,8 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, ref, watch } from "vue";
-import { Group } from "@/types";
+import { computed, defineProps, reactive, ref, watch } from "vue";
+import { Group, Route } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { hasError, getDateAndTime, sortSequence } from "@/utils";
@@ -128,6 +128,9 @@ let orderRoutings = ref([]) as any
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
+
+let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
 // Check if any of the routing contains rules or not
 const areRuleExistsForRoutings = computed(() => group.value.routings?.some((routing: any) => routing.rules?.length))
@@ -235,6 +238,7 @@ async function fetchRoutingsInformation() {
 
 async function openRouteDetails(routing: any) {
   currentRoute.value = routing
+  getEligibleRoutesForBrokering(routing)
   await menuController.open("route-details");
 }
 
@@ -287,6 +291,61 @@ async function exitTestMode(isTriggerManually = true) {
   }
   return true;
 }
+
+function getEligibleRoutesForBrokering(routing: any) {
+  // Defined excluded filters as we are not directly getting information for these params in order, thus for now excluded these when checking for brokering possibility
+  // TODO: add support to honor the below excluded filters
+  const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
+  const shipGroup = currentShipGroup.value[0]
+
+  unmatchedRoutingProperties = {}
+
+  // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
+  if(routing.statusId !== "ROUTING_ACTIVE") {
+    unmatchedRoutingProperties["statusId"] = routing.statusId
+  }
+
+  const orderFilters = routing.orderFilters?.filter((orderFilter: any) => orderFilter.conditionTypeEnumId === "ENTCT_FILTER")
+
+  // If the current routing do not have filters applied it means that this routing will pick all the orders
+  if(!orderFilters?.length) {
+    return
+  }
+
+  orderFilters.map((orderFilter: any) => {
+    const key = orderFilter.fieldName.includes("_excluded") ? orderFilter.fieldName.substring(0, orderFilter.fieldName.indexOf("_excluded")) : orderFilter.fieldName
+    const value = orderFilter.fieldValue
+
+    // If the current filter is in excluded filters list considering those filters to be as matched
+    if(excludedFilters.includes(key)) {
+      return;
+    }
+
+    if(orderFilter.operator === "in") {
+      const values = value.split(",")
+
+      !values.includes(shipGroup[key]) && (unmatchedRoutingProperties[key] = values)
+    }
+
+    if(orderFilter.operator === "not-in") {
+      const values = value.split(",")
+      // For now, used filter but we can replace it with find, as we will always have a single value that will match with shipGroup facility
+      const matchedValues = values.filter((val: string) => val === shipGroup[key])
+
+      if(matchedValues) {
+        unmatchedRoutingProperties[key + '_excluded'] = matchedValues
+      }
+    }
+
+    if(orderFilter.operator === "equals") {
+      shipGroup[key] !== value && (unmatchedRoutingProperties[key] = value)
+    }
+
+    if(orderFilter.operator === "not-equals") {
+      shipGroup[key] === value && (unmatchedRoutingProperties[key + '_excluded'] = value)
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -334,7 +393,7 @@ ion-card > ion-button[expand="block"] {
 }
 
 .rule-item {
-  transition: .5s all ease;
+  transition: .5s scale,box-shadow ease;
 }
 
 .activate-scroll {

@@ -366,7 +366,7 @@ async function brokerOrder() {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
       {
         key: "errorMessage",
-        value: props.routingRuleId ? "Failed to broker order using this rule, try with some other rule" : props.orderRoutingId ? "Failed to broker order using this routing, try with some other routing" : "Failed to broker order using this group, try with some other group"
+        value: props.routingRuleId ? "No inventory was found for this order in this rule." : props.orderRoutingId ? "This order doesn’t qualify to be brokered by this batch. Try adjusting the order filters in this batch." : "This order doesn’t qualify to be brokered by any of the batches in this run. Try adjusting the order filters in the batches."
       }
     ])
     logger.error(err)

@@ -300,6 +300,12 @@ ion-input.name {
   grid-area: search;
 }
 
+.label-with-icon {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 @media (min-width: 991px) {
   .find {
     grid: "search  main" min-content

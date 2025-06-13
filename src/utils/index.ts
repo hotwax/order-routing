@@ -58,4 +58,16 @@ function timeTillRun(endTime: any) {
   return DateTime.local().plus(timeDiff).toRelative();
 }
 
-export { getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun }
+const getColorByDesc = (desc: string) => ({
+  "Approved": "primary",
+  "Cancelled": "danger",
+  "Completed": "success",
+  "Created": "medium",
+  "Expired": "warning",
+  "Hold": "warning",
+  "Cancellation Requested": "medium",
+  "Rejected": "warning",
+  "default": "medium"
+} as any)[desc]
+
+export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun }

@@ -159,3 +159,9 @@ function getSelectedValue(options: any, enumerations: any, parameter: string): R
 }
 
 </script>
+
+<style scoped>
+ion-accordion > ion-item::part(native) {
+  --inner-border-width: 0 0 1px 0;
+}
+</style>

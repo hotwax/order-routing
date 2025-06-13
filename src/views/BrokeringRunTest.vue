@@ -14,7 +14,7 @@
     <ion-content id="main-content">
       <div>
         <main>
-          <section class="route-details activate-scroll">
+          <section class="activate-scroll">
             <ion-card class="info">
               <div>
                 <ion-card-header>
@@ -46,7 +46,7 @@
             </ion-card>
             <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group"/>
           </section>
-          <section class="route-details activate-scroll">
+          <section class="routings activate-scroll">
             <ion-list v-if="group.routings?.length">
               <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
@@ -293,12 +293,17 @@ async function exitTestMode(isTriggerManually = true) {
 }
 
 function getEligibleRoutesForBrokering(routing: any) {
+  unmatchedRoutingProperties = {}
+
+  // If no shipGroup is selected, then do not perform any computation, this is the case when we are on the search section of test drive
+  if(!currentShipGroup.value.length) {
+    return;
+  }
+
   // Defined excluded filters as we are not directly getting information for these params in order, thus for now excluded these when checking for brokering possibility
   // TODO: add support to honor the below excluded filters
   const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
   const shipGroup = currentShipGroup.value[0]
-
-  unmatchedRoutingProperties = {}
 
   // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
   if(routing.statusId !== "ROUTING_ACTIVE") {
@@ -393,12 +398,16 @@ ion-card > ion-button[expand="block"] {
 }
 
 .rule-item {
-  transition: .5s scale,box-shadow ease;
+  transition: scale .5s ease, box-shadow .5s ease;
 }
 
 .activate-scroll {
   overflow-y: scroll;
   scrollbar-width: none;  /* To hide the scrollbar from being visible */
   scroll-behavior: smooth;
+}
+
+.routings > ion-list {
+  padding-inline: var(--spacer-xs);
 }
 </style>

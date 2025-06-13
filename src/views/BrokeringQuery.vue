@@ -1709,6 +1709,6 @@ ion-chip > ion-select {
 }
 
 .rule-item {
-  transition: .5s all ease;
+  transition: scale .5s ease, box-shadow .5s ease;
 }
 </style>

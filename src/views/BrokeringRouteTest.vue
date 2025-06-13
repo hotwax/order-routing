@@ -62,7 +62,7 @@
                 {{ getProduct(item.productId).productName }}
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
-              <ion-badge slot="end">{{ item.orderItemStatusDesc }}</ion-badge>
+              <ion-badge slot="end" :color="getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
           </ion-card>
           <ion-button v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
@@ -81,7 +81,7 @@ import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonIte
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
 import store from "@/store";
-import { hasError, showToast } from "@/utils";
+import { getColorByDesc, hasError, showToast } from "@/utils";
 import logger from "@/logger";
 import { translate } from "@/i18n";
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -239,10 +239,12 @@ function getEligibleRoutesForBrokering() {
   const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
   const eligibleRoutings = [] as any
   const shipGroup = currentShipGroup.value[0]
+  const inactiveRoutings = [] as Array<string>
 
   props.routingGroup.routings.map((routing: any) => {
     // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
     if(routing.statusId !== "ROUTING_ACTIVE") {
+      inactiveRoutings.push(routing.orderRoutingId)
       return
     }
 
@@ -285,7 +287,7 @@ function getEligibleRoutesForBrokering() {
 
   if(!eligibleRoutings.length) {
     store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "errorMessage", value: "This order will not be brokered in this routing because of the selected order filters or no route is in active status." }
+      { key: "errorMessage", value: inactiveRoutings.length == props.routingGroup.routings?.length ? "This order will not be brokered in this routing because no route is in active status." : "This order will not be brokered in this routing because of the selected order filters." }
     ])
     return;
   }

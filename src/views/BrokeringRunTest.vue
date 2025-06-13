@@ -14,7 +14,7 @@
     <ion-content id="main-content">
       <div>
         <main>
-          <section class="route-details">
+          <section class="route-details activate-scroll">
             <ion-card class="info">
               <div>
                 <ion-card-header>

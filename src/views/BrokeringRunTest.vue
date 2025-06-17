@@ -97,7 +97,7 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, reactive, ref, watch } from "vue";
+import { computed, defineProps, reactive, ref, resolveComponent, watch } from "vue";
 import { Group, Route } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
@@ -107,6 +107,8 @@ import { translate } from "@/i18n";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
+import { UtilService } from "@/services/UtilService";
+import { DateTime } from "luxon";
 
 const router = useRouter();
 const store = useStore();
@@ -124,11 +126,13 @@ let currentRule = ref({})
 // TODO: fetch job information for displaying status
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
+let userTestingSession = ref({}) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
+const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -151,6 +155,7 @@ onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
   await fetchJobInformation()
+  await createUserTestSession();
 
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })
@@ -289,6 +294,8 @@ async function exitTestMode(isTriggerManually = true) {
   if(isTriggerManually) {
     router.go(-1);
   }
+
+  updateUserTestSession();
   return true;
 }
 
@@ -350,6 +357,68 @@ function getEligibleRoutesForBrokering(routing: any) {
       shipGroup[key] === value && (unmatchedRoutingProperties[key + '_excluded'] = value)
     }
   })
+}
+
+async function getUserTestSession() {
+  userTestingSession.value = {}
+
+  try {
+    const resp = await UtilService.getUserSessions({
+      customParametersMap: {
+        sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+        userId: userProfile.value.userId,
+      },
+      selectedEntity: "co.hotwax.order.routing.UserSession",
+      pageLimit: 100,
+      filterByDate: true
+    });
+
+    if(resp.data && resp.data.entityValueList?.length) {
+      userTestingSession.value = resp.data.entityValueList[0]
+    }
+  } catch(err) {
+    logger.error("Failed to get user session", err)
+  }
+}
+
+async function createUserTestSession() {
+  try {
+    await getUserTestSession();
+
+    // If a test session already exists for the user do not create a new one
+    if(userTestingSession.value.sessionId) {
+      return;
+    }
+
+    const resp = await UtilService.createUserSession({
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      userId: userProfile.value.userId,
+      fromDate: DateTime.now().toMillis()
+    });
+
+    if(resp.data) {
+      userTestingSession.value = resp.data.entityValueList[0]
+    }
+  } catch(err) {
+    logger.error("Failed to create user session", err)
+  }
+}
+
+async function updateUserTestSession() {
+  try {
+    const resp = await UtilService.updateUserSession({
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      userId: userProfile.value.userId,
+      sessionId: userTestingSession.value.sessionId,
+      thruDate: DateTime.now().toMillis()
+    });
+
+    if(resp.data) {
+      userTestingSession.value = {}
+    }
+  } catch(err) {
+    logger.error("Failed to update user session", err)
+  }
 }
 </script>
 

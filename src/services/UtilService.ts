@@ -1,4 +1,5 @@
 import api, { client } from "@/api"
+import logger from "@/logger";
 import store from "@/store";
 
 const fetchEnums = async (payload: any): Promise<any> => {
@@ -88,38 +89,101 @@ const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
   });
 }
 
-const getUserSessions = async(payload: any): Promise<any> => {
+const getUserSession = async(payload: any): Promise<any> => {
+  let userTestingSession = {}
   const url = store.getters["user/getBaseUrl"]
   const token = store.getters["user/getUserToken"]
   const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
 
-  return client({
-    url: "entityData",
-    method: "POST",
-    baseURL: baseURL,
-    data: payload,
-    headers: {
-      Api_Key: token,
-      Authorization: "Bearer " + token,
-      "Content-Type": "application/json"
+  try {
+    const resp = await client({
+      url: "entityData",
+      method: "POST",
+      baseURL: baseURL,
+      data: payload,
+      headers: {
+        Api_Key: token,
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if(resp.data && resp.data.entityValueList?.length) {
+      userTestingSession = resp.data.entityValueList[0]
     }
-  });
+  } catch(err) {
+    logger.error("Failed to get user session", err)
+  }
+
+  return userTestingSession;
 }
 
-const createUserSession = async(payload: any): Promise<any> => {
-  return api({
-    url: "user/session",
-    method: "POST",
-    data: payload
-  });
+const getTestSessions = async(payload: any): Promise<any> => {
+  let testingSessions = []
+  const url = store.getters["user/getBaseUrl"]
+  const token = store.getters["user/getUserToken"]
+  const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
+
+  try {
+    const resp = await client({
+      url: "entityData",
+      method: "POST",
+      baseURL: baseURL,
+      data: payload,
+      headers: {
+        Api_Key: token,
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if(resp.data && resp.data.entityValueList?.length) {
+      testingSessions = resp.data.entityValueList
+    }
+  } catch(err) {
+    logger.error("Failed to get testing sessions", err)
+  }
+
+  return testingSessions;
 }
 
-const updateUserSession = async(payload: any): Promise<any> => {
-  return api({
-    url: `user/session/${payload.sessionId}`,
-    method: "PUT",
-    data: payload
-  });
+const createUserSession = async (payload: any): Promise<any> => {
+  let userTestingSession = {} as any;
+  try {
+    const resp = await api({
+      url: "user/sessions",
+      method: "POST",
+      data: payload
+    }) as any;
+
+    if(resp.data) {
+      userTestingSession = {
+        userSessionId: resp.data.userSessionId
+      }
+    }
+  } catch(err) {
+    logger.error("Failed to create user session", err)
+  }
+
+  return userTestingSession;
+}
+
+const expireUserSession = async(payload: any, userTestingSession = {}): Promise<any> => {
+  try {
+    const resp = await api({
+      url: `user/sessions/${payload.userSessionId}`,
+      method: "PUT",
+      data: payload
+    }) as any;
+
+    if(resp.data) {
+      userTestingSession = {}
+    }
+  } catch(err) {
+    logger.error("Failed to update user session", err)
+  }
+
+  return userTestingSession;
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
@@ -170,7 +234,8 @@ export const UtilService = {
   getCarrierInformation,
   getCarrierDeliveryDays,
   getProductStoreInfo,
-  getUserSessions,
+  getUserSession,
+  getTestSessions,
   updateProductStoreInfo,
-  updateUserSession
+  expireUserSession
 }

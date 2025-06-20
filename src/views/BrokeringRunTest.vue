@@ -44,7 +44,7 @@
                 </ion-item>
               </div>
             </ion-card>
-            <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group"/>
+            <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group" :userTestingSession="userTestingSession"/>
           </section>
           <section class="routings activate-scroll">
             <ion-list v-if="group.routings?.length">
@@ -133,6 +133,7 @@ const getStatusDesc = computed(() => (id: string) => store.getters["util/getStat
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -169,6 +170,8 @@ onBeforeRouteLeave(async (to: any) => {
 
   if(testRoutingInfo.value.currentOrderId) {
     return exitTestMode(false);
+  } else {
+    await updateUserTestSession();
   }
 })
 
@@ -293,9 +296,10 @@ async function exitTestMode(isTriggerManually = true) {
 
   if(isTriggerManually) {
     router.go(-1);
+  } else {
+    await updateUserTestSession();
   }
 
-  updateUserTestSession();
   return true;
 }
 
@@ -360,65 +364,42 @@ function getEligibleRoutesForBrokering(routing: any) {
 }
 
 async function getUserTestSession() {
-  userTestingSession.value = {}
-
-  try {
-    const resp = await UtilService.getUserSessions({
-      customParametersMap: {
-        sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-        userId: userProfile.value.userId,
-      },
-      selectedEntity: "co.hotwax.order.routing.UserSession",
-      pageLimit: 100,
-      filterByDate: true
-    });
-
-    if(resp.data && resp.data.entityValueList?.length) {
-      userTestingSession.value = resp.data.entityValueList[0]
-    }
-  } catch(err) {
-    logger.error("Failed to get user session", err)
-  }
+  userTestingSession.value = await UtilService.getUserSession({
+    customParametersMap: {
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      userId: userProfile.value.userId,
+      productStoreId: currentEComStore.value.productStoreId
+    },
+    selectedEntity: "co.hotwax.user.UserSession",
+    pageLimit: 100,
+    filterByDate: true
+  });
 }
 
 async function createUserTestSession() {
-  try {
-    await getUserTestSession();
+  await getUserTestSession();
 
-    // If a test session already exists for the user do not create a new one
-    if(userTestingSession.value.sessionId) {
-      return;
-    }
-
-    const resp = await UtilService.createUserSession({
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      userId: userProfile.value.userId,
-      fromDate: DateTime.now().toMillis()
-    });
-
-    if(resp.data) {
-      userTestingSession.value = resp.data.entityValueList[0]
-    }
-  } catch(err) {
-    logger.error("Failed to create user session", err)
+  // If a test session already exists for the user do not create a new one
+  if(userTestingSession.value.userSessionId) {
+    return;
   }
+
+  userTestingSession.value = await UtilService.createUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    fromDate: DateTime.now().toMillis()
+  });
 }
 
 async function updateUserTestSession() {
-  try {
-    const resp = await UtilService.updateUserSession({
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      userId: userProfile.value.userId,
-      sessionId: userTestingSession.value.sessionId,
-      thruDate: DateTime.now().toMillis()
-    });
-
-    if(resp.data) {
-      userTestingSession.value = {}
-    }
-  } catch(err) {
-    logger.error("Failed to update user session", err)
-  }
+  userTestingSession.value = await UtilService.expireUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    userSessionId: userTestingSession.value.userSessionId,
+    productStoreId: currentEComStore.value.productStoreId,
+    thruDate: DateTime.now().toMillis()
+  });
 }
 </script>
 

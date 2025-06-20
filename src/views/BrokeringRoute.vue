@@ -871,23 +871,16 @@ async function toggleReservation(event: CustomEvent) {
 
 async function getTestSessions() {
   activeTestSessions.value = 0
-  try {
-    const resp = await UtilService.getUserSessions({
-      customParametersMap: {
-        sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-        userId: userProfile.value.userId,
-      },
-      selectedEntity: "co.hotwax.order.routing.UserSession",
-      pageLimit: 100,
-      filterByDate: true
-    });
-
-    if(resp.data && resp.data.entityValueList?.length) {
-      activeTestSessions.value = resp.data.entityValueList.length
-    }
-  } catch(err) {
-    logger.error("Failed to get user session", err)
-  }
+  const testSessions = await UtilService.getTestSessions({
+    customParametersMap: {
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      productStoreId: currentEComStore.value.productStoreId
+    },
+    selectedEntity: "co.hotwax.user.UserSession",
+    pageLimit: 100,
+    filterByDate: true
+  });
+  activeTestSessions.value = testSessions.length
 }
 </script>
 

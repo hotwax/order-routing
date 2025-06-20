@@ -106,6 +106,10 @@ const props = defineProps({
   },
   orderRoutingFilterOptions: {
     required: false
+  },
+  userTestingSession: {
+    default: {},
+    required: false
   }
 })
 
@@ -345,7 +349,8 @@ async function brokerOrder() {
       routingGroupId: props.routingGroupId,
       orderId: testRoutingInfo.value.currentOrderId,
       shipGroupSeqId: testRoutingInfo.value.currentShipGroupId,
-      productStoreId: currentEComStore.value.productStoreId
+      productStoreId: currentEComStore.value.productStoreId,
+      testDriveSessionId: (props.userTestingSession as any)?.userSessionId
     } as any
 
     if(props.orderRoutingId) {

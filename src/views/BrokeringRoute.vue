@@ -90,6 +90,13 @@
                   <ion-icon slot="start" :icon="speedometerOutline" />
                   {{ translate("Test drive") }}
                 </ion-button>
+
+                <ion-item>
+                  <ion-toggle :checked="!isBrokeringEnabled" @ionChange="toggleReservation($event)">
+                    <ion-label>{{ translate("Pause scheduled brokering") }}</ion-label>
+                    <ion-note color="danger">{{ activeTestSessions }} {{ translate("active sessions") }}</ion-note>
+                  </ion-toggle>
+                </ion-item>
               </ion-card>
             </div>
             <div>
@@ -221,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -238,6 +245,7 @@ import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
+import { UtilService } from "@/services/UtilService";
 
 const router = useRouter();
 const store = useStore();
@@ -261,11 +269,15 @@ let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
 let isReordering = ref(false) // To handle the case of click event being triggered when dropping pointer outside of ion-reorder, more details on PR associated with issue #138
+let activeTestSessions = ref(0)
+let isBrokeringEnabled = ref(true)
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
+const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
@@ -273,6 +285,8 @@ onIonViewWillEnter(async () => {
   store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
   store.dispatch("orderRouting/clearRoutingTestInfo")
+  await getTestSessions();
+  await getProductStoreReservation();
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
@@ -823,6 +837,50 @@ async function cloneRouting(routing: any) {
   }
 
   emitter.emit("dismissLoader")
+}
+
+async function getProductStoreReservation() {
+  try {
+    const resp = await UtilService.getProductStoreInfo()
+
+    if(resp.data) {
+      isBrokeringEnabled.value = !resp.data.enableBrokering || resp.data.enableBrokering === "Y"
+    }
+  } catch(err) {
+    logger.error("Failed to get the product store information related to reservation")
+  }
+}
+
+async function toggleReservation(event: CustomEvent) {
+  let enableBrokering = "N"
+
+  if(!event.detail.checked) {
+    enableBrokering = "Y"
+  }
+
+  try {
+    await UtilService.updateProductStoreInfo({
+      productStoreId: currentEComStore.value.productStoreId,
+      enableBrokering
+    })
+  } catch(err) {
+    showToast(translate("Failed to pause the brokering"))
+    logger.error("Failed to update the brokering for product store")
+  }
+}
+
+async function getTestSessions() {
+  activeTestSessions.value = 0
+  const testSessions = await UtilService.getTestSessions({
+    customParametersMap: {
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      productStoreId: currentEComStore.value.productStoreId
+    },
+    selectedEntity: "co.hotwax.user.UserSession",
+    pageLimit: 100,
+    filterByDate: true
+  });
+  activeTestSessions.value = testSessions.length
 }
 </script>
 

@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <RouteDetails menu-id="route-details" side="end" :group="currentRoutingGroup" :routing="currentRoute"/>
+    <RouteDetails menu-id="route-details" side="end" :group="currentRoutingGroup" :routing="currentRoute" :unmatchedRoutingProperties="unmatchedRoutingProperties"/>
     <RuleDetails menu-id="rule-details" side="end" :group="group" :rule="currentRule"/>
 
     <ion-header>
@@ -14,7 +14,7 @@
     <ion-content id="main-content">
       <div>
         <main>
-          <section class="route-details">
+          <section class="activate-scroll">
             <ion-card class="info">
               <div>
                 <ion-card-header>
@@ -44,11 +44,11 @@
                 </ion-item>
               </div>
             </ion-card>
-            <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group"/>
+            <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group" :userTestingSession="userTestingSession"/>
           </section>
-          <section class="route-details activate-scroll">
+          <section class="routings activate-scroll">
             <ion-list v-if="group.routings?.length">
-              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId }" :id="'route-'+routing.orderRoutingId">
+              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
@@ -76,7 +76,7 @@
             <template v-for="routing in group.routings" :key="routing.orderRoutingId">
               <ion-item-group v-if="routing.rules?.length" class="ion-margin-vertical">
                 <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
-                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
+                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="[{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }, 'rule-item']" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
                   <ion-label>
                     <h2>{{ rule.ruleName }}</h2>
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
@@ -97,8 +97,8 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
-import { computed, defineProps, ref, watch } from "vue";
-import { Group } from "@/types";
+import { computed, defineProps, reactive, ref, resolveComponent, watch } from "vue";
+import { Group, Route } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { hasError, getDateAndTime, sortSequence } from "@/utils";
@@ -107,6 +107,8 @@ import { translate } from "@/i18n";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
+import { UtilService } from "@/services/UtilService";
+import { DateTime } from "luxon";
 
 const router = useRouter();
 const store = useStore();
@@ -124,10 +126,16 @@ let currentRule = ref({})
 // TODO: fetch job information for displaying status
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
+let userTestingSession = ref({}) as any
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
+const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+
+let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
 // Check if any of the routing contains rules or not
 const areRuleExistsForRoutings = computed(() => group.value.routings?.some((routing: any) => routing.rules?.length))
@@ -148,6 +156,7 @@ onIonViewWillEnter(async () => {
   await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
 
   await fetchJobInformation()
+  await createUserTestSession();
 
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
 })
@@ -161,6 +170,8 @@ onBeforeRouteLeave(async (to: any) => {
 
   if(testRoutingInfo.value.currentOrderId) {
     return exitTestMode(false);
+  } else {
+    await updateUserTestSession();
   }
 })
 
@@ -235,6 +246,7 @@ async function fetchRoutingsInformation() {
 
 async function openRouteDetails(routing: any) {
   currentRoute.value = routing
+  getEligibleRoutesForBrokering(routing)
   await menuController.open("route-details");
 }
 
@@ -284,8 +296,110 @@ async function exitTestMode(isTriggerManually = true) {
 
   if(isTriggerManually) {
     router.go(-1);
+  } else {
+    await updateUserTestSession();
   }
+
   return true;
+}
+
+function getEligibleRoutesForBrokering(routing: any) {
+  unmatchedRoutingProperties = {}
+
+  // If no shipGroup is selected, then do not perform any computation, this is the case when we are on the search section of test drive
+  if(!currentShipGroup.value.length) {
+    return;
+  }
+
+  // Defined excluded filters as we are not directly getting information for these params in order, thus for now excluded these when checking for brokering possibility
+  // TODO: add support to honor the below excluded filters
+  const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
+  const shipGroup = currentShipGroup.value[0]
+
+  // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
+  if(routing.statusId !== "ROUTING_ACTIVE") {
+    unmatchedRoutingProperties["statusId"] = routing.statusId
+  }
+
+  const orderFilters = routing.orderFilters?.filter((orderFilter: any) => orderFilter.conditionTypeEnumId === "ENTCT_FILTER")
+
+  // If the current routing do not have filters applied it means that this routing will pick all the orders
+  if(!orderFilters?.length) {
+    return
+  }
+
+  orderFilters.map((orderFilter: any) => {
+    const key = orderFilter.fieldName.includes("_excluded") ? orderFilter.fieldName.substring(0, orderFilter.fieldName.indexOf("_excluded")) : orderFilter.fieldName
+    const value = orderFilter.fieldValue
+
+    // If the current filter is in excluded filters list considering those filters to be as matched
+    if(excludedFilters.includes(key)) {
+      return;
+    }
+
+    if(orderFilter.operator === "in") {
+      const values = value.split(",")
+
+      !values.includes(shipGroup[key]) && (unmatchedRoutingProperties[key] = values)
+    }
+
+    if(orderFilter.operator === "not-in") {
+      const values = value.split(",")
+      // For now, used filter but we can replace it with find, as we will always have a single value that will match with shipGroup facility
+      const matchedValues = values.filter((val: string) => val === shipGroup[key])
+
+      if(matchedValues) {
+        unmatchedRoutingProperties[key + '_excluded'] = matchedValues
+      }
+    }
+
+    if(orderFilter.operator === "equals") {
+      shipGroup[key] !== value && (unmatchedRoutingProperties[key] = value)
+    }
+
+    if(orderFilter.operator === "not-equals") {
+      shipGroup[key] === value && (unmatchedRoutingProperties[key + '_excluded'] = value)
+    }
+  })
+}
+
+async function getUserTestSession() {
+  userTestingSession.value = await UtilService.getUserSession({
+    customParametersMap: {
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      userId: userProfile.value.userId,
+      productStoreId: currentEComStore.value.productStoreId
+    },
+    selectedEntity: "co.hotwax.user.UserSession",
+    pageLimit: 100,
+    filterByDate: true
+  });
+}
+
+async function createUserTestSession() {
+  await getUserTestSession();
+
+  // If a test session already exists for the user do not create a new one
+  if(userTestingSession.value.userSessionId) {
+    return;
+  }
+
+  userTestingSession.value = await UtilService.createUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    fromDate: DateTime.now().toMillis()
+  });
+}
+
+async function updateUserTestSession() {
+  userTestingSession.value = await UtilService.expireUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    userSessionId: userTestingSession.value.userSessionId,
+    productStoreId: currentEComStore.value.productStoreId,
+    thruDate: DateTime.now().toMillis()
+  });
 }
 </script>
 
@@ -334,12 +448,16 @@ ion-card > ion-button[expand="block"] {
 }
 
 .rule-item {
-  transition: .5s all ease;
+  transition: scale .5s ease, box-shadow .5s ease;
 }
 
 .activate-scroll {
   overflow-y: scroll;
   scrollbar-width: none;  /* To hide the scrollbar from being visible */
   scroll-behavior: smooth;
+}
+
+.routings > ion-list {
+  padding-inline: var(--spacer-xs);
 }
 </style>

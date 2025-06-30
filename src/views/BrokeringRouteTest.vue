@@ -62,7 +62,7 @@
                 {{ getProduct(item.productId).productName }}
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
-              <ion-badge slot="end">{{ item.orderItemStatusDesc }}</ion-badge>
+              <ion-badge slot="end" :color="getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
           </ion-card>
           <ion-button v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
@@ -81,7 +81,7 @@ import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonIte
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
 import store from "@/store";
-import { hasError, showToast } from "@/utils";
+import { getColorByDesc, hasError, showToast } from "@/utils";
 import logger from "@/logger";
 import { translate } from "@/i18n";
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -105,6 +105,10 @@ const props = defineProps({
     type: Object
   },
   orderRoutingFilterOptions: {
+    required: false
+  },
+  userTestingSession: {
+    default: {},
     required: false
   }
 })
@@ -188,7 +192,12 @@ async function updateCurrentOrder(order?: any) {
   queryString.value = ""
   orders.value = []
 
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  // Passing the value of enabled properties as saved in state, because we do not want to exit the test mode
+  // but need to clear the routing test info state
+  await store.dispatch("orderRouting/clearRoutingTestInfo", {
+    isRuleTestEnabled: testRoutingInfo.value.isRuleTestEnabled,
+    isRoutingTestEnabled: testRoutingInfo.value.isRoutingTestEnabled
+  })
   // hasUnmatchedFilters.value = false
   return;
 }
@@ -234,10 +243,12 @@ function getEligibleRoutesForBrokering() {
   const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
   const eligibleRoutings = [] as any
   const shipGroup = currentShipGroup.value[0]
+  const inactiveRoutings = [] as Array<string>
 
   props.routingGroup.routings.map((routing: any) => {
     // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
     if(routing.statusId !== "ROUTING_ACTIVE") {
+      inactiveRoutings.push(routing.orderRoutingId)
       return
     }
 
@@ -280,7 +291,7 @@ function getEligibleRoutesForBrokering() {
 
   if(!eligibleRoutings.length) {
     store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "errorMessage", value: "This order will not be brokered in this routing because of the selected order filters or no route is in active status." }
+      { key: "errorMessage", value: inactiveRoutings.length == props.routingGroup.routings?.length ? "This order will not be brokered in this routing because no route is in active status." : "This order will not be brokered in this routing because of the selected order filters." }
     ])
     return;
   }
@@ -338,7 +349,8 @@ async function brokerOrder() {
       routingGroupId: props.routingGroupId,
       orderId: testRoutingInfo.value.currentOrderId,
       shipGroupSeqId: testRoutingInfo.value.currentShipGroupId,
-      productStoreId: currentEComStore.value.productStoreId
+      productStoreId: currentEComStore.value.productStoreId,
+      testDriveSessionId: (props.userTestingSession as any)?.userSessionId
     } as any
 
     if(props.orderRoutingId) {
@@ -361,7 +373,7 @@ async function brokerOrder() {
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
       {
         key: "errorMessage",
-        value: props.routingRuleId ? "Failed to broker order using this rule, try with some other rule" : props.orderRoutingId ? "Failed to broker order using this routing, try with some other routing" : "Failed to broker order using this group, try with some other group"
+        value: props.routingRuleId ? "No inventory was found for this order in this rule." : props.orderRoutingId ? "This order doesn’t qualify to be brokered by this batch. Try adjusting the order filters in this batch." : "This order doesn’t qualify to be brokered by any of the batches in this run. Try adjusting the order filters in the batches."
       }
     ])
     logger.error(err)
@@ -441,7 +453,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
   } catch(err) {
     logger.error(err)
     await store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "brokeringDecisionReason", value: "Unable to fetch brokering information for this order." }
+      { key: "brokeringDecisionReason", value: "No brokering history for this order" }
     ])
   }
 }

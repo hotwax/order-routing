@@ -455,8 +455,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     })
   },
 
-  clearRoutingTestInfo({ commit }) {
-    commit(types.ORDER_ROUTING_TEST_CLEARED)
+  clearRoutingTestInfo({ commit }, payload) {
+    commit(types.ORDER_ROUTING_TEST_CLEARED, payload)
   }
 }
 

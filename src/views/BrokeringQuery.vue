@@ -419,11 +419,11 @@
                   </div>
                 </section>
               </template>
-              <BrokeringRouteTest v-if="testRoutingInfo.isRuleTestEnabled" :routingRuleId="selectedRoutingRule?.routingRuleId" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions"/>
+              <BrokeringRouteTest v-if="testRoutingInfo.isRuleTestEnabled" :routingRuleId="selectedRoutingRule?.routingRuleId" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions" :userTestingSession="userTestingSession"/>
             </div>
             <div class="empty-state" v-else>{{ translate("Please select a rule or refresh") }}</div>
           </template>
-          <BrokeringRouteTest v-if="testRoutingInfo.isRoutingTestEnabled" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions"/>
+          <BrokeringRouteTest v-if="testRoutingInfo.isRoutingTestEnabled" :orderRoutingId="orderRoutingId" :routingGroupId="currentRoutingGroup.routingGroupId" :orderRoutingFilterOptions="orderRoutingFilterOptions" :userTestingSession="userTestingSession"/>
         </section>
         <section v-else class="empty-state">
           <img src="../assets/images/InventoryRuleEmptyState.png" />
@@ -462,6 +462,7 @@ import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
+import { UtilService } from "@/services/UtilService";
 
 const router = useRouter();
 const props = defineProps({
@@ -485,6 +486,8 @@ const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 
 const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
 const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
@@ -504,6 +507,7 @@ let routingStatus = ref("")
 let routeName = ref("")
 let isRouteNameUpdating = ref(false)
 let rulesForReorder = ref([]) as any
+let userTestingSession = ref({}) as any
 
 const routeNameRef = ref()
 const operatorRef = ref()
@@ -548,6 +552,7 @@ onBeforeRouteLeave(async (to) => {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
     store.dispatch("orderRouting/updateRoutingRuleId", "")
     store.dispatch("orderRouting/clearRules")
+    await updateUserTestSession();
     return;
   }
 
@@ -578,6 +583,8 @@ onBeforeRouteLeave(async (to) => {
   // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
   store.dispatch("orderRouting/updateRoutingRuleId", "")
   store.dispatch("orderRouting/clearRules")
+
+  await updateUserTestSession();
   return;
 })
 
@@ -609,10 +616,17 @@ async function exitTestMode() {
   }
 
   await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await updateUserTestSession();
   return true;
 }
 
-function enableRoutingTest() {
+async function enableRoutingTest() {
+  if(testRoutingInfo.value.isRoutingTestEnabled) {
+    await updateUserTestSession();
+  } else {
+    await createUserTestSession();
+  }
+
   if(testRoutingInfo.value.currentOrderId) {
     exitTestMode();
     return;
@@ -625,7 +639,13 @@ function enableRoutingTest() {
   ])
 }
 
-function enableRuleTest() {
+async function enableRuleTest() {
+  if(testRoutingInfo.value.isRuleTestEnabled) {
+    await updateUserTestSession();
+  } else {
+    await createUserTestSession();
+  }
+
   if(testRoutingInfo.value.currentOrderId) {
     exitTestMode();
     return;
@@ -1658,6 +1678,49 @@ async function openArchivedRuleModal() {
 
   archivedRuleModal.present();
 }
+
+async function getUserTestSession() {
+  userTestingSession.value = await UtilService.getUserSession({
+    customParametersMap: {
+      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+      userId: userProfile.value.userId,
+      productStoreId: currentEComStore.value.productStoreId
+    },
+    selectedEntity: "co.hotwax.user.UserSession",
+    pageLimit: 100,
+    filterByDate: true
+  });
+}
+
+async function createUserTestSession() {
+  await getUserTestSession();
+
+  // If a test session already exists for the user do not create a new one
+  if(userTestingSession.value.userSessionId) {
+    return;
+  }
+
+  userTestingSession.value = await UtilService.createUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    fromDate: DateTime.now().toMillis()
+  });
+}
+
+async function updateUserTestSession() {
+  if(!userTestingSession.value.userSessionId) {
+    return;
+  }
+
+  userTestingSession.value = await UtilService.expireUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    userSessionId: userTestingSession.value.userSessionId,
+    productStoreId: currentEComStore.value.productStoreId,
+    thruDate: DateTime.now().toMillis()
+  });
+}
 </script>
 
 <style scoped>
@@ -1709,6 +1772,6 @@ ion-chip > ion-select {
 }
 
 .rule-item {
-  transition: .5s all ease;
+  transition: scale .5s ease, box-shadow .5s ease;
 }
 </style>

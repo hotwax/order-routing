@@ -25,7 +25,7 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled">
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
@@ -249,7 +249,7 @@
                         <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                         {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                       </ion-button>
-                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges">
+                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
                         <ion-icon slot="start" :icon="speedometerOutline" />
                         {{ translate(testRoutingInfo.isRuleTestEnabled ? "Exit test mode" : "Test") }}
                       </ion-button>
@@ -463,6 +463,7 @@ import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 import { UtilService } from "@/services/UtilService";
+import { Actions, hasPermission } from "@/authorization";
 
 const router = useRouter();
 const props = defineProps({

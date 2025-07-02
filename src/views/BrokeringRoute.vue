@@ -77,7 +77,7 @@
                   <ion-icon slot="end" :icon="addCircleOutline" />
                 </ion-button>
               </ion-card>
-              <ion-card>
+              <ion-card v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
                 <ion-item lines="none">
                   <h2>{{ translate("Test drive") }}</h2>
                 </ion-item>
@@ -246,6 +246,7 @@ import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
+import { Actions, hasPermission } from "@/authorization";
 
 const router = useRouter();
 const store = useStore();

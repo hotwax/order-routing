@@ -50,7 +50,7 @@
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
                   {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
-                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
+                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
                   {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
@@ -98,6 +98,7 @@ import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
+import cronstrue from 'cronstrue';
 
 const store = useStore()
 const router = useRouter()
@@ -175,8 +176,19 @@ async function setEComStore(event: CustomEvent) {
   emitter.emit("dismissLoader")
 }
 
-function getScheduleFrequency(cronExp: string) {
-  return Object.entries(cronExpressions).find(([description, expression]) => expression === cronExp)?.[0] || "-"
+function getScheduleFrequency(brokeringGroupObj: any) {
+  const foundDescription = Object.entries(cronExpressions).find(([description, expression]) => expression === brokeringGroupObj.cronExpression)?.[0]
+  if (foundDescription) return foundDescription;
+  
+  if (brokeringGroupObj.cronDescription) {
+    let processedDescription = cronstrue.toString(brokeringGroupObj.cronExpression)
+    // Capitalize the first letter if it's not a number or symbol
+    if (/^[a-z]/.test(processedDescription)) {
+      processedDescription = processedDescription.charAt(0).toUpperCase() + processedDescription.slice(1);
+    }
+    return processedDescription;
+  }
+  return "-";
 }
 
 function redirect(group: Group) {

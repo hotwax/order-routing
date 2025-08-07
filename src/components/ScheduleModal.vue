@@ -14,6 +14,9 @@
     <ion-list>
       <ion-item>
         <ion-input label-placement="floating" :label="translate('Expression')" v-model="expression"></ion-input>
+        <ion-button slot="end" fill="clear" size="small" @click="goToCronHelp">
+          <ion-icon :icon="informationCircleOutline" color="medium" size="small" />
+        </ion-button>
       </ion-item>
       <ion-item>
         <ion-icon slot="start" :icon="timerOutline"/>
@@ -64,7 +67,7 @@ import {
   IonToolbar,
   modalController,
 } from "@ionic/vue";
-import { closeOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
+import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";
 import cronstrue from "cronstrue";
 import cronParser from "cron-parser";
@@ -137,5 +140,8 @@ async function saveChanges() {
       }]
     });
   return alert.present();
+}
+function goToCronHelp() {
+  window.open('https://www.npmjs.com/package/cronstrue',"_blank") //link needs to be updated 
 }
 </script>

@@ -177,8 +177,9 @@ async function setEComStore(event: CustomEvent) {
 }
 
 function getScheduleFrequency(brokeringGroupObj: any) {
+  let cronDescription = "-";
   const foundDescription = Object.entries(cronExpressions).find(([description, expression]) => expression === brokeringGroupObj.cronExpression)?.[0]
-  if (foundDescription) return foundDescription;
+  if (foundDescription) return cronDescription = foundDescription;
   
   if (brokeringGroupObj.cronDescription) {
     let processedDescription = cronstrue.toString(brokeringGroupObj.cronExpression)
@@ -186,9 +187,9 @@ function getScheduleFrequency(brokeringGroupObj: any) {
     if (/^[a-z]/.test(processedDescription)) {
       processedDescription = processedDescription.charAt(0).toUpperCase() + processedDescription.slice(1);
     }
-    return processedDescription;
+    return  cronDescription = processedDescription;
   }
-  return "-";
+  return cronDescription;
 }
 
 function redirect(group: Group) {

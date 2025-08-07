@@ -14,8 +14,8 @@
     <ion-list>
       <ion-item>
         <ion-input label-placement="floating" :label="translate('Expression')" v-model="expression"></ion-input>
-        <ion-button slot="end" fill="clear" size="small" @click="goToCronHelp">
-          <ion-icon :icon="informationCircleOutline" color="medium" size="small" />
+        <ion-button slot="end" fill="clear" size="small" color="medium" @click="goToCronHelp">
+          <ion-icon :icon="informationCircleOutline" slot="icon-only" />
         </ion-button>
       </ion-item>
       <ion-item>

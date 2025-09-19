@@ -277,7 +277,7 @@ const currentRoutingGroup: any = computed((): Group => store.getters["orderRouti
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentProductStore = computed(() => store.getters["user/getCurrentProductStore"])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 onIonViewWillEnter(async () => {
@@ -861,7 +861,7 @@ async function toggleReservation(event: CustomEvent) {
 
   try {
     await UtilService.updateProductStoreInfo({
-      productStoreId: currentEComStore.value.productStoreId,
+      productStoreId: currentProductStore.value.productStoreId,
       enableBrokering
     })
   } catch(err) {
@@ -875,7 +875,7 @@ async function getTestSessions() {
   const testSessions = await UtilService.getTestSessions({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      productStoreId: currentEComStore.value.productStoreId
+      productStoreId: currentProductStore.value.productStoreId
     },
     selectedEntity: "co.hotwax.user.UserSession",
     pageLimit: 100,

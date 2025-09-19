@@ -15,7 +15,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     let routingGroups = [] as any;
     // filter groups on the basis of productStoreId
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId,
+      productStoreId: store.state.user.currentProductStore.productStoreId,
       pageSize: 200
     }
 
@@ -61,7 +61,7 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
   async createRoutingGroup({ dispatch }, groupName) {
     const payload = {
       groupName,
-      productStoreId: store.state.user.currentEComStore.productStoreId,
+      productStoreId: store.state.user.currentProductStore.productStoreId,
       createdDate: DateTime.now().toMillis()
     }
     try {

@@ -68,7 +68,7 @@ const actions: ActionTree<UserState, RootState> = {
       commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
       commit(types.USER_INFO_UPDATED, userProfile);
       // commit(types.USER_PERMISSIONS_UPDATED, appPermissions);
-      commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
+      commit(types.USER_CURRENT_PRODUCT_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
       emitter.emit("dismissLoader")
     } catch (err: any) {
       emitter.emit("dismissLoader")
@@ -131,7 +131,7 @@ const actions: ActionTree<UserState, RootState> = {
     if(!productStore) {
       productStore = (state.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
     }
-    commit(types.USER_CURRENT_ECOM_STORE_UPDATED, productStore);
+    commit(types.USER_CURRENT_PRODUCT_STORE_UPDATED, productStore);
     this.dispatch("util/updateShippingMethods", {})
     this.dispatch("util/updateFacillityGroups", {})
   }

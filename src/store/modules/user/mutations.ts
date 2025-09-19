@@ -18,7 +18,7 @@ const mutations: MutationTree <UserState> = {
   [types.USER_INSTANCE_URL_UPDATED] (state, payload) {
     state.instanceUrl = payload;
   },
-  [types.USER_CURRENT_ECOM_STORE_UPDATED] (state, payload) {
+  [types.USER_CURRENT_PRODUCT_STORE_UPDATED] (state, payload) {
     state.currentProductStore = payload;
   },
   [types.USER_OMS_REDIRECTION_INFO_UPDATED](state, payload) {

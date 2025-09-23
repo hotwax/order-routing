@@ -142,6 +142,6 @@ async function saveChanges() {
   return alert.present();
 }
 function goToCronHelp() {
-  window.open('https://www.npmjs.com/package/cronstrue',"_blank") //link needs to be updated 
+  window.open('https://www.freeformatter.com/cron-expression-generator-quartz.html',"_blank")
 }
 </script>

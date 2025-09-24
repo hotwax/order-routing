@@ -8,7 +8,9 @@ import { DateTime } from "luxon";
 const hasError = (response: any) => {
   return !!response.data._ERROR_MESSAGE_ || !!response.data._ERROR_MESSAGE_LIST_;
 }
-
+const getCurrentTime = (zone: string, format = 't ZZZZ') => {
+  return DateTime.now().setZone(zone).toFormat(format)
+}
 const showToast = async (message: string) => {
   const toast = await toastController
     .create({
@@ -70,4 +72,4 @@ const getColorByDesc = (desc: string) => ({
   "default": "medium"
 } as any)[desc]
 
-export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun }
+export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun,getCurrentTime }

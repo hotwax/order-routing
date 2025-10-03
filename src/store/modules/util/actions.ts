@@ -184,7 +184,7 @@ const actions: ActionTree<UtilState, RootState> = {
   },
 
   async checkOmsConnectionStatus({ commit }) {
-    let isOmsConnectionExist = false
+    let isOmsConnectionExist = true
     try {
       const resp = await UtilService.checkOmsConnection();
 

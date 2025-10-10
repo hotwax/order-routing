@@ -15,13 +15,21 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     try {
-      const resp = await UtilService.fetchEnums({
-        ...payload,
-        pageSize: 500
-      });
+      payload = {
+        "inputFields": {
+          "parentEnumTypeId": payload.parentTypeId,
+        },
+        "fieldList": ["description", "enumId", "enumName", "enumTypeId", "sequenceNum", "parentEnumTypeId"],
+        "distinct": "Y",
+        "entityName": "EnumTypeChildAndEnum",
+        "viewSize": 250,
+        "orderBy": "sequenceNum"
+      }
 
-      if(!hasError(resp) && resp.data.length) {
-        enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+      const resp = await UtilService.fetchEnums(payload);
+
+      if(!hasError(resp) && resp.data?.docs?.length) {
+        enums = resp.data.docs.reduce((enumerations: any, data: EnumerationAndType) => {
           if(enumerations[data.enumTypeId]) {
             enumerations[data.enumTypeId][data.enumId] = data
           } else {
@@ -61,7 +69,6 @@ const actions: ActionTree<UtilState, RootState> = {
     } catch(err) {
       logger.error(err)
     }
-
     commit(types.UTIL_ENUMS_UPDATED, enums)
   },
 
@@ -71,13 +78,22 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     try {
-      const resp = await UtilService.fetchOmsEnums({
-        ...payload,
-        pageSize: 500
-      });
 
-      if(!hasError(resp) && resp.data.length) {
-        enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+      payload = {
+        "inputFields": {
+          "enumTypeId": payload.enumTypeId,
+        },
+        "fieldList": ["description", "enumId", "enumName", "enumTypeId", "sequenceNum", "parentEnumTypeId"],
+        "distinct": "Y",
+        "entityName": "EnumTypeChildAndEnum",
+        "viewSize": 250,
+        "orderBy": "sequenceNum"
+      }
+
+      const resp = await UtilService.fetchOmsEnums(payload);
+
+      if(!hasError(resp) && resp.data?.docs?.length) {
+        enums = resp.data.docs.reduce((enumerations: any, data: EnumerationAndType) => {
           if(enumerations[data.enumTypeId]) {
             enumerations[data.enumTypeId][data.enumId] = data
           } else {
@@ -102,17 +118,20 @@ const actions: ActionTree<UtilState, RootState> = {
     if(Object.keys(facilities).length) {
       return;
     }
-
+    
     const payload = {
-      parentTypeId: "VIRTUAL_FACILITY",
-      pageSize: 200
+      "entityName": "FacilityAndType",
+      "inputFields": {
+        parentTypeId: "VIRTUAL_FACILITY",
+      },
+      "viewSize": 250,
     }
 
     try {
       const resp = await UtilService.fetchFacilities(payload);
 
-      if(!hasError(resp) && resp.data.length) {
-        facilities = resp.data.reduce((facilities: any, facility: any) => {
+      if(!hasError(resp) && resp.data?.docs?.length) {
+        facilities = resp.data.docs.reduce((facilities: any, facility: any) => {
           facilities[facility.facilityId] = facility
           return facilities
         }, {})
@@ -134,15 +153,19 @@ const actions: ActionTree<UtilState, RootState> = {
 
     // Fetching shipping methods for productStore of the currentGroup
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
-      pageSize: 200
+      "inputFields": {
+        "productStoreId": store.state.orderRouting.currentGroup.productStoreId
+      },
+      "entityName": "ProductStoreShipmentMethView",
+      "viewSize": 250, // keeping view size 20 as considering that we will have max 20 reasons
+      "orderBy": "sequenceNumber"
     }
 
     try {
       const resp = await UtilService.fetchShippingMethods(payload);
 
-      if(!hasError(resp) && resp.data.length) {
-        shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
+      if(!hasError(resp) && resp.data?.docs?.length) {
+        shippingMethods = resp.data.docs.reduce((shippingMethods: any, shippingMethod: any) => {
           shippingMethods[shippingMethod.shipmentMethodTypeId] = shippingMethod
           return shippingMethods
         }, {})
@@ -163,15 +186,19 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
-      pageSize: 200
+      "inputFields": {
+        "productStoreId": store.state.orderRouting.currentGroup.productStoreId
+      },
+      "entityName": "ProductStoreAndFacilityGroup",
+      "viewSize": 250, // keeping view size 20 as considering that we will have max 20 reasons
+      "orderBy": "sequenceNumber"
     }
 
     try {
       const resp = await UtilService.fetchFacilityGroups(payload);
 
-      if(!hasError(resp) && resp.data.length) {
-        facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {
+      if(!hasError(resp) && resp.data?.docs?.length) {
+        facilityGroups = resp.data.docs.reduce((facilityGroups: any, facilityGroup: any) => {
           facilityGroups[facilityGroup.facilityGroupId] = facilityGroup
           return facilityGroups
         }, {})
@@ -206,15 +233,19 @@ const actions: ActionTree<UtilState, RootState> = {
       return;
     }
 
-    const payload = {
-      parentTypeId: "ROUTING_STATUS"
-    }
-
     try {
+      const payload = {
+        "inputFields": {
+          "parentTypeId": "ROUTING_STATUS"
+        },
+        "entityName": "StatusItemAndType",
+        "viewSize": 20
+      }
+
       const resp = await UtilService.fetchStatusInformation(payload);
 
       if(!hasError(resp)) {
-        statuses = resp.data.reduce((statues: any, status: any) => {
+        statuses = resp.data?.docs?.reduce((statues: any, status: any) => {
           statues[status.statusId] = status
           return statues
         }, {})

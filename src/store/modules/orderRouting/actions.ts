@@ -16,14 +16,14 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     // filter groups on the basis of productStoreId
     const payload = {
       productStoreId: store.state.user.currentEComStore.productStoreId,
-      pageSize: 200
+      viewSize: 200
     }
 
     try {
       const resp = await OrderRoutingService.fetchRoutingGroups(payload);
 
-      if(!hasError(resp) && resp.data.length) {
-        routingGroups = resp.data
+      if(!hasError(resp) && resp.data?.routingGroups?.length) {
+        routingGroups = resp.data.routingGroups
       } else {
         throw resp.data
       }
@@ -86,8 +86,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRoutingGroupInformation(routingGroupId);
 
-      if(!hasError(resp) && resp.data) {
-        currentGroup = resp.data
+      if(!hasError(resp) && resp.data?.routingGroup) {
+        currentGroup = resp.data.routingGroup
       } else {
         throw resp.data
       }
@@ -196,8 +196,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(orderRoutingId);
 
-      if(!hasError(resp) && resp.data) {
-        currentRoute = resp.data
+      if(!hasError(resp) && resp.data?.routing) {
+        currentRoute = resp.data.routing
 
         if(currentRoute["orderFilters"]?.length) {
           currentRoute["orderFilters"].map((filter: any) => {
@@ -226,11 +226,11 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     let routingHistory = {}
 
     try {
-      const resp = await OrderRoutingService.fetchRoutingHistory(routingGroupId, { orderByField: "startDate DESC", pageSize: 500 })
+      const resp = await OrderRoutingService.fetchRoutingHistory({routingGroupId: routingGroupId, viewSize: 500 })
   
       if(!hasError(resp)) {
         // Sorting the history based on startTime, as we does not get the records in sorted order from api
-        const sortedRoutingHistory = resp.data.sort((a: any, b: any) => b.startDate - a.startDate)
+        const sortedRoutingHistory = resp.data?.routingRuns?.sort((a: any, b: any) => b.startDate - a.startDate)
   
         routingHistory = sortedRoutingHistory.reduce((routings: any, routing: any) => {
           if(routings[routing.orderRoutingId]) {
@@ -378,8 +378,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRule(routingRuleId)
 
-      if(!hasError(resp) && resp.data.routingRuleId) {
-        rulesInformation[routingRuleId] = resp.data
+      if(!hasError(resp) && resp.data?.routingRule?.routingRuleId) {
+        rulesInformation[routingRuleId] = resp.data.routingRule
 
         if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
           rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {

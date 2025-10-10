@@ -3,16 +3,17 @@ import { api } from '@/adapter'
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
-    url: "groups", 
-    method: "GET",
-    params: payload
+    url: "service/getOrderRoutingGroups", 
+    method: "POST",
+    data: payload
   });
 }
 
 const fetchRoutingGroupInformation = async (routingGroupId: string): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}`,
-    method: "GET"
+    url: `service/getOrderRoutingGroup`,
+    method: "POST",
+    data: { routingGroupId }
   });
 }
 
@@ -23,11 +24,11 @@ const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<
   });
 }
 
-const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise<any> => {
+const fetchRoutingHistory = async (payload: any): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}/routingRuns`,
-    method: "GET",
-    params
+    url: `service/getOrderRoutingRuns`,
+    method: "POST",
+    data: payload
   });
 }
 
@@ -65,8 +66,9 @@ const cloneGroup = async (payload: any): Promise<any> => {
 
 const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
   return api({
-    url: `routings/${orderRoutingId}`,
-    method: "GET"
+    url: `service/getOrderRouting`,
+    method: "POST",
+    data: { orderRoutingId }
   })
 }
 
@@ -128,8 +130,9 @@ const deleteRuleAction = async (payload: any): Promise<any> => {
 
 const fetchRule = async (routingRuleId: string): Promise<any> => {
   return api({
-    url: `rules/${routingRuleId}`,
-    method: "GET"
+    url: `service/getOrderRoutingRule`,
+    method: "POST",
+    data: { routingRuleId }
   });
 }
 

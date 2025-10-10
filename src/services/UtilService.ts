@@ -3,7 +3,7 @@ import { api } from '@/adapter'
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
-    url: "enums", 
+    url: "performFind", 
     method: "GET",
     params: payload
   });
@@ -11,7 +11,7 @@ const fetchEnums = async (payload: any): Promise<any> => {
 
 const fetchOmsEnums = async (payload: any): Promise<any> => {
   return api({
-    url: "omsenums",
+    url: "performFind",
     method: "GET",
     params: payload
   });
@@ -19,15 +19,15 @@ const fetchOmsEnums = async (payload: any): Promise<any> => {
 
 const fetchFacilities = async (payload: any): Promise<any> => {
   return api({
-    url: "facilities", 
-    method: "GET",
-    params: payload
+    url: "performFind", 
+    method: "POST",
+    data: payload
   });
 }
 
 const fetchShippingMethods = async (payload: any): Promise<any> => {
   return api({
-    url: `productStores/${payload.productStoreId}/shippingMethods`,
+    url: "performFind",
     method: "GET",
     params: payload
   });
@@ -35,7 +35,7 @@ const fetchShippingMethods = async (payload: any): Promise<any> => {
 
 const fetchFacilityGroups = async (payload: any): Promise<any> => {
   return api({
-    url: `productStores/${payload.productStoreId}/facilityGroups`, 
+    url: "performFind", 
     method: "GET",
     params: payload
   });
@@ -43,7 +43,7 @@ const fetchFacilityGroups = async (payload: any): Promise<any> => {
 
 const fetchStatusInformation = async (payload: any): Promise<any> => {
   return api({
-    url: "status",
+    url: "performFind",
     method: "GET",
     params: payload
   });

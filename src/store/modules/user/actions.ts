@@ -55,7 +55,6 @@ const actions: ActionTree<UserState, RootState> = {
       
       // TODO: fetch only associated product stores for user, currently api does not support this
       userProfile.stores = await UserService.getEComStores(token);
-      console.log("=======userProfile.stores===", userProfile.stores)
       
       if (userProfile.timeZone) {
         Settings.defaultZone = userProfile.timeZone;

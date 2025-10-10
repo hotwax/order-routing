@@ -279,7 +279,7 @@
                         <ion-select-option value="greater">{{ translate("greater") }}</ion-select-option>
                       </ion-select>
                     </ion-chip>
-                    <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
+                    <ion-chip outline @click="selectValue('BRK_SAFETY_STOCK', 'Add safety stock', 'greater')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-chip>
                   </div>
                 </ion-item>
 
@@ -998,7 +998,7 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
   return popover.present();
 }
 
-async function selectValue(id: string, header: string) {
+async function selectValue(id: string, header: string, operator = "equals") {
   const filter = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, id)
   const valueAlert = await alertController.create({
     header,
@@ -1022,7 +1022,7 @@ async function selectValue(id: string, header: string) {
       filter.fieldValue = value
       // When selecting a filter value making the operator to default `equals` if not present already
       // For proximity filter we need to have less-equals as operator
-      filter.operator = (id === "PROXIMITY" ? "less-equals" : filter.operator || "equals")
+      filter.operator = (id === "PROXIMITY" ? "less-equals" : filter.operator || operator)
       updateRule()
     }
   })

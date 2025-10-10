@@ -26,7 +26,7 @@
   "Brokering run cloned": "Brokering run cloned",
   "Brokering run created": "Brokering run created",
   "Brokering safety stock": "Brokering safety stock",
-  "Built:": "Built: ",
+  "Built: ": "Built: {builtDateTime}",
   "Cancel": "Cancel",
   "Change": "Change",
   "Clear auto cancel days": "Clear auto cancel days",
@@ -188,7 +188,7 @@
   "Upcoming duration": "Upcoming duration",
   "Updating inventory rules and filters": "Updating inventory rules and filters",
   "Username": "Username",
-  "Version:": "Version: ",
+  "Version: ": "Version: {appVersion}",
   "View All": "View All",
   "value": "value"
 }

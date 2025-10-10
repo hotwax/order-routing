@@ -35,6 +35,7 @@ import logger from './logger';
 import permissionPlugin, { Actions, hasPermission } from '@/authorization';
 import permissionRules from '@/authorization/Rules';
 import permissionActions from '@/authorization/Actions';
+import localeMessages from '@/locales';
 
 const app = createApp(App)
   .use(IonicVue, {
@@ -58,6 +59,7 @@ const app = createApp(App)
     appLoginUrl: process.env.VUE_APP_LOGIN_URL as string,
     getConfig,
     initialise,
+    localeMessages,
     setUserLocale,
     setUserTimeZone,
     getAvailableTimeZones,

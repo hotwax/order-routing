@@ -7,7 +7,7 @@ import * as types from './mutation-types'
 import logger from "@/logger"
 import { DateTime } from "luxon"
 import emitter from "@/event-bus"
-import { translate } from "@/i18n"
+import { translate } from '@hotwax/dxp-components';
 import store from "@/store"
 
 const actions: ActionTree<OrderRoutingState, RootState> = {

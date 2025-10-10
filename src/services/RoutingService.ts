@@ -1,4 +1,5 @@
-import api from "@/api"
+import { api } from '@/adapter'
+
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({

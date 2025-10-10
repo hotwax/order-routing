@@ -27,13 +27,12 @@ import "@hotwax/apps-theme";
 
 import { dxpComponents } from "@hotwax/dxp-components"
 import { login, logout, loader } from "@/user-utils";
-import { getConfig, initialise } from '@/adapter';
+import { getConfig, getUserPreference, initialise, setUserLocale, getAvailableTimeZones, setUserTimeZone, setUserPreference } from './adapter';
 
-import i18n from "./i18n"
 import store from "./store"
 import { DateTime } from "luxon";
 import logger from './logger';
-import permissionPlugin from '@/authorization';
+import permissionPlugin, { Actions, hasPermission } from '@/authorization';
 import permissionRules from '@/authorization/Rules';
 import permissionActions from '@/authorization/Actions';
 
@@ -45,20 +44,26 @@ const app = createApp(App)
     level: process.env.VUE_APP_DEFAULT_LOG_LEVEL
   })
   .use(router)
-  .use(i18n)
   .use(store)
   .use(permissionPlugin, {
     rules: permissionRules,
     actions: permissionActions
   })
   .use(dxpComponents, {
+    Actions,
     defaultImgUrl: require("@/assets/images/defaultImage.png"),
     login,
     logout,
     loader,
     appLoginUrl: process.env.VUE_APP_LOGIN_URL as string,
     getConfig,
-    initialise
+    initialise,
+    setUserLocale,
+    setUserTimeZone,
+    getAvailableTimeZones,
+    setUserPreference,
+    getUserPreference,
+    hasPermission
   });
 
 // Filters are removed in Vue 3 and global filter introduced https://v3.vuejs.org/guide/migration/filters.html#global-filters

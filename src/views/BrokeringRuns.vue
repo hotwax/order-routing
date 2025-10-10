@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import emitter from "@/event-bus";
-import { translate } from "@/i18n";
+import { translate } from '@hotwax/dxp-components';
 import { Group } from "@/types";
 import { getDateAndTime, showToast } from "@/utils";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";

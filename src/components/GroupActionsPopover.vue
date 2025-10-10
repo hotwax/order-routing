@@ -29,7 +29,7 @@ import {
   popoverController
 } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
-import { translate } from "@/i18n"
+import { translate } from '@hotwax/dxp-components';
 import { computed, defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import { hasError, showToast } from "@/utils";

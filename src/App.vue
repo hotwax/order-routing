@@ -10,8 +10,8 @@ import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 import { Settings } from 'luxon'
 import store from "./store";
-import { translate } from "@/i18n"
 import { initialise, resetConfig } from '@/adapter'
+import { translate } from '@hotwax/dxp-components';
 
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 const userToken = computed(() => store.getters["user/getUserToken"])

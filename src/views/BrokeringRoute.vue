@@ -217,7 +217,7 @@ import logger from "@/logger";
 import { DateTime } from "luxon";
 import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, sortSequence, timeTillRun } from "@/utils";
 import emitter from "@/event-bus";
-import { translate } from "@/i18n";
+import { translate } from '@hotwax/dxp-components';
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import cronstrue from "cronstrue"

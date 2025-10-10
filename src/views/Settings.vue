@@ -18,8 +18,8 @@
             is added on sides from ion-item and ion-padding-vertical to compensate the removed
             vertical padding -->
             <ion-card-header class="ion-no-padding ion-padding-vertical">
-              <ion-card-subtitle>{{ userProfile?.userId }}</ion-card-subtitle>
-              <ion-card-title>{{ userProfile?.userFullName }}</ion-card-title>
+              <ion-card-subtitle>{{ userProfile?.userLoginId }}</ion-card-subtitle>
+              <ion-card-title>{{ userProfile?.partyName }}</ion-card-title>
             </ion-card-header>
           </ion-item>
           <ion-button color="danger" @click="logout()">{{ translate("Logout") }}</ion-button>
@@ -28,14 +28,15 @@
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
           <!-- Commenting this code as we currently do not have reset password functionality -->
-          <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
+          <!-- <ion-button fill="outline" color="medium">{{ translate("Reset password") }}</ion-button> -->
         </ion-card>
       </div>
       <div class="section-header">
         <h1>{{ translate("OMS") }}</h1>
       </div>
       <section>
-        <ion-card>
+        <DxpOmsInstanceNavigator />
+        <!--<ion-card>
           <ion-card-header>
             <ion-card-subtitle>
               {{ $t('OMS instance') }}
@@ -51,7 +52,7 @@
             {{ $t('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
-        </ion-card>
+        </ion-card>-->
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
@@ -72,15 +73,17 @@
         </ion-card>
       </section>
       <hr />
-      <div class="section-header">
+      <DxpAppVersionInfo />
+      <!--<div class="section-header">
         <h1>
           {{ translate("App") }}
           <p class="overline" >{{ translate("Version:") + appVersion }}</p>
         </h1>
         <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
-      </div>
+      </div>-->
       <section>
-        <ion-card>
+        <DxpTimeZoneSwitcher @timeZoneUpdated="timeZoneUpdated" />
+        <!--<ion-card>
           <ion-card-header>
             <ion-card-title>
               {{ translate("Timezone") }}
@@ -93,7 +96,7 @@
             <ion-label>{{ userProfile && userProfile.timeZone ? userProfile.timeZone : "-" }}</ion-label>
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
-        </ion-card>
+        </ion-card>-->
       </section>
     </ion-content>
   </ion-page>
@@ -106,9 +109,9 @@ import { useStore } from "vuex";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
-import { translate } from "@/i18n"
+import { translate } from '@hotwax/dxp-components';
 import { openOutline } from "ionicons/icons"
-import { goToOms } from "@hotwax/dxp-components";
+//import { goToOms } from "@hotwax/dxp-components";
 
 const store = useStore()
 const appVersion = ref("")
@@ -117,7 +120,6 @@ const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_A
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
 const oms = computed(() => store.getters["user/getInstanceUrl"])
-const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 
 onMounted(() => {
   appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
@@ -129,6 +131,12 @@ function setEComStore(event: CustomEvent) {
       "productStoreId": event.detail.value
     })
   }
+}
+async function updateEComStore(selectedProductStore: any) {
+  store.dispatch('user/setEComStore', selectedProductStore?.productStoreId)
+}
+async function timeZoneUpdated(tzId: string) {
+  await store.dispatch("user/setUserTimeZone", tzId)
 }
 
 async function changeTimeZone() {

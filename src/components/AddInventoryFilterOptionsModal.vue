@@ -46,7 +46,7 @@ import { useStore } from "vuex";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
-import { translate } from "@/i18n";
+import { translate } from '@hotwax/dxp-components';
 
 const store = useStore();
 const enums = computed(() => store.getters["util/getEnums"])

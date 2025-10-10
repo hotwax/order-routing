@@ -12,10 +12,6 @@ const userModule: Module<UserState, RootState> = {
     current: null,
     instanceUrl: "",
     currentEComStore: {},
-    omsRedirectionInfo: {
-      url: "",
-      token: ""
-    },
     permissions: []
   },
   getters,

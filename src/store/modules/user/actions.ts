@@ -4,7 +4,7 @@ import RootState from "@/store/RootState"
 import UserState from "./UserState"
 import * as types from "./mutation-types"
 import { showToast } from "@/utils"
-import { translate } from "@/i18n"
+import { translate } from '@hotwax/dxp-components';
 import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings } from "luxon"
@@ -22,7 +22,7 @@ const actions: ActionTree<UserState, RootState> = {
       // TODO: implement support for permission check
 
       // TODO: oms here is of ofbiz we need to check how to get the maarg url from here as we need to hit all apis on maarg
-      const { token, oms, omsRedirectionUrl } = payload;
+      const { token, oms } = payload;
       dispatch("setUserInstanceUrl", oms);
       
       // Getting the permissions list from server
@@ -31,9 +31,9 @@ const actions: ActionTree<UserState, RootState> = {
       const serverPermissionsFromRules = getServerPermissionsFromRules();
       if (permissionId) serverPermissionsFromRules.push(permissionId);
       
-      const serverPermissions: Array<string> = await UserService.getUserPermissions({
+      const serverPermissions = await UserService.getUserPermissions({
         permissionIds: [...new Set(serverPermissionsFromRules)]
-      }, omsRedirectionUrl, token);
+      }, token);
       const appPermissions = prepareAppPermissions(serverPermissions);
       // Checking if the user has permission to access the app
       // If there is no configuration, the permission check is not enabled
@@ -51,21 +51,18 @@ const actions: ActionTree<UserState, RootState> = {
       }
       
       emitter.emit("presentLoader", { message: "Logging in...", backdropDismiss: false })
-      const api_key = await UserService.login(token)
-      const userProfile = await UserService.getUserProfile(api_key);
+      const userProfile = await UserService.getUserProfile(token);
       
       // TODO: fetch only associated product stores for user, currently api does not support this
-      userProfile.stores = await UserService.getEComStores(api_key);
+      userProfile.stores = await UserService.getEComStores(token);
+      console.log("=======userProfile.stores===", userProfile.stores)
       
       if (userProfile.timeZone) {
         Settings.defaultZone = userProfile.timeZone;
       }
       
       setPermissions(appPermissions);
-      if(omsRedirectionUrl && token) {
-        dispatch("setOmsRedirectionInfo", { url: omsRedirectionUrl, token })
-      }
-      commit(types.USER_TOKEN_CHANGED, { newToken: api_key })
+      commit(types.USER_TOKEN_CHANGED, { newToken: token })
       commit(types.USER_INFO_UPDATED, userProfile);
       commit(types.USER_PERMISSIONS_UPDATED, appPermissions);
       commit(types.USER_CURRENT_ECOM_STORE_UPDATED, userProfile.stores.length ? userProfile.stores[0] : {});
@@ -90,7 +87,6 @@ const actions: ActionTree<UserState, RootState> = {
     commit(types.USER_END_SESSION)
     this.dispatch("orderRouting/clearRouting")
     this.dispatch("util/clearUtilState")
-    dispatch("setOmsRedirectionInfo", { url: "", token: "" })
     resetConfig();
     resetPermissions();
     // reset plugin state on logout
@@ -118,10 +114,6 @@ const actions: ActionTree<UserState, RootState> = {
   */
   setUserInstanceUrl({ commit }, payload) {
     commit(types.USER_INSTANCE_URL_UPDATED, payload)
-  },
-
-  setOmsRedirectionInfo({ commit }, payload) {
-    commit(types.USER_OMS_REDIRECTION_INFO_UPDATED, payload)
   },
 
   setEcomStore({ commit, state }, payload) {

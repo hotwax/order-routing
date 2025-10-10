@@ -416,7 +416,7 @@ import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
 import logger from "@/logger";
 import { DateTime } from "luxon";
 import emitter from "@/event-bus";
-import { translate } from "@/i18n";
+import { translate } from '@hotwax/dxp-components';
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";

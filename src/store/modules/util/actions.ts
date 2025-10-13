@@ -19,7 +19,7 @@ const actions: ActionTree<UtilState, RootState> = {
         "inputFields": {
           "parentEnumTypeId": payload.parentTypeId,
         },
-        "fieldList": ["description", "enumId", "enumName", "enumTypeId", "sequenceNum", "parentEnumTypeId"],
+        "fieldList": ["description", "enumId", "enumName", "enumCode", "enumTypeId", "sequenceNum", "parentEnumTypeId"],
         "distinct": "Y",
         "entityName": "EnumTypeChildAndEnum",
         "viewSize": 250,
@@ -83,9 +83,9 @@ const actions: ActionTree<UtilState, RootState> = {
         "inputFields": {
           "enumTypeId": payload.enumTypeId,
         },
-        "fieldList": ["description", "enumId", "enumName", "enumTypeId", "sequenceNum", "parentEnumTypeId"],
+        "fieldList": ["description", "enumId", "enumName", "enumCode", "enumTypeId", "sequenceNum"],
         "distinct": "Y",
-        "entityName": "EnumTypeChildAndEnum",
+        "entityName": "Enumeration",
         "viewSize": 250,
         "orderBy": "sequenceNum"
       }

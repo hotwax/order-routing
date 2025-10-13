@@ -98,7 +98,7 @@ const cloneRouting = async (payload: any): Promise<any> => {
 
 const updateRouting = async (payload: any): Promise<any> => {
   return api({
-    url: `service/updateOrderRouting`,
+    url: `service/updateRouting`,
     method: "POST",
     data: payload
   });
@@ -107,7 +107,7 @@ const updateRouting = async (payload: any): Promise<any> => {
 const deleteRoutingFilter = async (payload: any): Promise<any> => {
   return api({
     url: `service/deleteOrderFilterCondition`,
-    method: "DELETE",
+    method: "POST",
     data: payload
   });
 }
@@ -115,7 +115,7 @@ const deleteRoutingFilter = async (payload: any): Promise<any> => {
 const deleteRuleCondition = async (payload: any): Promise<any> => {
   return api({
     url: `service/deleteOrderRoutingRuleInvCond`,
-    method: "DELETE",
+    method: "POST",
     data: payload
   });
 }
@@ -123,7 +123,7 @@ const deleteRuleCondition = async (payload: any): Promise<any> => {
 const deleteRuleAction = async (payload: any): Promise<any> => {
   return api({
     url: `service/deleteOrderRoutingRuleAction`,
-    method: "DELETE",
+    method: "POST",
     data: payload
   });
 }

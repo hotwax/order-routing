@@ -66,15 +66,6 @@ async function updateGroupStatus(paused: string) {
 }
 
 async function runNow() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await store.dispatch("util/checkOmsConnectionStatus")
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   const scheduleAlert = await alertController
     .create({
       header: translate("Run now"),

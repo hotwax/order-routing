@@ -58,4 +58,78 @@ function timeTillRun(endTime: any) {
   return DateTime.local().plus(timeDiff).toRelative();
 }
 
-export { getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun }
+const generateAllowedFrequencies = (type?: string) => {
+  const optionDefault = [{
+      "id": "EVERY_5_MIN",
+      "description": "Every 5 minutes"
+    },{
+      "id": "EVERY_15_MIN",
+      "description": "Every 15 minutes"
+    },{
+      "id": "EVERY_30_MIN",
+      "description": "Every 30 minutes"
+    },{
+      "id": "HOURLY",
+      "description": "Hourly"
+    },{
+      "id": "EVERY_6_HOUR",
+      "description": "Every 6 hours"
+    },{
+      "id": "EVERYDAY",
+      "description": "Every day"
+    }
+  ]
+
+  const slow = [{
+      "id": "HOURLY",
+      "description": "Hourly"
+    },{
+      "id": "EVERY_6_HOUR",
+      "description": "Every 6 hours"
+    },{
+      "id": "EVERYDAY",
+      "description": "Every day"
+    }
+  ]
+  return type === 'slow' ? slow : optionDefault;
+}
+
+const generateAllowedRunTimes = () => {
+  return [{
+    "value": 0,
+    "label": "Now"
+  }, {
+    "value": 300000,
+    "label": "In 5 minutes"
+  }, {
+    "value": 900000,
+    "label": "In 15 minutes"
+  }, {
+    "value": 3600000,
+    "label": "In an hour"
+  }, {
+    "value": 86400000,
+    "label": "Tomorrow"
+  }, {
+    "value": "CUSTOM",
+    "label": "Custom"
+  }]
+}
+
+const getNowTimestamp = () => {
+  return DateTime.now().toISO();
+}
+
+const isCustomRunTime = (value: number) => {
+  return !generateAllowedRunTimes().some((runTime: any) => runTime.value === value)
+}
+
+const handleDateTimeInput = (dateTimeValue: any) => {
+  // TODO Handle it in a better way
+  // Remove timezone and then convert to timestamp
+  // Current date time picker picks browser timezone and there is no supprt to change it
+  const dateTime = DateTime.fromISO(dateTimeValue, { setZone: true}).toFormat("yyyy-MM-dd'T'HH:mm:ss")
+  return DateTime.fromISO(dateTime).toMillis()
+}
+
+export { generateAllowedFrequencies, generateAllowedRunTimes, getDate, getDateAndTime, getDateAndTimeShort, getNowTimestamp, getTime, handleDateTimeInput, isCustomRunTime, showToast, hasError, sortSequence, timeTillRun }

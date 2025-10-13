@@ -21,6 +21,9 @@ const mutations: MutationTree<OrderRoutingState> = {
   [types.ORDER_ROUTING_CURRENT_RULE_UPDATED](state, payload) {
     state.currentRuleId = payload
   },
+  [types.ORDER_ROUTING_TEMPORAL_EXPRESSION_UPDATED] (state, temporalExp) {
+    state.temporalExp = temporalExp;
+  },
   [types.ORDER_ROUTING_CLEARED](state) {
     state.groups = []
     state.rules = {}

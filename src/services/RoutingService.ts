@@ -18,9 +18,20 @@ const fetchRoutingGroupInformation = async (routingGroupId: string): Promise<any
 }
 
 const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<any> => {
+  const payload = {
+    "inputFields": {
+      "routingGroupId": routingGroupId,
+      "statusId": "SERVICE_PENDING"
+    },
+    "entityName": "JobSandbox",
+    "viewSize": 1,
+    "orderBy": "-lastUpdatedStamp"
+  }
+
   return api({
-    url: `groups/${routingGroupId}/schedule`,
-    method: "GET"
+    url: `performFind`,
+    method: "GET",
+    params: payload
   });
 }
 
@@ -146,7 +157,7 @@ const cloneRule = async (payload: any): Promise<any> => {
 
 const updateRule = async (payload: any): Promise<any> => {
   return api({
-    url: `service/updateOrderRoutingRule`,
+    url: `service/updateRoutingRule`,
     method: "POST",
     data: payload
   });
@@ -164,6 +175,13 @@ const runNow = async (routingGroupId: string): Promise<any> => {
   return api({
     url: `groups/${routingGroupId}/runNow`,
     method: "POST"
+  });
+}
+const fetchTemporalExpression = async (payload: any): Promise <any>  => {
+  return api({
+    url: "performFind",
+    method: "get",
+    params: payload
   });
 }
 
@@ -184,6 +202,7 @@ export const OrderRoutingService = {
   fetchRoutingHistory,
   fetchRoutingScheduleInformation,
   fetchRule,
+  fetchTemporalExpression,
   runNow,
   scheduleBrokering,
   updateRouting,

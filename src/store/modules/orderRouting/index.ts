@@ -13,7 +13,8 @@ const orderRoutingModule: Module<OrderRoutingState, RootState> = {
     currentGroup: {},
     currentRoute: {},
     routingHistory: {},
-    currentRuleId: ""
+    currentRuleId: "",
+    temporalExp: [],
   },
   getters,
   actions,

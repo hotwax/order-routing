@@ -49,15 +49,7 @@ const fetchStatusInformation = async (payload: any): Promise<any> => {
   });
 }
 
-const checkOmsConnection = async (): Promise<any> => {
-  return api({
-    url: "checkOmsConnection",
-    method: "GET"
-  });
-}
-
 export const UtilService = {
-  checkOmsConnection,
   fetchEnums,
   fetchFacilities,
   fetchFacilityGroups,

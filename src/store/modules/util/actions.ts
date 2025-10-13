@@ -210,21 +210,6 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_FACILITY_GROUP_UPDATED, facilityGroups)
   },
 
-  async checkOmsConnectionStatus({ commit }) {
-    let isOmsConnectionExist = false
-    try {
-      const resp = await UtilService.checkOmsConnection();
-
-      if(!hasError(resp)) {
-        isOmsConnectionExist = true
-      }
-    } catch(err) {
-      logger.error('error', err)
-    }
-
-    commit(types.UTIL_OMS_CONNECTION_STATUS_UPDATED, isOmsConnectionExist)
-  },
-
   async fetchStatusInformation({ commit, state }) {
     let statuses = JSON.parse(JSON.stringify(state.statuses))
 

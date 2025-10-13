@@ -83,35 +83,44 @@
                   <!-- When the group is in draft status, do not display the time delta badge -->
                   <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
                 </ion-item>
-                <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
-                  <ion-label color="danger" class="ion-text-wrap">
-                    {{ translate("Connection configuration is missing for oms.") }}
-                  </ion-label>
-                  <ion-button fill="clear" @click="checkOmsConnectionStatus">
-                    <ion-icon slot="icon-only" :icon="refreshOutline" />
-                  </ion-button>
-                </ion-item>
-                <ion-item detail button @click="openScheduleModal">
-                  <ion-icon slot="start" :icon="timerOutline"/>
-                  <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
-                  <!-- <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
-                  <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
-                  <ion-select :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
-                    <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
-                  </ion-select> -->
-                  <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
-                </ion-item>
                 <ion-item>
-                  <ion-icon slot="start" :icon="timeOutline"/>
-                  <ion-label>{{ translate("Next run") }}</ion-label>
-                  <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
+                  <ion-icon slot="start" :icon="timeOutline" />
+                  <ion-select interface="popover" :placeholder="translate('Select')" :value="runTime" @ionChange="updateRunTime($event)">
+                    <div slot="label" class="ion-text-wrap">{{ translate("Run time") }}</div>
+                    <ion-select-option v-for="runTime in runTimes" :key="runTime.value" :value="runTime.value">{{ translate(runTime.label) }}</ion-select-option>
+                  </ion-select>
+                  <!-- TODO: display a button when we are not having a runtime and open the datetime component
+                  on click of that button
+                  Currently, when mapping the same datetime component for label and button so it's not working so for
+                  now commented the button and added a fallback string -->
+                  <!-- <ion-button id="open-run-time-modal" size="small" fill="outline" color="medium" v-show="!currentJob?.runTime">{{ translate("Select run time") }}</ion-button> -->
+                  <ion-modal class="date-time-modal" :is-open="isDateTimeModalOpen" @didDismiss="() => isDateTimeModalOpen = false">
+                    <ion-content force-overscroll="false">
+                      <ion-datetime          
+                        show-default-buttons
+                        hour-cycle="h23"
+                        :value="runTime ? (isCustomRunTime(runTime) ? getDateTime(runTime) : getDateTime(DateTime.now().toMillis() + runTime)) : getNowTimestamp()"
+                        @ionChange="updateCustomTime($event)"
+                      />
+                    </ion-content>
+                  </ion-modal>
                 </ion-item>
-                <ion-item :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none" button @click="runNow()">
+
+                <ion-item>
+                  <ion-icon slot="start" :icon="timerOutline" />
+                  <ion-select :value="jobStatus" :interface-options="{ header: translate('Frequency') }" interface="popover" :placeholder="translate('Disabled')" @ionChange="jobStatus = $event.detail.value" @ionDismiss="jobStatus == 'CUSTOM' && setCustomFrequency()">
+                    <div slot="label" class="ion-text-wrap">{{ translate("Schedule") }}</div>
+                    <ion-select-option v-for="freq in frequencyOptions" :key="freq.id" :value="freq.id">{{ freq.description }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+
+                <ion-item lines="none" button @click="runNow()">
                   <ion-icon slot="start" :icon="flashOutline"/>
                   <ion-label>{{ translate("Run Now") }}</ion-label>
                 </ion-item>
               </ion-card>
+
+
               <ion-card>
                 <ion-item lines="none">
                   <h2>{{ translate("Execution history") }}</h2>
@@ -205,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonDatetime, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonModal, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
@@ -215,7 +224,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, sortSequence, timeTillRun } from "@/utils";
+import { hasError, generateAllowedFrequencies, generateAllowedRunTimes, getDate, getDateAndTime, getDateAndTimeShort, getNowTimestamp, getTime, isCustomRunTime, handleDateTimeInput, showToast, sortSequence, timeTillRun } from "@/utils";
 import emitter from "@/event-bus";
 import { translate } from '@hotwax/dxp-components';
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -241,6 +250,12 @@ let groupName = ref("")
 let isGroupNameUpdating = ref(false)
 const groupNameRef = ref()
 
+let runTime = ref("") as any
+let runTimes = ref([]) as any
+let frequencyOptions = ref([]) as any
+let jobStatus = ref("HOURLY") as any
+let isDateTimeModalOpen = ref(false)
+
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let groupHistory = ref([]) as any
@@ -250,12 +265,15 @@ const currentRoutingGroup: any = computed((): Group => store.getters["orderRouti
 const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
+const temporalExpr = computed(() => store.getters["orderRouting/getTemporalExpr"])
 
 onIonViewWillEnter(async () => {
   await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
   await fetchGroupHistory()
   store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
   store.dispatch("util/fetchStatusInformation")
+  await generateRunTimes(runTime.value)
+  await generateFrequencyOptions(jobStatus.value)
 
   job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
   orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
@@ -305,6 +323,47 @@ onBeforeRouteLeave(async (to) => {
   return;
 })
 
+function getDateTime(time: any) {
+  return DateTime.fromMillis(time).toISO()
+}
+function updateCustomTime(event: CustomEvent) {
+  const currTime = DateTime.now().toMillis();
+  const setTime = handleDateTimeInput(event.detail.value);
+  if (setTime > currTime) generateRunTimes(setTime)
+  else showToast(translate("Provide a future date and time"))
+}
+function updateRunTime(event: CustomEvent) {
+  const value = event.detail.value
+  if (value != 'CUSTOM') generateRunTimes(value)
+  else isDateTimeModalOpen.value = true
+}
+
+async function generateFrequencyOptions(currentFrequency?: any) {
+  const frequencyOptionList = JSON.parse(JSON.stringify(generateAllowedFrequencies()));
+  frequencyOptionList.push({ "id": "CUSTOM", "description": "Custom"})
+  if (currentFrequency) {
+    const selectedFrequency = frequencyOptionList.find((frequency: any) => frequency.id === currentFrequency);
+    if (!selectedFrequency ) {
+      const frequencies = await store.dispatch("job/fetchTemporalExpression", [ currentFrequency ]);
+      const frequency = frequencies[currentFrequency];
+      frequency && (frequencyOptionList.push({ "id": frequency.tempExprId,  "description": frequency.description }))
+    }
+  }
+  frequencyOptions.value = frequencyOptionList;
+  jobStatus.value = currentFrequency;
+}
+async function generateRunTimes(currentRunTime?: any) {
+  const runTimeList = JSON.parse(JSON.stringify(generateAllowedRunTimes()))
+  let selectedRunTime
+  // 0 check for the 'Now' value and '' check for initial render
+  if (currentRunTime || currentRunTime === 0 ) {
+    selectedRunTime = runTimeList.some((runTime: any) => runTime.value === currentRunTime)
+    if (!selectedRunTime) runTimeList.push({ label: getTime(currentRunTime), value: currentRunTime })
+  }
+  runTime.value = currentRunTime
+  runTimes.value = runTimeList
+}
+
 function getCronString() {
   try {
     return cronstrue.toString(job.value.cronExpression)
@@ -316,10 +375,6 @@ function getCronString() {
 
 function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
-}
-
-async function checkOmsConnectionStatus() {
-  await store.dispatch("util/checkOmsConnectionStatus")
 }
 
 async function fetchGroupHistory() {
@@ -344,15 +399,6 @@ async function fetchGroupHistory() {
 }
 
 async function saveSchedule() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await checkOmsConnectionStatus()
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   if(!job.value.cronExpression) {
     showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
@@ -390,15 +436,6 @@ function timeTillJob(time: any) {
 }
 
 async function runNow() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await checkOmsConnectionStatus()
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   const scheduleAlert = await alertController
     .create({
       header: translate("Run now"),
@@ -859,5 +896,10 @@ ion-reorder ion-chip {
 /* We need to disable pointer events from the card, but we do not want its styling to be changed thus defined this class to unset the opacity when reordering is enabled */
 .reordering-enabled.card-disabled {
   opacity: unset;
+}
+ion-modal.date-time-modal {
+  --width: 290px;
+  --height: 440px;
+  --border-radius: 8px;
 }
 </style>

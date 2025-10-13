@@ -5,4 +5,5 @@ export default interface OrderRoutingState {
   currentRoute: any;
   routingHistory: any;
   currentRuleId: string;
+  temporalExp: any;
 }

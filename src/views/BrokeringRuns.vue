@@ -47,17 +47,17 @@
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.runTime) : "-" }}
                   <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
-                  {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? timeTillRun(group.schedule.runTime) : "-" }}
                 </ion-badge>
               </ion-item>
               <ion-item v-else>
                 <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.runTime) : "-" }}
                 </ion-label>
                 <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
               </ion-item>

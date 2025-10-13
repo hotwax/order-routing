@@ -20,6 +20,9 @@ const getters: GetterTree<OrderRoutingState, RootState> = {
   },
   getCurrentRuleId(state) {
     return state.currentRuleId
+  },
+  getTemporalExpr: (state) => (id: string): any  => {
+    return state.temporalExp[id];
   }
 }
 

@@ -37,24 +37,23 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
       })
 
       const resp = await Promise.allSettled(groupScheduleInfoPayload.map((routingGroupId: any) => OrderRoutingService.fetchRoutingScheduleInformation(routingGroupId)))
-
       // Performing check on only those responses for which the status is fulfilled
       const schedules = resp.filter((response: any) => response.status === "fulfilled").reduce((schedules: any, response: any) => {
-        if(response.value.data.schedule) {
-          schedules[response.value.data.schedule.jobName] = response.value.data.schedule
+        if(response.value.data.docs) {
+          schedules[response.value.data.docs[0].routingGroupId] = response.value.data.docs[0]
         }
         return schedules;
       }, {})
-
+      
       routingGroups = routingGroups.map((group: any) => ({
         ...group,
-        runTime: schedules[group.jobName]?.nextExecutionDateTime,  // Using this value just to sort the groups on the basis of runTime
-        schedule: schedules[group.jobName]
+        runTime: schedules[group.routingGroupId]?.runTime,  // Using this value just to sort the groups on the basis of runTime
+        schedule: schedules[group.routingGroupId]
       }))
-
+      
       routingGroups = sortSequence(routingGroups, "runTime")
     }
-
+    
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
   },
 
@@ -111,8 +110,8 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     try {
       const resp = await OrderRoutingService.fetchRoutingScheduleInformation(payload.routingGroupId);
 
-      if(!hasError(resp) && resp.data?.schedule) {
-        currentGroup["schedule"] = resp.data.schedule
+      if(!hasError(resp) && resp.data?.docs) {
+        currentGroup["schedule"] = resp.data.docs[0]
       } else {
         throw resp.data
       }
@@ -447,7 +446,36 @@ const actions: ActionTree<OrderRoutingState, RootState> = {
     routingGroup["schedule"]["paused"] = payload.value
     commit(types.ORDER_ROUTING_GROUPS_UPDATED, routingGroups)
     return routingGroups
+  },
+
+  async fetchTemporalExpression({ state, commit }, tempExprIds){
+    const tempIds = [] as any;
+    const cachedTempExprId = Object.keys(state.temporalExp);
+    tempExprIds.map((id: any) => {
+      if(!cachedTempExprId.includes(id) && id){
+        tempIds.push(id);
+      }
+    });
+    if(tempIds.length == 0) return state.temporalExp;
+    const resp = await OrderRoutingService.fetchTemporalExpression({
+        "inputFields": {
+        "tempExprId": tempIds,
+        "temoExprId_op": "in"
+      },
+      "viewSize": tempIds.length,
+      "fieldList": [ "tempExprId", "description","integer1", "integer2" ],
+      "entityName": "TemporalExpression",
+      "noConditionFind": "Y",
+    })
+    if (resp.status === 200 && !hasError(resp)) {
+      resp.data.docs.forEach((temporalExpression: any) => {
+        state.temporalExp[temporalExpression.tempExprId] = temporalExpression;
+      })
+      commit(types.ORDER_ROUTING_TEMPORAL_EXPRESSION_UPDATED, state.temporalExp);
+    }
+    return state.temporalExp;
   }
+
 }
 
 export default actions;

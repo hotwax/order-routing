@@ -18,8 +18,8 @@ const getters: GetterTree <UserState, RootState> = {
   getInstanceUrl(state) {
     return state.instanceUrl;
   },
-  getCurrentEComStore(state) {
-    return state.currentEComStore
+  getCurrentProductStore(state) {
+    return state.currentProductStore
   },
   getBaseUrl(state) {
     const baseURL = state.instanceUrl;

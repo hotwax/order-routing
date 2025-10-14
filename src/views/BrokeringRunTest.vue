@@ -133,7 +133,7 @@ const getStatusDesc = computed(() => (id: string) => store.getters["util/getStat
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentProductStore = computed(() => store.getters["user/getCurrentProductStore"])
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -368,7 +368,7 @@ async function getUserTestSession() {
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       userId: userProfile.value.userId,
-      productStoreId: currentEComStore.value.productStoreId
+      productStoreId: currentProductStore.value.productStoreId
     },
     selectedEntity: "co.hotwax.user.UserSession",
     pageLimit: 100,
@@ -387,7 +387,7 @@ async function createUserTestSession() {
   userTestingSession.value = await UtilService.createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId: currentProductStore.value.productStoreId,
     fromDate: DateTime.now().toMillis()
   });
 }
@@ -397,7 +397,7 @@ async function updateUserTestSession() {
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId: currentProductStore.value.productStoreId,
     thruDate: DateTime.now().toMillis()
   });
 }

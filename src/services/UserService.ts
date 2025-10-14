@@ -141,7 +141,7 @@ const getUserProfile = async (token: any): Promise<any> => {
   }
 }
 
-const getEComStores = async (token: any): Promise<any> => {
+const getProductStores = async (token: any): Promise<any> => {
   try {
     const url = store.getters["user/getBaseUrl"]
     const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
@@ -194,7 +194,7 @@ const checkPermission = async (payload: any): Promise <any>  => {
 export const UserService = {
   checkPermission,
   getAvailableTimeZones,
-  getEComStores,
+  getProductStores,
   getUserProfile,
   getUserPermissions,
   login,

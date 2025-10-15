@@ -14,7 +14,7 @@
     <ion-list>
       <ion-item>
         <ion-input label-placement="floating" :label="translate('Expression')" v-model="expression"></ion-input>
-        <ion-button slot="end" fill="clear" size="small" color="medium" @click="goToCronHelp">
+        <ion-button slot="end" fill="clear" size="small" color="medium" href="https://www.freeformatter.com/cron-expression-generator-quartz.html" target="_blank">
           <ion-icon :icon="informationCircleOutline" slot="icon-only" />
         </ion-button>
       </ion-item>
@@ -140,8 +140,5 @@ async function saveChanges() {
       }]
     });
   return alert.present();
-}
-function goToCronHelp() {
-  window.open('https://www.freeformatter.com/cron-expression-generator-quartz.html',"_blank")
 }
 </script>

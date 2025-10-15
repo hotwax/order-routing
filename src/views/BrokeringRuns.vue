@@ -65,7 +65,7 @@
               </ion-item>
               <ion-item lines="none">
                 {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
-                <ion-button fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
+                <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
                   <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
                 </ion-button>
               </ion-item>

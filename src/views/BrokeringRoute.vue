@@ -110,7 +110,7 @@
                   <ion-label color="danger" class="ion-text-wrap">
                     {{ translate("Connection configuration is missing for oms.") }}
                   </ion-label>
-                  <ion-button fill="clear" @click="checkOmsConnectionStatus">
+                  <ion-button size="default" fill="clear" @click="checkOmsConnectionStatus">
                     <ion-icon slot="icon-only" :icon="refreshOutline" />
                   </ion-button>
                 </ion-item>
@@ -186,10 +186,10 @@
                   <ion-item lines="none">
                     <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                     <div slot="end">
-                      <ion-button fill="clear" color="medium" @click.stop="cloneRouting(routing)">
+                      <ion-button size="default" fill="clear" color="medium" @click.stop="cloneRouting(routing)">
                         <ion-icon slot="icon-only" :icon="copyOutline" />
                       </ion-button>
-                      <ion-button fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
+                      <ion-button size="default" fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
                         <ion-icon slot="icon-only" :icon="archiveOutline" />
                       </ion-button>
                     </div>

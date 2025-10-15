@@ -51,7 +51,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -180,7 +180,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -267,7 +267,7 @@
                     <ion-item>
                       <ion-icon slot="start" :icon="filterOutline"/>
                       <h4>{{ translate("Filters") }}</h4>
-                      <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                      <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
                     </ion-item>
@@ -334,7 +334,7 @@
                     <ion-item>
                       <ion-icon slot="start" :icon="swapVerticalOutline"/>
                       <h4>{{ translate("Sort") }}</h4>
-                      <ion-button v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                      <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
                     </ion-item>

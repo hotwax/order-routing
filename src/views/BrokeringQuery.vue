@@ -322,7 +322,9 @@
 
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
                       <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
-                        {{ translate("Turn of the facility order limit check") }}
+                        <ion-label class="ion-text-wrap">
+                          {{ translate("Turn of the facility order limit check") }}
+                        </ion-label>
                       </ion-toggle>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THRESHOLD')">

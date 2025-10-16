@@ -177,19 +177,17 @@ async function setEComStore(event: CustomEvent) {
 }
 
 function getScheduleFrequency(brokeringGroupObj: any) {
-  let cronDescription = "-";
-  let description = Object.entries(cronExpressions).find(([description, expression]) => expression === brokeringGroupObj.cronExpression)?.[0]
-  if (description) cronDescription = description;
-  
-  if (brokeringGroupObj.cronDescription) {
-    description = cronstrue.toString(brokeringGroupObj.cronExpression)
-    // Capitalize the first letter if it's not a number or symbol
+  let description: any = "";
+  description = Object.keys(cronExpressions).find(key => cronExpressions[key] === brokeringGroupObj.cronExpression);
+
+  if (!description && brokeringGroupObj.cronExpression) {
+    description = cronstrue.toString(brokeringGroupObj.cronExpression);
+    // Capitalize first letter if it starts with a lowercase letter
     if (/^[a-z]/.test(description)) {
       description = description.charAt(0).toUpperCase() + description.slice(1);
     }
-    cronDescription = description;
   }
-  return cronDescription;
+  return description || "-";
 }
 
 function redirect(group: Group) {

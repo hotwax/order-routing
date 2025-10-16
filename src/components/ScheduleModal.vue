@@ -14,6 +14,9 @@
     <ion-list>
       <ion-item>
         <ion-input label-placement="floating" :label="translate('Expression')" v-model="expression"></ion-input>
+        <ion-button slot="end" fill="clear" size="small" color="medium" href="https://www.freeformatter.com/cron-expression-generator-quartz.html" target="_blank">
+          <ion-icon :icon="informationCircleOutline" slot="icon-only" />
+        </ion-button>
       </ion-item>
       <ion-item>
         <ion-icon slot="start" :icon="timerOutline"/>
@@ -64,7 +67,7 @@ import {
   IonToolbar,
   modalController,
 } from "@ionic/vue";
-import { closeOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
+import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";
 import cronstrue from "cronstrue";
 import cronParser from "cron-parser";

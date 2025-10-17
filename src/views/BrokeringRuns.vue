@@ -50,7 +50,7 @@
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
                   {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
-                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule.cronExpression) : "-" }}</p>
+                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
                   {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
@@ -65,7 +65,7 @@
               </ion-item>
               <ion-item lines="none">
                 {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
-                <ion-button fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
+                <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
                   <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
                 </ion-button>
               </ion-item>
@@ -98,6 +98,7 @@ import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useStore } from "vuex";
+import cronstrue from 'cronstrue';
 
 const store = useStore()
 const router = useRouter()
@@ -175,8 +176,18 @@ async function setEComStore(event: CustomEvent) {
   emitter.emit("dismissLoader")
 }
 
-function getScheduleFrequency(cronExp: string) {
-  return Object.entries(cronExpressions).find(([description, expression]) => expression === cronExp)?.[0] || "-"
+function getScheduleFrequency(brokeringGroupObj: any) {
+  let description: any = "";
+  description = Object.keys(cronExpressions).find(key => cronExpressions[key] === brokeringGroupObj.cronExpression);
+
+  if (!description && brokeringGroupObj.cronExpression) {
+    description = cronstrue.toString(brokeringGroupObj.cronExpression);
+    // Capitalize first letter if it starts with a lowercase letter
+    if (/^[a-z]/.test(description)) {
+      description = description.charAt(0).toUpperCase() + description.slice(1);
+    }
+  }
+  return description || "-";
 }
 
 function redirect(group: Group) {

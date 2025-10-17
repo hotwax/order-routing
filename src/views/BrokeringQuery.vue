@@ -51,7 +51,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -180,7 +180,7 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
             </ion-item-divider>
@@ -237,7 +237,7 @@
                 <div>
                   <ion-item :disabled="testRoutingInfo.isRuleTestEnabled">
                     <ion-icon slot="start" :icon="pulseOutline" />
-                    <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                    <ion-select :label="translate('Status')" interface="popover" :value="getRuleStatus(selectedRoutingRule.routingRuleId)" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
                       <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
                       <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
                       <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
@@ -267,13 +267,13 @@
                     <ion-item>
                       <ion-icon slot="start" :icon="filterOutline"/>
                       <h4>{{ translate("Filters") }}</h4>
-                      <ion-button v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+                      <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
                     </ion-item>
                     <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
                       {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
-                      <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment-capacity">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
+                      <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
                       <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                         {{ translate("Add filters") }}
                         <ion-icon slot="end" :icon="optionsOutline"/>
@@ -322,7 +322,9 @@
 
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
                       <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
-                        {{ translate("Turn of the facility order limit check") }}
+                        <ion-label class="ion-text-wrap">
+                          {{ translate("Turn off the facility order limit check") }}
+                        </ion-label>
                       </ion-toggle>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THRESHOLD')">
@@ -334,7 +336,7 @@
                     <ion-item>
                       <ion-icon slot="start" :icon="swapVerticalOutline"/>
                       <h4>{{ translate("Sort") }}</h4>
-                      <ion-button v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+                      <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
                     </ion-item>
@@ -492,6 +494,7 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 
 const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
 const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
+const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => rule.routingRuleId == ruleId)?.statusId)
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any

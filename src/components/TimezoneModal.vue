@@ -16,15 +16,15 @@
   <ion-content>
     <ion-radio-group  value="rd" v-model="timeZoneId">
       <ion-list v-if="showBrowserTimeZone">
-          <ion-list-header>{{ translate("Browser time zone") }}</ion-list-header>
-          <ion-item>
-            <ion-radio label-placement="end" justify="start" :value="browserTimeZone.id">
-              <ion-label>
+        <ion-list-header>{{ translate("Browser time zone") }}</ion-list-header>
+        <ion-item>
+          <ion-radio label-placement="end" justify="start" :value="browserTimeZone.id">
+            <ion-label>
                 {{ browserTimeZone.label }} ({{ browserTimeZone.id }})
-                <p v-if="showDateTime">{{ getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
-              </ion-label>
-            </ion-radio>
-          </ion-item>
+            <p v-if="showDateTime">{{ getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
+            </ion-label>
+          </ion-radio>
+        </ion-item>
       </ion-list>
       <ion-list>
         <ion-list-header v-if="showBrowserTimeZone">{{ translate("Select a different time zone") }}</ion-list-header>
@@ -40,14 +40,14 @@
         </div>
         <!-- Timezones -->
         <div v-else>
-            <ion-item :key="timeZone.id" v-for="timeZone in filteredTimeZones">
-              <ion-radio label-placement="end" justify="start" :value="timeZone.id">
-                <ion-label>
-                  {{ timeZone.label }} ({{ timeZone.id }})
-                  <p v-if="showDateTime">{{ getCurrentTime(timeZone.id, dateTimeFormat) }}</p>
-                </ion-label>
-              </ion-radio>
-            </ion-item>
+          <ion-item :key="timeZone.id" v-for="timeZone in filteredTimeZones">
+            <ion-radio label-placement="end" justify="start" :value="timeZone.id">
+              <ion-label>
+                {{ timeZone.label }} ({{ timeZone.id }})
+                <p v-if="showDateTime">{{ getCurrentTime(timeZone.id, dateTimeFormat) }}</p>
+              </ion-label>
+            </ion-radio>
+          </ion-item>
         </div>
       </ion-list>
     </ion-radio-group>

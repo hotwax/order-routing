@@ -237,7 +237,7 @@
                 <div>
                   <ion-item :disabled="testRoutingInfo.isRuleTestEnabled">
                     <ion-icon slot="start" :icon="pulseOutline" />
-                    <ion-select :label="translate('Status')" interface="popover" :value="selectedRoutingRule.statusId" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+                    <ion-select :label="translate('Status')" interface="popover" :value="getRuleStatus(selectedRoutingRule.routingRuleId)" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
                       <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
                       <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
                       <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
@@ -494,6 +494,7 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 
 const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
 const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
+const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => rule.routingRuleId == ruleId)?.statusId)
 
 let ruleActionType = ref("")
 let selectedRoutingRule = ref({}) as any

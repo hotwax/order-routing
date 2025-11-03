@@ -1,6 +1,7 @@
 import api, { client } from "@/api"
 import logger from "@/logger";
 import store from "@/store";
+import { getOmsRedirectionUrl } from "@/utils";
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
@@ -59,12 +60,10 @@ const checkOmsConnection = async (): Promise<any> => {
 
 const getCarrierInformation = async (payload: any): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: baseURL,
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -75,12 +74,10 @@ const getCarrierInformation = async (payload: any): Promise<any> => {
 
 const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: baseURL,
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,

@@ -72,4 +72,9 @@ const getColorByDesc = (desc: string) => ({
   "default": "medium"
 } as any)[desc]
 
-export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, hasError, sortSequence, timeTillRun,getCurrentTime }
+const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
+  const baseURL = omsRedirectionInfo.url;
+  return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
+}
+
+export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime }

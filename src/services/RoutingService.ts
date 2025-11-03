@@ -1,7 +1,7 @@
 import api, { client } from "@/api"
 import logger from "@/logger";
 import store from "@/store";
-import { hasError } from "@/utils";
+import { getOmsRedirectionUrl, hasError } from "@/utils";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -168,8 +168,6 @@ const runNow = async (routingGroupId: string): Promise<any> => {
 
 const findOrder = async (queryString: string, orderId: string): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
 
   let orders = []
   let errorMessage = "";
@@ -201,7 +199,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
     const resp = await client({
       url: "solr-query",
       method: "post",
-      baseURL: baseURL,
+      baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
       data: payload,
       headers: {
         Authorization:  'Bearer ' + omsRedirectionInfo.token,

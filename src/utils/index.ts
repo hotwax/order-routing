@@ -1,7 +1,6 @@
 import { toastController } from "@ionic/vue";
 import { Group, Route, Rule } from "@/types";
 import { DateTime } from "luxon";
-import store from "@/store";
 
 // TODO Use separate files for specific utilities
 
@@ -71,8 +70,7 @@ const getColorByDesc = (desc: string) => ({
   "default": "medium"
 } as any)[desc]
 
-const getOmsRedirectionUrl = (): string => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
   let baseURL = omsRedirectionInfo.url;
   return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
 }

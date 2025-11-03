@@ -199,7 +199,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
     const resp = await client({
       url: "solr-query",
       method: "post",
-      baseURL: getOmsRedirectionUrl(),
+      baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
       data: payload,
       headers: {
         Authorization:  'Bearer ' + omsRedirectionInfo.token,

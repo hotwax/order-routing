@@ -7,7 +7,7 @@ const fetchProducts = async (payload: any): Promise <any>  => {
   return client({
     url: "searchProducts",
     method: "post",
-    baseURL: getOmsRedirectionUrl(),
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -21,7 +21,7 @@ const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
   return client({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
-    baseURL: getOmsRedirectionUrl(),
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,

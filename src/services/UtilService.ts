@@ -63,7 +63,7 @@ const getCarrierInformation = async (payload: any): Promise<any> => {
   return client({
     url: "performFind",
     method: "post",
-    baseURL: getOmsRedirectionUrl(),
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -77,7 +77,7 @@ const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
   return client({
     url: "performFind",
     method: "post",
-    baseURL: getOmsRedirectionUrl(),
+    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,

@@ -1,14 +1,13 @@
 import { client } from "@/api";
 import store from "@/store";
+import { getOmsRedirectionUrl } from "@/utils";
 
 const fetchProducts = async (payload: any): Promise <any>  => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "searchProducts",
     method: "post",
-    baseURL: baseURL,
+    baseURL: getOmsRedirectionUrl(),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -19,12 +18,10 @@ const fetchProducts = async (payload: any): Promise <any>  => {
 
 const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
-  let baseURL = omsRedirectionInfo.url;
-  baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
-    baseURL: baseURL,
+    baseURL: getOmsRedirectionUrl(),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,

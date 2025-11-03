@@ -73,7 +73,7 @@ const getColorByDesc = (desc: string) => ({
 } as any)[desc]
 
 const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
-  let baseURL = omsRedirectionInfo.url;
+  const baseURL = omsRedirectionInfo.url;
   return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
 }
 

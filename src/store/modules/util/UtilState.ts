@@ -9,7 +9,6 @@ export default interface UtilState {
   facilities: object;
   shippingMethods: object;
   facilityGroups: object;
-  isOmsConnectionExist: boolean | undefined;
   statuses: any;
   carriers: any;
 }

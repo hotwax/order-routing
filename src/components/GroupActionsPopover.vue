@@ -30,7 +30,7 @@ import {
 } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { translate } from "@/i18n"
-import { computed, defineProps } from "vue"
+import { defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import { hasError, showToast } from "@/utils";
 import logger from "@/logger";
@@ -39,7 +39,6 @@ import { useStore } from "vuex";
 const store = useStore()
 
 const props = defineProps(["group"])
-const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 
 async function updateGroupStatus(paused: string) {
   let routingGroups = [];
@@ -66,15 +65,6 @@ async function updateGroupStatus(paused: string) {
 }
 
 async function runNow() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await store.dispatch("util/checkOmsConnectionStatus")
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   const scheduleAlert = await alertController
     .create({
       header: translate("Run now"),

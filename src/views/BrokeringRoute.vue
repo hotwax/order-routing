@@ -106,20 +106,12 @@
                   <!-- When the group is in draft status, do not display the time delta badge -->
                   <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
                 </ion-item>
-                <ion-item v-show="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none">
-                  <ion-label color="danger" class="ion-text-wrap">
-                    {{ translate("Connection configuration is missing for oms.") }}
-                  </ion-label>
-                  <ion-button size="default" fill="clear" @click="checkOmsConnectionStatus">
-                    <ion-icon slot="icon-only" :icon="refreshOutline" />
-                  </ion-button>
-                </ion-item>
                 <ion-item detail button @click="openScheduleModal">
                   <ion-icon slot="start" :icon="timerOutline"/>
                   <!-- When the group is in draft status or the job is not present, do not display the frequency and just display the label for schedule -->
                   <!-- <ion-label v-if="!job.paused || job.paused === 'Y'">{{ translate("Schedule") }}</ion-label>
                   <ion-label v-if="!job.paused || job.paused === 'Y'" slot="end">{{ "-" }}</ion-label>
-                  <ion-select :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
+                  <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                     <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                   </ion-select> -->
                   <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
@@ -130,7 +122,7 @@
                   <!-- When the group is in draft status, do not display the runTime from the schedule -->
                   <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
-                <ion-item :disabled="typeof isOmsConnectionExist === 'boolean' && !isOmsConnectionExist" lines="none" button @click="runNow()">
+                <ion-item lines="none" button @click="runNow()">
                   <ion-icon slot="start" :icon="flashOutline"/>
                   <ion-label>{{ translate("Run Now") }}</ion-label>
                 </ion-item>
@@ -229,7 +221,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, refreshOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useStore } from "vuex";
 import { computed, defineProps, nextTick, ref } from "vue";
@@ -274,7 +266,6 @@ let activeTestSessions = ref(0)
 let isBrokeringEnabled = ref(true)
 
 const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
-const isOmsConnectionExist = computed(() => store.getters["util/isOmsConnectionExist"])
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
@@ -350,10 +341,6 @@ function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
 }
 
-async function checkOmsConnectionStatus() {
-  await store.dispatch("util/checkOmsConnectionStatus")
-}
-
 async function fetchGroupHistory() {
   groupHistory.value = []
 
@@ -376,15 +363,6 @@ async function fetchGroupHistory() {
 }
 
 async function saveSchedule() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await checkOmsConnectionStatus()
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   if(!job.value.cronExpression) {
     showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
@@ -422,15 +400,6 @@ function timeTillJob(time: any) {
 }
 
 async function runNow() {
-  // If this is the first time then we are fetching the omsConnection status, as if the value of isOmsConnectionExist value is a boolean it means we have previously fetched the connection status
-  if(typeof isOmsConnectionExist.value !== "boolean") {
-    await checkOmsConnectionStatus()
-  }
-
-  if(!isOmsConnectionExist.value) {
-    return;
-  }
-
   const scheduleAlert = await alertController
     .create({
       header: translate("Run now"),

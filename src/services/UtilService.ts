@@ -51,13 +51,6 @@ const fetchStatusInformation = async (payload: any): Promise<any> => {
   });
 }
 
-const checkOmsConnection = async (): Promise<any> => {
-  return api({
-    url: "checkOmsConnection",
-    method: "GET"
-  });
-}
-
 const getCarrierInformation = async (payload: any): Promise<any> => {
   const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
   return client({
@@ -220,7 +213,6 @@ const getProductStoreInfo = async (): Promise<any> => {
 }
 
 export const UtilService = {
-  checkOmsConnection,
   createUserSession,
   fetchEnums,
   fetchFacilities,

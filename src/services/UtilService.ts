@@ -198,7 +198,7 @@ const getProductStoreInfo = async (): Promise<any> => {
   const url = store.getters["user/getBaseUrl"]
   const token = store.getters["user/getUserToken"]
   const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
-  const productStoreId = store.getters["user/getCurrentEComStore"]?.productStoreId
+  const productStoreId = store.getters["user/getCurrentProductStore"]?.productStoreId
 
   return client({
     url: `productStores/${productStoreId}`,

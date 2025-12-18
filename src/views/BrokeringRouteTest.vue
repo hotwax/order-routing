@@ -123,7 +123,7 @@ onMounted(() => {
 let queryString = ref("")
 let orders = ref([]) as any
 
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentProductStore = computed(() => store.getters["user/getCurrentProductStore"])
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
 const carriers = computed(() => store.getters["util/getCarriers"])
 const facilities = computed(() => store.getters["util/getPhysicalFacilities"])
@@ -349,7 +349,7 @@ async function brokerOrder() {
       routingGroupId: props.routingGroupId,
       orderId: testRoutingInfo.value.currentOrderId,
       shipGroupSeqId: testRoutingInfo.value.currentShipGroupId,
-      productStoreId: currentEComStore.value.productStoreId,
+      productStoreId: currentProductStore.value.productStoreId,
       testDriveSessionId: (props.userTestingSession as any)?.userSessionId
     } as any
 

@@ -19,7 +19,7 @@
         <aside class="filters" v-if="userProfile?.stores?.length > 1">
           <ion-list>
             <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
-            <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
+            <ion-radio-group :value="currentProductStore.productStoreId" @ionChange="setProductStore($event)">
               <ion-item v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" lines="none">
                 <ion-radio :value="store.productStoreId">{{ store.storeName || store.productStoreId }}</ion-radio>
               </ion-item>
@@ -104,7 +104,7 @@ const store = useStore()
 const router = useRouter()
 const groups = computed(() => store.getters["orderRouting/getRoutingGroups"])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentProductStore = computed(() => store.getters["user/getCurrentProductStore"])
 
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS)
 
@@ -164,10 +164,10 @@ async function addNewRun() {
   return newRunAlert.present();
 }
 
-async function setEComStore(event: CustomEvent) {
+async function setProductStore(event: CustomEvent) {
   emitter.emit("presentLoader")
   if(userProfile.value?.stores) {
-    await store.dispatch("user/setEcomStore", {
+    await store.dispatch("user/setProductStore", {
       "productStoreId": event.detail.value
     })
     await store.dispatch("orderRouting/fetchOrderRoutingGroups");

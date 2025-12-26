@@ -80,6 +80,7 @@
         <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
       </div>
       <section>
+        <DxpProductIdentifier />
         <ion-card>
           <ion-card-header>
             <ion-card-title>
@@ -120,7 +121,7 @@ import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { goToOms } from "@hotwax/dxp-components";
+import { goToOms, DxpProductIdentifier } from "@hotwax/dxp-components";
 import {getCurrentTime} from "../utils"
 
 const store = useStore()

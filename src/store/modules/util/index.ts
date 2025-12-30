@@ -10,6 +10,7 @@ const utilModule: Module<UtilState, RootState> = {
   state: {
     enums: {},
     facilities: {},
+    categories: {},
     shippingMethods: {},
     facilityGroups: {},
     statuses: {},

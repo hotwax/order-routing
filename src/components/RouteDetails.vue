@@ -111,8 +111,16 @@ const props = defineProps({
 
 const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const filterOptions = [{
+  enumId: "PROD_CATEGORY",
+  code: "productCategoryId",
+  label: "Product Category"
+}, {
   enumId: "QUEUE",
   code: "facilityId",
+  label: "Queue"
+}, {
+  enumId: "OIP_PROD_CATEGORY_EXCLUDED",
+  code: "productCategoryId",
   label: "Queue"
 }, {
   enumId: "QUEUE_EXCLUDED",

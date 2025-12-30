@@ -27,6 +27,14 @@ const fetchFacilities = async (payload: any): Promise<any> => {
   });
 }
 
+const fetchCategories = async (payload: any): Promise<any> => {
+  return api({
+    url: `categories/${payload.productStoreId}`,
+    method: "GET",
+    params: payload
+  });
+}
+
 const fetchShippingMethods = async (payload: any): Promise<any> => {
   return api({
     url: `productStores/${payload.productStoreId}/shippingMethods`,
@@ -216,6 +224,7 @@ export const UtilService = {
   createUserSession,
   fetchEnums,
   fetchFacilities,
+  fetchCategories,
   fetchFacilityGroups,
   fetchOmsEnums,
   fetchShippingMethods,

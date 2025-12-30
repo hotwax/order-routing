@@ -6,6 +6,7 @@ export default interface UtilState {
       [key: string]: Enumeration
     }
   };
+  categories: object;
   facilities: object;
   shippingMethods: object;
   facilityGroups: object;

@@ -7,6 +7,7 @@ import * as types from "./mutation-types"
 import { UtilService } from "@/services/UtilService"
 import { EnumerationAndType } from "@/types"
 import store from "@/store"
+import {UTIL_CATEGORIES_UPDATED} from "./mutation-types";
 
 const actions: ActionTree<UtilState, RootState> = {
   async fetchEnums({ commit, state }, payload) {
@@ -14,50 +15,63 @@ const actions: ActionTree<UtilState, RootState> = {
       ...state.enums
     }
 
+    let pageIndex = 0;
+    const pageSize = 500;
+
     try {
-      const resp = await UtilService.fetchEnums({
-        ...payload,
-        pageSize: 500
-      });
+      let resp: any;
+      do {
+        resp = await UtilService.fetchEnums({
+          ...payload,
+          pageIndex,
+          pageSize
+        });
 
-      if(!hasError(resp) && resp.data.length) {
-        enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
-          if(enumerations[data.enumTypeId]) {
-            enumerations[data.enumTypeId][data.enumId] = data
-          } else {
-            enumerations[data.enumTypeId] = {
-              [data.enumId]: data
-            }
-          }
-          return enumerations
-        }, enums)
-
-        if(enums["ORD_FILTER_PRM_TYPE"]) {
-          Object.values(enums["ORD_FILTER_PRM_TYPE"]).reduce((filters: any, filter: any) => {
-            if (!filter.enumId.includes("_EXCLUDED")) {
-              filters[filter.enumId + "_EXCLUDED"] = {
-                "enumId": filter.enumId + "_EXCLUDED",
-                "enumTypeId": filter.enumTypeId,
-                "enumCode": filter.enumCode + "_excluded",
-                "sequenceNum": 5,
-                "description": filter.description
+        if(!hasError(resp) && resp.data.length) {
+          const respEnums: any = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+            if(enumerations[data.enumTypeId]) {
+              enumerations[data.enumTypeId][data.enumId] = data
+            } else {
+              enumerations[data.enumTypeId] = {
+                [data.enumId]: data
               }
             }
+            return enumerations
+          }, {})
 
-            return filters;
-          }, enums["ORD_FILTER_PRM_TYPE"])
-        }
+          if(respEnums["ORD_FILTER_PRM_TYPE"]) {
+            Object.values(respEnums["ORD_FILTER_PRM_TYPE"]).reduce((filters: any, filter: any) => {
+              if (!filter.enumId.includes("_EXCLUDED")) {
+                filters[filter.enumId + "_EXCLUDED"] = {
+                  "enumId": filter.enumId + "_EXCLUDED",
+                  "enumTypeId": filter.enumTypeId,
+                  "enumCode": filter.enumCode + "_excluded",
+                  "sequenceNum": 5,
+                  "description": filter.description
+                }
+              }
 
-        if(enums["INV_FILTER_PRM_TYPE"] && enums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP"]) {
-          enums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP_EXCLUDED"] = {
-            "enumId": "IIP_FACILITY_GROUP_EXCLUDED",
-            "enumTypeId": "INV_FILTER_PRM_TYPE",
-            "enumCode": "facilityGroupId_excluded",
-            "sequenceNum": 5,
-            "description": "Facility group"
-          } as any
+              return filters;
+            }, respEnums["ORD_FILTER_PRM_TYPE"])
+          }
+
+          if(respEnums["INV_FILTER_PRM_TYPE"] && respEnums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP"]) {
+            respEnums["INV_FILTER_PRM_TYPE"]["IIP_FACILITY_GROUP_EXCLUDED"] = {
+              "enumId": "IIP_FACILITY_GROUP_EXCLUDED",
+              "enumTypeId": "INV_FILTER_PRM_TYPE",
+              "enumCode": "facilityGroupId_excluded",
+              "sequenceNum": 5,
+              "description": "Facility group"
+            } as any
+          }
+          console.log('respEnums', respEnums)
+          enums = {
+            ...enums,
+            ...respEnums
+          }
         }
-      }
+        pageIndex++;
+      } while(resp.data.length == pageSize)
     } catch(err) {
       logger.error(err)
     }
@@ -121,6 +135,35 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     commit(types.UTIL_FACILITIES_UPDATED, facilities)
+  },
+
+  async fetchCategories({ commit, state }) {
+    let categories = JSON.parse(JSON.stringify(state.categories))
+
+    // Do not fetch categories if already available
+    if(Object.keys(categories).length) {
+      return;
+    }
+
+    const payload = {
+      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+      pageSize: 500
+    }
+
+    try {
+      const resp = await UtilService.fetchCategories(payload);
+
+      if(!hasError(resp) && resp.data.length) {
+        categories = resp.data.reduce((categories: any, category: any) => {
+          categories[category.productCategoryId] = category
+          return categories
+        }, {})
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+
+    commit(types.UTIL_CATEGORIES_UPDATED, categories)
   },
 
   async fetchShippingMethods({ commit, state }) {
@@ -292,6 +335,10 @@ const actions: ActionTree<UtilState, RootState> = {
 
   async updateFacillityGroups({ commit }) {
     commit(types.UTIL_FACILITY_GROUP_UPDATED, {})
+  },
+
+  async updateProductCategories({ commit }) {
+    commit(types.UTIL_CATEGORIES_UPDATED, {})
   }
 }
 

@@ -8,6 +8,11 @@
           <ion-label>{{ translate("Brokering") }}</ion-label>
         </ion-tab-button>
 
+        <ion-tab-button tab="circuit" href="/tabs/circuit">
+          <ion-icon :icon="terminalOutline" />
+          <ion-label>{{ translate("Circuit") }}</ion-label>
+        </ion-tab-button>
+
         <ion-tab-button tab="more" href="/tabs/settings">
           <ion-icon :icon="settingsOutline" />
           <ion-label>{{ translate("Settings") }}</ion-label>
@@ -20,13 +25,13 @@
 <script setup lang="ts">
 import { translate } from "@/i18n";
 import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
-import { settingsOutline, shuffleOutline } from "ionicons/icons";
+import { settingsOutline, shuffleOutline, terminalOutline } from "ionicons/icons";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
 function showFooter() {
-  if (['/tabs/settings', '/tabs/brokering'].includes(router.currentRoute.value.path)) return true
+  if (['/tabs/settings', '/tabs/brokering', '/tabs/circuit'].includes(router.currentRoute.value.path)) return true
   return false
 }
 </script>

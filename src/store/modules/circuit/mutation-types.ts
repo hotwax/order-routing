@@ -1,0 +1,3 @@
+export const SET_INTRO_DONE = 'SET_INTRO_DONE';
+export const SET_CHAT_STARTED = 'SET_CHAT_STARTED';
+export const SET_THREADS = 'SET_THREADS';

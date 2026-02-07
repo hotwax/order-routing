@@ -60,6 +60,10 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "settings",
         component: () => import("@/views/Settings.vue")
+      },
+      {
+        path: "circuit",
+        component: () => import("@/views/Circuit.vue")
       }
     ],
     beforeEnter: authGuard

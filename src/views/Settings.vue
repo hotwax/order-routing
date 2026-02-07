@@ -31,6 +31,7 @@
           <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
         </ion-card>
       </div>
+
       <div class="section-header">
         <h1>{{ translate("OMS") }}</h1>
       </div>
@@ -105,14 +106,52 @@
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
         </ion-card>
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>Circuit</ion-card-title>
+            <ion-card-subtitle>{{ modelInfo.size }}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <div v-if="modelInfo.status === 'unsupported'" class="error-message">
+              {{ translate("WebGPU is not supported on this device.") }}
+              <p>{{ modelInfo.supportError }}</p>
+            </div>
+            <div v-else>
+              <div v-if="modelInfo.status === 'installing'">
+                <p>{{ modelInfo.progressText || translate("Installing...") }}</p>
+                <ion-progress-bar :value="modelInfo.progress"></ion-progress-bar>
+              </div>
+              <div v-else-if="modelInfo.status === 'installed'">
+                <p>{{ translate("Model is installed and ready.") }}</p>
+              </div>
+              <div v-else>
+                <p>{{ translate("Download the model to enable local Circuit testing.") }}</p>
+                {{ modelInfo.name || "Default Model" }}
+              </div>
+            </div>
+          </ion-card-content>
+          <ion-item lines="none" v-if="modelInfo.status !== 'unsupported'">
+            <ion-label>
+              {{ modelInfo.status === 'installed' ? translate("Installed") : translate("Status: Not Installed") }}
+            </ion-label>
+            <ion-button 
+              slot="end" 
+              fill="outline" 
+              :disabled="modelInfo.status === 'installing' || modelInfo.status === 'installed'"
+              @click="installModel()"
+            >
+              {{ modelInfo.status === 'installed' ? translate("Re-verify") : translate("Install Model") }}
+            </ion-button>
+          </ion-item>
+        </ion-card>
       </section>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { computed, onMounted, ref ,defineProps} from "vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonProgressBar, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { computed, onMounted, ref } from "vue";
 import { Actions, hasPermission } from "@/authorization";
 import { useStore } from "vuex";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
@@ -132,6 +171,7 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 const oms = computed(() => store.getters["user/getInstanceUrl"])
 const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 const currentTimeZoneId = computed(() => userProfile.value.timeZone)
+const modelInfo = computed(() => store.state.circuit.modelInfo)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -154,6 +194,7 @@ const props = defineProps({
 
 onMounted(() => {
   appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
+  store.dispatch('circuit/checkWebGPUSupport');
 })
 
 function setEComStore(event: CustomEvent) {
@@ -176,6 +217,10 @@ function logout() {
     const redirectUrl = window.location.origin + '/login'
     window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })
+}
+
+function installModel() {
+  store.dispatch('circuit/initLLM');
 }
 
 function getDateTime(time: any) {

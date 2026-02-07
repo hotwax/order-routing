@@ -3,12 +3,6 @@
     <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Circuit") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button>
-            <ion-icon slot="start" :icon="chatbubblesOutline" />
-            {{ translate("Threads") }}
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -36,7 +30,6 @@
 <script setup lang="ts">
 import { 
   IonButton, 
-  IonButtons, 
   IonContent, 
   IonHeader, 
   IonIcon, 
@@ -46,7 +39,7 @@ import {
   IonTitle, 
   IonToolbar 
 } from '@ionic/vue';
-import { arrowForwardOutline, chatbubblesOutline } from 'ionicons/icons';
+import { arrowForwardOutline } from 'ionicons/icons';
 import { translate } from '@/i18n';
 import { useStore } from 'vuex';
 

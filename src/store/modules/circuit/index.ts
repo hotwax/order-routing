@@ -10,7 +10,15 @@ const circuitModule: Module<CircuitState, RootState> = {
   state: {
     isIntroDone: false,
     isChatStarted: false,
-    threads: []
+    threads: [],
+    currentThreadId: null,
+    messages: [],
+    modelInfo: {
+      name: '',
+      size: '',
+      status: 'not_installed',
+      progress: 0
+    }
   },
   getters,
   actions,

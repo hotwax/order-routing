@@ -22,6 +22,8 @@
     "@ionic/core": "8.4.2",
     "@ionic/vue": "8.4.2",
     "@ionic/vue-router": "8.4.2",
+    "@mlc-ai/web-llm": "^0.2.80",
+    "@webgpu/types": "^0.1.69",
     "axios": "^0.21.1",
     "axios-cache-adapter": "^2.7.3",
     "boon-js": "^2.0.3",

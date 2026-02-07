@@ -7,16 +7,17 @@
           <ion-button @click="resetCircuit">
             <ion-icon slot="icon-only" :icon="refreshOutline" />
           </ion-button>
-          <ion-button v-if="isChatStarted" @click="startNewChat">
+          <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
-          <ion-button>
+          <ion-button @click="openThreadModal">
             <ion-icon slot="start" :icon="chatbubblesOutline" />
             {{ translate("Threads") }}
           </ion-button>
         </ion-buttons>
-
       </ion-toolbar>
+
+      <!-- Thread Selection List (Visible when menu is toggled) -->
     </ion-header>
 
     <ion-content>
@@ -24,34 +25,23 @@
         <!-- Chat Section -->
         <div class="chat-section">
           <ion-list class="chat-history">
-            <!-- Example chat items -->
-            <ion-item lines="none" class="prompt-item">
-              <ion-label>
-                <p>{{ translate("User Prompt Example") }}</p>
-              </ion-label>
-            </ion-item>
-            <ion-item lines="none" class="response-item">
-              <ion-label>
-                <p>{{ translate("Circuit Response Example") }}</p>
-              </ion-label>
-            </ion-item>
+            <template v-for="message in messages" :key="message.id">
+              <ion-item lines="none" :class="message.role === 'user' ? 'prompt-item' : 'response-item'">
+                <ion-label>
+                  <p class="role-label">{{ message.role === 'user' ? translate('User') : translate('Circuit') }}</p>
+                  <p>{{ message.content }}</p>
+                </ion-label>
+              </ion-item>
+            </template>
           </ion-list>
 
-          <div class="chat-input-area">
-            <ion-item counter class="prompt-input">
-              <ion-label position="stacked">{{ translate("Your prompt here") }}</ion-label>
-              <ion-textarea :auto-grow="true" v-model="prompt"></ion-textarea>
-              <ion-button slot="end" fill="clear">
-                <ion-icon slot="icon-only" :icon="sendOutline" />
-              </ion-button>
-            </ion-item>
-            <div class="context-chips">
-              <ion-chip outline>
-                <ion-icon :icon="addOutline" />
-                <ion-label>{{ translate("Add context") }}</ion-label>
-              </ion-chip>
-            </div>
-          </div>
+          <CircuitPromptArea 
+            v-model="prompt" 
+            :selectedContext="selectedContext"
+            @send="onSend" 
+            @add-context="addContext" 
+            @remove-context="removeContext"
+          />
         </div>
 
         <!-- Divider -->
@@ -77,6 +67,33 @@
         </div>
       </div>
     </ion-content>
+
+    <ion-modal :is-open="showThreadMenu" @didDismiss="showThreadMenu = false">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ translate("Chat Threads") }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showThreadMenu = false">{{ translate("Close") }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        <ion-list>
+          <ion-item button v-for="thread in threads" :key="thread.id" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
+            <ion-label>
+              <h3>{{ thread.name }}</h3>
+              <p>{{ formatDate(thread.createdAt) }}</p>
+            </ion-label>
+            <ion-button slot="end" fill="clear" color="danger" @click.stop="confirmDelete(thread.id)">
+              <ion-icon slot="icon-only" :icon="trashOutline" />
+            </ion-button>
+          </ion-item>
+          <ion-item v-if="threads.length === 0">
+            <ion-label color="medium">{{ translate("No threads found") }}</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -91,23 +108,68 @@ import {
   IonItem, 
   IonLabel, 
   IonList, 
+  IonModal,
   IonPage, 
-  IonTextarea, 
   IonTitle, 
   IonToolbar 
 } from '@ionic/vue';
+import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
+import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import { 
   addOutline, 
   chatbubblesOutline, 
   refreshOutline,
-  sendOutline 
+  sendOutline,
+  trashOutline
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import { DateTime } from 'luxon';
+import { modalController } from '@ionic/vue';
 
 const store = useStore();
 const prompt = ref('');
+
+const messages = computed(() => store.getters['circuit/getMessages']);
+const threads = computed(() => store.getters['circuit/getThreads']);
+const currentThreadId = computed(() => store.getters['circuit/getCurrentThreadId']);
+const showThreadMenu = ref(false);
+
+onMounted(() => {
+  store.dispatch('circuit/loadAllThreads');
+});
+
+const selectedContext = ref(null as any);
+
+const onSend = () => {
+  if (!prompt.value.trim()) return;
+  let message = prompt.value;
+  if (selectedContext.value) {
+    message += ` [Context: ${selectedContext.value.routingName}]`;
+    selectedContext.value = null;
+  }
+  store.dispatch('circuit/sendMessage', message);
+  prompt.value = '';
+}
+
+const addContext = async () => {
+  const modal = await modalController.create({
+    component: RoutingRuleSelectionModal,
+  });
+  
+  modal.onDidDismiss().then((result) => {
+    if (result.data) {
+      selectedContext.value = result.data;
+    }
+  });
+
+  return modal.present();
+}
+
+const removeContext = () => {
+  selectedContext.value = null;
+}
 
 const isChatStarted = computed(() => store.getters['circuit/isChatStarted']);
 
@@ -115,8 +177,27 @@ const resetCircuit = () => {
   store.dispatch('circuit/resetCircuit');
 }
 
-const startNewChat = () => {
-  store.dispatch('circuit/startNewChat');
+const createNewChat = () => {
+  store.dispatch('circuit/createThread');
+  showThreadMenu.value = false;
+}
+
+const openThreadModal = () => {
+  showThreadMenu.value = true;
+}
+
+const selectThread = (threadId: string) => {
+  store.dispatch('circuit/switchThread', threadId);
+  showThreadMenu.value = false;
+}
+
+const confirmDelete = (threadId: string) => {
+  // Simple delete for now
+  store.dispatch('circuit/deleteThread', threadId);
+}
+
+const formatDate = (timestamp: number) => {
+  return DateTime.fromMillis(timestamp).toRelative();
 }
 
 </script>
@@ -144,6 +225,15 @@ const startNewChat = () => {
   background-color: var(--ion-color-step-150, rgba(0,0,0,0.12));
 }
 
+.role-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+  color: var(--ion-color-medium);
+}
+
 
 .canvas-section {
   flex: 2;
@@ -158,6 +248,11 @@ const startNewChat = () => {
 
 .canvas-content {
   flex: 1;
+}
+
+
+.selected-thread {
+  --background: var(--ion-color-step-100);
 }
 </style>
 

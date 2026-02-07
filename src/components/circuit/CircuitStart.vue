@@ -7,10 +7,6 @@
           <ion-button @click="resetCircuit">
             <ion-icon slot="icon-only" :icon="refreshOutline" />
           </ion-button>
-          <ion-button>
-            <ion-icon slot="start" :icon="chatbubblesOutline" />
-            {{ translate("Threads") }}
-          </ion-button>
         </ion-buttons>
 
       </ion-toolbar>
@@ -24,38 +20,17 @@
           </ion-label>
         </ion-item>
 
-        <div class="ion-padding">
-          <ion-item counter class="prompt-input">
-            <ion-label position="stacked">{{ translate("Your prompt here") }}</ion-label>
-            <ion-textarea :auto-grow="true" v-model="prompt"></ion-textarea>
-            <ion-button slot="end" fill="clear" @click="startChat">
-              <ion-icon slot="icon-only" :icon="sendOutline" />
-            </ion-button>
-          </ion-item>
-
-          <div class="context-chips">
-            <ion-chip outline @click="addContext">
-              <ion-icon :icon="addOutline" />
-              <ion-label>{{ translate("Add context") }}</ion-label>
-            </ion-chip>
-          </div>
-        </div>
+        <CircuitPromptArea v-model="prompt" @send="startChat" @add-context="addContext" />
 
         <ion-list>
           <ion-list-header>
             <ion-label>{{ translate("History") }}</ion-label>
           </ion-list-header>
-          <ion-item v-for="thread in threads" :key="thread.id">
+          <ion-item button detail v-for="thread in threads" :key="thread.id" @click="openThread(thread.id)">
             <ion-label>
-              <h2>{{ thread.name }}</h2>
+              {{ thread.name }}
             </ion-label>
             <ion-note slot="end">{{ thread.lastAction }}</ion-note>
-          </ion-item>
-          <ion-item v-if="threads.length === 0">
-            <ion-label>
-              <h2>{{ translate("Chat thread name") }}</h2>
-            </ion-label>
-            <ion-note slot="end">{{ translate("just now") }}</ion-note>
           </ion-item>
         </ion-list>
       </div>
@@ -67,7 +42,6 @@
 import { 
   IonButton, 
   IonButtons, 
-  IonChip, 
   IonContent, 
   IonHeader, 
   IonIcon, 
@@ -77,24 +51,27 @@ import {
   IonListHeader, 
   IonNote, 
   IonPage, 
-  IonTextarea, 
   IonTitle, 
   IonToolbar 
 } from '@ionic/vue';
+import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import { 
   addOutline, 
   chatbubblesOutline, 
-  refreshOutline,
-  sendOutline 
+  refreshOutline 
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 
 const store = useStore();
 const prompt = ref('');
 
 const threads = computed(() => store.getters['circuit/getThreads']);
+
+onMounted(() => {
+  store.dispatch('circuit/loadAllThreads');
+});
 
 const startChat = () => {
   if (prompt.value.trim()) {
@@ -109,6 +86,11 @@ const resetCircuit = () => {
 
 const addContext = () => {
   // Logic to add context
+}
+
+const openThread = (threadId: string) => {
+  store.dispatch('circuit/switchThread', threadId);
+  store.dispatch('circuit/setChatStarted', true);
 }
 </script>
 

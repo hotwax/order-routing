@@ -49,21 +49,7 @@
 
         <!-- Canvas Section -->
         <div class="canvas-section">
-          <div class="canvas-header">
-            <ion-chip>{{ translate("SLA sort") }}</ion-chip>
-            <ion-chip outline>{{ translate("Filter") }}</ion-chip>
-          </div>
-          <div class="canvas-content">
-            <!-- Dynamic data based on Circuit's work -->
-            <ion-list>
-              <ion-item>
-                <ion-label>
-                  <h2>{{ translate("Routing Group") }}</h2>
-                  <p>{{ translate("Built by Circuit") }}</p>
-                </ion-label>
-              </ion-item>
-            </ion-list>
-          </div>
+          <CircuitCanvas :routingGroupId="routingGroupId" />
         </div>
       </div>
     </ion-content>
@@ -114,6 +100,7 @@ import {
   IonToolbar 
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
+import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import { 
   addOutline, 
@@ -134,6 +121,7 @@ const prompt = ref('');
 const messages = computed(() => store.getters['circuit/getMessages']);
 const threads = computed(() => store.getters['circuit/getThreads']);
 const currentThreadId = computed(() => store.getters['circuit/getCurrentThreadId']);
+const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
 const showThreadMenu = ref(false);
 
 onMounted(() => {
@@ -149,7 +137,8 @@ const onSend = () => {
     message += ` [Context: ${selectedContext.value.routingName}]`;
     selectedContext.value = null;
   }
-  store.dispatch('circuit/sendMessage', message);
+  // Use sendAgentMessage for agentic behavior
+  store.dispatch('circuit/sendAgentMessage', message);
   prompt.value = '';
 }
 
@@ -178,8 +167,10 @@ const resetCircuit = () => {
 }
 
 const createNewChat = () => {
-  store.dispatch('circuit/createThread');
-  showThreadMenu.value = false;
+  console.log('createNewChat called');
+  store.dispatch('circuit/setChatStarted', false);
+  store.commit('circuit/SET_CURRENT_THREAD_ID', null);
+  store.commit('circuit/SET_MESSAGES', []);
 }
 
 const openThreadModal = () => {
@@ -209,20 +200,15 @@ const formatDate = (timestamp: number) => {
 }
 
 .chat-section {
-  flex: 1;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
-  max-width: 400px;
+  border-right: 1px solid var(--ion-color-step-150, rgba(0,0,0,0.12));
 }
 
 .chat-history {
   flex: 1;
   overflow-y: auto;
-}
-
-.divider {
-  width: 1px;
-  background-color: var(--ion-color-step-150, rgba(0,0,0,0.12));
 }
 
 .role-label {
@@ -234,25 +220,13 @@ const formatDate = (timestamp: number) => {
   color: var(--ion-color-medium);
 }
 
-
 .canvas-section {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-}
-
-.canvas-header {
-  display: flex;
-  gap: 8px;
-}
-
-.canvas-content {
   flex: 1;
+  overflow: hidden;
+  height: 100%;
 }
-
 
 .selected-thread {
   --background: var(--ion-color-step-100);
 }
 </style>
-

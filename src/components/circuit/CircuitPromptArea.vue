@@ -41,6 +41,7 @@
   import { translate } from '@/i18n';
   import { computed } from 'vue';
   
+  /* eslint-disable no-undef */
   const props = defineProps<{
     modelValue: string,
     selectedContext: any
@@ -52,6 +53,7 @@
     (e: 'add-context'): void
     (e: 'remove-context'): void
   }>();
+  /* eslint-enable no-undef */
   
   const internalPrompt = computed({
     get: () => props.modelValue,

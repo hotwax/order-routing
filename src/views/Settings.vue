@@ -137,6 +137,15 @@
             <ion-button 
               slot="end" 
               fill="outline" 
+              color="danger"
+              v-if="modelInfo.status === 'installed'"
+              @click="unloadModel()"
+            >
+              {{ translate("Unload") }}
+            </ion-button>
+            <ion-button 
+              slot="end" 
+              fill="outline" 
               :disabled="modelInfo.status === 'installing' || modelInfo.status === 'installed'"
               @click="installModel()"
             >
@@ -177,11 +186,13 @@ const browserTimeZone = ref({
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
 })
 
+/* eslint-disable no-undef */
 const props = defineProps({
   showBrowserTimeZone: {
     type: Boolean,
     default: true
   },
+/* eslint-enable no-undef */
   showDateTime: {
     type: Boolean,
     default: true
@@ -221,6 +232,10 @@ function logout() {
 
 function installModel() {
   store.dispatch('circuit/initLLM');
+}
+
+function unloadModel() {
+  store.dispatch('circuit/unloadLLM');
 }
 
 function getDateTime(time: any) {

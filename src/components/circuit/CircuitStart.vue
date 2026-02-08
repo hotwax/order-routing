@@ -20,7 +20,13 @@
           </ion-label>
         </ion-item>
 
-        <CircuitPromptArea v-model="prompt" @send="startChat" @add-context="addContext" />
+        <CircuitPromptArea 
+          v-model="prompt" 
+          :selectedContext="selectedContext"
+          @send="startChat" 
+          @add-context="addContext" 
+          @remove-context="removeContext"
+        />
 
         <ion-list>
           <ion-list-header>
@@ -56,10 +62,10 @@ import {
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import { 
-  addOutline, 
-  chatbubblesOutline, 
-  refreshOutline 
+  refreshOutline
 } from 'ionicons/icons';
+import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
+import { modalController } from '@ionic/vue';
 import { translate } from '@/i18n';
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
@@ -73,19 +79,43 @@ onMounted(() => {
   store.dispatch('circuit/loadAllThreads');
 });
 
+const selectedContext = ref(null as any);
+
 const startChat = () => {
   if (prompt.value.trim()) {
-    store.dispatch('circuit/setChatStarted', true);
+    let message = prompt.value;
+    if (selectedContext.value) {
+      message += ` [Context: ${selectedContext.value.routingName}]`;
+      selectedContext.value = null;
+    }
+    // Reset current thread ID to null to ensure a new thread is created
+    store.dispatch('circuit/switchThread', null);
+    // Use sendAgentMessage for agentic behavior
+    store.dispatch('circuit/sendAgentMessage', message);
+    prompt.value = '';
   }
+}
+
+const addContext = async () => {
+  const modal = await modalController.create({
+    component: RoutingRuleSelectionModal,
+  });
+  
+  modal.onDidDismiss().then((result) => {
+    if (result.data) {
+      selectedContext.value = result.data;
+    }
+  });
+
+  return modal.present();
+}
+
+const removeContext = () => {
+  selectedContext.value = null;
 }
 
 const resetCircuit = () => {
   store.dispatch('circuit/resetCircuit');
-}
-
-
-const addContext = () => {
-  // Logic to add context
 }
 
 const openThread = (threadId: string) => {

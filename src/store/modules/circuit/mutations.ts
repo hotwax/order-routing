@@ -36,6 +36,24 @@ const mutations: MutationTree<CircuitState> = {
         content: lastMessage.content + payload
       });
     }
+  },
+  [types.SET_LAST_MESSAGE](state, payload: string) {
+    if (state.messages.length > 0) {
+      const lastMessage = state.messages[state.messages.length - 1];
+      state.messages.splice(state.messages.length - 1, 1, {
+        ...lastMessage,
+        content: payload
+      });
+    }
+  },
+  [types.SET_GPU_INFO](state, payload: any) {
+    state.gpuInfo = payload;
+  },
+  [types.SET_ACTIVE_CONTEXT](state, payload: any) {
+    state.activeContext = payload;
+  },
+  [types.SET_LAST_PROMPT](state, payload: any[] | null) {
+    state.lastPrompt = payload;
   }
 }
 

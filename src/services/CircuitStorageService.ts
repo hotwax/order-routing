@@ -17,14 +17,18 @@ export interface ChatMessage {
 }
 
 let db: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
 
 const initDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (db) return resolve(db);
+  if (db) return Promise.resolve(db);
+  if (dbPromise) return dbPromise;
 
+  dbPromise = new Promise((resolve, reject) => {
+    console.log('Opening IndexedDB:', DB_NAME, 'Version:', DB_VERSION);
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event: any) => {
+      console.log('IndexedDB upgrade needed');
       const db = event.target.result;
       if (!db.objectStoreNames.contains('threads')) {
         db.createObjectStore('threads', { keyPath: 'id' });
@@ -37,89 +41,99 @@ const initDB = (): Promise<IDBDatabase> => {
 
     request.onsuccess = (event: any) => {
       console.log('IndexedDB opened successfully');
-      db = event.target.result;
-      resolve(db as IDBDatabase);
+      db = event.target.result as IDBDatabase;
+      
+      db.onversionchange = () => {
+        console.warn('Closing database connection due to upgrade request from another tab');
+        db?.close();
+        db = null;
+        dbPromise = null;
+      };
+
+      resolve(db);
     };
 
     request.onerror = (event: any) => {
       console.error('IndexedDB open error', event.target.error);
-      reject('IndexedDB error: ' + event.target.errorCode);
+      dbPromise = null;
+      reject(event.target.error);
+    };
+
+    request.onblocked = () => {
+      console.warn('IndexedDB open blocked. Please close other tabs of this app.');
     };
   });
+
+  return dbPromise;
 };
 
 const saveThread = async (thread: ChatThread): Promise<void> => {
-  const db = await initDB();
+  const database = await initDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['threads'], 'readwrite');
+    const transaction = database.transaction(['threads'], 'readwrite');
     const store = transaction.objectStore('threads');
     const request = store.put(thread);
-    request.onsuccess = () => {
-      console.log('Thread saved successfully', thread);
-      resolve();
-    };
-    request.onerror = () => {
-      console.error('Thread save error', request.error);
-      reject(request.error);
-    };
+    
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(new Error('Transaction aborted'));
+    request.onerror = () => reject(request.error);
   });
 };
 
 const getThreads = async (): Promise<ChatThread[]> => {
-  const db = await initDB();
+  const database = await initDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['threads'], 'readonly');
+    const transaction = database.transaction(['threads'], 'readonly');
     const store = transaction.objectStore('threads');
     const request = store.getAll();
+    
     request.onsuccess = () => resolve(request.result || []);
     request.onerror = () => reject(request.error);
+    transaction.onerror = () => reject(transaction.error);
   });
 };
 
 const saveMessage = async (message: ChatMessage): Promise<void> => {
-  const db = await initDB();
+  const database = await initDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['messages'], 'readwrite');
+    const transaction = database.transaction(['messages'], 'readwrite');
     const store = transaction.objectStore('messages');
     const request = store.put(message);
-    request.onsuccess = () => {
-      console.log('Message saved successfully', message);
-      resolve();
-    };
-    request.onerror = () => {
-      console.error('Message save error', request.error);
-      reject(request.error);
-    };
-  });
-};
-
-const getMessages = async (threadId: string): Promise<ChatMessage[]> => {
-  const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['messages'], 'readonly');
-    const store = transaction.objectStore('messages');
-    const index = store.index('threadId');
-    const request = index.getAll(IDBKeyRange.only(threadId));
-    request.onsuccess = () => {
-      const result = request.result || [];
-      // Sort messages by createdAt
-      result.sort((a, b) => a.createdAt - b.createdAt);
-      resolve(result);
-    };
+    
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(new Error('Transaction aborted'));
     request.onerror = () => reject(request.error);
   });
 };
 
-const deleteThread = async (threadId: string): Promise<void> => {
-  const db = await initDB();
+const getMessages = async (threadId: string): Promise<ChatMessage[]> => {
+  const database = await initDB();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['threads', 'messages'], 'readwrite');
+    const transaction = database.transaction(['messages'], 'readonly');
+    const store = transaction.objectStore('messages');
+    const index = store.index('threadId');
+    const request = index.getAll(IDBKeyRange.only(threadId));
     
-    // Delete thread
+    request.onsuccess = () => {
+      const result = request.result || [];
+      result.sort((a, b) => a.createdAt - b.createdAt);
+      resolve(result);
+    };
+    request.onerror = () => reject(request.error);
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
+const deleteThread = async (threadId: string): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(['threads', 'messages'], 'readwrite');
+    
     const threadStore = transaction.objectStore('threads');
     threadStore.delete(threadId);
 
-    // Delete associated messages
     const messageStore = transaction.objectStore('messages');
     const index = messageStore.index('threadId');
     const request = index.openCursor(IDBKeyRange.only(threadId));
@@ -134,6 +148,7 @@ const deleteThread = async (threadId: string): Promise<void> => {
 
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(new Error('Transaction aborted'));
   });
 };
 

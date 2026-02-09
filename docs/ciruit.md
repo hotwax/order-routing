@@ -20,6 +20,9 @@ Circuit's goal is not to block or consult on routing strategies but to help exec
 
 There will be a wide variety of tools avaiable to Circuit that allow it to find critical information needed to build routing rules. In addition to the tools needed to simply create routing groups, rules and inventory rules, Circuit will also have access to tools that allow it to find data like facilities based on geography, sales velocity, rejection rate, and then create and update data like facility groups and set order limits.
 
+Functions Circuit can call:
+Starting with something simple, the bot will have access to one function that is to update a routing, and the user will use it to just update the routing rule status. Since the model is running locally, there is no MCP, we instead need a different way 
+
 ## Implementation
 
 ### Frontend
@@ -43,3 +46,5 @@ The canvas is where the user can see the routing rules that Circuit has built fo
 At a time the canvas will always present at most 3 levels of data. For example, if Circuit is working on building routing groups, the canvas will show the routing groups that Circuit has built for them. If Circuit is working on building routing rules, the canvas will show the routing group and routing rules that Circuit has built for them. If Circuit is working on building inventory rules, the canvas will show the routing rules, highlighting the selected rule, and then the inventory rules that Circuit has built for them. The goal is to always provide context or visual breadcrumbs of where the user is in the larger context of their routing rules.
 
 The canvas itself is not view only, the user is able to click through it and make changes to the routing rules. For example, if Circuit is working on building routing groups, the canvas will show the routing groups that Circuit has built for them. If the user clicks on a routing group, the canvas will show the routing rules that Circuit has built for them.
+
+To load details into the canvas, the component will accept the routing rule id that the user wants to edit. It will then fetch the routing rule and all of its parent data (routing groups, inventory rules, etc.) and display it on the canvas. 

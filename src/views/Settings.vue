@@ -129,11 +129,24 @@
                 {{ modelInfo.name || "Default Model" }}
               </div>
             </div>
+            <div v-if="gpuInfo.vendor && gpuInfo.vendor !== 'Unknown'" class="gpu-info ion-margin-top">
+              <p>{{ translate("GPU:") }} {{ gpuInfo.vendor }}</p>
+              <p>{{ translate("Max Buffer Size:") }} {{ gpuInfo.maxStorageBufferBindingSize }}</p>
+            </div>
           </ion-card-content>
           <ion-item lines="none" v-if="modelInfo.status !== 'unsupported'">
             <ion-label>
               {{ modelInfo.status === 'installed' ? translate("Installed") : translate("Status: Not Installed") }}
             </ion-label>
+            <ion-button 
+              slot="end" 
+              fill="outline" 
+              color="danger"
+              v-if="modelInfo.status === 'installed'"
+              @click="unloadModel()"
+            >
+              {{ translate("Unload") }}
+            </ion-button>
             <ion-button 
               slot="end" 
               fill="outline" 
@@ -172,16 +185,19 @@ const oms = computed(() => store.getters["user/getInstanceUrl"])
 const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 const currentTimeZoneId = computed(() => userProfile.value.timeZone)
 const modelInfo = computed(() => store.state.circuit.modelInfo)
+const gpuInfo = computed(() => store.state.circuit.gpuInfo)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
 })
 
+/* eslint-disable no-undef */
 const props = defineProps({
   showBrowserTimeZone: {
     type: Boolean,
     default: true
   },
+/* eslint-enable no-undef */
   showDateTime: {
     type: Boolean,
     default: true
@@ -223,6 +239,10 @@ function installModel() {
   store.dispatch('circuit/initLLM');
 }
 
+function unloadModel() {
+  store.dispatch('circuit/unloadLLM');
+}
+
 function getDateTime(time: any) {
   return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
 }
@@ -233,6 +253,10 @@ function goToLaunchpad() {
 </script>
 
 <style scoped>
+
+  ion-content {
+    --padding-bottom: var(--spacer-xl);
+  }
   ion-card > ion-button {
     margin: var(--spacer-xs);
   }

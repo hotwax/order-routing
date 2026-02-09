@@ -221,5 +221,18 @@
   "Version:": "Version: ",
   "View All": "View All",
   "value": "value",
-  "Browser TimeZone":"Browser TimeZone"
+  "Browser TimeZone":"Browser TimeZone",
+  "Circuit": "Circuit",
+  "Threads": "Threads",
+  "User": "User",
+  "Your prompt here": "Your prompt here",
+  "Model ready": "Model ready",
+  "Model is installed and ready.": "Model is installed and ready.",
+  "Installed": "Installed",
+  "Unload": "Unload",
+  "Re-verify": "Re-verify",
+  "Add context": "Add context",
+  "Select a Routing Context": "Select a Routing Context",
+  "Select a routing from the list to view its details and manage inventory rules.": "Select a routing from the list to view its details and manage inventory rules.",
+  "Ask Circuit to help you create or modify rules": "Ask Circuit to help you create or modify rules"
 }

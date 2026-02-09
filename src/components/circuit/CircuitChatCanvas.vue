@@ -10,6 +10,9 @@
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
+          <ion-button @click="showPromptModal = true">
+            <ion-icon slot="icon-only" :icon="terminalOutline" />
+          </ion-button>
           <ion-button @click="openThreadModal">
             <ion-icon slot="start" :icon="chatbubblesOutline" />
             {{ translate("Threads") }}
@@ -49,24 +52,29 @@
 
         <!-- Canvas Section -->
         <div class="canvas-section">
-          <div class="canvas-header">
-            <ion-chip>{{ translate("SLA sort") }}</ion-chip>
-            <ion-chip outline>{{ translate("Filter") }}</ion-chip>
-          </div>
-          <div class="canvas-content">
-            <!-- Dynamic data based on Circuit's work -->
-            <ion-list>
-              <ion-item>
-                <ion-label>
-                  <h2>{{ translate("Routing Group") }}</h2>
-                  <p>{{ translate("Built by Circuit") }}</p>
-                </ion-label>
-              </ion-item>
-            </ion-list>
-          </div>
+          <CircuitCanvas :routingGroupId="routingGroupId" />
         </div>
       </div>
     </ion-content>
+
+    <ion-modal :is-open="showPromptModal" @didDismiss="showPromptModal = false">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ translate("Last Prompt Sent") }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showPromptModal = false">{{ translate("Close") }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <template v-if="lastPrompt">
+          <pre class="prompt-json">{{ JSON.stringify(lastPrompt, null, 2) }}</pre>
+        </template>
+        <div v-else class="ion-text-center ion-padding">
+          <p color="medium">{{ translate("No prompt sent yet in this session.") }}</p>
+        </div>
+      </ion-content>
+    </ion-modal>
 
     <ion-modal :is-open="showThreadMenu" @didDismiss="showThreadMenu = false">
       <ion-header>
@@ -114,12 +122,14 @@ import {
   IonToolbar 
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
+import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import { 
   addOutline, 
   chatbubblesOutline, 
   refreshOutline,
   sendOutline,
+  terminalOutline,
   trashOutline
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
@@ -134,22 +144,28 @@ const prompt = ref('');
 const messages = computed(() => store.getters['circuit/getMessages']);
 const threads = computed(() => store.getters['circuit/getThreads']);
 const currentThreadId = computed(() => store.getters['circuit/getCurrentThreadId']);
+const lastPrompt = computed(() => store.getters['circuit/getLastPrompt']);
+const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
 const showThreadMenu = ref(false);
+const showPromptModal = ref(false);
 
 onMounted(() => {
   store.dispatch('circuit/loadAllThreads');
 });
 
-const selectedContext = ref(null as any);
+const selectedContext = computed({
+  get: () => store.state.circuit.activeContext,
+  set: (value) => store.commit('circuit/SET_ACTIVE_CONTEXT', value)
+});
 
 const onSend = () => {
   if (!prompt.value.trim()) return;
   let message = prompt.value;
   if (selectedContext.value) {
     message += ` [Context: ${selectedContext.value.routingName}]`;
-    selectedContext.value = null;
   }
-  store.dispatch('circuit/sendMessage', message);
+  // Use sendAgentMessage for agentic behavior
+  store.dispatch('circuit/sendAgentMessage', message);
   prompt.value = '';
 }
 
@@ -160,7 +176,7 @@ const addContext = async () => {
   
   modal.onDidDismiss().then((result) => {
     if (result.data) {
-      selectedContext.value = result.data;
+      store.commit('circuit/SET_ACTIVE_CONTEXT', result.data);
     }
   });
 
@@ -168,7 +184,7 @@ const addContext = async () => {
 }
 
 const removeContext = () => {
-  selectedContext.value = null;
+  store.commit('circuit/SET_ACTIVE_CONTEXT', null);
 }
 
 const isChatStarted = computed(() => store.getters['circuit/isChatStarted']);
@@ -178,8 +194,10 @@ const resetCircuit = () => {
 }
 
 const createNewChat = () => {
-  store.dispatch('circuit/createThread');
-  showThreadMenu.value = false;
+  console.log('createNewChat called');
+  store.dispatch('circuit/setChatStarted', false);
+  store.commit('circuit/SET_CURRENT_THREAD_ID', null);
+  store.commit('circuit/SET_MESSAGES', []);
 }
 
 const openThreadModal = () => {
@@ -209,20 +227,15 @@ const formatDate = (timestamp: number) => {
 }
 
 .chat-section {
-  flex: 1;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
-  max-width: 400px;
+  border-right: 1px solid var(--ion-color-step-150, rgba(0,0,0,0.12));
 }
 
 .chat-history {
   flex: 1;
   overflow-y: auto;
-}
-
-.divider {
-  width: 1px;
-  background-color: var(--ion-color-step-150, rgba(0,0,0,0.12));
 }
 
 .role-label {
@@ -234,25 +247,23 @@ const formatDate = (timestamp: number) => {
   color: var(--ion-color-medium);
 }
 
-
 .canvas-section {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-}
-
-.canvas-header {
-  display: flex;
-  gap: 8px;
-}
-
-.canvas-content {
   flex: 1;
+  overflow: hidden;
+  height: 100%;
 }
-
 
 .selected-thread {
   --background: var(--ion-color-step-100);
 }
-</style>
 
+.prompt-json {
+  background: var(--ion-color-step-50, #f4f5f8);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+</style>

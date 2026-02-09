@@ -7,7 +7,8 @@ const getters: GetterTree<CircuitState, RootState> = {
   isChatStarted: (state: CircuitState) => state.isChatStarted,
   getThreads: (state: CircuitState) => state.threads,
   getCurrentThreadId: (state: CircuitState) => state.currentThreadId,
-  getMessages: (state: CircuitState) => state.messages
+  getMessages: (state: CircuitState) => state.messages,
+  getLastPrompt: (state: CircuitState) => state.lastPrompt
 }
 
 export default getters;

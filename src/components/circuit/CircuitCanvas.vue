@@ -2,102 +2,96 @@
   <div class="circuit-canvas" v-if="activeRouting?.orderRoutingId">
     <!-- Routing Group Column -->
     <div class="routing-group">
-      <div class="column-content">
-        <h2>{{ group.groupName || translate("Routing Group") }}</h2>
-        <ion-list v-if="group.routings?.length">
-          <ion-card 
-            v-for="(routing, index) in group.routings" 
-            :key="routing.orderRoutingId"
-            class="routing " 
-            :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId }"
-            @click="selectRouting(routing)"
-          >
-            <ion-item lines="none">
-              <ion-label>
-                {{ routing?.routingName }}
-              </ion-label>
-              <ion-chip slot="end" v-if="group.routings">
-                {{ (index as number) + 1 }}/{{ group.routings.length }}
-              </ion-chip>
-            </ion-item>
-            <ion-item lines="none" v-if="routing.filtersCount">
-              <ion-label>
-                {{ routing.filtersCount }} {{ translate("filters") }}
-              </ion-label>
-              <ion-icon slot="end" :icon="filterOutline"></ion-icon>
-            </ion-item>
-            <ion-item lines="none" v-if="routing.sortCount">
-              <ion-label>
-                {{ routing.sortCount }} {{ translate("sortings") }}
-              </ion-label>
-              <ion-icon slot="end" :icon="swapVerticalOutline"></ion-icon>
-            </ion-item>
-            <ion-item lines="none">
-              <ion-badge :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">
-                {{ getStatusDesc(routing.statusId) }}
-              </ion-badge>
-              <ion-button slot="end" fill="clear" size="small" @click.stop="openRouteDetails(routing)">
-                {{ translate("Details") }}
-              </ion-button>
-            </ion-item>
-          </ion-card>
-        </ion-list>
-        <div v-else class="empty-state">
-          <p>{{ translate("No routings available") }}</p>
-        </div>
+      <h2>{{ group.groupName || translate("Routing Group") }}</h2>
+      <ion-list v-if="group.routings?.length">
+        <ion-card 
+          v-for="(routing, index) in group.routings" 
+          :key="routing.orderRoutingId"
+          class="routing" 
+          :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId }"
+          @click="selectRouting(routing)"
+          button
+        >
+        <ion-ripple-effect></ion-ripple-effect>
+          <ion-item lines="none">
+            <ion-label>
+              {{ routing?.routingName }}
+            </ion-label>
+            <ion-chip slot="end" v-if="group.routings">
+              {{ (index as number) + 1 }}/{{ group.routings.length }}
+            </ion-chip>
+          </ion-item>
+          <ion-item v-if="routing.filtersCount">
+            <ion-label>
+              {{ routing.filtersCount }} {{ translate("filters") }}
+            </ion-label>
+            <ion-icon slot="end" :icon="filterOutline"></ion-icon>
+          </ion-item>
+          <ion-item v-if="routing.sortCount">
+            <ion-label>
+              {{ routing.sortCount }} {{ translate("sortings") }}
+            </ion-label>
+            <ion-icon slot="end" :icon="swapVerticalOutline"></ion-icon>
+          </ion-item>
+          <ion-item lines="none">
+            <ion-badge :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">
+              {{ getStatusDesc(routing.statusId) }}
+            </ion-badge>
+          </ion-item>
+        </ion-card>
+      </ion-list>
+      <div v-else class="empty-state">
+        <p>{{ translate("No routings available") }}</p>
       </div>
     </div>
 
-    <!-- Routing Rules Column -->
+    <!-- Routing Column -->
     <div class="routing">
-      <ion-card class="routing-summary">
-          <ion-item lines="none">
-            <ion-label>
-              <p>{{ getRouteIndex() }}</p>
-              <h1>{{ activeRouting?.routingName }}</h1>
-            </ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-icon :icon="timeOutline" slot="start"></ion-icon>
-            <ion-label>last run</ion-label>
-            <ion-chip slot="end">10:00 01/01</ion-chip>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-icon slot="start" :icon="bookmarkOutline" />
-            <ion-label>{{ translate("Status") }}</ion-label>
-            <ion-label slot="end">{{ getStatusDesc(activeRouting?.statusId) }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-icon slot="start" :icon="bookmarkOutline" />
-            <ion-label>{{ translate("Status") }}</ion-label>
-            <ion-label slot="end">{{ getStatusDesc(activeRouting?.statusId) }}</ion-label>
-          </ion-item>
-            <ion-button size="small" color="medium" fill="outline">
-              <ion-icon slot="start" :icon="pencilOutline" />
-              <ion-label>{{ translate("Rename") }}</ion-label>
-            </ion-button>
-            <ion-button size="small" color="medium" fill="outline">
-              <ion-icon slot="start" :icon="copyOutline" />
-              <ion-label>{{ translate("Clone") }}</ion-label>
-            </ion-button>
-        </ion-card>
-      <div class="routing-config">
-        <section class="filter">
+      <ion-card class="summary">
+        <ion-item class="title" lines="none">
+          <ion-label>
+            <p>{{ getRouteIndex() }}</p>
+            <h1>{{ activeRouting?.routingName }}</h1>
+          </ion-label>
+        </ion-item>
+        <div class="actions">
+          <ion-button size="small" color="medium" fill="outline">
+            <ion-icon slot="start" :icon="pencilOutline" />
+            <ion-label>{{ translate("Rename") }}</ion-label>
+          </ion-button>
+          <ion-button size="small" color="medium" fill="outline">
+            <ion-icon slot="start" :icon="copyOutline" />
+            <ion-label>{{ translate("Clone") }}</ion-label>
+          </ion-button>
+        </div>
+        <ion-item class="history">
+          <ion-icon :icon="timeOutline" slot="start"></ion-icon>
+          <ion-label>Last run</ion-label>
+          <ion-chip slot="end">10:00 01/01</ion-chip>
+        </ion-item>
+        <ion-item class="status" lines="none">
+          <ion-icon slot="start" :icon="bookmarkOutline" />
+          <ion-label>{{ translate("Status") }}</ion-label>
+          <ion-label slot="end">{{ getStatusDesc(activeRouting?.statusId) }}</ion-label>
+        </ion-item>
+      </ion-card>
+      <div class="config">
+        <section class="condition">
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
-              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button size="default" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
-              <ion-button :disabled="isTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   {{ translate("Add filters") }}
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <div slot="label">
                   {{ translate("Queue") }}
@@ -105,7 +99,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate("Queue") }}</ion-label>
@@ -114,7 +108,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <div slot="label">
                   {{ translate("Shipping method") }}
@@ -122,7 +116,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Shipping method') }}</ion-label>
@@ -131,7 +125,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
                 <div slot="label">
                   {{ translate("Order priority") }}
@@ -141,7 +135,7 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY_EXCLUDED')">
                 <div slot="label">
                   <ion-label>{{ translate('Order priority') }}</ion-label>
@@ -152,7 +146,7 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
                 <div slot="label">
                   {{ translate("Sales Channel") }}
@@ -160,7 +154,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Sales Channel') }}</ion-label>
@@ -169,7 +163,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
                 <div slot="label">
                   {{ translate("Origin Facility Group") }}
@@ -177,7 +171,7 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Origin Facility Group') }}</ion-label>
@@ -190,57 +184,59 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button size="default" :disabled="isTestEnabled" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button size="default" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
-              <ion-button :disabled="isTestEnabled" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   {{ translate("Add sorting") }}
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
-              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
+            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)">
+              <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
                 <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
           </ion-item-group>
         </section>
-        <section v-if="inventoryRules.length" id="rules">
-          <section id="inventory-sequence" class="menu">
-            <ion-list>
-              <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isTestEnabled">
-                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="!isTestEnabled && selectRule(rule)" button>
-                  <ion-label>
-                    <h2>{{ rule.ruleName }}</h2>
-                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
-                  </ion-label>
-                  <!-- Don't display reordering option when there is a single rule -->
-                  <ion-reorder v-show="rulesForReorder.length > 1" />
-                </ion-item>
-              </ion-reorder-group>
-              <ion-item v-if="getArchivedOrderRules().length > 0" button lines="full">
-                <ion-label>{{ translate("Archived") }}</ion-label>
-                <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
+        <section class="rules">
+          <ion-list>
+            <ion-list-header>
+              <ion-label>{{ translate("Routing rules") }}</ion-label>
+            </ion-list-header>
+              
+            <ion-reorder-group @ionItemReorder="doReorder($event)">
+              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
+                <ion-label>
+                  <h2>{{ rule.ruleName }}</h2>
+                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
+                </ion-label>
+                <!-- Don't display reordering option when there is a single rule -->
+                <ion-reorder v-show="rulesForReorder.length > 1" />
               </ion-item>
-            </ion-list>
-            <ion-button v-if="!isTestEnabled" fill="outline">
-              {{ translate("Add inventory rule") }}
-              <ion-icon :icon="addCircleOutline" slot="end"/>
-            </ion-button>
-          </section>
+            </ion-reorder-group>
+            <ion-item v-if="getArchivedOrderRules().length > 0" button lines="full">
+              <ion-label>{{ translate("Archived") }}</ion-label>
+              <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
+            </ion-item>
+          </ion-list>
+          <ion-button fill="outline">
+            {{ translate("Add inventory rule") }}
+            <ion-icon :icon="addCircleOutline" slot="end"/>
+          </ion-button>
         </section>
       </div>
     </div>
 
-    <!-- Inventory Rules Column -->
+    <!-- Routing Rules Column -->
     <div class="routing-rule">
       <div v-if="activeRule?.routingRuleId">
-        <ion-card class="rule-info">
-          <ion-item lines="none">
+        <ion-card class="summary">
+          <ion-item class="title" lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
               <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
@@ -248,28 +244,20 @@
             <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
             <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
           </ion-item>
-          <div>
-            <ion-item :disabled="testRoutingInfo.isRuleTestEnabled">
-              <ion-icon slot="start" :icon="pulseOutline" />
-              <ion-select :label="translate('Status')" interface="popover" :value="getRuleStatus(selectedRoutingRule.routingRuleId)" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
-                <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
-                <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
-                <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
-              </ion-select>
-            </ion-item>
-            <ion-item lines="none">
-              <div slot="end">
-                <ion-button v-if="!testRoutingInfo.isRuleTestEnabled" size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
-                  <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
-                  {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
-                </ion-button>
-                <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
-                  <ion-icon slot="start" :icon="speedometerOutline" />
-                  {{ translate(testRoutingInfo.isRuleTestEnabled ? "Exit test mode" : "Test") }}
-                </ion-button>
-              </div>
-            </ion-item>
+          <div class="actions">
+            <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
+              <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
+              {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
+            </ion-button>
           </div>
+          <ion-item lines="none" class="status">
+            <ion-icon slot="start" :icon="pulseOutline" />
+            <ion-select :label="translate('Status')" interface="popover" :value="getRuleStatus(selectedRoutingRule.routingRuleId)" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+              <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
+              <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
+              <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
+            </ion-select>
+          </ion-item>
         </ion-card>
         <section class="config">
           <ion-card class="filter">
@@ -365,7 +353,7 @@
               </ion-item>
             </ion-reorder-group>
           </ion-card>
-          <ion-card class="actions">
+          <ion-card class="split">
             <ion-card-header>
               <ion-card-title>
                 {{ translate("Partially available") }}
@@ -386,7 +374,7 @@
               <ion-toggle :disabled="activeRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
             </ion-item>
           </ion-card>
-          <ion-card class="actions">
+          <ion-card class="unavailable">
             <ion-card-header>
               <ion-card-title>
                 {{ translate("Unavailable items") }}
@@ -428,7 +416,7 @@
         </section>
       </div>
     </div>
-    <ion-fab vertical="bottom" horizontal="end" slot="fixed" v-if="!testRoutingInfo.isRoutingTestEnabled">
+    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
       <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
@@ -471,6 +459,7 @@ import {
   IonLabel,
   IonList,
   IonNote,
+  IonRippleEffect,
   IonReorder,
   IonReorderGroup,
   IonSelect,
@@ -493,7 +482,6 @@ import {
   addCircleOutline,
   pulseOutline,
   saveOutline,
-  speedometerOutline,
   golfOutline,
   playForwardOutline,
   gitNetworkOutline,
@@ -561,12 +549,10 @@ const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"]);
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 
-const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
 const operatorRef = ref()
 const measurementRef = ref()
 
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
-const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
 const routingStatus = computed(() => activeRouting.value?.statusId)
 const selectedRoutingRule = computed(() => activeRule.value || {})
 const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => rule.routingRuleId == ruleId)?.statusId)
@@ -1178,39 +1164,6 @@ function findActionDiff(previousSeq: any, updatedSeq: any) {
   return { seqToUpdate, seqToRemove };
 }
 
-async function enableRuleTest() {
-  if(testRoutingInfo.value.isRuleTestEnabled) {
-    await updateUserTestSession();
-  } else {
-    await createUserTestSession();
-  }
-
-  if(testRoutingInfo.value.currentOrderId) {
-    exitTestMode();
-    return;
-  }
-
-  store.dispatch("orderRouting/updateRoutingTestInfo", [
-    { key: "isRuleTestEnabled", value: !testRoutingInfo.value.isRuleTestEnabled },
-    { key: "selectedRuleId", value: "" },
-    { key: "unmatchedOrderFilters", value: [] }
-  ])
-}
-
-async function updateUserTestSession() {
-  // Logic to update user test session if needed
-}
-
-async function createUserTestSession() {
-  // Logic to create user test session if needed
-}
-
-async function exitTestMode() {
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
-  await updateUserTestSession();
-  return true;
-}
-
 const openRouteDetails = (routing: any) => {
   // Logic to open details modal/menu if needed
   console.log("Open details for:", routing);
@@ -1341,16 +1294,16 @@ function doReorder(event: CustomEvent) {
 .circuit-canvas {
   display: grid;
   grid-template-columns: repeat(6, 350px);
-  overflow: scroll;
   column-gap: var(--spacer-base);
-  padding: var(--spacer-base);
+  height: 100%;
+  overflow-x: scroll;
 }
 
 ion-card {
   margin: 0;
 }
 
-/* assing columns */
+/* assign columns */
 
 .routing-group {
   grid-column: 1;
@@ -1365,19 +1318,62 @@ ion-card {
 }
 
 /* routing group */
-
-/* routing */
-.routing-config {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacer-base);
+.routing-group {
+  height: 100%;
+  overflow-y: scroll;
+  padding-block-end: var(--spacer-2xl);
 }
 
-.routing-config .filter {
+.routing-group h2 {
+  margin-inline: var(--spacer-sm);
+}
+
+.routing-group ion-card {
+  margin: var(--spacer-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* summary */
+.summary {
+  margin: var(--spacer-sm);
+  display: grid;
+}
+
+.summary .title {
   grid-column: 1;
 }
 
-.routing-config .rules {
+.summary .actions {
+  grid-column: 1;
+  padding: var(--spacer-xs);
+}
+
+.summary .status {
+  grid-column: 2;
+}
+
+.summary .history {
+  grid-row: 1;
+  grid-column: 2;
+  align-self: end;
+}
+
+/* routing */
+.routing .config {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.routing .config > section {
+  margin: var(--spacer-sm);
+}
+
+.routing .config .condition {
+  grid-column: 1;
+}
+
+.routing .config .rules {
   grid-column: 2;
 }
 
@@ -1385,7 +1381,9 @@ ion-card {
 .routing-rule .config {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacer-base);
+  gap: var(--spacer-sm);
+  padding: var(--spacer-sm);
+  align-items: start;
 }
 
 .routing-rule .filter {
@@ -1394,6 +1392,14 @@ ion-card {
 
 .routing-rule .sort {
   grid-column: 2;
+}
+
+.routing-rule .split {
+  grid-column: 1;
+}
+
+.routing-rule .unavailable {
+  grid-column: 1;
 }
 
 /* Empty State */

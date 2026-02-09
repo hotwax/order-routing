@@ -63,6 +63,25 @@
               </ion-button>
             </p>
             <!-- Using hardcoded options for filters, as in filters we have multiple ways of value selection for filters like select, chip -->
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')">
+              <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['PROD_CATEGORY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
+                  {{ translate("Product Category") }}
+                </div>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-icon v-show="isFilterUnmatched(ruleEnums['PROD_CATEGORY_EXCLUDED']?.code)" color="danger" :icon="closeCircleOutline"/>
+                  <ion-label>{{ translate("Product Category") }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <div slot="label">
@@ -483,6 +502,7 @@ const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getC
 const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
 const routingRules = computed(() => store.getters["orderRouting/getRulesInformation"])
 const facilities = computed(() => store.getters["util/getVirtualFacilities"])
+const catalogCategories = computed(() => store.getters["util/getCatalogCategories"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
@@ -520,7 +540,7 @@ const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
+  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchCategories"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
   store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.

@@ -2,9 +2,12 @@ import { ActionTree } from 'vuex'
 import RootState from '@/store/RootState'
 import CircuitState from './CircuitState'
 import * as types from './mutation-types'
-import { CircuitStorageService, ChatThread, ChatMessage } from '@/services/CircuitStorageService'
+import { ChatMessage } from '@/services/CircuitStorageService'
 import CircuitLLMService from '@/services/CircuitLLMService';
+import MastraService from '@/services/MastraService';
 import { translate } from '@/i18n';
+import store from '@/store'
+import { showToast } from '@/utils'
 
 const actions: ActionTree<CircuitState, RootState> = {
   setIntroDone({ commit }, payload: boolean) {
@@ -22,7 +25,9 @@ const actions: ActionTree<CircuitState, RootState> = {
   },
   async loadAllThreads({ commit, state, dispatch }) {
     try {
-      const threads = await CircuitStorageService.getThreads();
+      const userProfile = store.getters['user/getUserProfile'];
+      const resourceId = `order-routing-agent-${userProfile.partyId}`;
+      const threads = await MastraService.getThreads(resourceId);
       commit(types.SET_THREADS, threads);
       
       // If no current thread is selected, select the most recent one
@@ -32,7 +37,14 @@ const actions: ActionTree<CircuitState, RootState> = {
         dispatch('switchThread', mostRecent.id);
       } else if (state.currentThreadId) {
         // If there is already a current thread ID (e.g., from persistence), load its messages
-        const messages = await CircuitStorageService.getMessages(state.currentThreadId);
+        const mastraMessages = await MastraService.getMessages(state.currentThreadId);
+        const messages: any = mastraMessages?.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role === 'assistant' ? 'circuit' : msg.role, 
+          content: msg.content.content,
+          threadId: msg.threadId,
+          createdAt: new Date(msg.createdAt).getTime()
+        }));
         commit(types.SET_MESSAGES, messages);
       }
     } catch (error) {
@@ -40,31 +52,37 @@ const actions: ActionTree<CircuitState, RootState> = {
     }
   },
   async createThread({ commit, dispatch }, name = 'New Chat'): Promise<string | undefined> {
-    const thread: ChatThread = {
-      id: Date.now().toString(),
-      name,
-      createdAt: Date.now()
-    };
     try {
-      console.log('Saving thread to IndexedDB:', thread);
-      await CircuitStorageService.saveThread(thread);
-      console.log('Thread saved, switching to new thread:', thread.id);
-      await dispatch('switchThread', thread.id);
+      const { id } = await MastraService.createThread();
+      if (!id) {
+        throw 'Failed to create thread';
+      }
+      console.log('Thread saved, switching to new thread:', id);
+      await dispatch('switchThread', id);
       await dispatch('loadAllThreads');
-      return thread.id;
+      return id;
     } catch (error) {
       console.error('Failed to create thread', error);
+      showToast('Failed to create new Chat.')
     }
   },
   async switchThread({ commit }, threadId: string | null) {
     commit(types.SET_CURRENT_THREAD_ID, threadId);
-    commit(types.SET_ACTIVE_CONTEXT, null);
+    commit(types.SET_MESSAGES, null);
     if (!threadId) {
       commit(types.SET_MESSAGES, []);
       return;
     }
     try {
-      const messages = await CircuitStorageService.getMessages(threadId);
+      // Map Mastra messages to ChatMessage
+      const mastraMessages = await MastraService.getMessages(threadId);
+      const messages: any = mastraMessages?.map((msg: any) => ({
+        id: msg.id,
+        role: msg.role === 'assistant' ? 'circuit' : msg.role, 
+        content: msg.content.content,
+        threadId: msg.threadId,
+        createdAt: new Date(msg.createdAt).getTime()
+      }));
       commit(types.SET_MESSAGES, messages);
     } catch (error) {
       console.error('Failed to load messages', error);
@@ -72,7 +90,7 @@ const actions: ActionTree<CircuitState, RootState> = {
   },
   async deleteThread({ dispatch, state, commit }, threadId: string) {
     try {
-      await CircuitStorageService.deleteThread(threadId);
+      await MastraService.deleteThread(threadId);
       if (state.currentThreadId === threadId) {
         commit(types.SET_CURRENT_THREAD_ID, null);
         commit(types.SET_MESSAGES, []);
@@ -83,7 +101,7 @@ const actions: ActionTree<CircuitState, RootState> = {
       console.error('Failed to delete thread', error);
     }
   },
-  async sendAgentMessage({ commit, state, dispatch }, payload: string) {
+  async sendAgentMessage({ commit, state, dispatch }, payload: any) {
     console.log('sendAgentMessage action called with payload:', payload);
     commit(types.SET_CHAT_STARTED, true)
     
@@ -93,7 +111,7 @@ const actions: ActionTree<CircuitState, RootState> = {
     // If no thread exists, create one and wait for it
     if (!threadId) {
       console.log('No threadId found, creating new thread...');
-      threadId = await dispatch('createThread', payload.substring(0, 30) || 'New Chat');
+      threadId = await dispatch('createThread', payload.message.substring(0, 30) || 'New Chat');
       console.log('New thread created with ID:', threadId);
       if (!threadId) {
         console.error('Failed to resolve threadId');
@@ -103,43 +121,17 @@ const actions: ActionTree<CircuitState, RootState> = {
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: payload,
+      content: payload.message,
       id: Date.now().toString(),
       threadId: threadId!,
       createdAt: Date.now()
     }
     
     try {
-      await CircuitStorageService.saveMessage(userMessage);
       commit(types.ADD_MESSAGE, userMessage);
 
-      // Check if local LLM is available
-      const modelStatus = state.modelInfo.status;
-      console.log(`Checking model status in sendAgentMessage: ${modelStatus}`);
-      if (modelStatus === 'installed') {
-        let fullResponse = "";
         try {
-          // Prepare chat history
-          const history = state.messages
-            .map(msg => ({
-              role: (msg.role === 'circuit' ? 'assistant' : 'user') as "assistant" | "user",
-              content: msg.content
-            }));
-          
-          // Simple system prompt
-        let systemContent = "You are Circuit, an AI assistant for HotWax Commerce. You help users manage routing rules and orders.";
-
-        // If activeContext is present, append its data to the system prompt
-        if (state.activeContext) {
-          systemContent += `\n\nThe following is the JSON context for the routing group "${state.activeContext.routingName}":\n${JSON.stringify(state.activeContext, null, 2)}`;
-        }
-
-        const systemPrompt = {
-          role: 'system' as const,
-          content: systemContent
-        };
-        
-        // Create an initial empty message for the assistant
+          // Create an initial empty message for the assistant
         const assistantMessage: ChatMessage = {
           role: 'circuit',
           content: '',
@@ -147,60 +139,26 @@ const actions: ActionTree<CircuitState, RootState> = {
           threadId: threadId!,
           createdAt: Date.now()
         };
+        // Generate response using Mastra API
+        const agentResponse = await MastraService.askRoutingAgent(payload.message, threadId, payload.context);
+        const responseText = agentResponse.text || JSON.stringify(agentResponse);
+
+        assistantMessage.content = responseText;
         commit(types.ADD_MESSAGE, assistantMessage);
-        
-        const messages = [systemPrompt, ...history];
-
-        commit(types.SET_LAST_PROMPT, messages);
-
-        const result = await CircuitLLMService.generateResponse(
-          messages,
-          (chunk: string) => {
-            if (state.currentThreadId === threadId) {
-              commit(types.UPDATE_LAST_MESSAGE, chunk);
-            }
-            fullResponse += chunk;
-          }
-        );
-
-        // Update the full response in IndexedDB
-        try {
-           await CircuitStorageService.saveMessage({ ...assistantMessage, content: fullResponse });
-        } catch (error) {
-           console.error('Failed to save assistant message', error);
-        }
 
       } catch (error) {
-           console.error('Failed to generate response from local LLM', error);
-           
-           const errorMessage: ChatMessage = {
-             role: 'circuit',
-             content: "Sorry, I encountered an error generating a response locally.",
-             id: (Date.now() + 1).toString(),
-             threadId: threadId!,
-             createdAt: Date.now()
-           }
-           await CircuitStorageService.saveMessage(errorMessage);
-           if (state.currentThreadId === threadId) {
-             commit(types.ADD_MESSAGE, errorMessage);
-           }
-         }
-      } else {
-        // Model not installed or not ready
-        const statusMessage: ChatMessage = {
-          role: 'circuit',
-          content: state.modelInfo.status === 'installing' 
-            ? "I'm still preparing my local knowledge. Please wait a moment until the model is fully installed."
-            : "I need to be installed before I can help you. Please head to the Settings tab to install the local model.",
-          id: (Date.now() + 1).toString(),
-          threadId: threadId!,
-          createdAt: Date.now()
-        };
-        await CircuitStorageService.saveMessage(statusMessage);
-        if (state.currentThreadId === threadId) {
-          commit(types.ADD_MESSAGE, statusMessage);
+          console.error('Failed to generate response from Mastra API', error);
+          const errorMessage: ChatMessage = {
+            role: 'circuit',
+            content: "Sorry, I encountered an error generating a response.",
+            id: (Date.now() + 1).toString(),
+            threadId: threadId!,
+            createdAt: Date.now()
+          }
+          if (state.currentThreadId === threadId) {
+            commit(types.ADD_MESSAGE, errorMessage);
+          }
         }
-      }
     } catch (error) {
       console.error('Failed to save message', error);
     }

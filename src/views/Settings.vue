@@ -174,6 +174,7 @@ import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
 import { goToOms } from "@hotwax/dxp-components";
 import {getCurrentTime} from "../utils"
+import { defineProps } from "vue"
 
 const store = useStore()
 const appVersion = ref("")

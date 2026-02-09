@@ -83,15 +83,21 @@ const selectedContext = ref(null as any);
 
 const startChat = () => {
   if (prompt.value.trim()) {
-    let message = prompt.value;
+    const payload = {
+      message: prompt.value,
+      context: {}
+    } as any;
     if (selectedContext.value) {
-      message += ` [Context: ${selectedContext.value.routingName}]`;
+      payload.context = {
+        routingGroupName: selectedContext.value.routingGroupName,
+        routingGroupId: selectedContext.value.routingGroupId,
+      };
       selectedContext.value = null;
     }
     // Reset current thread ID to null to ensure a new thread is created
     store.dispatch('circuit/switchThread', null);
     // Use sendAgentMessage for agentic behavior
-    store.dispatch('circuit/sendAgentMessage', message);
+    store.dispatch('circuit/sendAgentMessage', payload);
     prompt.value = '';
   }
 }

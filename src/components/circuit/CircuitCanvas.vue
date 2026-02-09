@@ -500,6 +500,7 @@ import { Rule } from "@/types";
 import { nextTick } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import { showToast } from "@/utils";
+import { defineProps } from 'vue';
 
 const props = defineProps({
   routingGroupId: {

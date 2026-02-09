@@ -10,6 +10,9 @@
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
+          <ion-button @click="showPromptModal = true">
+            <ion-icon slot="icon-only" :icon="terminalOutline" />
+          </ion-button>
           <ion-button @click="openThreadModal">
             <ion-icon slot="start" :icon="chatbubblesOutline" />
             {{ translate("Threads") }}
@@ -53,6 +56,25 @@
         </div>
       </div>
     </ion-content>
+
+    <ion-modal :is-open="showPromptModal" @didDismiss="showPromptModal = false">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{ translate("Last Prompt Sent") }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showPromptModal = false">{{ translate("Close") }}</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <template v-if="lastPrompt">
+          <pre class="prompt-json">{{ JSON.stringify(lastPrompt, null, 2) }}</pre>
+        </template>
+        <div v-else class="ion-text-center ion-padding">
+          <p color="medium">{{ translate("No prompt sent yet in this session.") }}</p>
+        </div>
+      </ion-content>
+    </ion-modal>
 
     <ion-modal :is-open="showThreadMenu" @didDismiss="showThreadMenu = false">
       <ion-header>
@@ -107,6 +129,7 @@ import {
   chatbubblesOutline, 
   refreshOutline,
   sendOutline,
+  terminalOutline,
   trashOutline
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
@@ -121,21 +144,25 @@ const prompt = ref('');
 const messages = computed(() => store.getters['circuit/getMessages']);
 const threads = computed(() => store.getters['circuit/getThreads']);
 const currentThreadId = computed(() => store.getters['circuit/getCurrentThreadId']);
+const lastPrompt = computed(() => store.getters['circuit/getLastPrompt']);
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
 const showThreadMenu = ref(false);
+const showPromptModal = ref(false);
 
 onMounted(() => {
   store.dispatch('circuit/loadAllThreads');
 });
 
-const selectedContext = ref(null as any);
+const selectedContext = computed({
+  get: () => store.state.circuit.activeContext,
+  set: (value) => store.commit('circuit/SET_ACTIVE_CONTEXT', value)
+});
 
 const onSend = () => {
   if (!prompt.value.trim()) return;
   let message = prompt.value;
   if (selectedContext.value) {
     message += ` [Context: ${selectedContext.value.routingName}]`;
-    selectedContext.value = null;
   }
   // Use sendAgentMessage for agentic behavior
   store.dispatch('circuit/sendAgentMessage', message);
@@ -149,7 +176,7 @@ const addContext = async () => {
   
   modal.onDidDismiss().then((result) => {
     if (result.data) {
-      selectedContext.value = result.data;
+      store.commit('circuit/SET_ACTIVE_CONTEXT', result.data);
     }
   });
 
@@ -157,7 +184,7 @@ const addContext = async () => {
 }
 
 const removeContext = () => {
-  selectedContext.value = null;
+  store.commit('circuit/SET_ACTIVE_CONTEXT', null);
 }
 
 const isChatStarted = computed(() => store.getters['circuit/isChatStarted']);
@@ -228,5 +255,15 @@ const formatDate = (timestamp: number) => {
 
 .selected-thread {
   --background: var(--ion-color-step-100);
+}
+
+.prompt-json {
+  background: var(--ion-color-step-50, #f4f5f8);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>

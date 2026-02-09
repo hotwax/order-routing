@@ -19,8 +19,7 @@ import circuitModule from "./modules/circuit"
 const state: any = {}
 
 const persistState = createPersistedState({
-  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId", "product", "orderRouting.testRouting", "circuit.isIntroDone", "circuit.isChatStarted", "circuit.currentThreadId"],
-
+  paths: ["user", "util", "orderRouting.currentGroup", "orderRouting.currentRuleId", "product", "orderRouting.testRouting", "circuit.isIntroDone", "circuit.isChatStarted", "circuit.currentThreadId", "circuit.activeContext"],
   fetchBeforeUse: true
 })
 

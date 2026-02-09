@@ -129,6 +129,10 @@
                 {{ modelInfo.name || "Default Model" }}
               </div>
             </div>
+            <div v-if="gpuInfo.vendor && gpuInfo.vendor !== 'Unknown'" class="gpu-info ion-margin-top">
+              <p>{{ translate("GPU:") }} {{ gpuInfo.vendor }}</p>
+              <p>{{ translate("Max Buffer Size:") }} {{ gpuInfo.maxStorageBufferBindingSize }}</p>
+            </div>
           </ion-card-content>
           <ion-item lines="none" v-if="modelInfo.status !== 'unsupported'">
             <ion-label>
@@ -181,6 +185,7 @@ const oms = computed(() => store.getters["user/getInstanceUrl"])
 const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 const currentTimeZoneId = computed(() => userProfile.value.timeZone)
 const modelInfo = computed(() => store.state.circuit.modelInfo)
+const gpuInfo = computed(() => store.state.circuit.gpuInfo)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -248,6 +253,10 @@ function goToLaunchpad() {
 </script>
 
 <style scoped>
+
+  ion-content {
+    --padding-bottom: var(--spacer-xl);
+  }
   ion-card > ion-button {
     margin: var(--spacer-xs);
   }

@@ -18,7 +18,13 @@ const circuitModule: Module<CircuitState, RootState> = {
       size: '',
       status: 'not_installed',
       progress: 0
-    }
+    },
+    gpuInfo: {
+      vendor: 'Unknown',
+      maxStorageBufferBindingSize: '0 MB'
+    },
+    activeContext: null,
+    lastPrompt: null
   },
   getters,
   actions,

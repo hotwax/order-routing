@@ -20,6 +20,9 @@ Circuit's goal is not to block or consult on routing strategies but to help exec
 
 There will be a wide variety of tools avaiable to Circuit that allow it to find critical information needed to build routing rules. In addition to the tools needed to simply create routing groups, rules and inventory rules, Circuit will also have access to tools that allow it to find data like facilities based on geography, sales velocity, rejection rate, and then create and update data like facility groups and set order limits.
 
+Functions Circuit can call:
+Starting with something simple, the bot will have access to one function that is to update a routing, and the user will use it to just update the routing rule status. Since the model is running locally, there is no MCP, we instead need a different way 
+
 ## Implementation
 
 ### Frontend

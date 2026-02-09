@@ -98,6 +98,48 @@ Once you have enough information, confirm your understanding.
 `;
 ```
 
+## Chat Flow Architecture
+
+The following diagram illustrates how a message flows through the Circuit system, from the user's input to the local LLM response and state persistence.
+
+```mermaid
+sequenceDiagram
+    participant UI as Circuit UI (PromptArea)
+    participant Store as Vuex Store (Actions)
+    participant DB as IndexedDB (CircuitStorage)
+    participant LLM as CircuitLLMService
+    participant WebLLM as WebLLM (WebGPU)
+
+    UI->>Store: dispatch('sendAgentMessage', payload)
+    
+    rect rgb(240, 240, 240)
+        Note over Store, DB: Save User Message
+        Store->>DB: saveMessage(userMsg)
+        Store->>Store: commit(ADD_MESSAGE, userMsg)
+    end
+
+    Store->>LLM: generateResponse(history)
+    
+    activate LLM
+    LLM->>WebLLM: engine.chat.completions.create()
+    
+    loop Streaming
+        WebLLM-->>LLM: chunk
+        LLM-->>Store: onChunk(text)
+        Store->>Store: commit(UPDATE_LAST_MESSAGE, chunk)
+    end
+    
+    LLM-->>Store: fullResponse
+    deactivate LLM
+
+    rect rgb(240, 240, 240)
+        Note over Store, DB: Persist Final Response
+        Store->>DB: saveMessage(assistantMsg)
+    end
+    
+    Note over Store, UI: Reactively updates ChatCanvas
+```
+
 ## Considerations
 
 - **Initial Load Time**: The first time the app runs, it will download the model weights (several GBs). Code must handle this "Loading Model..." state gracefully with a progress bar.

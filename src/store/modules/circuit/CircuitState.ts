@@ -17,4 +17,10 @@ export default interface CircuitState {
     progress: number;
     supportError?: string;
   };
+  gpuInfo: {
+    vendor: string;
+    maxStorageBufferBindingSize: string;
+  };
+  activeContext: any | null;
+  lastPrompt: any[] | null;
 }

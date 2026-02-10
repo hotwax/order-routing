@@ -2,13 +2,82 @@
   <div class="circuit-canvas" v-if="activeRouting?.orderRoutingId">
     <!-- Routing Group Column -->
     <div class="routing-group">
-      <h2>{{ group.groupName || translate("Routing Group") }}</h2>
+      <ion-card class="info">
+        <div>
+          <ion-card-header>
+            <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
+            <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
+            <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
+          </ion-card-header>
+          <div class="ion-padding">
+            <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
+              <ion-icon slot="start" :icon="pencilOutline" />
+              {{ translate("Rename") }}
+            </ion-button>
+            <ion-button v-show="isGroupNameUpdating" fill="outline" size="small" @click="updateGroupName()">
+              <ion-icon slot="start" :icon="saveOutline" />
+              {{ translate("Save") }}
+            </ion-button>
+            <ion-button fill="outline" size="small" @click="cloneGroup()">
+              <ion-icon slot="start" :icon="copyOutline" />
+              {{ translate("Clone") }}
+            </ion-button>
+          </div>
+        </div>
+        <div>
+          <ion-item>
+            <ion-label>{{ translate("Created at") }}</ion-label>
+            <ion-label slot="end">{{ getDateAndTime(group.createdDate) }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("Updated at") }}</ion-label>
+            <ion-label slot="end">{{ getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+          </ion-item>
+          <ion-item lines="none">
+            <ion-icon slot="start" :icon="pulseOutline" />
+            <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+              <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
+              <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+        </div>
+      </ion-card>
+
+      <ion-card>
+        <ion-card-header>
+          <div class="header">
+            <div>
+              <ion-card-subtitle>{{ translate("Scheduler") }}</ion-card-subtitle>
+              <ion-card-title>{{ getCronString() || translate("No schedule") }}</ion-card-title>
+            </div>
+            <ion-button fill="clear" color="medium" @click="openScheduleModal()">
+              <ion-icon slot="icon-only" :icon="timerOutline" />
+            </ion-button>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <p v-if="job?.paused === 'N' && job?.nextExecutionDateTime">{{ translate("Next run") }} {{ timeTillJob(job.nextExecutionDateTime) }}</p>
+          <p v-else>{{ translate("Next run") }} -</p>
+        </ion-card-content>
+        <ion-item lines="none">
+          <ion-button fill="outline" color="dark" slot="start" @click="runNow()">{{ translate("Run now") }}</ion-button>
+          <ion-button fill="clear" color="medium" slot="end" @click="showGroupHistory()">
+            <ion-icon slot="start" :icon="timeOutline" />
+            {{ translate("History") }}
+          </ion-button>
+        </ion-item>
+      </ion-card>
+
+      <ion-list-header>
+        <ion-label>{{ translate("Routings") }}</ion-label>
+      </ion-list-header>
       <ion-list v-if="group.routings?.length">
+      <ion-reorder-group @ionItemReorder="doRoutingReorder($event)" :disabled="false">
         <ion-card 
           v-for="(routing, index) in group.routings" 
           :key="routing.orderRoutingId"
-          class="routing" 
-          :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId }"
+          class="routing pointer" 
+          :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId, 'reordering-enabled': isReordering }"
           @click="selectRouting(routing)"
           button
         >
@@ -20,6 +89,7 @@
             <ion-chip slot="end" v-if="group.routings">
               {{ (index as number) + 1 }}/{{ group.routings.length }}
             </ion-chip>
+            <ion-reorder slot="end" @pointerdown="isReordering = true" />
           </ion-item>
           <ion-item v-if="routing.filtersCount">
             <ion-label>
@@ -39,6 +109,11 @@
             </ion-badge>
           </ion-item>
         </ion-card>
+      </ion-reorder-group>
+      <ion-item v-if="getArchivedOrderRoutings().length > 0" @click="openArchivedRoutingModal()" button lines="full">
+          <ion-label>{{ translate("Archived") }}</ion-label>
+          <ion-badge color="medium">{{ getArchivedOrderRoutings().length }} {{ translate(getArchivedOrderRoutings().length > 1 ? "routings" : "routing") }}</ion-badge>
+        </ion-item>
       </ion-list>
       <div v-else class="empty-state">
         <p>{{ translate("No routings available") }}</p>
@@ -51,28 +126,34 @@
         <ion-item class="title" lines="none">
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
-            <h1>{{ activeRouting?.routingName }}</h1>
+            <h1 v-show="!isRouteNameUpdating">{{ activeRouting?.routingName }}</h1>
+            <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
           </ion-label>
         </ion-item>
         <div class="actions">
-          <ion-button size="small" color="medium" fill="outline">
-            <ion-icon slot="start" :icon="pencilOutline" />
-            <ion-label>{{ translate("Rename") }}</ion-label>
+          <ion-button size="small" color="medium" fill="outline" @click="isRouteNameUpdating ? updateRouteName() : editRouteName()">
+            <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
+            <ion-label>{{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}</ion-label>
           </ion-button>
-          <ion-button size="small" color="medium" fill="outline">
+          <ion-button size="small" color="medium" fill="outline" @click="cloneRouting(activeRouting)">
             <ion-icon slot="start" :icon="copyOutline" />
             <ion-label>{{ translate("Clone") }}</ion-label>
           </ion-button>
         </div>
-        <ion-item class="history">
+        <ion-item class="history" button @click="openRoutingHistoryModal(activeRoutingId, activeRouting?.routingName)">
           <ion-icon :icon="timeOutline" slot="start"></ion-icon>
-          <ion-label>Last run</ion-label>
-          <ion-chip slot="end">10:00 01/01</ion-chip>
+          <ion-label>{{ translate("Last run") }}</ion-label>
+          <ion-chip slot="end">
+            <ion-label>{{ routingHistory[activeRoutingId] ? getDateAndTimeShort(routingHistory[activeRoutingId][0].startDate) : "-" }}</ion-label>
+          </ion-chip>
         </ion-item>
         <ion-item class="status" lines="none">
-          <ion-icon slot="start" :icon="bookmarkOutline" />
-          <ion-label>{{ translate("Status") }}</ion-label>
-          <ion-label slot="end">{{ getStatusDesc(activeRouting?.statusId) }}</ion-label>
+          <ion-icon slot="start" :icon="pulseOutline" />
+          <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateRoutingStatus($event.detail.value)">
+            <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
+            <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
+            <ion-select-option value="ROUTING_ARCHIVED">{{ translate("Archive") }}</ion-select-option>
+          </ion-select>
         </ion-item>
       </ion-card>
       <div class="config">
@@ -184,21 +265,21 @@
           <ion-item-group>
             <ion-item-divider color="light">
               <ion-label>{{ translate("Sort") }}</ion-label>
-              <ion-button size="default" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button size="default" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
                 </ion-button>
             </ion-item-divider>
             <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
-              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PRM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
+              <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   {{ translate("Add sorting") }}
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)">
+            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="false">
               <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
                 <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
-                <ion-reorder />
+                <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
             </ion-reorder-group>
           </ion-item-group>
@@ -209,22 +290,22 @@
               <ion-label>{{ translate("Routing rules") }}</ion-label>
             </ion-list-header>
               
-            <ion-reorder-group @ionItemReorder="doReorder($event)">
-              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
+            <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
+              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :disabled="isReordering" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
                   <h2>{{ rule.ruleName }}</h2>
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
-                <ion-reorder v-show="rulesForReorder.length > 1" />
+                <ion-reorder v-show="rulesForReorder.length > 1" @pointerdown="isReordering = true" />
               </ion-item>
             </ion-reorder-group>
-            <ion-item v-if="getArchivedOrderRules().length > 0" button lines="full">
+            <ion-item v-if="getArchivedOrderRules().length > 0" @click="openArchivedRuleModal()" button lines="full">
               <ion-label>{{ translate("Archived") }}</ion-label>
-              <ion-badge color="medium">{{ getArchivedOrderRules().length }}{{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
+              <ion-badge color="medium">{{ getArchivedOrderRules().length }} {{ translate(getArchivedOrderRules().length > 1 ? "rules" : "rule") }}</ion-badge>
             </ion-item>
           </ion-list>
-          <ion-button fill="outline">
+          <ion-button fill="outline" @click="addInventoryRule()">
             {{ translate("Add inventory rule") }}
             <ion-icon :icon="addCircleOutline" slot="end"/>
           </ion-button>
@@ -349,7 +430,7 @@
             <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
               <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
                 <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
-                <ion-reorder />
+                <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
             </ion-reorder-group>
           </ion-card>
@@ -485,21 +566,32 @@ import {
   golfOutline,
   playForwardOutline,
   gitNetworkOutline,
-  sparklesOutline
+  sparklesOutline,
+  timerOutline,
+  flashOutline,
+  reorderTwoOutline,
+  archiveOutline,
+  addOutline,
+  listOutline
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { OrderRoutingService } from "@/services/RoutingService";
-import { hasError, sortSequence } from "@/utils";
+import { getDate, getDateAndTime, getDateAndTimeShort, getTime, hasError, showToast, sortSequence, timeTillRun } from "@/utils";
 import logger from "@/logger";
 import { useStore } from "vuex";
 import emitter from '@/event-bus';
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import { Actions, hasPermission } from "@/authorization";
 import { Rule } from "@/types";
-import { nextTick } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { showToast } from "@/utils";
+import cronstrue from "cronstrue"
+import { DateTime } from "luxon";
+import ScheduleModal from "@/components/ScheduleModal.vue";
+import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
+import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
+import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
+import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 
 const props = defineProps({
   routingGroupId: {
@@ -522,11 +614,21 @@ const inventoryRules = ref([]) as any;
 const rulesForReorder = ref([]) as any;
 const inventoryRuleFilterOptions = ref({}) as any;
 const inventoryRuleSortOptions = ref({}) as any;
+const isRouteNameUpdating = ref(false)
+const routeName = ref("")
+const routeNameRef = ref()
 const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string || '{}');
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string || '{}');
+
+const groupName = ref("");
+const isGroupNameUpdating = ref(false);
+const groupNameRef = ref();
+const isReordering = ref(false);
+const job = ref({}) as any;
+const groupHistory = ref([]) as any;
 
 const ruleEnums = {
   "QUEUE": { "id": "OIP_QUEUE", "code": "facilityId" },
@@ -547,10 +649,13 @@ const facilities = computed(() => store.getters["util/getVirtualFacilities"]);
 const enums = computed(() => store.getters["util/getEnums"]);
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"]);
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"]);
+const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 const operatorRef = ref()
 const measurementRef = ref()
+
+const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingStatus = computed(() => activeRouting.value?.statusId)
@@ -627,15 +732,28 @@ const hasUnsavedChanges = ref(false)
 const ruleNameRef = ref()
 
 onMounted(async () => {
+  window.addEventListener('pointerup', resetReordering);
+  window.addEventListener('touchend', resetReordering);
+  window.addEventListener('mouseup', resetReordering);
   await fetchRoutingGroupInformation();
 });
+
+onUnmounted(() => {
+  window.removeEventListener('pointerup', resetReordering);
+  window.removeEventListener('touchend', resetReordering);
+  window.removeEventListener('mouseup', resetReordering);
+});
+
+function resetReordering() {
+  isReordering.value = false;
+}
 
 watch(routingGroupId, async () => {
   await fetchRoutingGroupInformation();
 });
 
 async function fetchRoutingGroupInformation() {
-  if (!routingGroupId.value) {
+  if (!routingGroupId.value || "") {
     // Reset all state when no routing group is selected
     group.value = {};
     activeRoutingId.value = '';
@@ -649,9 +767,17 @@ async function fetchRoutingGroupInformation() {
 
   emitter.emit("presentLoader", { message: translate("Fetching information"), backdropDismiss: false })
   try {
-    const resp = await OrderRoutingService.fetchRoutingGroupInformation(routingGroupId.value);
+    const resp = await OrderRoutingService.fetchRoutingGroupInformation(routingGroupId.value || "");
     if(!hasError(resp) && resp.data) {
       group.value = resp.data
+      groupName.value = group.value.groupName || ""
+      
+      // Fetching schedule and history
+      await Promise.all([
+        fetchGroupSchedule(),
+        fetchGroupHistory()
+      ])
+
       if(group.value.routings?.length) {
         group.value.routings = sortSequence(group.value.routings)
         // Fetch detailed information for all routings in the group
@@ -692,6 +818,9 @@ const selectRouting = (routing: any) => {
   activeRuleId.value = '';
   activeRule.value = null;
   
+  routeName.value = routing.routingName || ""
+  isRouteNameUpdating.value = false
+
   initializeOrderRoutingOptions();
   
   inventoryRules.value = routing.rules ? JSON.parse(JSON.stringify(routing.rules)) : [];
@@ -743,6 +872,10 @@ function getArchivedOrderRules() {
   return inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_ARCHIVED")
 }
 
+function getArchivedOrderRoutings() {
+  return group.value.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || []
+}
+
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
   const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
@@ -755,6 +888,204 @@ function getRuleIndex() {
   const currentRuleIndex: any = Object.keys(rulesForReorder.value).find((key: any) => rulesForReorder.value[key].routingRuleId == activeRule.value?.routingRuleId)
 
   return `${+currentRuleIndex + 1}/${total}`
+}
+
+async function fetchGroupSchedule() {
+  try {
+    const resp = await OrderRoutingService.fetchRoutingScheduleInformation(routingGroupId.value || "");
+    if (!hasError(resp) && resp.data?.schedule) {
+      job.value = resp.data.schedule
+    }
+  } catch (err) {
+    logger.error(err);
+  }
+}
+
+async function fetchGroupHistory() {
+  groupHistory.value = []
+  if (!group.value?.jobName) return;
+
+  try {
+    const resp = await OrderRoutingService.fetchGroupHistory(group.value.jobName, { orderByField: "startTime DESC" })
+    if (!hasError(resp)) {
+      groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
+    }
+  } catch (err) {
+    logger.error(err)
+  }
+}
+
+async function editGroupName() {
+  isGroupNameUpdating.value = !isGroupNameUpdating.value;
+  await nextTick()
+  groupNameRef.value.$el.setFocus();
+}
+
+async function updateGroupName() {
+  if (groupName.value.trim() && groupName.value.trim() !== group.value.groupName.trim()) {
+    const resultId = await updateRoutingGroup({ routingGroupId: routingGroupId.value || "", productStoreId: group.value.productStoreId, groupName: groupName.value })
+    if (resultId) {
+      group.value.groupName = groupName.value
+    } else {
+      groupName.value = group.value.groupName.trim()
+    }
+  }
+  isGroupNameUpdating.value = false
+}
+
+async function updateRoutingGroup(payload: any) {
+  emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
+  let rGId = ''
+  try {
+    const resp = await OrderRoutingService.updateRoutingGroup(payload);
+    if (!hasError(resp) && resp.data.routingGroupId) {
+      rGId = resp.data.routingGroupId
+      showToast(translate("Routing group information updated"))
+    }
+  } catch (err) {
+    showToast(translate("Failed to update group information"))
+    logger.error(err);
+  }
+  emitter.emit("dismissLoader")
+  return rGId
+}
+
+async function cloneGroup() {
+  const payload = {
+    routingGroupId: group.value.routingGroupId,
+    newGroupName: `${group.value.groupName} copy`
+  }
+  try {
+    const resp = await OrderRoutingService.cloneGroup(payload)
+    if (!hasError(resp)) {
+      showToast(translate("Brokering run cloned"))
+    }
+  } catch (err) {
+    showToast(translate("Failed to clone brokering run"))
+    logger.error(err)
+  }
+}
+
+async function openScheduleModal() {
+  const scheduleModal = await modalController.create({
+    component: ScheduleModal,
+    componentProps: { cronExpression: job.value.cronExpression }
+  })
+
+  scheduleModal.onDidDismiss().then(async (result: any) => {
+    if (result?.data?.expression) {
+      job.value.cronExpression = result.data.expression
+      await saveSchedule()
+    }
+  })
+
+  scheduleModal.present();
+}
+
+async function saveSchedule() {
+  if (!job.value.cronExpression) {
+    showToast(translate("Please select a scheduling for job"))
+    return;
+  }
+
+  const payload = {
+    routingGroupId: routingGroupId.value || "",
+    paused: job.value.paused || 'N',
+    ...job.value
+  }
+
+  try {
+    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    if (!hasError(resp)) {
+      showToast(translate("Job updated"))
+      await fetchGroupSchedule()
+    }
+  } catch (err) {
+    showToast(translate("Failed to update job"))
+    logger.error(err)
+  }
+}
+
+async function updateGroupStatus(event: CustomEvent) {
+  job.value.paused = event.detail.value
+
+  const payload = {
+    routingGroupId: routingGroupId.value || "",
+    paused: job.value.paused,
+    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
+  }
+
+  try {
+    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    if (!hasError(resp)) {
+      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
+      showToast(translate("Group status updated"))
+    }
+  } catch (err) {
+    showToast(translate("Failed to update group status"))
+    logger.error(err)
+  }
+}
+
+async function runNow() {
+  const scheduleAlert = await alertController.create({
+    header: translate("Run now"),
+    message: translate("Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      {
+        text: translate("Run now"),
+        handler: async () => {
+          if (!job.value.jobName) {
+            const payload = {
+              routingGroupId: routingGroupId.value || "",
+              paused: "Y",
+            }
+            try {
+              const resp = await OrderRoutingService.scheduleBrokering(payload)
+              if (!hasError(resp)) job.value.jobName = resp.data.jobName
+            } catch (err) {
+              logger.error(err)
+              return;
+            }
+          }
+
+          try {
+            const resp = await OrderRoutingService.runNow(routingGroupId.value || "")
+            if (!hasError(resp)) showToast(translate("Service has been scheduled"))
+          } catch (err) {
+            showToast(translate("Failed to schedule service"))
+            logger.error(err)
+          }
+        }
+      }
+    ]
+  });
+  return scheduleAlert.present();
+}
+
+function timeTillJob(time: any) {
+  if (!time) return;
+  const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
+  return DateTime.local().plus(timeDiff).toRelative();
+}
+
+function getCronString() {
+  try {
+    return job.value.cronExpression ? cronstrue.toString(job.value.cronExpression) : ""
+  } catch (e) {
+    logger.error(e)
+    return ""
+  }
+}
+
+async function showGroupHistory() {
+  await fetchGroupHistory()
+  const historyModal = await modalController.create({
+    component: GroupHistoryModal,
+    componentProps: { groupHistory: groupHistory.value }
+  })
+  historyModal.present();
 }
 
 function getRouteIndex() {
@@ -789,22 +1120,35 @@ async function editRuleName() {
 
 async function updateRuleName(routingRuleId: string) {
   if (activeRule.value.ruleName.trim()) {
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
 
     let ruleId = await store.dispatch("orderRouting/updateRule", {
       routingRuleId,
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      ruleName: activeRule.value.ruleName.trim()
+      ruleName: activeRule.value.ruleName
     })
 
-    if(ruleId) {
+    if (ruleId) {
       showToast(translate("Inventory rule information updated"))
     }
     emitter.emit("dismissLoader")
   }
-
   isRuleNameUpdating.value = false
 }
+
+async function cloneRule(rule: any) {
+  emitter.emit("presentLoader", { message: translate("Cloning rule"), backdropDismiss: false })
+  const routingRuleId = await store.dispatch("orderRouting/cloneInventoryRule", {
+    routingRuleId: rule.routingRuleId,
+    ruleName: rule.ruleName,
+    orderRoutingId: activeRouting.value.orderRoutingId
+  })
+  if(routingRuleId) {
+    // If needed, refresh routing information
+    showToast(translate("Rule cloned successfully"))
+  }
+  emitter.emit("dismissLoader")
+}
+
 
 function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
   const filters = JSON.parse(JSON.stringify(inventoryRuleFilterOptions.value))
@@ -946,10 +1290,10 @@ function removeAutoCancelDays() {
 function doConditionSortReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(Object.values(inventoryRuleSortOptions.value)))
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(Object.values(inventoryRuleSortOptions.value))));
-  const updatedSeqenceNum = previousSeq.map((filter: any) => filter.sequenceNum)
+  const updatedSeqenceNum = previousSeq.map((filter: any) => filter.sequenceNum).sort((a: any, b: any) => a - b)
   
-  updatedSeq.map((key: any, index: number) => {
-    updatedSeq[key].sequenceNum = updatedSeqenceNum[index]
+  updatedSeq.map((filter: any, index: number) => {
+    filter.sequenceNum = updatedSeqenceNum[index]
   })
 
   inventoryRuleSortOptions.value = updatedSeq.reduce((filters: any, filter: any) => {
@@ -957,17 +1301,23 @@ function doConditionSortReorder(event: CustomEvent) {
     return filters
   }, {})
   hasUnsavedChanges.value = true
+  isReordering.value = false
 }
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
+  if (!activeRule.value?.routingRuleId) {
+    showToast(translate("Please select a rule first"));
+    return;
+  }
   const modal = await modalController.create({
     component: AddInventoryFilterOptionsModal,
     componentProps: {
-      inventoryRuleFilters: conditionTypeEnumId === "ENTCT_FILTER" ? inventoryRuleFilterOptions.value : inventoryRuleSortOptions.value,
+      ruleConditions: conditionTypeEnumId === "ENTCT_FILTER" ? inventoryRuleFilterOptions.value : inventoryRuleSortOptions.value,
       routingRuleId: activeRule.value.routingRuleId,
       parentEnumId,
       conditionTypeEnumId,
-      label
+      label,
+      filterOptions: inventoryRuleFilterOptions.value
     }
   });
 
@@ -985,9 +1335,118 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
   await modal.present();
 }
 
+async function addInventoryRule() {
+  const newRuleAlert = await alertController.create({
+    header: translate("New Inventory Rule"),
+    buttons: [{
+      text: translate("Cancel"),
+      role: "cancel"
+    }, {
+      text: translate("Save"),
+      handler: (data) => {
+        if(!data.ruleName?.trim().length) {
+          showToast(translate("Please enter a valid name"))
+          return false;
+        }
+      }
+    }],
+    inputs: [{
+      name: "ruleName",
+      placeholder: translate("Rule name")
+    }]
+  })
+
+  newRuleAlert.onDidDismiss().then(async (result: any) => {
+    const ruleName = result.data?.values?.ruleName;
+    if(!result.role && ruleName) {
+      const payload = {
+        routingRuleId: "",
+        orderRoutingId: activeRouting.value.orderRoutingId,
+        ruleName,
+        statusId: "RULE_DRAFT",
+        sequenceNum: inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0,
+        assignmentEnumId: "ORA_SINGLE",
+        createdDate: DateTime.now().toMillis()
+      }
+
+      const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
+      if(routingRuleId) {
+        await store.dispatch("orderRouting/updateRule", {
+          routingRuleId,
+          orderRoutingId: activeRouting.value.orderRoutingId,
+          actions: [{
+            actionTypeEnumId: "ORA_NEXT_RULE",
+            actionValue: "",
+            createdDate: DateTime.now().toMillis()
+          }]
+        })
+        await store.dispatch("orderRouting/fetchCurrentOrderRouting", activeRouting.value.orderRoutingId)
+        inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(activeRouting.value["rules"])))
+        initializeInventoryRules()
+      }
+    }
+  })
+
+  await newRuleAlert.present();
+}
+
+async function openArchivedRuleModal() {
+  const archivedRuleModal = await modalController.create({
+    component: ArchivedRuleModal,
+    componentProps: { archivedRules: getArchivedOrderRules() }
+  })
+
+  archivedRuleModal.onDidDismiss().then(() => {
+    fetchRoutingGroupInformation();
+  })
+
+  await archivedRuleModal.present();
+}
+
+
 async function save() {
   emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
   
+  // Save routing-level changes first
+  const initialOrderFilters = activeRouting.value["orderFilters"]?.length ? activeRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
+    if(filters[filter.conditionTypeEnumId]) {
+      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+    } else {
+      filters[filter.conditionTypeEnumId] = {
+        [filter.fieldName]: filter
+      }
+    }
+    return filters
+  }, {}) : {}
+
+  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
+  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
+
+  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
+  const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
+
+  if(filtersToRemove?.length) {
+    await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: activeRouting.value.orderRoutingId })
+  }
+
+  if(filtersToUpdate?.length) {
+    activeRouting.value["orderFilters"] = filtersToUpdate
+    await store.dispatch("orderRouting/updateRouting", activeRouting.value)
+  }
+
   const initialInventoryRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
 
   // Find diff for current rule
@@ -1214,26 +1673,117 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
 
 
 
-function updateOrderFilterValue(event: CustomEvent, id: string, multi = false) {
-  // Implement update logic if needed, but for now we are just making it functionally identical in display
-  console.log("Update filter:", id, event.detail.value);
+async function editRouteName() {
+  isRouteNameUpdating.value = !isRouteNameUpdating.value;
+  await nextTick()
+  routeNameRef.value.$el.setFocus();
+}
+
+async function updateRouteName() {
+  if(routeName.value.trim() && routeName.value.trim() !== activeRouting.value.routingName.trim()) {
+    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
+    const payload = {
+      orderRoutingId: activeRouting.value.orderRoutingId,
+      routingName: routeName.value
+    }
+    try {
+      const resp = await OrderRoutingService.updateRouting(payload);
+      if(!hasError(resp) && resp.data.orderRoutingId) {
+        activeRouting.value.routingName = routeName.value
+        showToast(translate("Order routing information updated"))
+      }
+    } catch(err) {
+      showToast(translate("Failed to update routing information"))
+      logger.error(err);
+    }
+    emitter.emit("dismissLoader")
+  }
+  isRouteNameUpdating.value = false
+}
+
+async function cloneRouting(routing: any) {
+  emitter.emit("presentLoader", { message: translate("Cloning route"), backdropDismiss: false })
+  const orderRoutingId = await store.dispatch("orderRouting/cloneOrderRouting", {
+    orderRoutingId: routing.orderRoutingId,
+    orderRoutingName: routing.routingName,
+    routingGroupId: routingGroupId.value || ""
+  })
+  if(orderRoutingId) {
+    await fetchRoutingGroupInformation();
+    showToast(translate("Route cloned successfully"))
+  }
+  emitter.emit("dismissLoader")
+}
+
+async function updateRoutingStatus(statusId: string) {
+  const payload = {
+    orderRoutingId: activeRoutingId.value,
+    statusId: statusId
+  }
+  try {
+    const resp = await OrderRoutingService.updateRouting(payload)
+    if(!hasError(resp)){
+      activeRouting.value.statusId = statusId
+      showToast(translate("Routing status updated"))
+    }
+  } catch(err) {
+    showToast(translate("Failed to update routing status"))
+    logger.error(err)
+  }
+}
+
+function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = false) {
+  const value = multi ? event.detail.value.join(",") : event.detail.value
+  const filter = orderRoutingFilterOptions.value[fieldName]
+  if(filter) {
+    filter.fieldValue = value
+  } else {
+    orderRoutingFilterOptions.value[fieldName] = {
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName,
+      fieldValue: value,
+      operator: "equals"
+    }
+  }
+  hasUnsavedChanges.value = true
 }
 
 function doRouteSortReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(Object.values(orderRoutingSortOptions.value)))
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(Object.values(orderRoutingSortOptions.value))));
-  const updatedSeqenceNum = Object.keys(previousSeq).map((filter: any) => previousSeq[filter].sequenceNum)
-  Object.keys(updatedSeq).map((key: any, index: number) => {
-    updatedSeq[key].sequenceNum = updatedSeqenceNum[index]
+  const updatedSeqenceNum = previousSeq.map((filter: any) => filter.sequenceNum).sort((a: any, b: any) => a - b)
+  
+  updatedSeq.map((filter: any, index: number) => {
+    filter.sequenceNum = updatedSeqenceNum[index]
   })
 
   orderRoutingSortOptions.value = updatedSeq.reduce((filters: any, filter: any) => {
     filters[filter.fieldName] = filter
     return filters
   }, {})
+  hasUnsavedChanges.value = true
+  isReordering.value = false
+}
+
+function doRoutingReorder(event: CustomEvent) {
+  const previousSeq = JSON.parse(JSON.stringify(group.value.routings))
+  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(group.value.routings)));
+
+  const updatedSeqenceNum = previousSeq.map((routing: any) => routing.sequenceNum)
+  Object.keys(updatedSeq).map((key: any, index: number) => {
+    updatedSeq[key].sequenceNum = updatedSeqenceNum[index]
+  })
+
+  group.value.routings = updatedSeq
+  hasUnsavedChanges.value = true
+  isReordering.value = false
 }
 
 async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
+  if (!activeRouting.value?.orderRoutingId) {
+    showToast(translate("Please select a routing first"));
+    return;
+  }
   const orderRouteFilterOptionsModal = await modalController.create({
     component: AddOrderRouteFilterOptions,
     componentProps: { 
@@ -1248,7 +1798,7 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
   orderRouteFilterOptionsModal.onDidDismiss().then((result: any) => {
     if(result.role === "save") {
       conditionTypeEnumId === "ENTCT_FILTER" ? ( orderRoutingFilterOptions.value = result.data.filters ) : ( orderRoutingSortOptions.value = result.data.filters )
-      // We don't have hasUnsavedChanges here but we could add it if needed for a save button
+      hasUnsavedChanges.value = true
     }
   })
 
@@ -1286,6 +1836,33 @@ function doReorder(event: CustomEvent) {
       rule.sequenceNum = updatedRule.sequenceNum
     }
   })
+  hasUnsavedChanges.value = true
+  isReordering.value = false
+}
+async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  await store.dispatch("orderRouting/fetchRoutingHistory", routingGroupId.value || "")
+  const routingHistoryModal = await modalController.create({
+    component: RoutingHistoryModal,
+    componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: group.value.groupName }
+  })
+
+  routingHistoryModal.present();
+}
+
+async function openArchivedRoutingModal() {
+  const archivedRoutingModal = await modalController.create({
+    component: ArchivedRoutingModal,
+    componentProps: {
+      archivedRoutings: group.value?.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || [],
+      saveRoutings: (routings: any) => {
+        if(routings) {
+          fetchRoutingGroupInformation()
+        }
+      }
+    }
+  })
+
+  archivedRoutingModal.present();
 }
 </script>
 
@@ -1332,6 +1909,31 @@ ion-card {
   margin: var(--spacer-sm);
   position: relative;
   overflow: hidden;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+}
+
+.info > div {
+  border-bottom: 1px solid var(--ion-color-light);
+}
+
+.info > div:last-child {
+  border-bottom: none;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.name {
+  background: var(--ion-color-light);
+  border-radius: 8px;
+  --padding-start: var(--spacer-xs);
 }
 
 /* summary */

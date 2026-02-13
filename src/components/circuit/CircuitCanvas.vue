@@ -645,12 +645,9 @@ const enums = computed(() => store.getters["util/getEnums"]);
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"]);
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"]);
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 const operatorRef = ref()
 const measurementRef = ref()
-
-const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingStatus = computed(() => activeRouting.value?.statusId)
@@ -943,11 +940,6 @@ function isPromiseDateFilterApplied() {
 
 function isPartialGroupItemsAllocationActive() {
   return !!(activeRule.value?.assignmentEnumId === 'ORA_MULTI' && getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "SPLIT_ITEM_GROUP")?.fieldValue === 'Y')
-}
-
-function getPromiseDateValue() {
-  const promiseDateFilter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE") || getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE_EXCLUDED")
-  return promiseDateFilter?.fieldValue || '-'
 }
 
 const isRuleNameUpdating = ref(false)
@@ -1906,19 +1898,6 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
 
   await orderRouteFilterOptionsModal.present();
 }
-
-function getInventoryRules(ruleId: string) {
-  // In the context of Circuit, we might want to show actions or other related rules
-  // For now, let's just return an empty array if not implemented, or use activeRule info
-  if (activeRule.value && activeRule.value.routingRuleId === ruleId) {
-    // If we have inventory rules within the rule, we could return them.
-    // Based on BrokeringQuery.vue, inventoryRules are separate.
-    // For this UI, we'll just show the active rule as the "Inventory Rule" or related data
-    return [activeRule.value];
-  }
-  return [];
-}
-
 
 function doReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(rulesForReorder.value))

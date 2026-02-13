@@ -9,6 +9,9 @@ const mutations: MutationTree<UtilState> = {
   [types.UTIL_FACILITIES_UPDATED](state, payload) {
     state.facilities = payload
   },
+  [types.UTIL_CATEGORIES_UPDATED](state, payload) {
+    state.categories = payload
+  },
   [types.UTIL_SHIPPING_METHOD_UPDATED](state, payload) {
     state.shippingMethods = payload
   },
@@ -18,6 +21,7 @@ const mutations: MutationTree<UtilState> = {
   [types.UTIL_CLEARED](state) {
     state.enums = {}
     state.facilities = {}
+    state.categories = {}
     state.shippingMethods = {}
     state.facilityGroups = {}
     state.statuses = {}

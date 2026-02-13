@@ -161,11 +161,20 @@ const selectedContext = computed({
 const onSend = () => {
   if (!prompt.value.trim()) return;
   let message = prompt.value;
+
+  const payload = {
+    message,
+    context: {}
+  } as any;
+
   if (selectedContext.value) {
-    message += ` [Context: ${selectedContext.value.routingName}]`;
+    payload.context = {
+      routingGroupName: selectedContext.value.routingName,
+      routingGroupId: selectedContext.value.routingGroupId,
+    };
   }
   // Use sendAgentMessage for agentic behavior
-  store.dispatch('circuit/sendAgentMessage', message);
+  store.dispatch('circuit/sendAgentMessage', payload);
   prompt.value = '';
 }
 

@@ -40,6 +40,7 @@
   } from 'ionicons/icons';
   import { translate } from '@/i18n';
   import { computed } from 'vue';
+  import { defineProps, defineEmits } from 'vue';
   
   /* eslint-disable no-undef */
   const props = defineProps<{

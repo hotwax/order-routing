@@ -17,6 +17,14 @@ const getters: GetterTree<UtilState, RootState> = {
       return virtualFacilities;
     }, {})
   },
+  getCatalogCategories(state) {
+    return Object.values(state.categories).reduce((catalogCategories: any, category: any) => {
+      if(category.prodCatalogCategoryTypeId === "PCCT_ORD_ROUTING") {
+        catalogCategories[category.productCategoryId] = category
+      }
+      return catalogCategories;
+    }, {})
+  },
   getPhysicalFacilities(state) {
     return Object.values(state.facilities).reduce((virtualFacilities: any, facility: any) => {
       if(facility.parentTypeId !== "VIRTUAL_FACILITY") {

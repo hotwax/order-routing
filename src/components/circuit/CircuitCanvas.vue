@@ -72,9 +72,9 @@
         <ion-label>{{ translate("Routings") }}</ion-label>
       </ion-list-header>
       <ion-list v-if="group.routings?.length">
-      <ion-reorder-group @ionItemReorder="doRoutingReorder($event)" :disabled="false">
+      <ion-reorder-group v-if="getActiveAndDraftRoutings().length" @ionItemReorder="doRoutingReorder($event)" :disabled="false">
         <ion-card 
-          v-for="(routing, index) in group.routings" 
+          v-for="(routing, index) in getActiveAndDraftRoutings()" 
           :key="routing.orderRoutingId"
           class="routing pointer" 
           :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId, 'reordering-enabled': isReordering }"
@@ -86,8 +86,8 @@
             <ion-label>
               {{ routing?.routingName }}
             </ion-label>
-            <ion-chip slot="end" v-if="group.routings">
-              {{ (index as number) + 1 }}/{{ group.routings.length }}
+            <ion-chip slot="end">
+              {{ (index as number) + 1 }}/{{ getActiveAndDraftRoutings().length }}
             </ion-chip>
             <ion-reorder slot="end" @pointerdown="isReordering = true" />
           </ion-item>
@@ -105,7 +105,7 @@
           </ion-item>
           <ion-item lines="none">
             <ion-badge :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">
-              {{ getStatusDesc(routing.statusId) }}
+              {{ getRoutingStatusLabel(routing.statusId) }}
             </ion-badge>
           </ion-item>
         </ion-card>
@@ -554,7 +554,6 @@ import {
 import { 
   filterOutline, 
   swapVerticalOutline,
-  bookmarkOutline,
   timeOutline,
   pencilOutline,
   copyOutline,
@@ -568,21 +567,15 @@ import {
   gitNetworkOutline,
   sparklesOutline,
   timerOutline,
-  flashOutline,
-  reorderTwoOutline,
-  archiveOutline,
-  addOutline,
-  listOutline
 } from 'ionicons/icons';
 import { translate } from '@/i18n';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, defineProps, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { OrderRoutingService } from "@/services/RoutingService";
-import { getDate, getDateAndTime, getDateAndTimeShort, getTime, hasError, showToast, sortSequence, timeTillRun } from "@/utils";
+import { getDateAndTime, getDateAndTimeShort, hasError, showToast, sortSequence } from "@/utils";
 import logger from "@/logger";
 import { useStore } from "vuex";
 import emitter from '@/event-bus';
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
-import { Actions, hasPermission } from "@/authorization";
 import { Rule } from "@/types";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import cronstrue from "cronstrue"
@@ -603,6 +596,7 @@ const props = defineProps({
 const store = useStore();
 const routingGroupId = computed(() => props.routingGroupId || null);
 const group = ref({}) as any;
+const originalGroup = ref({}) as any;
 const activeRoutingId = ref('');
 const activeRuleId = ref('');
 const activeRouting = ref(null) as any;
@@ -619,9 +613,10 @@ const routeName = ref("")
 const routeNameRef = ref()
 const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
-const rulesInformation = ref({}) as any;
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string || '{}');
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string || '{}');
+const TEMP_ID_PREFIX = "__tmp__";
+const tempIdCounter = ref(0);
 
 const groupName = ref("");
 const isGroupNameUpdating = ref(false);
@@ -650,17 +645,242 @@ const enums = computed(() => store.getters["util/getEnums"]);
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"]);
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"]);
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
 
 const operatorRef = ref()
 const measurementRef = ref()
-
-const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
 
 const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
 const routingStatus = computed(() => activeRouting.value?.statusId)
 const selectedRoutingRule = computed(() => activeRule.value || {})
 const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => rule.routingRuleId == ruleId)?.statusId)
+const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC as string || ""
+
+function getRoutingStatusLabel(statusId: string) {
+  const label = getStatusDesc.value(statusId)
+  if (label && label !== statusId) return label
+
+  if (statusId === "ROUTING_ACTIVE") return translate("Active")
+  if (statusId === "ROUTING_DRAFT") return translate("Draft")
+  if (statusId === "ROUTING_ARCHIVED") return translate("Archived")
+
+  return statusId || "-"
+}
+
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function generateTempId() {
+  tempIdCounter.value += 1
+  return `${TEMP_ID_PREFIX}${DateTime.now().toMillis()}_${tempIdCounter.value}`
+}
+
+function getUiFieldName(condition: any) {
+  let fieldName = condition.fieldName || ""
+
+  if (filterSortDesc.includes(fieldName)) {
+    fieldName = fieldName.replace(" desc", "").replace(" DESC", "")
+  }
+
+  if (condition.operator === "not-equals" || condition.operator === "not-in") {
+    return `${fieldName}_excluded`
+  }
+  return fieldName
+}
+
+function normalizeRuleForUi(rule: any) {
+  const inventoryFilters = Array.isArray(rule.inventoryFilters) ? sortSequence(deepClone(rule.inventoryFilters)) : []
+  const groupedFilters = inventoryFilters.reduce((filters: any, condition: any) => {
+    const conditionType = condition.conditionTypeEnumId
+    const fieldName = getUiFieldName(condition)
+    const updatedCondition = { ...condition, fieldName }
+
+    if (filters[conditionType]) {
+      filters[conditionType][fieldName] = updatedCondition
+    } else {
+      filters[conditionType] = { [fieldName]: updatedCondition }
+    }
+    return filters
+  }, {})
+
+  const actions = Array.isArray(rule.actions) ? rule.actions.reduce((actionsMap: any, action: any) => {
+    actionsMap[action.actionTypeEnumId] = action
+    return actionsMap
+  }, {}) : (rule.actions || {})
+
+  return {
+    ...rule,
+    inventoryFilters: groupedFilters,
+    actions
+  }
+}
+
+function normalizeGroupForUi(rawGroup: any) {
+  const normalizedGroup = deepClone(rawGroup || {})
+
+  normalizedGroup.routings = sortSequence(normalizedGroup.routings || []).map((routing: any) => {
+    const orderFilters = sortSequence(deepClone(routing.orderFilters || []))
+    const rules = sortSequence((routing.rules || []).map((rule: any) => normalizeRuleForUi(rule)))
+    return {
+      ...routing,
+      orderFilters,
+      rules,
+      filtersCount: orderFilters.filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_FILTER").length,
+      sortCount: orderFilters.filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_SORT_BY").length
+    }
+  })
+
+  return normalizedGroup
+}
+
+function toBackendCondition(condition: any) {
+  const updatedCondition = { ...condition }
+  const isExcluded = typeof updatedCondition.fieldName === "string" && updatedCondition.fieldName.endsWith("_excluded")
+
+  if (isExcluded) {
+    updatedCondition.fieldName = updatedCondition.fieldName.replace("_excluded", "")
+    if (!updatedCondition.operator || updatedCondition.operator === "equals") {
+      updatedCondition.operator = String(updatedCondition.fieldValue).includes(",") ? "not-in" : "not-equals"
+    }
+  }
+
+  return updatedCondition
+}
+
+function toArrayMap(values: any, sortBySequence = false) {
+  const list = Object.values(values || {})
+  return sortBySequence ? sortSequence(list) : list
+}
+
+function buildDraftRoutingClone(routing: any, forceDraftStatus = false) {
+  const clonedRouting = deepClone(routing)
+  clonedRouting.orderRoutingId = generateTempId()
+  clonedRouting.routingName = `${routing.routingName || translate("Routing")} copy`
+  if (forceDraftStatus) {
+    clonedRouting.statusId = "ROUTING_DRAFT"
+  }
+  clonedRouting.createdDate = DateTime.now().toMillis()
+  clonedRouting.lastUpdatedStamp = undefined
+
+  clonedRouting.orderFilters = (clonedRouting.orderFilters || []).map((condition: any) => ({
+    ...condition,
+    conditionSeqId: generateTempId(),
+    createdDate: DateTime.now().toMillis(),
+    lastUpdatedStamp: undefined
+  }))
+
+  clonedRouting.rules = (clonedRouting.rules || []).map((rule: any) => {
+    const clonedRule = deepClone(rule)
+    clonedRule.routingRuleId = generateTempId()
+    clonedRule.createdDate = DateTime.now().toMillis()
+    clonedRule.lastUpdatedStamp = undefined
+
+    const filterMap = clonedRule.inventoryFilters?.ENTCT_FILTER || {}
+    const sortMap = clonedRule.inventoryFilters?.ENTCT_SORT_BY || {}
+    clonedRule.inventoryFilters = {
+      ENTCT_FILTER: Object.keys(filterMap).reduce((filters: any, key: string) => {
+        filters[key] = {
+          ...filterMap[key],
+          routingRuleId: clonedRule.routingRuleId,
+          conditionSeqId: generateTempId(),
+          createdDate: DateTime.now().toMillis(),
+          lastUpdatedStamp: undefined
+        }
+        return filters
+      }, {}),
+      ENTCT_SORT_BY: Object.keys(sortMap).reduce((filters: any, key: string) => {
+        filters[key] = {
+          ...sortMap[key],
+          routingRuleId: clonedRule.routingRuleId,
+          conditionSeqId: generateTempId(),
+          createdDate: DateTime.now().toMillis(),
+          lastUpdatedStamp: undefined
+        }
+        return filters
+      }, {})
+    }
+
+    clonedRule.actions = Object.keys(clonedRule.actions || {}).reduce((actions: any, actionTypeId: string) => {
+      actions[actionTypeId] = {
+        ...clonedRule.actions[actionTypeId],
+        routingRuleId: clonedRule.routingRuleId,
+        actionSeqId: generateTempId(),
+        createdDate: DateTime.now().toMillis(),
+        lastUpdatedStamp: undefined
+      }
+      return actions
+    }, {})
+
+    return clonedRule
+  })
+
+  return clonedRouting
+}
+
+function toSerializableGroup(payloadGroup: any) {
+  const serializedGroup = deepClone(payloadGroup || {})
+  serializedGroup.routings = (serializedGroup.routings || []).map((routing: any) => {
+    const updatedRouting = { ...routing }
+    const isNewRouting = String(updatedRouting.orderRoutingId || "").startsWith(TEMP_ID_PREFIX)
+    if (isNewRouting) {
+      delete updatedRouting.orderRoutingId
+    }
+
+    updatedRouting.orderFilters = (updatedRouting.orderFilters || []).map((condition: any) => {
+      const serializedCondition = toBackendCondition(condition)
+      if (isNewRouting) {
+        delete serializedCondition.conditionSeqId
+      }
+      if (String(serializedCondition.conditionSeqId || "").startsWith(TEMP_ID_PREFIX)) {
+        delete serializedCondition.conditionSeqId
+      }
+      return serializedCondition
+    })
+
+    updatedRouting.rules = (updatedRouting.rules || []).map((rule: any) => {
+      const serializedRule = { ...rule }
+      const isNewRule = String(serializedRule.routingRuleId || "").startsWith(TEMP_ID_PREFIX)
+      if (String(serializedRule.routingRuleId || "").startsWith(TEMP_ID_PREFIX)) {
+        delete serializedRule.routingRuleId
+      }
+
+      const filterMap = serializedRule.inventoryFilters?.ENTCT_FILTER || {}
+      const sortMap = serializedRule.inventoryFilters?.ENTCT_SORT_BY || {}
+      serializedRule.inventoryFilters = [
+        ...toArrayMap(filterMap, true),
+        ...toArrayMap(sortMap, true)
+      ].map((condition: any) => {
+        const serializedCondition = toBackendCondition(condition)
+        if (isNewRule || String(serializedCondition.routingRuleId || "").startsWith(TEMP_ID_PREFIX)) {
+          delete serializedCondition.routingRuleId
+        }
+        if (String(serializedCondition.conditionSeqId || "").startsWith(TEMP_ID_PREFIX)) {
+          delete serializedCondition.conditionSeqId
+        }
+        return serializedCondition
+      })
+
+      serializedRule.actions = toArrayMap(serializedRule.actions).map((action: any) => {
+        const serializedAction = { ...action }
+        if (isNewRule || String(serializedAction.routingRuleId || "").startsWith(TEMP_ID_PREFIX)) {
+          delete serializedAction.routingRuleId
+        }
+        if (String(serializedAction.actionSeqId || "").startsWith(TEMP_ID_PREFIX)) {
+          delete serializedAction.actionSeqId
+        }
+        return serializedAction
+      })
+
+      return serializedRule
+    })
+
+    delete updatedRouting.filtersCount
+    delete updatedRouting.sortCount
+    return updatedRouting
+  })
+
+  return serializedGroup
+}
 
 function isInventoryRuleFiltersApplied() {
   const ruleFilters = Object.keys(inventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"]?.code);
@@ -722,11 +942,6 @@ function isPartialGroupItemsAllocationActive() {
   return !!(activeRule.value?.assignmentEnumId === 'ORA_MULTI' && getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "SPLIT_ITEM_GROUP")?.fieldValue === 'Y')
 }
 
-function getPromiseDateValue() {
-  const promiseDateFilter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE") || getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE_EXCLUDED")
-  return promiseDateFilter?.fieldValue || '-'
-}
-
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
 const ruleNameRef = ref()
@@ -756,20 +971,23 @@ async function fetchRoutingGroupInformation() {
   if (!routingGroupId.value || "") {
     // Reset all state when no routing group is selected
     group.value = {};
+    originalGroup.value = {};
     activeRoutingId.value = '';
     activeRuleId.value = '';
     activeRouting.value = null;
     activeRule.value = null;
     inventoryRules.value = [];
     rulesForReorder.value = [];
+    hasUnsavedChanges.value = false
     return;
   }
 
   emitter.emit("presentLoader", { message: translate("Fetching information"), backdropDismiss: false })
   try {
-    const resp = await OrderRoutingService.fetchRoutingGroupInformation(routingGroupId.value || "");
+    const resp = await OrderRoutingService.fetchRoutingGroup(routingGroupId.value || "");
     if(!hasError(resp) && resp.data) {
-      group.value = resp.data
+      group.value = normalizeGroupForUi(resp.data)
+      originalGroup.value = deepClone(group.value)
       groupName.value = group.value.groupName || ""
       
       // Fetching schedule and history
@@ -779,12 +997,11 @@ async function fetchRoutingGroupInformation() {
       ])
 
       if(group.value.routings?.length) {
-        group.value.routings = sortSequence(group.value.routings)
-        // Fetch detailed information for all routings in the group
-        await fetchRoutingsInformation();
         // Auto select first routing
-        selectRouting(group.value.routings[0]);
+        const firstRouting = getActiveAndDraftRoutings()[0]
+        if (firstRouting) selectRouting(firstRouting);
       }
+      hasUnsavedChanges.value = false
     }
   } catch(err) {
     logger.error(err);
@@ -792,27 +1009,39 @@ async function fetchRoutingGroupInformation() {
   emitter.emit("dismissLoader")
 }
 
-async function fetchRoutingsInformation() {
-  if(!group.value.routings) return;
+function syncActiveRuleDraft() {
+  if (!activeRule.value?.routingRuleId) return;
 
-  await Promise.all(group.value.routings.map(async (routing: any) => {
-    try {
-      const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
-      if(!hasError(resp) && resp.data) {
-        const route = resp.data
-        routing["orderFilters"] = route["orderFilters"] || []
-        routing["rules"] = route["rules"]?.length ? sortSequence(route["rules"]) : []
-        
-        routing["filtersCount"] = routing["orderFilters"].filter((f: any) => f.conditionTypeEnumId === "ENTCT_FILTER").length
-        routing["sortCount"] = routing["orderFilters"].filter((f: any) => f.conditionTypeEnumId === "ENTCT_SORT_BY").length
-      }
-    } catch(err) {
-      logger.error(err);
-    }
-  }))
+  const currentRule = inventoryRules.value.find((rule: any) => rule.routingRuleId === activeRule.value.routingRuleId)
+  if (!currentRule) return;
+
+  currentRule.ruleName = activeRule.value.ruleName
+  currentRule.statusId = activeRule.value.statusId
+  currentRule.assignmentEnumId = activeRule.value.assignmentEnumId
+  currentRule.inventoryFilters = {
+    ENTCT_FILTER: deepClone(inventoryRuleFilterOptions.value || {}),
+    ENTCT_SORT_BY: deepClone(inventoryRuleSortOptions.value || {})
+  }
+  currentRule.actions = deepClone(inventoryRuleActions.value || {})
+
+  activeRule.value = currentRule
+}
+
+function syncActiveRoutingDraft() {
+  if (!activeRouting.value) return;
+
+  syncActiveRuleDraft();
+  activeRouting.value.orderFilters = [
+    ...toArrayMap(orderRoutingFilterOptions.value, true),
+    ...toArrayMap(orderRoutingSortOptions.value, true)
+  ].map((condition: any) => toBackendCondition(condition))
+  activeRouting.value.rules = deepClone(inventoryRules.value || [])
+  activeRouting.value.filtersCount = activeRouting.value.orderFilters.filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_FILTER").length
+  activeRouting.value.sortCount = activeRouting.value.orderFilters.filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_SORT_BY").length
 }
 
 const selectRouting = (routing: any) => {
+  syncActiveRoutingDraft();
   activeRoutingId.value = routing.orderRoutingId;
   activeRouting.value = routing;
   activeRuleId.value = '';
@@ -832,18 +1061,9 @@ const selectRouting = (routing: any) => {
 };
 
 const selectRule = async (rule: any) => {
+  syncActiveRuleDraft();
   activeRuleId.value = rule.routingRuleId;
-  
-  // Fetch full rule information including actions and filters
-  try {
-    if(!rulesInformation.value[rule.routingRuleId]) {
-      rulesInformation.value[rule.routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
-    }
-    activeRule.value = rulesInformation.value[rule.routingRuleId] || rule
-  } catch (err) {
-    logger.error(err);
-    activeRule.value = rule;
-  }
+  activeRule.value = inventoryRules.value.find((currentRule: any) => currentRule.routingRuleId === rule.routingRuleId) || rule
   initializeInventoryRule(activeRule.value);
 };
 
@@ -870,6 +1090,10 @@ function getActiveAndDraftOrderRules() {
 
 function getArchivedOrderRules() {
   return inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_ARCHIVED")
+}
+
+function getActiveAndDraftRoutings() {
+  return (group.value.routings || []).filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED")
 }
 
 function getArchivedOrderRoutings() {
@@ -922,48 +1146,50 @@ async function editGroupName() {
 }
 
 async function updateGroupName() {
-  if (groupName.value.trim() && groupName.value.trim() !== group.value.groupName.trim()) {
-    const resultId = await updateRoutingGroup({ routingGroupId: routingGroupId.value || "", productStoreId: group.value.productStoreId, groupName: groupName.value })
-    if (resultId) {
-      group.value.groupName = groupName.value
-    } else {
-      groupName.value = group.value.groupName.trim()
-    }
+  if (groupName.value.trim() && groupName.value.trim() !== (group.value.groupName || "").trim()) {
+    group.value.groupName = groupName.value.trim()
+    hasUnsavedChanges.value = true
+  } else {
+    groupName.value = (group.value.groupName || "").trim()
   }
   isGroupNameUpdating.value = false
 }
 
-async function updateRoutingGroup(payload: any) {
-  emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-  let rGId = ''
-  try {
-    const resp = await OrderRoutingService.updateRoutingGroup(payload);
-    if (!hasError(resp) && resp.data.routingGroupId) {
-      rGId = resp.data.routingGroupId
-      showToast(translate("Routing group information updated"))
-    }
-  } catch (err) {
-    showToast(translate("Failed to update group information"))
-    logger.error(err);
-  }
-  emitter.emit("dismissLoader")
-  return rGId
-}
-
 async function cloneGroup() {
-  const payload = {
-    routingGroupId: group.value.routingGroupId,
-    newGroupName: `${group.value.groupName} copy`
+  if (!group.value) return;
+
+  syncActiveRoutingDraft();
+
+  const clonedGroup = deepClone(group.value)
+  clonedGroup.routingGroupId = undefined
+  clonedGroup.groupName = `${group.value.groupName || translate("Routing group")} copy`
+  clonedGroup.createdDate = DateTime.now().toMillis()
+  clonedGroup.lastUpdatedStamp = undefined
+  clonedGroup.jobName = undefined
+  clonedGroup.routings = (group.value.routings || []).map((routing: any, index: number) => {
+    const clonedRouting = buildDraftRoutingClone(routing, false)
+    clonedRouting.sequenceNum = index * 5
+    return clonedRouting
+  })
+
+  group.value = clonedGroup
+  originalGroup.value = {}
+  groupName.value = clonedGroup.groupName
+  hasUnsavedChanges.value = true
+
+  activeRoutingId.value = ''
+  activeRuleId.value = ''
+  activeRouting.value = null
+  activeRule.value = null
+  inventoryRules.value = []
+  rulesForReorder.value = []
+
+  if (group.value.routings?.length) {
+    const firstRouting = getActiveAndDraftRoutings()[0]
+    if (firstRouting) selectRouting(firstRouting)
   }
-  try {
-    const resp = await OrderRoutingService.cloneGroup(payload)
-    if (!hasError(resp)) {
-      showToast(translate("Brokering run cloned"))
-    }
-  } catch (err) {
-    showToast(translate("Failed to clone brokering run"))
-    logger.error(err)
-  }
+
+  showToast(translate("Brokering run cloned"))
 }
 
 async function openScheduleModal() {
@@ -1120,33 +1346,13 @@ async function editRuleName() {
 
 async function updateRuleName(routingRuleId: string) {
   if (activeRule.value.ruleName.trim()) {
-    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-
-    let ruleId = await store.dispatch("orderRouting/updateRule", {
-      routingRuleId,
-      ruleName: activeRule.value.ruleName
-    })
-
-    if (ruleId) {
-      showToast(translate("Inventory rule information updated"))
+    const currentRule = inventoryRules.value.find((rule: any) => rule.routingRuleId === routingRuleId)
+    if (currentRule) {
+      currentRule.ruleName = activeRule.value.ruleName.trim()
+      hasUnsavedChanges.value = true
     }
-    emitter.emit("dismissLoader")
   }
   isRuleNameUpdating.value = false
-}
-
-async function cloneRule(rule: any) {
-  emitter.emit("presentLoader", { message: translate("Cloning rule"), backdropDismiss: false })
-  const routingRuleId = await store.dispatch("orderRouting/cloneInventoryRule", {
-    routingRuleId: rule.routingRuleId,
-    ruleName: rule.ruleName,
-    orderRoutingId: activeRouting.value.orderRoutingId
-  })
-  if(routingRuleId) {
-    // If needed, refresh routing information
-    showToast(translate("Rule cloned successfully"))
-  }
-  emitter.emit("dismissLoader")
 }
 
 
@@ -1159,11 +1365,13 @@ function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
     filter.fieldValue = fieldValue
     if (operator) filter.operator = operator
   } else {
+    const code = conditionFilterEnums[fieldName].code
+    const defaultOperator = code.endsWith("_excluded") ? "not-equals" : "equals"
     filters[conditionFilterEnums[fieldName].code] = {
       conditionTypeEnumId: "ENTCT_FILTER",
-      fieldName: conditionFilterEnums[fieldName].code,
+      fieldName: code,
       fieldValue,
-      operator: operator || "equals",
+      operator: operator || defaultOperator,
       sequenceNum: Object.keys(filters).length + 1
     }
   }
@@ -1215,6 +1423,7 @@ function updateUnfillableActionType(id: string) {
   delete actions["ORA_MV_TO_QUEUE"]
 
   actions[id] = {
+    actionTypeEnumId: id,
     routingActionTypeId: id,
     actionValue: ""
   }
@@ -1239,6 +1448,7 @@ function clearAutoCancelDays(checked: boolean) {
   const autoCancelActionId = actionEnums['AUTO_CANCEL_DAYS'].id
 
   actions[rmActionId] = {
+    actionTypeEnumId: rmActionId,
     routingActionTypeId: rmActionId,
     actionValue: checked ? "true" : "false"
   }
@@ -1268,6 +1478,7 @@ async function updateAutoCancelDays() {
         const actions = JSON.parse(JSON.stringify(inventoryRuleActions.value))
         const actionId = actionEnums['AUTO_CANCEL_DAYS'].id
         actions[actionId] = {
+          actionTypeEnumId: actionId,
           routingActionTypeId: actionId,
           actionValue: data.actionValue
         }
@@ -1359,30 +1570,26 @@ async function addInventoryRule() {
   newRuleAlert.onDidDismiss().then(async (result: any) => {
     const ruleName = result.data?.values?.ruleName;
     if(!result.role && ruleName) {
-      const payload = {
-        routingRuleId: "",
-        orderRoutingId: activeRouting.value.orderRoutingId,
+      const newRule = normalizeRuleForUi({
+        routingRuleId: `${TEMP_ID_PREFIX}${DateTime.now().toMillis()}`,
         ruleName,
         statusId: "RULE_DRAFT",
         sequenceNum: inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0,
         assignmentEnumId: "ORA_SINGLE",
-        createdDate: DateTime.now().toMillis()
-      }
-
-      const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
-      if(routingRuleId) {
-        await store.dispatch("orderRouting/updateRule", {
-          routingRuleId,
-          orderRoutingId: activeRouting.value.orderRoutingId,
-          actions: [{
-            actionTypeEnumId: "ORA_NEXT_RULE",
-            actionValue: "",
-            createdDate: DateTime.now().toMillis()
-          }]
-        })
-        await store.dispatch("orderRouting/fetchCurrentOrderRouting", activeRouting.value.orderRoutingId)
-        inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(activeRouting.value["rules"])))
-        initializeInventoryRules()
+        createdDate: DateTime.now().toMillis(),
+        inventoryFilters: [],
+        actions: [{
+          actionTypeEnumId: "ORA_NEXT_RULE",
+          actionValue: "",
+          createdDate: DateTime.now().toMillis()
+        }]
+      })
+      inventoryRules.value.push(newRule)
+      initializeInventoryRules()
+      hasUnsavedChanges.value = true
+      const currentRule = rulesForReorder.value.find((rule: any) => rule.routingRuleId === newRule.routingRuleId)
+      if (currentRule) {
+        selectRule(currentRule)
       }
     }
   })
@@ -1396,236 +1603,137 @@ async function openArchivedRuleModal() {
     componentProps: { archivedRules: getArchivedOrderRules() }
   })
 
-  archivedRuleModal.onDidDismiss().then(() => {
-    fetchRoutingGroupInformation();
-  })
-
   await archivedRuleModal.present();
 }
 
+function findRemovedOrderFilters(originalGroupData: any, draftGroupData: any) {
+  const removedByRouting = {} as any
+
+  const draftRoutingsById = (draftGroupData.routings || []).reduce((routings: any, routing: any) => {
+    if (routing.orderRoutingId) routings[routing.orderRoutingId] = routing
+    return routings
+  }, {})
+
+  for (const originalRouting of (originalGroupData.routings || [])) {
+    if (!originalRouting.orderRoutingId) continue
+    const draftRouting = draftRoutingsById[originalRouting.orderRoutingId]
+    if (!draftRouting) continue
+
+    const draftConditionIds = new Set((draftRouting.orderFilters || []).map((condition: any) => condition.conditionSeqId).filter(Boolean))
+    const removedConditions = (originalRouting.orderFilters || []).filter((condition: any) => condition.conditionSeqId && !draftConditionIds.has(condition.conditionSeqId))
+
+    if (removedConditions.length) {
+      removedByRouting[originalRouting.orderRoutingId] = removedConditions
+    }
+  }
+
+  return removedByRouting
+}
+
+function findRemovedRuleDetails(originalGroupData: any, draftGroupData: any) {
+  const removedConditionsByRule = {} as any
+  const removedActionsByRule = {} as any
+
+  const draftRulesById = (draftGroupData.routings || []).reduce((rulesById: any, routing: any) => {
+    for (const rule of (routing.rules || [])) {
+      if (rule.routingRuleId) rulesById[rule.routingRuleId] = rule
+    }
+    return rulesById
+  }, {})
+
+  for (const originalRouting of (originalGroupData.routings || [])) {
+    for (const originalRule of (originalRouting.rules || [])) {
+      if (!originalRule.routingRuleId) continue
+      const draftRule = draftRulesById[originalRule.routingRuleId]
+      if (!draftRule) continue
+
+      const draftConditionIds = new Set((draftRule.inventoryFilters || []).map((condition: any) => condition.conditionSeqId).filter(Boolean))
+      const removedConditions = (originalRule.inventoryFilters || []).filter((condition: any) => condition.conditionSeqId && !draftConditionIds.has(condition.conditionSeqId))
+      if (removedConditions.length) {
+        removedConditionsByRule[originalRule.routingRuleId] = removedConditions
+      }
+
+      const draftActionIds = new Set((draftRule.actions || []).map((action: any) => action.actionSeqId).filter(Boolean))
+      const removedActions = (originalRule.actions || []).filter((action: any) => action.actionSeqId && !draftActionIds.has(action.actionSeqId))
+      if (removedActions.length) {
+        removedActionsByRule[originalRule.routingRuleId] = removedActions
+      }
+    }
+  }
+
+  return { removedConditionsByRule, removedActionsByRule }
+}
+
+async function deleteRemovedDetails(originalSerializedGroup: any, draftSerializedGroup: any) {
+  const removedOrderFilters = findRemovedOrderFilters(originalSerializedGroup, draftSerializedGroup)
+  const { removedConditionsByRule, removedActionsByRule } = findRemovedRuleDetails(originalSerializedGroup, draftSerializedGroup)
+
+  for (const [orderRoutingId, filters] of Object.entries(removedOrderFilters)) {
+    await store.dispatch("orderRouting/deleteRoutingFilters", { orderRoutingId, filters })
+  }
+
+  for (const [routingRuleId, conditions] of Object.entries(removedConditionsByRule)) {
+    await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId, conditions })
+  }
+
+  for (const [routingRuleId, actions] of Object.entries(removedActionsByRule)) {
+    await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId, actions })
+  }
+}
 
 async function save() {
+  syncActiveRoutingDraft();
+  group.value.groupName = groupName.value?.trim() || group.value.groupName
+
   emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
-  
-  // Save routing-level changes first
-  const initialOrderFilters = activeRouting.value["orderFilters"]?.length ? activeRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filters[filter.conditionTypeEnumId]) {
-      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+  try {
+    const serializedDraft = toSerializableGroup(group.value)
+    const serializedOriginal = toSerializableGroup(originalGroup.value)
+    let savedGroupId = group.value.routingGroupId
+
+    if (group.value.routingGroupId) {
+      const updateResp = await OrderRoutingService.updateRoutingGroup(serializedDraft)
+      if (hasError(updateResp)) throw updateResp
+      await deleteRemovedDetails(serializedOriginal, serializedDraft)
     } else {
-      filters[filter.conditionTypeEnumId] = {
-        [filter.fieldName]: filter
+      const createResp = await OrderRoutingService.createRoutingGroup(serializedDraft)
+      if (hasError(createResp)) throw createResp
+      savedGroupId = createResp?.data?.routingGroupId
+    }
+
+    if (savedGroupId) {
+      const latestGroupResp = await OrderRoutingService.fetchRoutingGroup(savedGroupId)
+      if (hasError(latestGroupResp) || !latestGroupResp.data) throw latestGroupResp
+
+      group.value = normalizeGroupForUi(latestGroupResp.data)
+      originalGroup.value = deepClone(group.value)
+      groupName.value = group.value.groupName || ""
+      if (group.value.routings?.length) {
+        const firstRouting = getActiveAndDraftRoutings()[0]
+        if (firstRouting) selectRouting(firstRouting);
+      } else {
+        activeRoutingId.value = ''
+        activeRuleId.value = ''
+        activeRouting.value = null
+        activeRule.value = null
       }
+      await Promise.all([
+        fetchGroupSchedule(),
+        fetchGroupHistory()
+      ])
+    } else {
+      // Keep local state if backend does not return the new ID in create response.
+      originalGroup.value = deepClone(group.value)
     }
-    return filters
-  }, {}) : {}
 
-  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
-  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
-
-  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
-  const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
-
-  if(filtersToRemove?.length) {
-    await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: activeRouting.value.orderRoutingId })
+    hasUnsavedChanges.value = false
+    showToast(translate("Changes saved successfully"))
+  } catch (error) {
+    logger.error(error)
+    showToast(translate("Failed to save changes"))
+  } finally {
+    emitter.emit("dismissLoader")
   }
-
-  if(filtersToUpdate?.length) {
-    activeRouting.value["orderFilters"] = filtersToUpdate
-    await store.dispatch("orderRouting/updateRouting", activeRouting.value)
-  }
-
-  const initialInventoryRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
-
-  // Find diff for current rule
-  const ruleId = activeRule.value.routingRuleId
-  const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]?.["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-  const updatedRuleSortOptions = inventoryRuleSortOptions.value
-  const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
-
-  const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC as string || ""
-  Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
-    if(filterSortDesc.includes(option.fieldName)) {
-      option.fieldName += " desc"
-    }
-  })
-
-  const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]?.["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-  const updatedRuleFilterOptions = inventoryRuleFilterOptions.value
-  const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-  const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]?.["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
-  const updatedRuleActionOptions = inventoryRuleActions.value
-  const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
-
-  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-  Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  if(Object.keys(filterOptionsDiff.seqToRemove).length || Object.keys(sortOptionsDiff.seqToRemove).length) {
-    await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: ruleId, conditions: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }) })
-  }
-
-  if(Object.keys(ruleActionsDiff.seqToRemove).length) {
-    await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: ruleId, actions: Object.values(ruleActionsDiff.seqToRemove) })
-  }
-
-  if(Object.keys(filterOptionsDiff.seqToUpdate).length || Object.keys(sortOptionsDiff.seqToUpdate).length || Object.keys(ruleActionsDiff.seqToUpdate).length) {
-    await store.dispatch("orderRouting/updateRule", {
-      routingRuleId: ruleId,
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      inventoryFilters: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
-      actions: Object.values(ruleActionsDiff.seqToUpdate)
-    })
-  }
-
-  // Refresh current routing and rule information
-  await store.dispatch("orderRouting/fetchCurrentOrderRouting", activeRouting.value.orderRoutingId)
-  rulesInformation.value[ruleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", ruleId)
-  initializeInventoryRule(rulesInformation.value[ruleId]);
-
-  hasUnsavedChanges.value = false
-  emitter.emit("dismissLoader")
-  showToast(translate("Changes saved successfully"))
-}
-
-function findSortDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key]) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_sort'] = seqToUpdate[key]
-    return updatedSeq
-  }, {})
-
-  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_sort'] = seqToRemove[key]
-    return updatedSeq
-  }, {})
-
-  return { seqToUpdate, seqToRemove };
-}
-
-function findFilterDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue == previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key] && (updatedSeq[key].fieldValue || updatedSeq[key].fieldValue === 0)) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_filter'] = seqToUpdate[key]
-    return updatedSeq
-  }, {})
-
-  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_filter'] = seqToRemove[key]
-    return updatedSeq
-  }, {})
-
-  return { seqToUpdate, seqToRemove };
-}
-
-function findActionDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].routingActionTypeId === previousSeq[key].routingActionTypeId && updatedSeq[key].actionValue == previousSeq[key].actionValue) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key]) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  return { seqToUpdate, seqToRemove };
-}
-
-const openRouteDetails = (routing: any) => {
-  // Logic to open details modal/menu if needed
-  console.log("Open details for:", routing);
 }
 
 function initializeOrderRoutingOptions() {
@@ -1636,11 +1744,13 @@ function initializeOrderRoutingOptions() {
   }
 
   const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(activeRouting.value.orderFilters))).reduce((filters: any, filter: any) => {
+    const fieldName = getUiFieldName(filter)
+    const updatedFilter = { ...filter, fieldName }
     if(filters[filter.conditionTypeEnumId]) {
-      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+      filters[filter.conditionTypeEnumId][fieldName] = updatedFilter
     } else {
       filters[filter.conditionTypeEnumId] = {
-        [filter.fieldName]: filter
+        [fieldName]: updatedFilter
       }
     }
     return filters
@@ -1680,70 +1790,51 @@ async function editRouteName() {
 }
 
 async function updateRouteName() {
-  if(routeName.value.trim() && routeName.value.trim() !== activeRouting.value.routingName.trim()) {
-    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-    const payload = {
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      routingName: routeName.value
-    }
-    try {
-      const resp = await OrderRoutingService.updateRouting(payload);
-      if(!hasError(resp) && resp.data.orderRoutingId) {
-        activeRouting.value.routingName = routeName.value
-        showToast(translate("Order routing information updated"))
-      }
-    } catch(err) {
-      showToast(translate("Failed to update routing information"))
-      logger.error(err);
-    }
-    emitter.emit("dismissLoader")
+  if(routeName.value.trim() && routeName.value.trim() !== (activeRouting.value.routingName || "").trim()) {
+    activeRouting.value.routingName = routeName.value.trim()
+    hasUnsavedChanges.value = true
   }
   isRouteNameUpdating.value = false
 }
 
 async function cloneRouting(routing: any) {
-  emitter.emit("presentLoader", { message: translate("Cloning route"), backdropDismiss: false })
-  const orderRoutingId = await store.dispatch("orderRouting/cloneOrderRouting", {
-    orderRoutingId: routing.orderRoutingId,
-    orderRoutingName: routing.routingName,
-    routingGroupId: routingGroupId.value || ""
-  })
-  if(orderRoutingId) {
-    await fetchRoutingGroupInformation();
-    showToast(translate("Route cloned successfully"))
-  }
-  emitter.emit("dismissLoader")
+  if (!routing) return;
+
+  syncActiveRoutingDraft();
+
+  const clonedRouting = buildDraftRoutingClone(routing, true)
+  clonedRouting.sequenceNum = group.value.routings?.length ? Math.max(...group.value.routings.map((route: any) => route.sequenceNum || 0)) + 5 : 0
+
+  group.value.routings.push(clonedRouting)
+  group.value.routings = sortSequence(group.value.routings)
+  hasUnsavedChanges.value = true
+  selectRouting(clonedRouting)
+  showToast(translate("Route cloned successfully"))
 }
 
 async function updateRoutingStatus(statusId: string) {
-  const payload = {
-    orderRoutingId: activeRoutingId.value,
-    statusId: statusId
-  }
-  try {
-    const resp = await OrderRoutingService.updateRouting(payload)
-    if(!hasError(resp)){
-      activeRouting.value.statusId = statusId
-      showToast(translate("Routing status updated"))
-    }
-  } catch(err) {
-    showToast(translate("Failed to update routing status"))
-    logger.error(err)
-  }
+  activeRouting.value.statusId = statusId
+  hasUnsavedChanges.value = true
 }
 
 function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = false) {
+  const enumConfig = ruleEnums[fieldName as keyof typeof ruleEnums]
+  const backendFieldName = enumConfig ? enumConfig.code : fieldName
   const value = multi ? event.detail.value.join(",") : event.detail.value
-  const filter = orderRoutingFilterOptions.value[fieldName]
+  const filter = orderRoutingFilterOptions.value[backendFieldName]
   if(filter) {
     filter.fieldValue = value
   } else {
-    orderRoutingFilterOptions.value[fieldName] = {
+    orderRoutingFilterOptions.value[backendFieldName] = {
       conditionTypeEnumId: "ENTCT_FILTER",
-      fieldName,
+      fieldName: backendFieldName,
       fieldValue: value,
       operator: "equals"
     }
+  }
+
+  if (backendFieldName.endsWith("_excluded")) {
+    orderRoutingFilterOptions.value[backendFieldName].operator = multi ? "not-in" : "not-equals"
   }
   hasUnsavedChanges.value = true
 }
@@ -1766,15 +1857,18 @@ function doRouteSortReorder(event: CustomEvent) {
 }
 
 function doRoutingReorder(event: CustomEvent) {
-  const previousSeq = JSON.parse(JSON.stringify(group.value.routings))
-  const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(group.value.routings)));
+  const visibleRoutings = JSON.parse(JSON.stringify(getActiveAndDraftRoutings()))
+  const updatedVisibleRoutings = event.detail.complete(JSON.parse(JSON.stringify(visibleRoutings)));
 
-  const updatedSeqenceNum = previousSeq.map((routing: any) => routing.sequenceNum)
-  Object.keys(updatedSeq).map((key: any, index: number) => {
-    updatedSeq[key].sequenceNum = updatedSeqenceNum[index]
+  const updatedSequenceNum = visibleRoutings.map((routing: any) => routing.sequenceNum)
+  Object.keys(updatedVisibleRoutings).map((key: any, index: number) => {
+    updatedVisibleRoutings[key].sequenceNum = updatedSequenceNum[index]
   })
 
-  group.value.routings = updatedSeq
+  group.value.routings = [
+    ...updatedVisibleRoutings,
+    ...getArchivedOrderRoutings()
+  ]
   hasUnsavedChanges.value = true
   isReordering.value = false
 }
@@ -1804,19 +1898,6 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
 
   await orderRouteFilterOptionsModal.present();
 }
-
-function getInventoryRules(ruleId: string) {
-  // In the context of Circuit, we might want to show actions or other related rules
-  // For now, let's just return an empty array if not implemented, or use activeRule info
-  if (activeRule.value && activeRule.value.routingRuleId === ruleId) {
-    // If we have inventory rules within the rule, we could return them.
-    // Based on BrokeringQuery.vue, inventoryRules are separate.
-    // For this UI, we'll just show the active rule as the "Inventory Rule" or related data
-    return [activeRule.value];
-  }
-  return [];
-}
-
 
 function doReorder(event: CustomEvent) {
   const previousSeq = JSON.parse(JSON.stringify(rulesForReorder.value))
@@ -1855,8 +1936,9 @@ async function openArchivedRoutingModal() {
     componentProps: {
       archivedRoutings: group.value?.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || [],
       saveRoutings: (routings: any) => {
-        if(routings) {
-          fetchRoutingGroupInformation()
+        if(Array.isArray(routings)) {
+          group.value.routings = normalizeGroupForUi({ routings }).routings
+          hasUnsavedChanges.value = true
         }
       }
     }

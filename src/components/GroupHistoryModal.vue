@@ -12,12 +12,12 @@
   
   <ion-content>
     <ion-list>
-      <ion-item v-for="history in groupHistory" :key="history.jobRunId">
+        <ion-item v-for="history in (groupHistory)" :key="history.jobRunId">
         <ion-label>
-          <h3>{{ getTime(history.startTime) }}</h3>
-          <p>{{ getDate(history.startTime) }}</p>
+          <h3>{{ commonUtil.getTime(history.startTime) }}</h3>
+          <p>{{ commonUtil.getDate(history.startTime) }}</p>
         </ion-label>
-        <ion-badge color="dark" v-if="history.endTime">{{ timeTillRun(history.endTime) }}</ion-badge>
+        <ion-badge color="dark" v-if="history.endTime">{{ commonUtil.timeTillRun(history.endTime) }}</ion-badge>
       </ion-item>
     </ion-list>
   </ion-content>
@@ -25,28 +25,15 @@
 
 <script setup lang="ts">
 import { translate } from "@/i18n";
-import {
-  IonBadge,
-  IonButton,
-  IonButtons,
-  IonContent,
-  IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonTitle,
-  IonToolbar,
-  modalController,
-} from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import { defineProps } from "vue";
-import { getDate, getTime, timeTillRun } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 
 defineProps({
   groupHistory: {
     required: true,
-    default: {}
+    default: [] as any[]
   }
 })
 

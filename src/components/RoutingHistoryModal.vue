@@ -29,7 +29,7 @@
           <ion-icon v-if="history.hasError === 'Y'" :icon="warningOutline" color="warning" slot="start" />
           <ion-icon v-else :icon="checkmarkDoneOutline" slot="start"/>
           <ion-label>{{ history.routingResult }}</ion-label>
-          <ion-label slot="end">{{ getDateAndTime(history.startDate) }}</ion-label>
+          <ion-label slot="end">{{ commonUtil.getDateAndTime(history.startDate) }}</ion-label>
         </ion-item>
       </div>
     </ion-list>
@@ -37,22 +37,11 @@
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from "@/store/useUserStore";
+import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { translate } from "@/i18n";
-import store from "@/store";
-import { getDateAndTime } from "@/utils";
-import {
-  IonButton,
-  IonButtons,
-  IonContent,
-  IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonTitle,
-  IonToolbar,
-  modalController,
-} from "@ionic/vue";
+import { commonUtil } from "@/utils/commonUtil";
+import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { checkmarkDoneOutline, closeOutline, warningOutline } from "ionicons/icons";
 import { computed, defineProps } from "vue";
 
@@ -72,8 +61,8 @@ defineProps({
   }
 })
 
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
+const userProfile = computed(() => useUserStore().getUserProfile)
+const currentRoutingGroup: any = computed(() => useOrderRoutingStore().getCurrentRoutingGroup)
 
 const productStoreName = computed(() => userProfile.value.stores.find((store: any) => store.productStoreId === currentRoutingGroup.value.productStoreId)?.storeName || currentRoutingGroup.value.productStoreId)
 

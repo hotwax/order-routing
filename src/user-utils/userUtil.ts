@@ -1,10 +1,10 @@
 import { translate } from '@/i18n'
-import store from '@/store'
+import { useUserStore } from '@/store/useUserStore';
 import { loadingController } from '@ionic/vue'
 
-const login = async (payload: any) => store.dispatch('user/login', payload);
+const login = async (payload: any) => useUserStore().login( payload);
 
-const logout = async (payload: any) => store.dispatch('user/logout', payload);
+const logout = async () => useUserStore().logout();
 
 const loader = {
   value: null as any,
@@ -27,7 +27,7 @@ const loader = {
   }
 }
 
-export {
+export const userUtil = {
   login,
   loader,
   logout

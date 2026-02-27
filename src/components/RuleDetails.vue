@@ -71,8 +71,8 @@
             <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions)?.length">
               {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
             </p>
-            <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-              <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
+            <ion-item v-for="(sort, code) in (inventoryRuleSortOptions as any)" :key="code as string">
+              <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
             </ion-item>
           </ion-card>
         </section>
@@ -130,8 +130,8 @@
 </template>
 
 <script setup lang="ts">
+import { useUtilStore } from "@/store/useUtilStore";
 import { translate } from "@/i18n";
-import store from "@/store";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
 import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"
 import { computed, defineProps, ref } from "vue"
@@ -154,11 +154,11 @@ let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let ruleActionType = ref("")
 
-const enums = computed(() => store.getters["util/getEnums"])
-const facilities = computed(() => store.getters["util/getVirtualFacilities"])
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const enums = computed(() => useUtilStore().getEnums)
+const facilities = computed(() => useUtilStore().getVirtualFacilities)
+const shippingMethods = computed(() => useUtilStore().getShippingMethods)
+const facilityGroups = computed(() => useUtilStore().getFacilityGroups)
+const getStatusDesc = computed(() => (id: string) => useUtilStore().getStatusDesc(id))
 
 function getRuleIndex() {
   if(!props.group?.routings?.length) {

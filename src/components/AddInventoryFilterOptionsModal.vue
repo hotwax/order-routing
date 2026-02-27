@@ -42,14 +42,14 @@
 
 <script setup lang="ts">
 import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { useStore } from "vuex";
+import { useUtilStore } from "@/store/useUtilStore";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
 import { translate } from "@/i18n";
 
-const store = useStore();
-const enums = computed(() => store.getters["util/getEnums"])
+const utilStore = useUtilStore();
+const enums = computed(() => utilStore.getEnums)
 
 const props = defineProps({
   routingRuleId: {

@@ -39,7 +39,7 @@
               <ion-item>
                 <ion-label>
                   <h1>{{ group.groupName }}</h1>
-                  <p>{{ getDateAndTime(group.createdDate) }}</p>
+                  <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
                 </ion-label>
               </ion-item>
               <ion-item v-if="group.description">
@@ -49,7 +49,7 @@
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                   <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
@@ -59,12 +59,12 @@
               <ion-item v-else>
                 <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-label>
                 <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
               </ion-item>
               <ion-item lines="none">
-                {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
+                {{ `Updated at ${commonUtil.getDateAndTime(group.lastUpdatedStamp)}` }}
                 <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
                   <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
                 </ion-button>
@@ -91,20 +91,24 @@ import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
-import { getDateAndTime, showToast } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
+import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useStore } from "vuex";
-import cronstrue from 'cronstrue';
+import { useUserStore } from "@/store/useUserStore";
+import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
+import { useUtilStore } from "@/store/useUtilStore";
 
-const store = useStore()
+const orderRoutingStore = useOrderRoutingStore()
+const userStore = useUserStore()
+const utilStore = useUtilStore()
 const router = useRouter()
-const groups = computed(() => store.getters["orderRouting/getRoutingGroups"])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const groups = computed(() => orderRoutingStore.getRoutingGroups)
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => userStore.getCurrentEComStore)
 
 const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS)
 
@@ -113,10 +117,10 @@ let brokeringGroups = ref([]) as any
 
 onIonViewWillEnter(async () => {
   isLoading.value = true
-  await store.dispatch("orderRouting/fetchOrderRoutingGroups");
+  await orderRoutingStore.fetchOrderRoutingGroups();
   isLoading.value = false
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
-  store.dispatch("util/fetchEnums", { parentTypeId: "ORDER_ROUTING" })
+  utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" })
 })
 
 function timeTillRun(time: any) {
@@ -138,7 +142,7 @@ async function addNewRun() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.runName?.trim().length) {
-          showToast(translate("Please enter a valid name"))
+          commonUtil.showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -156,7 +160,7 @@ async function addNewRun() {
     }
 
     if(result.data?.values?.runName.trim()) {
-      await store.dispatch("orderRouting/createRoutingGroup", result.data.values.runName.trim())
+      await orderRoutingStore.createRoutingGroup(result.data.values.runName.trim())
       brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
     }
   })
@@ -167,10 +171,10 @@ async function addNewRun() {
 async function setEComStore(event: CustomEvent) {
   emitter.emit("presentLoader")
   if(userProfile.value?.stores) {
-    await store.dispatch("user/setEcomStore", {
+      userStore.setEcomStore({
       "productStoreId": event.detail.value
     })
-    await store.dispatch("orderRouting/fetchOrderRoutingGroups");
+    await orderRoutingStore.fetchOrderRoutingGroups();
     brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   }
   emitter.emit("dismissLoader")

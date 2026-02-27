@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { translate } from "@/i18n";
-import { showToast } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 import { IonContent, IonItem, IonLabel, IonList, IonListHeader, alertController, popoverController } from "@ionic/vue";
 import { defineProps } from "vue";
 
@@ -43,7 +43,7 @@ async function updatePromiseDate(header = '', isPastDuration = false) {
       handler: (data: any) => {
         const duration = data?.duration;
         if(!duration) {
-          showToast(translate("Enter a valid value"))
+          commonUtil.showToast(translate("Enter a valid value"))
           return false;
         }
       }

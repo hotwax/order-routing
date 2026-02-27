@@ -1,7 +1,9 @@
 import api, { client } from "@/api"
 import logger from "@/logger";
-import store from "@/store";
-import { getOmsRedirectionUrl, hasError } from "@/utils";
+import { useProductStore } from "@/store/useProductStore";
+import { useUserStore } from "@/store/useUserStore";
+import { useUtilStore } from "@/store/useUtilStore";
+import { commonUtil } from "@/utils/commonUtil";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -167,7 +169,7 @@ const runNow = async (routingGroupId: string): Promise<any> => {
 }
 
 const findOrder = async (queryString: string, orderId: string): Promise<any> => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
 
   let orders = []
   let errorMessage = "";
@@ -186,7 +188,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
         "defType": "edismax"
       },
       "query": `(*${queryString.trim()}*) OR "${queryString.trim()}"^100`,
-      "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND orderStatusId: ORDER_APPROVED AND productStoreId: ${store.getters["user/getCurrentEComStore"]?.productStoreId} AND -shipmentMethodTypeId: STOREPICKUP`
+      "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND orderStatusId: ORDER_APPROVED AND productStoreId: ${useUserStore().getCurrentEComStore?.productStoreId} AND -shipmentMethodTypeId: STOREPICKUP`
     }
   }
 
@@ -199,7 +201,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
     const resp = await client({
       url: "solr-query",
       method: "post",
-      baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
+      baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
       data: payload,
       headers: {
         Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -207,7 +209,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
       }
     });
 
-    if(!hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
+    if(!commonUtil.hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
       const productIds: Array<string> = [];
       orders = resp.data.grouped?.orderId?.groups.map((group: any) => {
         const groups = group.doclist.docs.reduce((shipGroups: any, item: any) => {
@@ -225,10 +227,10 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
         }
       })
 
-      store.dispatch("util/fetchCarrierInformation", [...new Set(orderCarrierPartyIds)])
+      useUtilStore().fetchCarrierInformation( [...new Set(orderCarrierPartyIds)])
 
       if(productIds.length) {
-        await store.dispatch("product/fetchProducts", productIds)
+        await useProductStore().fetchProducts( productIds)
       }
     } else {
       throw resp

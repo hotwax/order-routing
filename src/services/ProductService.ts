@@ -1,13 +1,13 @@
 import { client } from "@/api";
-import store from "@/store";
-import { getOmsRedirectionUrl } from "@/utils";
+import { useUserStore } from "@/store/useUserStore";
+import { commonUtil } from "@/utils/commonUtil";
 
 const fetchProducts = async (payload: any): Promise <any>  => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "searchProducts",
     method: "post",
-    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -17,11 +17,11 @@ const fetchProducts = async (payload: any): Promise <any>  => {
 }
 
 const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
-    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,

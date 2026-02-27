@@ -31,11 +31,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -53,7 +53,7 @@
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
                   </ion-label>
-                  {{ `${index + 1}/${group.routings.length}` }}
+                  {{ `${(index as number) + 1}/${group.routings.length}` }}
                 </ion-item>
                 <ion-item lines="full" v-if="routing.filtersCount">
                   <ion-label>{{ routing.filtersCount }}{{ " filters" }}</ion-label>
@@ -96,12 +96,14 @@
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { useStore } from "vuex";
-import { computed, defineProps, reactive, ref, resolveComponent, watch } from "vue";
-import { Group, Route } from "@/types";
+import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
+import { useUserStore } from "@/store/useUserStore";
+import { useUtilStore } from "@/store/useUtilStore";
+import { computed, defineProps, reactive, ref, watch } from "vue";
+import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
-import { hasError, getDateAndTime, sortSequence } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import RouteDetails from "@/components/RouteDetails.vue"
@@ -111,7 +113,9 @@ import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
 
 const router = useRouter();
-const store = useStore();
+const orderRoutingStore = useOrderRoutingStore();
+const userStore = useUserStore();
+const utilStore = useUtilStore();
 const props = defineProps({
   routingGroupId: {
     type: String,
@@ -128,12 +132,12 @@ let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let userTestingSession = ref({}) as any
 
-const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
-const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const currentRoutingGroup: any = computed((): Group => orderRoutingStore.getCurrentRoutingGroup)
+const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
+const testRoutingInfo = computed(() => orderRoutingStore.getTestRoutingInfo)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => userStore.getCurrentEComStore)
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -153,7 +157,7 @@ onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
 
-  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
+  await Promise.all([utilStore.fetchFacilities(), utilStore.fetchFacilityGroups(), utilStore.fetchStatusInformation(), utilStore.fetchShippingMethods(), orderRoutingStore.fetchRoutingHistory(props.routingGroupId)])
 
   await fetchJobInformation()
   await createUserTestSession();
@@ -162,7 +166,7 @@ onIonViewWillEnter(async () => {
 })
 
 onIonViewWillLeave(async () => {
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await orderRoutingStore.clearRoutingTestInfo()
 })
 
 onBeforeRouteLeave(async (to: any) => {
@@ -181,7 +185,7 @@ async function fetchRoutingGroupInformation() {
   try {
     const resp = await OrderRoutingService.fetchRoutingGroupInformation(props.routingGroupId);
 
-    if(!hasError(resp) && resp.data) {
+    if(!commonUtil.hasError(resp) && resp.data) {
       group.value = resp.data
     } else {
       throw resp.data
@@ -191,7 +195,7 @@ async function fetchRoutingGroupInformation() {
   }
 
   if(group.value.routings?.length) {
-    group.value.routings = sortSequence(group.value.routings)
+    group.value.routings = commonUtil.sortSequence(group.value.routings)
   }
 
   emitter.emit("dismissLoader")
@@ -204,7 +208,7 @@ async function fetchRoutingsInformation() {
     try {
       const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
   
-      if(!hasError(resp) && resp.data) {
+      if(!commonUtil.hasError(resp) && resp.data) {
         route = resp.data
   
         if(route["orderFilters"]?.length) {
@@ -215,7 +219,7 @@ async function fetchRoutingsInformation() {
           })
         }
         
-        route["rules"] = route["rules"]?.length ? sortSequence(route["rules"]) : []
+        route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
         
         routing["orderFilters"] = route["orderFilters"]
         routing["rules"] = route["rules"]
@@ -251,7 +255,7 @@ async function openRouteDetails(routing: any) {
 }
 
 async function openRuleDetails(rule: any) {
-  const ruleInfo = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
+  const ruleInfo = await orderRoutingStore.fetchInventoryRuleInformation(rule.routingRuleId)
   currentRule.value = {
     ...rule,
     ...ruleInfo
@@ -264,7 +268,7 @@ async function fetchJobInformation() {
   try {
     const resp = await OrderRoutingService.fetchRoutingScheduleInformation(props.routingGroupId);
 
-    if(!hasError(resp) && resp.data?.schedule) {
+    if(!commonUtil.hasError(resp) && resp.data?.schedule) {
       job.value = resp.data.schedule
     } else {
       throw resp.data
@@ -292,7 +296,7 @@ async function exitTestMode(isTriggerManually = true) {
     return false; // passing boolean to let the routeLeave hook know to change the route or not
   }
 
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await orderRoutingStore.clearRoutingTestInfo()
 
   if(isTriggerManually) {
     router.go(-1);

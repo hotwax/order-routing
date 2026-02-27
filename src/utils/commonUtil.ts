@@ -77,4 +77,4 @@ const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
   return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
 }
 
-export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime }
+export const commonUtil = { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime }

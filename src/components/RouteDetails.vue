@@ -35,7 +35,7 @@
             <ion-icon :icon="timeOutline" slot="start" />
             <ion-label>{{ translate("Last run") }}</ion-label>
             <ion-chip outline @click.stop="openRoutingHistoryModal()">
-              <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
+              <ion-label>{{ routingHistory[routing.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
             </ion-chip>
           </ion-item>
           <ion-item-group>
@@ -63,8 +63,8 @@
             <p class="empty-state" v-if="!routing.sortCount">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
             </p>
-            <ion-item v-for="(sort, code) in routing.sortConditions" :key="code">
-              <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
+            <ion-item v-for="(sort, code) in (routing.sortConditions as any)" :key="code as string">
+              <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
             </ion-item>
           </ion-item-group>
         </section>
@@ -85,13 +85,14 @@
 </template>
 
 <script setup lang="ts">
+import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
+import { useUtilStore } from "@/store/useUtilStore";
 import { translate } from "@/i18n";
-import store from "@/store";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
 import { computed, defineProps } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
-import { getDateAndTimeShort } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 import OrderFilterItem from "./OrderFilterItem.vue";
 
 const props = defineProps({
@@ -109,7 +110,6 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 const filterOptions = [{
   enumId: "PROD_CATEGORY",
   code: "productCategoryId",
@@ -168,12 +168,9 @@ const filterOptions = [{
   label: "Origin Facility Group"
 }]
 
-const enums = computed(() => store.getters["util/getEnums"])
-const facilities = computed(() => store.getters["util/getVirtualFacilities"])
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
+const enums = computed(() => useUtilStore().getEnums)
+const routingHistory = computed(() => useOrderRoutingStore().getRoutingHistory)
+const getStatusDesc = computed(() => (id: string) => useUtilStore().getStatusDesc(id))
 
 function getRouteIndex() {
   const total = props.group["routings"]?.length
@@ -191,7 +188,7 @@ function getLabel(parentType: string, code: string) {
 }
 
 async function openRoutingHistoryModal() {
-  await store.dispatch("orderRouting/fetchRoutingHistory", props.group.routingGroupId)
+  await useOrderRoutingStore().fetchRoutingHistory( props.group.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[props.routing.orderRoutingId], routingName: props.routing.routingName, groupName: props.group.groupName }

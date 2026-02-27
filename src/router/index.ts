@@ -1,18 +1,19 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
-import store from "@/store"
+import { useUserStore } from "@/store/useUserStore"
 import Tabs from "@/views/Tabs.vue"
 import { DxpLogin, useAuthStore } from '@hotwax/dxp-components';
-import { loader } from '@/user-utils';
+import { userUtil } from '@/user-utils/userUtil';
 
 const authGuard = async (to: any, from: any, next: any) => {
   const authStore = useAuthStore()
-  if (!authStore.isAuthenticated || !store.getters['user/isAuthenticated']) {
-    await loader.present('Authenticating')
+  const userStore = useUserStore()
+  if (!authStore.isAuthenticated || !userStore.isAuthenticated) {
+    await userUtil.loader.present('Authenticating')
     // TODO use authenticate() when support is there
     const redirectUrl = window.location.origin + '/login'
     window.location.href = `${process.env.VUE_APP_LOGIN_URL}?redirectUrl=${redirectUrl}`
-    loader.dismiss()
+    userUtil.loader.dismiss()
   }
   next()
 };

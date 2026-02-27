@@ -9,14 +9,17 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 import { Settings } from 'luxon'
-import store from "./store";
 import { translate } from "@/i18n"
 import { initialise, resetConfig } from '@/adapter'
+import { useUserStore } from "./store/useUserStore";
+import { setPermissions } from '@/authorization'
 
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const userToken = computed(() => store.getters["user/getUserToken"])
-const instanceUrl = computed(() => store.getters["user/getInstanceUrl"])
+const userStore = useUserStore()
 
+const userProfile = computed(() => userStore.getUserProfile)
+const userToken = computed(() => userStore.getUserToken)
+const instanceUrl = computed(() => userStore.getInstanceUrl)
+setPermissions(userStore.getUserPermissions)
 const loader = ref(null) as any
 const maxAge = process.env.VUE_APP_CACHE_MAX_AGE ? parseInt(process.env.VUE_APP_CACHE_MAX_AGE) : 0
 

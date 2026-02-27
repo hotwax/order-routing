@@ -93,14 +93,14 @@
             <ion-label>
               <p class="overline">{{ translate("Browser TimeZone") }}</p>
               {{ browserTimeZone.id }}
-              <p v-if="showDateTime">{{ getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
+              <p v-if="showDateTime">{{ commonUtil.getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
             </ion-label>
           </ion-item>
           <ion-item lines="none">
             <ion-label>
               <p class="overline">{{ translate("Selected TimeZone") }}</p>
               {{ currentTimeZoneId }}
-              <p v-if="showDateTime">{{ getCurrentTime(currentTimeZoneId, dateTimeFormat) }}</p>
+              <p v-if="showDateTime">{{ commonUtil.getCurrentTime(currentTimeZoneId, dateTimeFormat) }}</p>
             </ion-label>
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
@@ -114,23 +114,23 @@
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref ,defineProps} from "vue";
 import { Actions, hasPermission } from "@/authorization";
-import { useStore } from "vuex";
+import { useUserStore } from "@/store/useUserStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
 import { goToOms } from "@hotwax/dxp-components";
-import {getCurrentTime} from "../utils"
+import { commonUtil } from "@/utils/commonUtil"
 
-const store = useStore()
+const userStore = useUserStore()
 const appVersion = ref("")
 const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any
 
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
-const oms = computed(() => store.getters["user/getInstanceUrl"])
-const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => userStore.getCurrentEComStore)
+const oms = computed(() => userStore.getInstanceUrl)
+const omsRedirectionInfo = computed(() => userStore.getOmsRedirectionInfo)
 const currentTimeZoneId = computed(() => userProfile.value.timeZone)
 const browserTimeZone = ref({
   label: '',
@@ -158,7 +158,7 @@ onMounted(() => {
 
 function setEComStore(event: CustomEvent) {
   if(userProfile.value?.stores) {
-    store.dispatch("user/setEcomStore", {
+    userStore.setEcomStore({
       "productStoreId": event.detail.value
     })
   }
@@ -172,7 +172,7 @@ async function changeTimeZone() {
 }
 
 function logout() {
-  store.dispatch("user/logout").then(() => {
+  userStore.logout().then(() => {
     const redirectUrl = window.location.origin + '/login'
     window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })

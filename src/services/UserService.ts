@@ -1,9 +1,9 @@
 import api, { client } from "@/api"
-import store from "@/store";
-import { hasError } from "@/utils";
+import { useUserStore } from "@/store/useUserStore";
+import { commonUtil } from "@/utils/commonUtil";
 
 const login = async (token: string): Promise <any> => {
-  const url = store.getters["user/getBaseUrl"]
+  const url = useUserStore().getBaseUrl
   const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   let api_key = ""
 
@@ -20,7 +20,7 @@ const login = async (token: string): Promise <any> => {
       }
     }) as any;
 
-    if(!hasError(resp) && (resp.data.api_key || resp.data.token)) {
+    if(!commonUtil.hasError(resp) && (resp.data.api_key || resp.data.token)) {
       api_key = resp.data.api_key || resp.data.token
     } else {
       throw "Sorry, login failed. Please try again";
@@ -62,7 +62,7 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
           'Content-Type': 'application/json'
         }
       })
-      if(resp.status === 200 && resp.data.docs?.length && !hasError(resp)) {
+      if(resp.status === 200 && resp.data.docs?.length && !commonUtil.hasError(resp)) {
         serverPermissions = resp.data.docs.map((permission: any) => permission.permissionId);
         const total = resp.data.count;
         const remainingPermissions = total - serverPermissions.length;
@@ -84,7 +84,7 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
                 'Content-Type': 'application/json'
               }
             })
-            if(!hasError(response)){
+            if(!commonUtil.hasError(response)){
               return Promise.resolve(response);
               } else {
               return Promise.reject(response);
@@ -95,7 +95,7 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
             failed: []
           }
           responses.reduce((permissionResponses: any, permissionResponse: any) => {
-            if (permissionResponse.status !== 200 || hasError(permissionResponse) || !permissionResponse.data?.docs) {
+            if (permissionResponse.status !== 200 || commonUtil.hasError(permissionResponse) || !permissionResponse.data?.docs) {
               permissionResponses.failed.push(permissionResponse);
             } else {
               permissionResponses.success.push(permissionResponse);
@@ -122,7 +122,7 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
 }
 
 const getUserProfile = async (token: any): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
+  const url = useUserStore().getBaseUrl
   const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   try {
     const resp = await client({
@@ -134,7 +134,7 @@ const getUserProfile = async (token: any): Promise<any> => {
         "Content-Type": "application/json"
       }
     });
-    if(hasError(resp)) throw "Error getting user profile";
+    if(commonUtil.hasError(resp)) throw "Error getting user profile";
     return Promise.resolve(resp.data)
   } catch(error: any) {
     return Promise.reject(error)
@@ -143,7 +143,7 @@ const getUserProfile = async (token: any): Promise<any> => {
 
 const getEComStores = async (token: any): Promise<any> => {
   try {
-    const url = store.getters["user/getBaseUrl"]
+    const url = useUserStore().getBaseUrl
     const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
     const resp = await client({
       url: "user/productStore",
@@ -155,7 +155,7 @@ const getEComStores = async (token: any): Promise<any> => {
       }
     });
     // Disallow login if the user is not associated with any product store
-    if (hasError(resp) || resp.data.length === 0) {
+    if (commonUtil.hasError(resp) || resp.data.length === 0) {
       throw resp.data;
     } else {
       return Promise.resolve(resp.data);
@@ -181,7 +181,7 @@ const setUserTimeZone = async (payload: any): Promise <any>  => {
 }
 
 const checkPermission = async (payload: any): Promise <any>  => {
-  let baseURL = store.getters["user/getInstanceUrl"];
+  let baseURL = useUserStore().getInstanceUrl;
   baseURL = baseURL && baseURL.startsWith("http") ? baseURL : `https://${baseURL}.hotwax.io/api/`;
   return client({
     url: "checkPermission",

@@ -2,7 +2,7 @@
   <ion-page>
     <ion-content>
       <div class="flex">
-        <form class="login-container" @keyup.enter="login(form)" @submit.prevent>
+        <form class="login-container" @keyup.enter="login()" @submit.prevent>
           <Logo />
 
           <ion-item lines="full">
@@ -16,7 +16,7 @@
           </ion-item>
 
           <div class="ion-padding">
-            <ion-button type="submit" color="primary" fill="outline" expand="block" @click="login(form)">{{ translate("Login") }}</ion-button>
+            <ion-button type="submit" color="primary" fill="outline" expand="block" @click="login()">{{ translate("Login") }}</ion-button>
           </div>
         </form>
       </div>
@@ -25,33 +25,27 @@
 </template>
 
 <script setup lang="ts">
-import { 
-  IonButton,
-  IonContent,
-  IonInput,
-  IonItem,
-  IonPage
-} from "@ionic/vue";
+import { IonButton, IonContent, IonInput, IonItem, IonPage } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import store from "@/store";
 import Logo from "@/components/Logo.vue";
 import { translate } from "@/i18n"
+import { useUserStore } from "@/store/useUserStore";
 
 const username = ref("")
 const password = ref("")
 const instanceUrl = ref("")
 const router = useRouter();
 
-const currentInstanceUrlSaved = computed(() => store.getters["user/getInstanceUrl"])
+const currentInstanceUrlSaved = computed(() => useUserStore().getInstanceUrl)
 
 onMounted(() => {
   instanceUrl.value = currentInstanceUrlSaved.value;
 })
 
 function login() {
-  store.dispatch("user/setUserInstanceUrl", instanceUrl.value.trim())
-  store.dispatch("user/login", { username: username.value.trim(), password: password.value }).then((data: any) => {
+  useUserStore().setUserInstanceUrl( instanceUrl.value.trim())
+  useUserStore().login( { username: username.value.trim(), password: password.value }).then((data: any) => {
     if (data.token) {
       username.value = ""
       password.value = ""

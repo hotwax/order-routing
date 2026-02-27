@@ -30,8 +30,8 @@
       </div>
 
       <ion-row>
-        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in testRoutingInfo.currentOrder.groups" :key="shipGroupSeqId" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
-          {{ index + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
+        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in (testRoutingInfo.currentOrder.groups as any)" :key="shipGroupSeqId as string" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
+          {{ (index as number) + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
         </ion-chip>
       </ion-row>
 
@@ -62,7 +62,7 @@
                 {{ getProduct(item.productId).productName }}
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
-              <ion-badge slot="end" :color="getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
+              <ion-badge slot="end" :color="commonUtil.getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
           </ion-card>
           <ion-button v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
@@ -77,11 +77,14 @@
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from "@/store/useUserStore";
+import { useProductStore } from "@/store/useProductStore";
+import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
+import { useUtilStore } from "@/store/useUtilStore";
 import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
-import store from "@/store";
-import { getColorByDesc, hasError, showToast } from "@/utils";
+import { commonUtil } from "@/utils/commonUtil";
 import logger from "@/logger";
 import { translate } from "@/i18n";
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -123,24 +126,24 @@ onMounted(() => {
 let queryString = ref("")
 let orders = ref([]) as any
 
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentEComStore = computed(() => useUserStore().getCurrentEComStore)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
-const carriers = computed(() => store.getters["util/getCarriers"])
-const facilities = computed(() => store.getters["util/getPhysicalFacilities"])
-const virtualFacilities = computed(() => store.getters["util/getVirtualFacilities"])
-const getProduct = computed(() => (id: string) => store.getters["product/getProductById"](id)) as any
-const getProductStock = computed(() => (productId: string, facilityId: string) => store.getters["product/getProductStock"](productId, facilityId)) as any
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const carriers = computed(() => useUtilStore().getCarriers)
+const facilities = computed(() => useUtilStore().getPhysicalFacilities)
+const virtualFacilities = computed(() => useUtilStore().getVirtualFacilities)
+const getProduct = computed(() => (id: string) => useProductStore().getProductById(id)) as any
+const getProductStock = computed(() => (productId: string, facilityId: string) => useProductStore().getProductStock(productId, facilityId)) as any
+const shippingMethods = computed(() => useUtilStore().getShippingMethods)
+const testRoutingInfo = computed(() => useOrderRoutingStore().getTestRoutingInfo)
 
 async function searchOrders(orderId = "") {
   const searchedQuery = orderId ? orderId : queryString.value.trim()
   orders.value = []
-  await store.dispatch("orderRouting/updateRoutingTestInfo", [
+  await useOrderRoutingStore().updateRoutingTestInfo( [
     { key: "errorMessage", value: "" }
   ])
   if(!searchedQuery) {
-    showToast(translate("Enter valid order attribute for searching"))
+    commonUtil.showToast(translate("Enter valid order attribute for searching"))
     return;
   }
 
@@ -148,7 +151,7 @@ async function searchOrders(orderId = "") {
   const resp = await OrderRoutingService.findOrder(searchedQuery, orderId) as any;
 
   if(resp.errorMessage) {
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    await useOrderRoutingStore().updateRoutingTestInfo( [
       { key: "errorMessage", value: resp.errorMessage }
     ])
   } else {
@@ -164,7 +167,7 @@ async function searchOrders(orderId = "") {
 
 async function updateCurrentOrder(order?: any) {
   if(order?.orderId) {
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    await useOrderRoutingStore().updateRoutingTestInfo( [
       { key: "currentOrder", value: order },
       { key: "currentOrderId", value: order.orderId }
     ])
@@ -194,7 +197,7 @@ async function updateCurrentOrder(order?: any) {
 
   // Passing the value of enabled properties as saved in state, because we do not want to exit the test mode
   // but need to clear the routing test info state
-  await store.dispatch("orderRouting/clearRoutingTestInfo", {
+  await useOrderRoutingStore().clearRoutingTestInfo( {
     isRuleTestEnabled: testRoutingInfo.value.isRuleTestEnabled,
     isRoutingTestEnabled: testRoutingInfo.value.isRoutingTestEnabled
   })
@@ -203,7 +206,7 @@ async function updateCurrentOrder(order?: any) {
 }
 
 async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
-  await store.dispatch("orderRouting/updateRoutingTestInfo", [
+  await useOrderRoutingStore().updateRoutingTestInfo( [
     { key: "brokeringRoute", value: "" },
     { key: "brokeringRule", value: "" },
     { key: "isOrderAlreadyBrokered", value: false },
@@ -214,19 +217,19 @@ async function updateCurrentShipGroupId(shipGroupId: any, shipGroup: any) {
   ])
 
   if(!shipGroupId) {
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [{ key: "currentShipGroupId", value: "" }])
+    await useOrderRoutingStore().updateRoutingTestInfo( [{ key: "currentShipGroupId", value: "" }])
     return;
   }
 
   const shipGroupFacilityId = shipGroup[0].facilityId
-  await store.dispatch("orderRouting/updateRoutingTestInfo", [
+  await useOrderRoutingStore().updateRoutingTestInfo( [
     { key: "currentShipGroupId", value: shipGroupId }
   ])
   // hasUnmatchedFilters.value = false
 
-  const isOrderBrokered = facilities.value[shipGroupFacilityId]
+  const isOrderBrokered = (facilities.value as any)[shipGroupFacilityId]
   if(isOrderBrokered) {
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    await useOrderRoutingStore().updateRoutingTestInfo( [
       { key: "isOrderAlreadyBrokered", value: true }
     ])
   } else if(props.orderRoutingId) {
@@ -245,7 +248,7 @@ function getEligibleRoutesForBrokering() {
   const shipGroup = currentShipGroup.value[0]
   const inactiveRoutings = [] as Array<string>
 
-  props.routingGroup.routings.map((routing: any) => {
+  props.routingGroup?.routings.map((routing: any) => {
     // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
     if(routing.statusId !== "ROUTING_ACTIVE") {
       inactiveRoutings.push(routing.orderRoutingId)
@@ -290,13 +293,13 @@ function getEligibleRoutesForBrokering() {
   })
 
   if(!eligibleRoutings.length) {
-    store.dispatch("orderRouting/updateRoutingTestInfo", [
-      { key: "errorMessage", value: inactiveRoutings.length == props.routingGroup.routings?.length ? "This order will not be brokered in this routing because no route is in active status." : "This order will not be brokered in this routing because of the selected order filters." }
+    useOrderRoutingStore().updateRoutingTestInfo( [
+      { key: "errorMessage", value: inactiveRoutings.length == props.routingGroup?.routings?.length ? "This order will not be brokered in this routing because no route is in active status." : "This order will not be brokered in this routing because of the selected order filters." }
     ])
     return;
   }
 
-  store.dispatch("orderRouting/updateRoutingTestInfo", [
+  useOrderRoutingStore().updateRoutingTestInfo( [
     { key: "eligibleOrderRoutings", value: eligibleRoutings }
   ])
 }
@@ -334,7 +337,7 @@ function checkOrderBrokeringPossibility() {
 
     if(filters.length) {
       // hasUnmatchedFilters.value = true
-      store.dispatch("orderRouting/updateRoutingTestInfo", [
+      useOrderRoutingStore().updateRoutingTestInfo( [
         { key: "errorMessage", value: "This order will not be brokered in this routing because of the selected order filters."},
         { key: "unmatchedOrderFilters", value: filters }
       ])
@@ -364,13 +367,13 @@ async function brokerOrder() {
     let resp = await OrderRoutingService.brokerOrder(payload)
 
     // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
-    if(!hasError(resp) && resp.data.attemptedItemCount) {
+    if(!commonUtil.hasError(resp) && resp.data.attemptedItemCount) {
       getOrderBrokeringInfo(true);
     } else {
       throw resp.data;
     }
   } catch(err) {
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    await useOrderRoutingStore().updateRoutingTestInfo( [
       {
         key: "errorMessage",
         value: props.routingRuleId ? "No inventory was found for this order in this rule." : props.orderRoutingId ? "This order doesn’t qualify to be brokered by this batch. Try adjusting the order filters in this batch." : "This order doesn’t qualify to be brokered by any of the batches in this run. Try adjusting the order filters in the batches."
@@ -379,7 +382,7 @@ async function brokerOrder() {
     logger.error(err)
   }
 
-  await store.dispatch("orderRouting/updateRoutingTestInfo", [
+  await useOrderRoutingStore().updateRoutingTestInfo( [
     { key: "eligibleOrderRoutings", value: [] }
   ])
 
@@ -397,7 +400,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
     let resp = await OrderRoutingService.getRecentOrderFacilityChangeInfo(payload)
 
     const orderBrokeringInfo = resp.data?.routingHistoryList?.find((history: any) => history.orderItemSeqId === currentShipGroup.value[0].orderItemSeqId)
-    if(!hasError(resp) && orderBrokeringInfo) {
+    if(!commonUtil.hasError(resp) && orderBrokeringInfo) {
       // TODO: need to update the logic once the broker api returns correct data
       // If the order is brokered by the user then update the order shipGroup info
       if(updateOrderInfo) {
@@ -407,7 +410,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
           ...item,
           fromFacilityId: orderBrokeringInfo.fromFacilityId,
           facilityId: orderBrokeringInfo.facilityId,
-          facilityName: facilities.value[orderBrokeringInfo.facilityId]?.facilityName ?? virtualFacilities.value[orderBrokeringInfo.facilityId]?.facilityName,
+          facilityName: (facilities.value as any)[orderBrokeringInfo.facilityId]?.facilityName ?? (virtualFacilities.value as any)[orderBrokeringInfo.facilityId]?.facilityName,
           shipGroupSeqId: orderBrokeringInfo.shipGroupSeqId
         }))
 
@@ -418,7 +421,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
         }
 
         // Updating the value of current ship group with the new ship group
-        await store.dispatch("orderRouting/updateRoutingTestInfo", [
+        await useOrderRoutingStore().updateRoutingTestInfo( [
           { key: "currentShipGroupId", value: orderBrokeringInfo.shipGroupSeqId },
           { key: "isOrderBrokered", value: true }
         ])
@@ -426,13 +429,13 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
 
       // TODO: what if the rule brokered the order but after that the rule is updated, this might create confusion
       if(orderBrokeringInfo.routingGroupId === props.routingGroupId) {
-        await store.dispatch("orderRouting/updateRoutingTestInfo", [
+        await useOrderRoutingStore().updateRoutingTestInfo( [
           { key: "brokeringRoute", value: orderBrokeringInfo.orderRoutingId },
           { key: "brokeringRule", value: orderBrokeringInfo.routingRuleId }
         ])
 
         if(orderBrokeringInfo.orderRoutingId === props.orderRoutingId || (testRoutingInfo.value.isRuleTestEnabled && orderBrokeringInfo.routingRuleId === props.routingRuleId )) {
-          await store.dispatch("orderRouting/updateRoutingTestInfo", [
+          await useOrderRoutingStore().updateRoutingTestInfo( [
             { key: "selectedRuleId", value: orderBrokeringInfo.routingRuleId }
           ])
         }
@@ -442,9 +445,9 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
       // TODO: what if the rule brokered the order but after that the rule is updated, this might create confusion
       // if(orderBrokeringInfo.routingGroupId === props.routingGroupId && orderBrokeringInfo.orderRoutingId === props.orderRoutingId) {
       // }
-      store.dispatch("product/fetchStock", testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId])
+      useProductStore().fetchStock( testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId])
 
-      await store.dispatch("orderRouting/updateRoutingTestInfo", [
+      await useOrderRoutingStore().updateRoutingTestInfo( [
         { key: "brokeringDecisionReason", value: orderBrokeringInfo.comments }
       ])
     } else {
@@ -452,7 +455,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
     }
   } catch(err) {
     logger.error(err)
-    await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    await useOrderRoutingStore().updateRoutingTestInfo( [
       { key: "brokeringDecisionReason", value: "No brokering history for this order" }
     ])
   }
@@ -476,8 +479,8 @@ async function resetOrder() {
     })
 
     // TODO: handle error cases, currently success and error are in the same `messages` property hence having issue in differentiating between the two
-    if(!hasError(resp) && resp.data?.rejectedItemsList?.length) {
-      await store.dispatch("orderRouting/updateRoutingTestInfo", [
+    if(!commonUtil.hasError(resp) && resp.data?.rejectedItemsList?.length) {
+      await useOrderRoutingStore().updateRoutingTestInfo( [
         { key: "brokeringRoute", value: "" },
         { key: "brokeringRule", value: "" },
         { key: "errorMessage", value: "" },
@@ -487,7 +490,7 @@ async function resetOrder() {
       ])
 
       await getOrderBrokeringInfo(true);
-      await store.dispatch("orderRouting/updateRoutingTestInfo", [
+      await useOrderRoutingStore().updateRoutingTestInfo( [
         { key: "isOrderBrokered", value: false }
       ])
 
@@ -500,7 +503,7 @@ async function resetOrder() {
       throw resp.data;
     }
   } catch(err) {
-    showToast(translate("Unable to reset the order"))
+    commonUtil.showToast(translate("Unable to reset the order"))
     logger.error(err)
   }
 

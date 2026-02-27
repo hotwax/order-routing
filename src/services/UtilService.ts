@@ -1,7 +1,7 @@
 import api, { client } from "@/api"
 import logger from "@/logger";
-import store from "@/store";
-import { getOmsRedirectionUrl } from "@/utils";
+import { useUserStore } from "@/store/useUserStore";
+import { commonUtil } from "@/utils/commonUtil";
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
@@ -60,11 +60,11 @@ const fetchStatusInformation = async (payload: any): Promise<any> => {
 }
 
 const getCarrierInformation = async (payload: any): Promise<any> => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -74,11 +74,11 @@ const getCarrierInformation = async (payload: any): Promise<any> => {
 }
 
 const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
-  const omsRedirectionInfo = store.getters["user/getOmsRedirectionInfo"];
+  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
     data: payload,
     headers: {
       Authorization:  'Bearer ' + omsRedirectionInfo.token,
@@ -89,8 +89,8 @@ const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
 
 const getUserSession = async(payload: any): Promise<any> => {
   let userTestingSession = {}
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
+  const url = useUserStore().getBaseUrl
+  const token = useUserStore().getUserToken
   const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
 
   try {
@@ -118,8 +118,8 @@ const getUserSession = async(payload: any): Promise<any> => {
 
 const getTestSessions = async(payload: any): Promise<any> => {
   let testingSessions = []
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
+  const url = useUserStore().getBaseUrl
+  const token = useUserStore().getUserToken
   const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
 
   try {
@@ -185,8 +185,8 @@ const expireUserSession = async(payload: any, userTestingSession = {}): Promise<
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
+  const url = useUserStore().getBaseUrl
+  const token = useUserStore().getUserToken
   const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
 
   return client({
@@ -203,10 +203,10 @@ const updateProductStoreInfo = async (payload: any): Promise<any> => {
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
+  const url = useUserStore().getBaseUrl
+  const token = useUserStore().getUserToken
   const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
-  const productStoreId = store.getters["user/getCurrentEComStore"]?.productStoreId
+  const productStoreId = useUserStore().getCurrentEComStore?.productStoreId
 
   return client({
     url: `productStores/${productStoreId}`,

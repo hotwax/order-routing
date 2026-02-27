@@ -33,10 +33,10 @@
 </template>
 
 <script setup lang="ts">
+import { useUtilStore } from "@/store/useUtilStore";
 import { translate } from "@/i18n";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { computed, defineProps } from "vue";
-import store from "@/store";
 import { warningOutline } from "ionicons/icons"
 
 const props = defineProps({
@@ -64,10 +64,10 @@ const props = defineProps({
 
 const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
 
-const enums = computed(() => store.getters["util/getEnums"])
-const facilities = computed(() => store.getters["util/getVirtualFacilities"])
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const enums = computed(() => useUtilStore().getEnums)
+const facilities = computed(() => useUtilStore().getVirtualFacilities)
+const shippingMethods = computed(() => useUtilStore().getShippingMethods)
+const facilityGroups = computed(() => useUtilStore().getFacilityGroups)
 
 const enumCode = props.enumId.includes("_EXCLUDED") ? props.code + "_excluded" : props.code
 const orderPriorityDescription: any = {

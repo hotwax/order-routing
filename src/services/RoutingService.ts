@@ -1,10 +1,10 @@
-import { api, client } from "@common"
+import { api } from "@common"
 import logger from "@/logger";
 import { useProductStore } from "@/store/useProductStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { commonUtil } from "@/utils/commonUtil";
-import { cookieHelper, getOmsURL } from "@common";
+import { getOmsURL } from "@common";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -198,15 +198,11 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
   }
 
   try {
-    const resp = await client({
+    const resp = await api({
       url: "solr-query",
       method: "post",
       baseURL: getOmsURL(),
-      data: payload,
-      headers: {
-        Authorization:  'Bearer ' + cookieHelper().get("token"),
-        'Content-Type': 'application/json'
-      }
+      data: payload
     });
 
     if(!commonUtil.hasError(resp) && resp.data.grouped?.orderId?.groups.length) {

@@ -2,9 +2,9 @@ import { resetPermissions } from "@/authorization";
 import emitter from "@/event-bus";
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@/utils/commonUtil";
+import { showToast } from "@common/utils/commonUtil";
 import { translate } from "@/i18n";
-import { api, client, cookieHelper, getMaargURL, getOmsURL, hasError } from "@common";
+import { api, cookieHelper, getMaargURL, getOmsURL, hasError } from "@common";
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 
@@ -37,7 +37,7 @@ export function useAuth() {
 
   const login = async (username: string, password: string) => {
     try {
-      const resp = await client({
+      const resp = await api({
         url: "admin/login",
         method: "post",
         data: {
@@ -47,7 +47,7 @@ export function useAuth() {
         baseURL: getMaargURL()
       });
       if (hasError(resp)) {
-        commonUtil.showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
+        showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
         console.error("error", resp.data._ERROR_MESSAGE_);
         return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
       }
@@ -61,7 +61,7 @@ export function useAuth() {
       await useUserStore().fetchAvailableTimeZones();
 
     } catch (err: any) {
-      commonUtil.showToast(translate("Something went wrong while login. Please contact administrator."));
+      showToast(translate("Something went wrong while login. Please contact administrator."));
       console.error("error: ", err.toString());
       clearAuth();
       return Promise.reject(err instanceof Object ? err : new Error(err));
@@ -107,7 +107,7 @@ export function useAuth() {
   const fetchLoginOptions = async() => {
     loginOption.value = {}
     try {
-      const resp = await client({
+      const resp = await api({
         url: "checkLoginOptions",
         method: "GET",
         baseURL: getOmsURL()

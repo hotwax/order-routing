@@ -234,6 +234,7 @@ import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
 import { commonUtil } from "@/utils/commonUtil";
+import { showToast } from "@common/utils/commonUtil";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -295,6 +296,7 @@ onIonViewWillEnter(async () => {
   emitter.emit("dismissLoader")
 })
 
+// TODO: Need to revisit this, route entries are empty on router hooks
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
 
@@ -369,7 +371,7 @@ async function fetchGroupHistory() {
 
 async function saveSchedule() {
   if(!job.value.cronExpression) {
-    commonUtil.showToast(translate("Please select a scheduling for job"))
+    showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
     return;
   }
@@ -383,7 +385,7 @@ async function saveSchedule() {
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)) {
-      commonUtil.showToast(translate("Job updated"))
+      showToast(translate("Job updated"))
       // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
       await orderRoutingStore.fetchCurrentGroupSchedule({ routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
       job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -391,7 +393,7 @@ async function saveSchedule() {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update job"))
+    showToast(translate("Failed to update job"))
     logger.error(err)
   }
 }
@@ -441,12 +443,12 @@ async function runNow() {
             try {
               const resp = await OrderRoutingService.runNow(props.routingGroupId)
               if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
-                commonUtil.showToast(translate("Service has been scheduled"))
+                showToast(translate("Service has been scheduled"))
               } else {
                 throw resp.data
               }
             } catch(err) {
-              commonUtil.showToast(translate("Failed to schedule service"))
+              showToast(translate("Failed to schedule service"))
               logger.error(err)
             }
           }
@@ -461,7 +463,7 @@ async function redirect(orderRouting: Route) {
   let isRoutingArchived = currentRoutingGroup.value["routings"].some((routing: any) => routing.orderRoutingId === orderRouting.orderRoutingId && routing.statusId === "ROUTING_ARCHIVED" )
 
   if(isRoutingArchived) {
-    commonUtil.showToast(translate("Save changes before moving to the details page of unarchived route"))
+    showToast(translate("Save changes before moving to the details page of unarchived route"))
     return;
   }
 
@@ -482,12 +484,12 @@ async function updateGroupStatus(event: CustomEvent) {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)){
       job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-      commonUtil.showToast(translate("Group status updated"))
+      showToast(translate("Group status updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update group status"))
+    showToast(translate("Failed to update group status"))
     logger.error(err)
   }
 }
@@ -502,7 +504,7 @@ async function createOrderRoute() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.routingName?.trim().length) {
-          commonUtil.showToast(translate("Please enter a valid name"))
+          showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -746,12 +748,12 @@ async function updateRoutingGroup(payload: any) {
 
     if(!commonUtil.hasError(resp) && resp.data.routingGroupId) {
       routingGroupId = resp.data.routingGroupId
-      commonUtil.showToast(translate("Routing group information updated"))
+      showToast(translate("Routing group information updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update group information"))
+    showToast(translate("Failed to update group information"))
     logger.error(err);
   }
 
@@ -786,12 +788,12 @@ async function cloneGroup() {
 
     if(!commonUtil.hasError(resp)) {
       // Not fetching the groups list as after cloning as we do not need any information from the newly cloned group
-      commonUtil.showToast(translate("Brokering run cloned"))
+      showToast(translate("Brokering run cloned"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to clone brokering run"))
+    showToast(translate("Failed to clone brokering run"))
     logger.error(err)
   }
 }
@@ -839,7 +841,7 @@ async function toggleReservation(event: CustomEvent) {
       enableBrokering
     })
   } catch(err) {
-    commonUtil.showToast(translate("Failed to pause the brokering"))
+    showToast(translate("Failed to pause the brokering"))
     logger.error("Failed to update the brokering for product store")
   }
 }

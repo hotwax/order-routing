@@ -1,29 +1,21 @@
-import { client } from "@common";
-import { cookieHelper, getOmsURL } from "@common";
+import { api } from "@common";
+import { getOmsURL } from "@common";
 
 const fetchProducts = async (payload: any): Promise <any>  => {
-  return client({
+  return api({
     url: "searchProducts",
     method: "post",
     baseURL: getOmsURL(),
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + cookieHelper().get("token"),
-      'Content-Type': 'application/json'
-    }
+    data: payload
   });
 }
 
 const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
-  return client({
+  return api({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
     baseURL: getOmsURL(),
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + cookieHelper().get("token"),
-      'Content-Type': 'application/json'
-    }
+    data: payload
   });
 }
 

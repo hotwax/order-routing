@@ -1,7 +1,6 @@
-import { api, client } from "@common"
+import { api } from "@common"
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@/utils/commonUtil";
 import { cookieHelper, getMaargURL, getOmsURL } from "@common";
 
 const fetchEnums = async (payload: any): Promise<any> => {
@@ -62,45 +61,32 @@ const fetchStatusInformation = async (payload: any): Promise<any> => {
 }
 
 const getCarrierInformation = async (payload: any): Promise<any> => {
-  return client({
+  return api({
     url: "performFind",
     method: "post",
     baseURL: getOmsURL(),
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + cookieHelper().get("token"),
-      'Content-Type': 'application/json'
-    }
+    data: payload
   });
 }
 
 const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
-  return client({
+  return api({
     url: "performFind",
     method: "post",
     baseURL: getOmsURL(),
-    data: payload,
-    headers: {
-      Authorization:  'Bearer ' + cookieHelper().get("token"),
-      'Content-Type': 'application/json'
-    }
+    data: payload
   });
 }
 
 const getUserSession = async(payload: any): Promise<any> => {
   let userTestingSession = {}
-  const token = cookieHelper().get("token")
 
   try {
-    const resp = await client({
+    const resp = await api({
       url: "oms/entityData",
       method: "POST",
       baseURL: getMaargURL(),
-      data: payload,
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json"
-      }
+      data: payload
     });
 
     if(resp.data && resp.data.entityValueList?.length) {
@@ -115,18 +101,13 @@ const getUserSession = async(payload: any): Promise<any> => {
 
 const getTestSessions = async(payload: any): Promise<any> => {
   let testingSessions = []
-  const token = cookieHelper().get("token")
 
   try {
-    const resp = await client({
+    const resp = await api({
       url: "oms/entityData",
       method: "POST",
       baseURL: getMaargURL(),
-      data: payload,
-      headers: {
-        Authorization: "Bearer " + token,
-        "Content-Type": "application/json"
-      }
+      data: payload
     });
 
     if(resp.data && resp.data.entityValueList?.length) {
@@ -179,32 +160,22 @@ const expireUserSession = async(payload: any, userTestingSession = {}): Promise<
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
-  const token = cookieHelper().get("token")
 
-  return client({
+  return api({
     url: `order-routing/productStores/${payload.productStoreId}`,
     method: "PUT",
     baseURL: getMaargURL(),
-    data: payload,
-    headers: {
-      Authorization: "Bearer " + token,
-      "Content-Type": "application/json"
-    }
+    data: payload
   })
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
-  const token = cookieHelper().get("token")
   const productStoreId = useUserStore().getCurrentEComStore?.productStoreId
 
-  return client({
+  return api({
     url: `admin/productStores/${productStoreId}`,
     method: "GET",
-    baseURL: getMaargURL(),
-    headers: {
-      Authorization: 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    }
+    baseURL: getMaargURL()
   })
 }
 

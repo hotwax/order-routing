@@ -79,11 +79,9 @@ import { useUserStore } from "@/store/useUserStore";
 import Logo from '@/components/Logo.vue';
 import { arrowForwardOutline, gridOutline } from 'ionicons/icons'
 import { cookieHelper } from "@common";
-import { commonUtil } from "@/utils/commonUtil";
 import { translate } from "@/i18n";
 import { useAuth } from "@/composables/auth";
 import { showToast } from "@common/utils/commonUtil";
-
 let route = null as any;
 const cookieHandler = cookieHelper();
 
@@ -133,7 +131,7 @@ const toggleOmsInput = () => {
 
 const login = async () => {
   if (!username.value || !password.value) {
-    commonUtil.showToast(translate('Please fill in the user details'));
+    showToast(translate('Please fill in the user details'));
     return;
   }
 
@@ -152,7 +150,7 @@ const login = async () => {
 
 const setOms = async () => {
   if (!instanceUrl.value) {
-    commonUtil.showToast(translate('Please fill in the OMS'));
+    showToast(translate('Please fill in the OMS'));
     return;
   }
 
@@ -196,10 +194,6 @@ const basicLogin = async () => {
     // checking for login options as we need to get maarg instance URL for accessing specific apps
     await fetchLoginOptions();
 
-    // Setting token previous to getting user-profile, if not then the client method honors the state token
-    useUserStore().$patch({
-      token: token
-    });
     cookieHandler.set('token', token);
     cookieHandler.set('expirationTime', expirationTime)
 
@@ -219,7 +213,7 @@ const basicLogin = async () => {
     await useUserStore().fetchAvailableTimeZones();
 
   } catch (error) {
-    commonUtil.showToast(translate('Failed to fetch user-profile, please try again'));
+    showToast(translate('Failed to fetch user-profile, please try again'));
     console.error("error: ", error);
   }
   router.replace('/');

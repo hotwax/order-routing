@@ -95,7 +95,7 @@
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave } from "vue-router";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";
@@ -111,8 +111,8 @@ import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
+import router from "@/router";
 
-const router = useRouter();
 const orderRoutingStore = useOrderRoutingStore();
 const userStore = useUserStore();
 const utilStore = useUtilStore();
@@ -221,7 +221,7 @@ async function fetchRoutingsInformation() {
         
         route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
         
-        routing["orderFilters"] = route["orderFilters"]
+        routing["orderFilters"] = route["orderFilters"] || []
         routing["rules"] = route["rules"]
 
         routing["filterConditions"] = routing["orderFilters"].reduce((filters: any, orderFilter: any) => {

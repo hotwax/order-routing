@@ -471,7 +471,7 @@ import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { commonUtil } from "@/utils/commonUtil";
+import { showToast } from "@common/utils/commonUtil";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -488,6 +488,7 @@ import { Actions, hasPermission } from "@/authorization";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { useUserStore } from "@/store/useUserStore";
+import { commonUtil } from "@/utils/commonUtil";
 
 const props = defineProps({
   orderRoutingId: {
@@ -567,6 +568,7 @@ onIonViewWillEnter(async () => {
   emitter.emit("dismissLoader")
 })
 
+// TODO: Need to revisit this, route entries are empty on router hooks
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
 
@@ -763,12 +765,12 @@ async function updateRouteName() {
 
       if(!commonUtil.hasError(resp) && resp.data.orderRoutingId) {
         orderRoutingId = resp.data.orderRoutingId
-        commonUtil.showToast(translate("Order routing information updated"))
+        showToast(translate("Order routing information updated"))
       } else {
         throw resp.data
       }
     } catch(err) {
-      commonUtil.showToast(translate("Failed to update routing information"))
+      showToast(translate("Failed to update routing information"))
       logger.error(err);
     }
 
@@ -878,7 +880,7 @@ async function addInventoryRule() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.ruleName?.trim().length) {
-          commonUtil.showToast(translate("Please enter a valid name"))
+          showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -1037,7 +1039,7 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          commonUtil.showToast(translate("Enter a valid value"))
+          showToast(translate("Enter a valid value"))
           return false;
         }
         updateRule()
@@ -1264,9 +1266,9 @@ async function updateRuleName(routingRuleId: string) {
     })
 
     if(ruleId) {
-      commonUtil.showToast(translate("Order rule information updated"))
+      showToast(translate("Order rule information updated"))
     } else {
-      commonUtil.showToast(translate("Failed to update rule information"))
+      showToast(translate("Failed to update rule information"))
     }
 
     emitter.emit("dismissLoader")
@@ -1292,7 +1294,7 @@ async function cloneRule() {
     await useOrderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
   } catch (err) {
     logger.error(err)
-    commonUtil.showToast(translate("Failed to clone rule"))
+    showToast(translate("Failed to clone rule"))
   }
 
   emitter.emit("dismissLoader")

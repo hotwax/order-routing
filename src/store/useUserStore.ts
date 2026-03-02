@@ -4,7 +4,7 @@ import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings, DateTime } from "luxon"
-import { api, client, cookieHelper, getMaargURL, resetConfig } from '@common'
+import { api, cookieHelper, getMaargURL, resetConfig } from '@common'
 import { getServerPermissionsFromRules, prepareAppPermissions, resetPermissions, setPermissions } from "@/authorization"
 import { useProductStore } from './useProductStore'
 import { useUtilStore } from './useUtilStore'
@@ -15,7 +15,6 @@ import { useOrderRoutingStore } from './useOrderRoutingStore'
 export const useUserStore = defineStore('appUser', {
   state: () => {
     return {
-      token: "",
       current: null as any,
       currentEComStore: {} as any,
       permissions: [] as any,
@@ -176,7 +175,7 @@ export const useUserStore = defineStore('appUser', {
       }
     },
     async checkPermission(payload: any): Promise <any> {
-      return client({
+      return api({
         url: "checkPermission",
         method: "post",
         baseURL: getOmsURL(),
@@ -217,7 +216,6 @@ export const useUserStore = defineStore('appUser', {
     async logout() {
       emitter.emit('presentLoader', { message: 'Logging out', backdropDismiss: false })
   
-      this.token = ""
       this.current = null
       this.currentEComStore = {}
       this.permissions = []

@@ -122,6 +122,7 @@ import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
 import { commonUtil } from "@/utils/commonUtil"
 import { cookieHelper } from "@common";
+import { useAuth } from "@/composables/auth";
 
 const userStore = useUserStore()
 const appVersion = ref("")
@@ -171,7 +172,7 @@ async function changeTimeZone() {
 }
 
 function logout() {
-  userStore.logout().then(() => {
+  useAuth().logout({ isUserUnauthorised: false }).then(() => {
     const redirectUrl = window.location.origin + '/login'
     window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })

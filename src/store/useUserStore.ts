@@ -203,6 +203,8 @@ export const useUserStore = defineStore('appUser', {
         }
 
         await this.fetchPermissions();
+        await this.fetchEComStores();
+        await this.fetchAvailableTimeZones();
       } catch (error: any) {
         // If any of the API call in try block has status code other than 2xx it will be handled in common catch block.
         // TODO Check if handling of specific status codes is required.
@@ -211,6 +213,7 @@ export const useUserStore = defineStore('appUser', {
         return Promise.reject(new Error(error))
       }
     },
+    // This action is just for clearing states of this app, callee should clear the auth in cookies.
     async logout() {
       emitter.emit('presentLoader', { message: 'Logging out', backdropDismiss: false })
   

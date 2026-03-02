@@ -751,7 +751,7 @@ async function updateRoutingGroup(payload: any) {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update schedule information"))
+    commonUtil.showToast(translate("Failed to update group information"))
     logger.error(err);
   }
 

@@ -50,6 +50,7 @@ const setImageUrl = () => {
       checkIfImageExists(fullImageUrl).then(() => {
         imageUrl.value = fullImageUrl;
       }).catch(() => {
+        imageUrl.value = require("@/assets/images/defaultImage.png") ;
         logger.error("Image doesn't exist");
       })
     }

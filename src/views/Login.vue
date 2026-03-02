@@ -82,6 +82,7 @@ import { cookieHelper } from "@common";
 import { commonUtil } from "@/utils/commonUtil";
 import { translate } from "@/i18n";
 import { useAuth } from "@/composables/auth";
+import { showToast } from "@common/utils/commonUtil";
 
 let route = null as any;
 const cookieHandler = cookieHelper();
@@ -202,7 +203,17 @@ const basicLogin = async () => {
     cookieHandler.set('token', token);
     cookieHandler.set('expirationTime', expirationTime)
 
-    await useUserStore().fetchUserProfile();
+    // Since we already have the token we'll directly call api to get the user profile.
+    try {
+      await useUserStore().fetchUserProfile();
+    } catch(error: any) {
+      showToast(translate('Failed to fetch user-profile, please try again'));
+      console.error("error: ", error);
+      // Clear auth in cookies if the very first api call fails, meaning something went wrong
+      useAuth().clearAuth();
+      useUserStore().$reset();
+      return Promise.reject(new Error(error));
+    }
     await useUserStore().fetchPermissions();
     await useUserStore().fetchEComStores();
     await useUserStore().fetchAvailableTimeZones();

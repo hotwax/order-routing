@@ -188,9 +188,9 @@ const samlLogin = async () => {
 
 const basicLogin = async () => {
   try {
-    const { oms, token, expirationTime } = route.query as any;
-    // Clear the previously stored oms and token when having oms and token in the URL
-    cookieHelper().set("oms", oms)
+    const { omsRedirectionUrl, token, expirationTime } = route.query as any;
+    // Clear the previously stored omsRediretionUrl and token when having oms and token in the URL
+    cookieHelper().set("oms", omsRedirectionUrl)
 
     // checking for login options as we need to get maarg instance URL for accessing specific apps
     await fetchLoginOptions();
@@ -218,8 +218,8 @@ const initialise = async () => {
   hideBackground.value = true;
   await presentLoader("Processing");
 
-  // Run the basic login flow when oms and token both are found in query
-  if (route.query?.oms && route.query?.token) {
+  // Run the basic login flow when omsRedirectionUrl and token both are found in query
+  if (route.query?.omsRedirectionUrl && route.query?.token) {
     await basicLogin();
     dismissLoader();
     return;

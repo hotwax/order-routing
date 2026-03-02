@@ -350,6 +350,10 @@
                       <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
                       <ion-chip slot="end" outline @click="selectValue('SHIP_THRESHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue : "-" }}</ion-chip>
                     </ion-item>
+                    <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'WOS')">
+                      <ion-label>{{ translate('Week of Supply') }}</ion-label>
+                      <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
+                    </ion-item>
                   </ion-card>
                   <ion-card>
                     <ion-item>

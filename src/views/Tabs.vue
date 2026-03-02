@@ -21,9 +21,7 @@
 import { translate } from "@/i18n";
 import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
 import { settingsOutline, shuffleOutline } from "ionicons/icons";
-import { useRouter } from "vue-router";
-
-const router = useRouter();
+import router from "@/router";
 
 function showFooter() {
   if (['/tabs/settings', '/tabs/brokering'].includes(router.currentRoute.value.path)) return true

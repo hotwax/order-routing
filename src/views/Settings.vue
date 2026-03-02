@@ -38,17 +38,17 @@
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
-              {{ $t('OMS instance') }}
+              {{ translate('OMS instance') }}
             </ion-card-subtitle>
             <ion-card-title>
               {{ oms }}
             </ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            {{ $t('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
+            {{ translate('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button :disabled="!omsRedirectionInfo.token || !omsRedirectionInfo.url" @click="goToOms(omsRedirectionInfo.token, omsRedirectionInfo.url)" fill="clear">
-            {{ $t('Go to OMS') }}
+          <ion-button :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms(cookieHelper().get('token')as string, cookieHelper().get('oms') as string)" fill="clear">
+            {{ translate('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
         </ion-card>
@@ -112,7 +112,7 @@
 
 <script setup lang="ts">
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { computed, onMounted, ref ,defineProps} from "vue";
+import { computed, onMounted, ref } from "vue";
 import { Actions, hasPermission } from "@/authorization";
 import { useUserStore } from "@/store/useUserStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
@@ -120,18 +120,17 @@ import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { goToOms } from "@hotwax/dxp-components";
 import { commonUtil } from "@/utils/commonUtil"
+import { cookieHelper } from "@common";
 
 const userStore = useUserStore()
 const appVersion = ref("")
-const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any
+const appInfo = (import.meta.env.VITE_VUE_APP_VERSION_INFO ? JSON.parse(import.meta.env.VITE_VUE_APP_VERSION_INFO) : {}) as any
 
 const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => userStore.getCurrentEComStore)
-const oms = computed(() => userStore.getInstanceUrl)
-const omsRedirectionInfo = computed(() => userStore.getOmsRedirectionInfo)
-const currentTimeZoneId = computed(() => userProfile.value.timeZone)
+const oms = computed(() => cookieHelper().get("oms"));
+const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -174,7 +173,7 @@ async function changeTimeZone() {
 function logout() {
   userStore.logout().then(() => {
     const redirectUrl = window.location.origin + '/login'
-    window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
+    window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })
 }
 
@@ -183,7 +182,7 @@ function getDateTime(time: any) {
 }
 
 function goToLaunchpad() {
-  window.location.href = `${process.env.VUE_APP_LOGIN_URL}`
+  window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}`
 }
 </script>
 

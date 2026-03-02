@@ -147,8 +147,8 @@ const props = defineProps({
   }
 })
 
-const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

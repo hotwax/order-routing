@@ -1,30 +1,27 @@
-import { client } from "@/api";
-import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@/utils/commonUtil";
+import { client } from "@common";
+import { cookieHelper, getOmsURL } from "@common";
 
 const fetchProducts = async (payload: any): Promise <any>  => {
-  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "searchProducts",
     method: "post",
-    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: getOmsURL(),
     data: payload,
     headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      Authorization:  'Bearer ' + cookieHelper().get("token"),
       'Content-Type': 'application/json'
     }
   });
 }
 
 const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
-  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
-    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: getOmsURL(),
     data: payload,
     headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      Authorization:  'Bearer ' + cookieHelper().get("token"),
       'Content-Type': 'application/json'
     }
   });

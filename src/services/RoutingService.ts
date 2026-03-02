@@ -1,13 +1,14 @@
-import api, { client } from "@/api"
+import { api, client } from "@common"
 import logger from "@/logger";
 import { useProductStore } from "@/store/useProductStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { commonUtil } from "@/utils/commonUtil";
+import { cookieHelper, getOmsURL } from "@common";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
-    url: "groups", 
+    url: "order-routing/groups", 
     method: "GET",
     params: payload
   });
@@ -15,21 +16,21 @@ const fetchRoutingGroups = async (payload: any): Promise<any> => {
 
 const fetchRoutingGroupInformation = async (routingGroupId: string): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}`,
+    url: `order-routing/groups/${routingGroupId}`,
     method: "GET"
   });
 }
 
 const fetchRoutingScheduleInformation = async (routingGroupId: string): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}/schedule`,
+    url: `order-routing/groups/${routingGroupId}/schedule`,
     method: "GET"
   });
 }
 
 const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}/routingRuns`,
+    url: `order-routing/groups/${routingGroupId}/routingRuns`,
     method: "GET",
     params
   });
@@ -37,7 +38,7 @@ const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise
 
 const fetchGroupHistory = async (jobName: string, params: any): Promise<any> => {
   return api({
-    url: `serviceJobRuns/${jobName}`,
+    url: `order-routing/serviceJobRuns/${jobName}`,
     method: "GET",
     params
   });
@@ -45,7 +46,7 @@ const fetchGroupHistory = async (jobName: string, params: any): Promise<any> => 
 
 const createRoutingGroup = async (payload: any): Promise<any> => {
   return api({
-    url: "groups",
+    url: "order-routing/groups",
     method: "POST",
     data: payload
   })
@@ -53,7 +54,7 @@ const createRoutingGroup = async (payload: any): Promise<any> => {
 
 const updateRoutingGroup = async (payload: any): Promise<any> => {
   return api({
-    url: `groups/${payload.routingGroupId}`,
+    url: `order-routing/groups/${payload.routingGroupId}`,
     method: "POST",
     data: payload
   })
@@ -61,7 +62,7 @@ const updateRoutingGroup = async (payload: any): Promise<any> => {
 
 const cloneGroup = async (payload: any): Promise<any> => {
   return api({
-    url: `groups/${payload.routingGroupId}/clone`,
+    url: `order-routing/groups/${payload.routingGroupId}/clone`,
     method: "POST",
     data: payload
   })
@@ -69,14 +70,14 @@ const cloneGroup = async (payload: any): Promise<any> => {
 
 const fetchOrderRouting = async (orderRoutingId: string): Promise<any> => {
   return api({
-    url: `routings/${orderRoutingId}`,
+    url: `order-routing/routings/${orderRoutingId}`,
     method: "GET"
   })
 }
 
 const createRoutingRule = async (payload: any): Promise<any> => {
   return await api({
-    url: "rules",
+    url: "order-routing/rules",
     method: "POST",
     data: payload
   })
@@ -84,7 +85,7 @@ const createRoutingRule = async (payload: any): Promise<any> => {
 
 const createOrderRouting = async (payload: any): Promise<any> => {
   return await api({
-    url: "routings",
+    url: "order-routing/routings",
     method: "POST",
     data: payload
   })
@@ -92,7 +93,7 @@ const createOrderRouting = async (payload: any): Promise<any> => {
 
 const cloneRouting = async (payload: any): Promise<any> => {
   return await api({
-    url: `routings/${payload.orderRoutingId}/clone`,
+    url: `order-routing/routings/${payload.orderRoutingId}/clone`,
     method: "POST",
     data: payload
   })
@@ -100,7 +101,7 @@ const cloneRouting = async (payload: any): Promise<any> => {
 
 const updateRouting = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}`,
+    url: `order-routing/routings/${payload.orderRoutingId}`,
     method: "POST",
     data: payload
   });
@@ -108,7 +109,7 @@ const updateRouting = async (payload: any): Promise<any> => {
 
 const deleteRoutingFilter = async (payload: any): Promise<any> => {
   return api({
-    url: `routings/${payload.orderRoutingId}/orderFilters`,
+    url: `order-routing/routings/${payload.orderRoutingId}/orderFilters`,
     method: "DELETE",
     data: payload
   });
@@ -116,7 +117,7 @@ const deleteRoutingFilter = async (payload: any): Promise<any> => {
 
 const deleteRuleCondition = async (payload: any): Promise<any> => {
   return api({
-    url: `rules/${payload.routingRuleId}/inventoryFilters`,
+    url: `order-routing/rules/${payload.routingRuleId}/inventoryFilters`,
     method: "DELETE",
     data: payload
   });
@@ -124,7 +125,7 @@ const deleteRuleCondition = async (payload: any): Promise<any> => {
 
 const deleteRuleAction = async (payload: any): Promise<any> => {
   return api({
-    url: `rules/${payload.routingRuleId}/actions`,
+    url: `order-routing/rules/${payload.routingRuleId}/actions`,
     method: "DELETE",
     data: payload
   });
@@ -132,14 +133,14 @@ const deleteRuleAction = async (payload: any): Promise<any> => {
 
 const fetchRule = async (routingRuleId: string): Promise<any> => {
   return api({
-    url: `rules/${routingRuleId}`,
+    url: `order-routing/rules/${routingRuleId}`,
     method: "GET"
   });
 }
 
 const cloneRule = async (payload: any): Promise<any> => {
   return await api({
-    url: `rules/${payload.routingRuleId}/clone`,
+    url: `order-routing/rules/${payload.routingRuleId}/clone`,
     method: "POST",
     data: payload
   })
@@ -147,7 +148,7 @@ const cloneRule = async (payload: any): Promise<any> => {
 
 const updateRule = async (payload: any): Promise<any> => {
   return api({
-    url: `rules/${payload.routingRuleId}`,
+    url: `order-routing/rules/${payload.routingRuleId}`,
     method: "POST",
     data: payload
   });
@@ -155,7 +156,7 @@ const updateRule = async (payload: any): Promise<any> => {
 
 const scheduleBrokering = async (payload: any): Promise<any> => {
   return api({
-    url: `groups/${payload.routingGroupId}/schedule`,
+    url: `order-routing/groups/${payload.routingGroupId}/schedule`,
     method: "POST",
     data: payload
   });
@@ -163,13 +164,12 @@ const scheduleBrokering = async (payload: any): Promise<any> => {
 
 const runNow = async (routingGroupId: string): Promise<any> => {
   return api({
-    url: `groups/${routingGroupId}/runNow`,
+    url: `order-routing/groups/${routingGroupId}/runNow`,
     method: "POST"
   });
 }
 
 const findOrder = async (queryString: string, orderId: string): Promise<any> => {
-  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
 
   let orders = []
   let errorMessage = "";
@@ -201,10 +201,10 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
     const resp = await client({
       url: "solr-query",
       method: "post",
-      baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
+      baseURL: getOmsURL(),
       data: payload,
       headers: {
-        Authorization:  'Bearer ' + omsRedirectionInfo.token,
+        Authorization:  'Bearer ' + cookieHelper().get("token"),
         'Content-Type': 'application/json'
       }
     });
@@ -248,7 +248,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
 
 const brokerOrder = async(payload: any): Promise<any> => {
   return api({
-    url: `groups/${payload.routingGroupId}/run`,
+    url: `order-routing/groups/${payload.routingGroupId}/run`,
     method: "POST",
     data: payload
   })
@@ -256,7 +256,7 @@ const brokerOrder = async(payload: any): Promise<any> => {
 
 const resetOrder = async(payload: any): Promise<any> => {
   return api({
-    url: `orders/${payload.orderId}/reject`,
+    url: `order-routing/orders/${payload.orderId}/reject`,
     method: "POST",
     data: payload
   })
@@ -264,7 +264,7 @@ const resetOrder = async(payload: any): Promise<any> => {
 
 const getRecentOrderFacilityChangeInfo = async(payload: any): Promise<any> => {
   return api({
-    url: `orders/${payload.orderId}/routing-history/recent`,
+    url: `order-routing/orders/${payload.orderId}/routing-history/recent`,
     method: "GET",
     data: payload
   })

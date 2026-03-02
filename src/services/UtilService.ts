@@ -1,11 +1,12 @@
-import api, { client } from "@/api"
+import { api, client } from "@common"
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
 import { commonUtil } from "@/utils/commonUtil";
+import { cookieHelper, getMaargURL, getOmsURL } from "@common";
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
-    url: "enums", 
+    url: "order-routing/enums", 
     method: "GET",
     params: payload
   });
@@ -13,7 +14,7 @@ const fetchEnums = async (payload: any): Promise<any> => {
 
 const fetchOmsEnums = async (payload: any): Promise<any> => {
   return api({
-    url: "omsenums",
+    url: "order-routing/omsenums",
     method: "GET",
     params: payload
   });
@@ -21,7 +22,7 @@ const fetchOmsEnums = async (payload: any): Promise<any> => {
 
 const fetchFacilities = async (payload: any): Promise<any> => {
   return api({
-    url: "facilities", 
+    url: "order-routing/facilities", 
     method: "GET",
     params: payload
   });
@@ -31,13 +32,14 @@ const fetchCategories = async (payload: any): Promise<any> => {
   return api({
     url: `categories/${payload.productStoreId}`,
     method: "GET",
-    params: payload
+    params: payload,
+    baseURL: getOmsURL() 
   });
 }
 
 const fetchShippingMethods = async (payload: any): Promise<any> => {
   return api({
-    url: `productStores/${payload.productStoreId}/shippingMethods`,
+    url: `order-routing/productStores/${payload.productStoreId}/shippingMethods`,
     method: "GET",
     params: payload
   });
@@ -45,7 +47,7 @@ const fetchShippingMethods = async (payload: any): Promise<any> => {
 
 const fetchFacilityGroups = async (payload: any): Promise<any> => {
   return api({
-    url: `productStores/${payload.productStoreId}/facilityGroups`, 
+    url: `order-routing/productStores/${payload.productStoreId}/facilityGroups`, 
     method: "GET",
     params: payload
   });
@@ -53,35 +55,33 @@ const fetchFacilityGroups = async (payload: any): Promise<any> => {
 
 const fetchStatusInformation = async (payload: any): Promise<any> => {
   return api({
-    url: "status",
+    url: "admin/status",
     method: "GET",
     params: payload
   });
 }
 
 const getCarrierInformation = async (payload: any): Promise<any> => {
-  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: getOmsURL(),
     data: payload,
     headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      Authorization:  'Bearer ' + cookieHelper().get("token"),
       'Content-Type': 'application/json'
     }
   });
 }
 
 const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
-  const omsRedirectionInfo = useUserStore().getOmsRedirectionInfo;
   return client({
     url: "performFind",
     method: "post",
-    baseURL: commonUtil.getOmsRedirectionUrl(omsRedirectionInfo),
+    baseURL: getOmsURL(),
     data: payload,
     headers: {
-      Authorization:  'Bearer ' + omsRedirectionInfo.token,
+      Authorization:  'Bearer ' + cookieHelper().get("token"),
       'Content-Type': 'application/json'
     }
   });
@@ -89,18 +89,15 @@ const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
 
 const getUserSession = async(payload: any): Promise<any> => {
   let userTestingSession = {}
-  const url = useUserStore().getBaseUrl
-  const token = useUserStore().getUserToken
-  const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
+  const token = cookieHelper().get("token")
 
   try {
     const resp = await client({
-      url: "entityData",
+      url: "oms/entityData",
       method: "POST",
-      baseURL: baseURL,
+      baseURL: getMaargURL(),
       data: payload,
       headers: {
-        Api_Key: token,
         Authorization: "Bearer " + token,
         "Content-Type": "application/json"
       }
@@ -118,18 +115,15 @@ const getUserSession = async(payload: any): Promise<any> => {
 
 const getTestSessions = async(payload: any): Promise<any> => {
   let testingSessions = []
-  const url = useUserStore().getBaseUrl
-  const token = useUserStore().getUserToken
-  const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
+  const token = cookieHelper().get("token")
 
   try {
     const resp = await client({
-      url: "entityData",
+      url: "oms/entityData",
       method: "POST",
-      baseURL: baseURL,
+      baseURL: getMaargURL(),
       data: payload,
       headers: {
-        Api_Key: token,
         Authorization: "Bearer " + token,
         "Content-Type": "application/json"
       }
@@ -149,7 +143,7 @@ const createUserSession = async (payload: any): Promise<any> => {
   let userTestingSession = {} as any;
   try {
     const resp = await api({
-      url: "user/sessions",
+      url: "order-routing/user/sessions",
       method: "POST",
       data: payload
     }) as any;
@@ -169,7 +163,7 @@ const createUserSession = async (payload: any): Promise<any> => {
 const expireUserSession = async(payload: any, userTestingSession = {}): Promise<any> => {
   try {
     const resp = await api({
-      url: `user/sessions/${payload.userSessionId}`,
+      url: `order-routing/user/sessions/${payload.userSessionId}`,
       method: "PUT",
       data: payload
     }) as any;
@@ -185,17 +179,14 @@ const expireUserSession = async(payload: any, userTestingSession = {}): Promise<
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
-  const url = useUserStore().getBaseUrl
-  const token = useUserStore().getUserToken
-  const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
+  const token = cookieHelper().get("token")
 
   return client({
-    url: `productStores/${payload.productStoreId}`,
+    url: `order-routing/productStores/${payload.productStoreId}`,
     method: "PUT",
-    baseURL: baseURL,
+    baseURL: getMaargURL(),
     data: payload,
     headers: {
-      Api_Key: token,
       Authorization: "Bearer " + token,
       "Content-Type": "application/json"
     }
@@ -203,17 +194,14 @@ const updateProductStoreInfo = async (payload: any): Promise<any> => {
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
-  const url = useUserStore().getBaseUrl
-  const token = useUserStore().getUserToken
-  const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
+  const token = cookieHelper().get("token")
   const productStoreId = useUserStore().getCurrentEComStore?.productStoreId
 
   return client({
-    url: `productStores/${productStoreId}`,
+    url: `admin/productStores/${productStoreId}`,
     method: "GET",
-    baseURL: baseURL,
+    baseURL: getMaargURL(),
     headers: {
-      Api_Key: token,
       Authorization: 'Bearer ' + token,
       'Content-Type': 'application/json'
     }

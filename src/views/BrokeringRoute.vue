@@ -222,7 +222,8 @@
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave } from "vue-router";
+import router from "@/router";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";
@@ -242,7 +243,6 @@ import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
 import { Actions, hasPermission } from "@/authorization";
 
-const router = useRouter();
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
 const utilStore = useUtilStore()

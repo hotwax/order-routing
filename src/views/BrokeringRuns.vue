@@ -97,7 +97,7 @@ import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import router from "@/router";
 import { useUserStore } from "@/store/useUserStore";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
@@ -105,12 +105,11 @@ import { useUtilStore } from "@/store/useUtilStore";
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
 const utilStore = useUtilStore()
-const router = useRouter()
 const groups = computed(() => orderRoutingStore.getRoutingGroups)
 const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => userStore.getCurrentEComStore)
 
-const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS)
+const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSIONS)
 
 let isLoading = ref(false)
 let brokeringGroups = ref([]) as any

@@ -1,26 +1,18 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
-import { useUserStore } from "@/store/useUserStore"
 import Tabs from "@/views/Tabs.vue"
-import { DxpLogin, useAuthStore } from '@hotwax/dxp-components';
-import { userUtil } from '@/user-utils/userUtil';
+import { useAuth } from '@/composables/auth';
+import Login from "@/views/Login.vue";
 
 const authGuard = async (to: any, from: any, next: any) => {
-  const authStore = useAuthStore()
-  const userStore = useUserStore()
-  if (!authStore.isAuthenticated || !userStore.isAuthenticated) {
-    await userUtil.loader.present('Authenticating')
-    // TODO use authenticate() when support is there
-    const redirectUrl = window.location.origin + '/login'
-    window.location.href = `${process.env.VUE_APP_LOGIN_URL}?redirectUrl=${redirectUrl}`
-    userUtil.loader.dismiss()
+  if (!useAuth().isAuthenticated.value) {
+    next('/login')
   }
   next()
 };
 
 const loginGuard = (to: any, from: any, next: any) => {
-  const authStore = useAuthStore()
-  if (authStore.isAuthenticated && !to.query?.token && !to.query?.oms) {
+  if (useAuth().isAuthenticated.value && !to.query?.token && !to.query?.oms) {
     next('/')
   }
   next();
@@ -68,13 +60,13 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/login",
     name: "Login",
-    component: DxpLogin,
+    component: Login,
     beforeEnter: loginGuard
   },
 ]
 
 const router = createRouter({
-  history: createWebHistory(process.env.BASE_URL),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

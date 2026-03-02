@@ -467,7 +467,8 @@
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, speedometerOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave } from "vue-router";
+import router from "@/router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import { commonUtil } from "@/utils/commonUtil";
@@ -488,7 +489,6 @@ import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { useUserStore } from "@/store/useUserStore";
 
-const router = useRouter();
 const props = defineProps({
   orderRoutingId: {
     type: String,
@@ -496,9 +496,9 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
-const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
 
 const currentRoutingGroup: any = computed(() => useOrderRoutingStore().getCurrentRoutingGroup)
 const currentRouting = computed(() => useOrderRoutingStore().getCurrentOrderRouting)
@@ -1576,7 +1576,7 @@ async function save() {
     const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
     const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
 
-    const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC
+    const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
     Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
       if(filterSortDesc.includes(option.fieldName)) {
         option.fieldName += " desc"

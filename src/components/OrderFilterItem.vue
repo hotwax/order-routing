@@ -62,7 +62,7 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
 
 const enums = computed(() => useUtilStore().getEnums)
 const facilities = computed(() => useUtilStore().getVirtualFacilities)

@@ -340,7 +340,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
     },
     async fetchInventoryRuleInformation(routingRuleId: string) {
       const rulesInformation = JSON.parse(JSON.stringify(this.rules))
-      const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC || ""
+      const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
       try {
         const resp = await OrderRoutingService.fetchRule(routingRuleId)
         if(!commonUtil.hasError(resp) && resp.data.routingRuleId) {

@@ -11,6 +11,12 @@ const hasError = (response: any) => {
 const getCurrentTime = (zone: string, format = 't ZZZZ') => {
   return DateTime.now().setZone(zone).toFormat(format)
 }
+
+const goToOms = (token: string, oms: string) => {
+  const link = (oms.startsWith('http') ? oms.replace(/\/api\/?|\/$/, "") : `https://${oms}.hotwax.io`) + `/commerce/control/main?token=${token}`
+  
+  window.open(link, '_blank', 'noopener, noreferrer')
+}
 const showToast = async (message: string) => {
   const toast = await toastController
     .create({
@@ -77,4 +83,4 @@ const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
   return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
 }
 
-export const commonUtil = { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime }
+export const commonUtil = { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime, goToOms }

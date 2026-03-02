@@ -65,7 +65,7 @@
                 </ion-item>
                 <ion-item lines="none">
                   <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(routing.statusId) }}</ion-badge>
-                  <ion-button fill="clear" slot="end" @click.stop="openRouteDetails(routing)">{{ $t("Details") }}</ion-button>
+                  <ion-button fill="clear" slot="end" @click.stop="openRouteDetails(routing)">{{ translate("Details") }}</ion-button>
                 </ion-item>
               </ion-card>
             </ion-list>

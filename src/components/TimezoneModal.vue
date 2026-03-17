@@ -83,8 +83,7 @@ import {
 import { onBeforeMount,computed,ref} from "vue";
 import { close, save } from "ionicons/icons";
 import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@common";
-import { translate } from "@/i18n"
+import { translate, commonUtil } from "@common";
 
 let queryString = ref("")
 let filteredTimeZones = ref<any[]>([])

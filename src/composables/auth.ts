@@ -2,7 +2,7 @@ import { resetPermissions } from "@/authorization";
 import emitter from "@/event-bus";
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
-import { translate } from "@/i18n";
+import { translate } from "@common";
 import { api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";

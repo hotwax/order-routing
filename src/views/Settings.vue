@@ -118,9 +118,8 @@ import { useUserStore } from "@/store/useUserStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
-import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { commonUtil, cookieHelper } from "@common";
+import { translate, commonUtil, cookieHelper } from "@common";
 import { useAuth } from "@/composables/auth";
 
 const userStore = useUserStore()

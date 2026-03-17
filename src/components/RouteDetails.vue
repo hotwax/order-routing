@@ -63,7 +63,7 @@
             <p class="empty-state" v-if="!routing.sortCount">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
             </p>
-            <ion-item v-for="(sort, code) in (routing.sortConditions as any)" :key="code as string">
+            <ion-item v-for="(sort, code) in (routing.sortConditions as Record<string, any>)" :key="code as string">
               <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
             </ion-item>
           </ion-item-group>
@@ -87,12 +87,11 @@
 <script setup lang="ts">
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
-import { translate } from "@/i18n";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
 import { computed, defineProps } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
-import { commonUtil } from "@common";
+import { translate } from "@common";
 import OrderFilterItem from "./OrderFilterItem.vue";
 import { getDateAndTimeShort } from "@/utils";
 

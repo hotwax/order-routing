@@ -30,7 +30,7 @@
       </div>
 
       <ion-row>
-        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in (testRoutingInfo.currentOrder.groups as any)" :key="shipGroupSeqId as string" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
+        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in (testRoutingInfo.currentOrder.groups as Record<string, any>)" :key="shipGroupSeqId as string" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
           {{ (index as number) + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
         </ion-chip>
       </ion-row>
@@ -84,9 +84,8 @@ import { useUtilStore } from "@/store/useUtilStore";
 import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
-import { commonUtil } from "@common";
+import { translate, commonUtil } from "@common";
 import logger from "@/logger";
-import { translate } from "@/i18n";
 import { OrderRoutingService } from "@/services/RoutingService";
 import Image from "@/components/Image.vue"
 import emitter from "@/event-bus";

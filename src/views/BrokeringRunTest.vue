@@ -103,9 +103,8 @@ import { computed, defineProps, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
-import { commonUtil } from "@common";
+import { translate, commonUtil } from "@common";
 import emitter from "@/event-bus";
-import { translate } from "@/i18n";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";

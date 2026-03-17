@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
-import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings, DateTime } from "luxon"
-import { api, cookieHelper, commonUtil, resetConfig } from '@common'
+import { api, cookieHelper, commonUtil, resetConfig, translate } from '@common'
 import { getServerPermissionsFromRules, prepareAppPermissions, resetPermissions, setPermissions } from "@/authorization"
 import { useProductStore } from './useProductStore'
 import { useUtilStore } from './useUtilStore'

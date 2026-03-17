@@ -233,9 +233,8 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { commonUtil } from "@common/utils/commonUtil";
+import { translate, commonUtil } from "@common";
 import emitter from "@/event-bus";
-import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import cronstrue from "cronstrue"

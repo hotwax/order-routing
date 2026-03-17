@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { useUtilStore } from "@/store/useUtilStore";
-import { translate } from "@/i18n";
+import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { computed, defineProps } from "vue";
 import { warningOutline } from "ionicons/icons"

@@ -18,8 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
-import { commonUtil } from "@common";
+import { translate, commonUtil } from "@common";
 import { IonContent, IonItem, IonLabel, IonList, IonListHeader, alertController, popoverController } from "@ionic/vue";
 import { defineProps } from "vue";
 

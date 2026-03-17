@@ -9,8 +9,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 import { Settings } from 'luxon'
-import { translate } from "@/i18n"
-import { cookieHelper, commonUtil, initialise, resetConfig } from '@common'
+import { translate, cookieHelper, commonUtil, initialise, resetConfig } from '@common'
 import { useUserStore } from "./store/useUserStore";
 import { setPermissions } from '@/authorization'
 

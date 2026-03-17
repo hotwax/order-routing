@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { useUserStore } from "@/store/useUserStore";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
-import { translate } from "@/i18n";
+import { translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { checkmarkDoneOutline, closeOutline, warningOutline } from "ionicons/icons";
 import { computed, defineProps } from "vue";

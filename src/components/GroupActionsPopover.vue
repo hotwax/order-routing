@@ -21,10 +21,9 @@
 <script setup lang="ts">
 import { alertController, IonContent, IonIcon, IonItem, IonList, IonListHeader, popoverController } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
-import { translate } from "@/i18n"
 import { defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
-import { commonUtil } from "@common";
+import { translate, commonUtil } from "@common";
 import logger from "@/logger";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 

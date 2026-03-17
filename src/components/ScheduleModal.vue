@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
+import { translate } from "@common";
 import { alertController, IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";

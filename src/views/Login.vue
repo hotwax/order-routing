@@ -78,8 +78,7 @@ import router from "@/router";
 import { useUserStore } from "@/store/useUserStore";
 import Logo from '@/components/Logo.vue';
 import { arrowForwardOutline, gridOutline } from 'ionicons/icons'
-import { cookieHelper } from "@common";
-import { translate } from "@/i18n";
+import { translate, cookieHelper } from "@common";
 import { useAuth } from "@/composables/auth";
 import { commonUtil } from "@common/utils/commonUtil";
 let route = null as any;

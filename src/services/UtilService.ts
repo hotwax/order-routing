@@ -1,7 +1,7 @@
 import { api } from "@common"
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
-import { cookieHelper, getMaargURL, getOmsURL } from "@common";
+import { commonUtil } from "@common";
 
 const fetchEnums = async (payload: any): Promise<any> => {
   return api({
@@ -32,7 +32,7 @@ const fetchCategories = async (payload: any): Promise<any> => {
     url: `categories/${payload.productStoreId}`,
     method: "GET",
     params: payload,
-    baseURL: getOmsURL() 
+    baseURL: commonUtil.getOmsURL() 
   });
 }
 
@@ -64,7 +64,7 @@ const getCarrierInformation = async (payload: any): Promise<any> => {
   return api({
     url: "performFind",
     method: "post",
-    baseURL: getOmsURL(),
+    baseURL: commonUtil.getOmsURL(),
     data: payload
   });
 }
@@ -73,7 +73,7 @@ const getCarrierDeliveryDays = async (payload: any): Promise<any> => {
   return api({
     url: "performFind",
     method: "post",
-    baseURL: getOmsURL(),
+    baseURL: commonUtil.getOmsURL(),
     data: payload
   });
 }
@@ -85,7 +85,7 @@ const getUserSession = async(payload: any): Promise<any> => {
     const resp = await api({
       url: "oms/entityData",
       method: "POST",
-      baseURL: getMaargURL(),
+      baseURL: commonUtil.getMaargURL(),
       data: payload
     });
 
@@ -106,7 +106,7 @@ const getTestSessions = async(payload: any): Promise<any> => {
     const resp = await api({
       url: "oms/entityData",
       method: "POST",
-      baseURL: getMaargURL(),
+      baseURL: commonUtil.getMaargURL(),
       data: payload
     });
 
@@ -164,7 +164,7 @@ const updateProductStoreInfo = async (payload: any): Promise<any> => {
   return api({
     url: `order-routing/productStores/${payload.productStoreId}`,
     method: "PUT",
-    baseURL: getMaargURL(),
+    baseURL: commonUtil.getMaargURL(),
     data: payload
   })
 }
@@ -175,7 +175,7 @@ const getProductStoreInfo = async (): Promise<any> => {
   return api({
     url: `admin/productStores/${productStoreId}`,
     method: "GET",
-    baseURL: getMaargURL()
+    baseURL: commonUtil.getMaargURL()
   })
 }
 

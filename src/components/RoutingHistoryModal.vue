@@ -29,7 +29,7 @@
           <ion-icon v-if="history.hasError === 'Y'" :icon="warningOutline" color="warning" slot="start" />
           <ion-icon v-else :icon="checkmarkDoneOutline" slot="start"/>
           <ion-label>{{ history.routingResult }}</ion-label>
-          <ion-label slot="end">{{ commonUtil.getDateAndTime(history.startDate) }}</ion-label>
+          <ion-label slot="end">{{ getDateAndTime(history.startDate) }}</ion-label>
         </ion-item>
       </div>
     </ion-list>
@@ -40,10 +40,10 @@
 import { useUserStore } from "@/store/useUserStore";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { translate } from "@/i18n";
-import { commonUtil } from "@/utils/commonUtil";
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { checkmarkDoneOutline, closeOutline, warningOutline } from "ionicons/icons";
 import { computed, defineProps } from "vue";
+import { getDateAndTime } from "@/utils";
 
 defineProps({
   routingHistory: {

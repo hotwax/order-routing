@@ -83,7 +83,7 @@ import {
 import { onBeforeMount,computed,ref} from "vue";
 import { close, save } from "ionicons/icons";
 import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import { translate } from "@/i18n"
 
 let queryString = ref("")

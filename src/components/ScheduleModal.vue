@@ -53,8 +53,8 @@ import { computed, defineProps, ref } from "vue";
 import cronstrue from "cronstrue";
 import cronParser from "cron-parser";
 import logger from "@/logger";
-import { commonUtil } from "@/utils/commonUtil";
 import { useUserStore } from "@/store/useUserStore";
+import { getDateAndTime } from "@/utils";
 
 const props = defineProps({
   cronExpression: {
@@ -89,7 +89,7 @@ const getCronString = computed(() => {
 const getNextExecutionTime = computed(() => {
   try {
     const interval = cronParser.parseExpression(expression.value, { tz: userProfile.value.timeZone })
-    return commonUtil.getDateAndTime((interval.next() as any)["_date"].ts)
+    return getDateAndTime((interval.next() as any)["_date"].ts)
   } catch(e) {
     logger.error("Invalid expression", e)
     return ""

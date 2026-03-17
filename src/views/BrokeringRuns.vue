@@ -39,7 +39,7 @@
               <ion-item>
                 <ion-label>
                   <h1>{{ group.groupName }}</h1>
-                  <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
+                  <p>{{ getDateAndTime(group.createdDate) }}</p>
                 </ion-label>
               </ion-item>
               <ion-item v-if="group.description">
@@ -49,7 +49,7 @@
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
-                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                   <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
@@ -59,12 +59,12 @@
               <ion-item v-else>
                 <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
                 <ion-label>
-                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-label>
                 <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
               </ion-item>
               <ion-item lines="none">
-                {{ `Updated at ${commonUtil.getDateAndTime(group.lastUpdatedStamp)}` }}
+                {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
                 <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
                   <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
                 </ion-button>
@@ -91,7 +91,7 @@ import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import { Group } from "@/types";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";
@@ -101,6 +101,7 @@ import router from "@/router";
 import { useUserStore } from "@/store/useUserStore";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
+import { getDateAndTime } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()

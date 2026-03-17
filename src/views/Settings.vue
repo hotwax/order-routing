@@ -47,7 +47,7 @@
           <ion-card-content>
             {{ translate('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms(cookieHelper().get('token')as string, cookieHelper().get('oms') as string)" fill="clear">
+          <ion-button :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
             {{ translate('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -120,8 +120,7 @@ import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { commonUtil } from "@/utils/commonUtil"
-import { cookieHelper } from "@common";
+import { commonUtil, cookieHelper } from "@common";
 import { useAuth } from "@/composables/auth";
 
 const userStore = useUserStore()

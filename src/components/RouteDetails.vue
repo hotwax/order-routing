@@ -35,7 +35,7 @@
             <ion-icon :icon="timeOutline" slot="start" />
             <ion-label>{{ translate("Last run") }}</ion-label>
             <ion-chip outline @click.stop="openRoutingHistoryModal()">
-              <ion-label>{{ routingHistory[routing.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
+              <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
             </ion-chip>
           </ion-item>
           <ion-item-group>
@@ -92,8 +92,9 @@ import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem
 import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
 import { computed, defineProps } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import OrderFilterItem from "./OrderFilterItem.vue";
+import { getDateAndTimeShort } from "@/utils";
 
 const props = defineProps({
   routing: {

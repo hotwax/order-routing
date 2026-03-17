@@ -40,11 +40,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -120,7 +120,7 @@
                   <ion-icon slot="start" :icon="timeOutline"/>
                   <ion-label>{{ translate("Next run") }}</ion-label>
                   <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                  <ion-label slot="end">{{ job.paused === 'N' ? commonUtil.getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
+                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none" button @click="runNow()">
                   <ion-icon slot="start" :icon="flashOutline"/>
@@ -135,10 +135,10 @@
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
-                    <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
+                    <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
+                    <p>{{ getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
-                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
                 </ion-item>
               </ion-card>
             </div>
@@ -172,7 +172,7 @@
                     <ion-icon :icon="timeOutline" slot="start" />
                     <ion-label>{{ translate("Last run") }}</ion-label>
                     <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
+                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
                     </ion-chip>
                   </ion-item>
                   <ion-item lines="none">
@@ -233,8 +233,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
 import { DateTime } from "luxon";
-import { commonUtil } from "@/utils/commonUtil";
-import { showToast } from "@common/utils/commonUtil";
+import { commonUtil } from "@common/utils/commonUtil";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -243,6 +242,7 @@ import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
 import { Actions, hasPermission } from "@/authorization";
+import { getDate, getDateAndTime, getDateAndTimeShort, getTime, sortSequence, timeTillRun } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
@@ -371,7 +371,7 @@ async function fetchGroupHistory() {
 
 async function saveSchedule() {
   if(!job.value.cronExpression) {
-    showToast(translate("Please select a scheduling for job"))
+    commonUtil.showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
     return;
   }
@@ -385,7 +385,7 @@ async function saveSchedule() {
   try {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)) {
-      showToast(translate("Job updated"))
+      commonUtil.showToast(translate("Job updated"))
       // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
       await orderRoutingStore.fetchCurrentGroupSchedule({ routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
       job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
@@ -393,7 +393,7 @@ async function saveSchedule() {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to update job"))
+    commonUtil.showToast(translate("Failed to update job"))
     logger.error(err)
   }
 }
@@ -443,12 +443,12 @@ async function runNow() {
             try {
               const resp = await OrderRoutingService.runNow(props.routingGroupId)
               if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
-                showToast(translate("Service has been scheduled"))
+                commonUtil.showToast(translate("Service has been scheduled"))
               } else {
                 throw resp.data
               }
             } catch(err) {
-              showToast(translate("Failed to schedule service"))
+              commonUtil.showToast(translate("Failed to schedule service"))
               logger.error(err)
             }
           }
@@ -463,7 +463,7 @@ async function redirect(orderRouting: Route) {
   let isRoutingArchived = currentRoutingGroup.value["routings"].some((routing: any) => routing.orderRoutingId === orderRouting.orderRoutingId && routing.statusId === "ROUTING_ARCHIVED" )
 
   if(isRoutingArchived) {
-    showToast(translate("Save changes before moving to the details page of unarchived route"))
+    commonUtil.showToast(translate("Save changes before moving to the details page of unarchived route"))
     return;
   }
 
@@ -484,12 +484,12 @@ async function updateGroupStatus(event: CustomEvent) {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)){
       job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-      showToast(translate("Group status updated"))
+      commonUtil.showToast(translate("Group status updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to update group status"))
+    commonUtil.showToast(translate("Failed to update group status"))
     logger.error(err)
   }
 }
@@ -504,7 +504,7 @@ async function createOrderRoute() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.routingName?.trim().length) {
-          showToast(translate("Please enter a valid name"))
+          commonUtil.showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -637,7 +637,7 @@ function doReorder(event: CustomEvent) {
 
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   routingsForReorder.value = updatedSeq
-  orderRoutings.value = commonUtil.sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
+  orderRoutings.value = sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
   // considering that when reordering there are some changes in the order of routes
   hasUnsavedChanges.value = true
 }
@@ -651,7 +651,7 @@ async function openArchivedRoutingModal() {
       saveRoutings: (routings: any) => {
         if(routings) {
           hasUnsavedChanges.value = true
-          orderRoutings.value = commonUtil.sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+          orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
         }
         initializeOrderRoutings()
       }
@@ -748,12 +748,12 @@ async function updateRoutingGroup(payload: any) {
 
     if(!commonUtil.hasError(resp) && resp.data.routingGroupId) {
       routingGroupId = resp.data.routingGroupId
-      showToast(translate("Routing group information updated"))
+      commonUtil.showToast(translate("Routing group information updated"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to update group information"))
+    commonUtil.showToast(translate("Failed to update group information"))
     logger.error(err);
   }
 
@@ -788,12 +788,12 @@ async function cloneGroup() {
 
     if(!commonUtil.hasError(resp)) {
       // Not fetching the groups list as after cloning as we do not need any information from the newly cloned group
-      showToast(translate("Brokering run cloned"))
+      commonUtil.showToast(translate("Brokering run cloned"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to clone brokering run"))
+    commonUtil.showToast(translate("Failed to clone brokering run"))
     logger.error(err)
   }
 }
@@ -841,7 +841,7 @@ async function toggleReservation(event: CustomEvent) {
       enableBrokering
     })
   } catch(err) {
-    showToast(translate("Failed to pause the brokering"))
+    commonUtil.showToast(translate("Failed to pause the brokering"))
     logger.error("Failed to update the brokering for product store")
   }
 }

@@ -81,7 +81,7 @@ import { arrowForwardOutline, gridOutline } from 'ionicons/icons'
 import { cookieHelper } from "@common";
 import { translate } from "@/i18n";
 import { useAuth } from "@/composables/auth";
-import { showToast } from "@common/utils/commonUtil";
+import { commonUtil } from "@common/utils/commonUtil";
 let route = null as any;
 const cookieHandler = cookieHelper();
 
@@ -131,7 +131,7 @@ const toggleOmsInput = () => {
 
 const login = async () => {
   if (!username.value || !password.value) {
-    showToast(translate('Please fill in the user details'));
+    commonUtil.showToast(translate('Please fill in the user details'));
     return;
   }
 
@@ -150,7 +150,7 @@ const login = async () => {
 
 const setOms = async () => {
   if (!instanceUrl.value) {
-    showToast(translate('Please fill in the OMS'));
+    commonUtil.showToast(translate('Please fill in the OMS'));
     return;
   }
 
@@ -201,7 +201,7 @@ const basicLogin = async () => {
     try {
       await useUserStore().fetchUserProfile();
     } catch(error: any) {
-      showToast(translate('Failed to fetch user-profile, please try again'));
+      commonUtil.showToast(translate('Failed to fetch user-profile, please try again'));
       console.error("error: ", error);
       // Clear auth in cookies if the very first api call fails, meaning something went wrong
       useAuth().clearAuth();
@@ -213,7 +213,7 @@ const basicLogin = async () => {
     await useUserStore().fetchAvailableTimeZones();
 
   } catch (error) {
-    showToast(translate('Failed to fetch user-profile, please try again'));
+    commonUtil.showToast(translate('Failed to fetch user-profile, please try again'));
     console.error("error: ", error);
   }
   router.replace('/');

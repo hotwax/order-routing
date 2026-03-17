@@ -45,7 +45,7 @@
             <ion-icon :icon="timeOutline" slot="start" />
             <ion-label>{{ translate("Last run") }}</ion-label>
             <ion-chip outline @click.stop="openRoutingHistoryModal()">
-              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
+              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
             </ion-chip>
           </ion-item>
           <ion-item-group>
@@ -475,7 +475,7 @@ import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { showToast } from "@common/utils/commonUtil";
+import { commonUtil } from "@common";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -492,7 +492,7 @@ import { Actions, hasPermission } from "@/authorization";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { useUserStore } from "@/store/useUserStore";
-import { commonUtil } from "@/utils/commonUtil";
+import { getDateAndTimeShort, sortSequence } from "@/utils";
 
 const props = defineProps({
   orderRoutingId: {
@@ -561,7 +561,7 @@ onIonViewWillEnter(async () => {
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     initializeInventoryRules()
     await fetchRuleInformation(currentRuleId.value || rulesForReorder.value[0].routingRuleId);
   }
@@ -718,7 +718,7 @@ function getFacilityGroupsForBrokering() {
 }
 
 function initializeOrderRoutingOptions() {
-  const orderRouteFilters = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
+  const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
       filters[filter.conditionTypeEnumId][filter.fieldName] = filter
     } else {
@@ -769,12 +769,12 @@ async function updateRouteName() {
 
       if(!commonUtil.hasError(resp) && resp.data.orderRoutingId) {
         orderRoutingId = resp.data.orderRoutingId
-        showToast(translate("Order routing information updated"))
+        commonUtil.showToast(translate("Order routing information updated"))
       } else {
         throw resp.data
       }
     } catch(err) {
-      showToast(translate("Failed to update routing information"))
+      commonUtil.showToast(translate("Failed to update routing information"))
       logger.error(err);
     }
 
@@ -884,7 +884,7 @@ async function addInventoryRule() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.ruleName?.trim().length) {
-          showToast(translate("Please enter a valid name"))
+          commonUtil.showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -945,7 +945,7 @@ async function addInventoryRule() {
           }
         })
 
-        inventoryRules.value = commonUtil.sortSequence(routingRules)
+        inventoryRules.value = sortSequence(routingRules)
         initializeInventoryRules()
         fetchRuleInformation(routingRuleId)
       }
@@ -1043,7 +1043,7 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          showToast(translate("Enter a valid value"))
+          commonUtil.showToast(translate("Enter a valid value"))
           return false;
         }
         updateRule()
@@ -1270,9 +1270,9 @@ async function updateRuleName(routingRuleId: string) {
     })
 
     if(ruleId) {
-      showToast(translate("Order rule information updated"))
+      commonUtil.showToast(translate("Order rule information updated"))
     } else {
-      showToast(translate("Failed to update rule information"))
+      commonUtil.showToast(translate("Failed to update rule information"))
     }
 
     emitter.emit("dismissLoader")
@@ -1298,7 +1298,7 @@ async function cloneRule() {
     await useOrderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
   } catch (err) {
     logger.error(err)
-    showToast(translate("Failed to clone rule"))
+    commonUtil.showToast(translate("Failed to clone rule"))
   }
 
   emitter.emit("dismissLoader")
@@ -1648,7 +1648,7 @@ async function save() {
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
     // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
     await fetchRuleInformation(currentRuleId.value, true);
@@ -1681,7 +1681,7 @@ function isPartialGroupItemsAllocationActive() {
 function initializeInventoryRules() {
   // Sorting the sequence once again here, as after making some changes in the rules like status, enumId etc
   // the original reordered sequence is lost thus before updating the variable sorting it first and then saving changes
-    rulesForReorder.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
+    rulesForReorder.value = sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
 }
 
 function getActiveAndDraftOrderRules() {
@@ -1701,7 +1701,7 @@ async function openArchivedRuleModal() {
       saveRules: (rules: any) => {
         if(rules) {
           hasUnsavedChanges.value = true
-          inventoryRules.value = commonUtil.sortSequence(getActiveAndDraftOrderRules().concat(rules))
+          inventoryRules.value = sortSequence(getActiveAndDraftOrderRules().concat(rules))
         }
         initializeInventoryRules()
       }

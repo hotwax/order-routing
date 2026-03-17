@@ -31,11 +31,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(group.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -103,7 +103,7 @@ import { computed, defineProps, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import logger from "@/logger";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import emitter from "@/event-bus";
 import { translate } from "@/i18n";
 import RouteDetails from "@/components/RouteDetails.vue"
@@ -112,6 +112,7 @@ import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
 import router from "@/router";
+import { getDateAndTime, sortSequence } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore();
 const userStore = useUserStore();
@@ -195,7 +196,7 @@ async function fetchRoutingGroupInformation() {
   }
 
   if(group.value.routings?.length) {
-    group.value.routings = commonUtil.sortSequence(group.value.routings)
+    group.value.routings = sortSequence(group.value.routings)
   }
 
   emitter.emit("dismissLoader")
@@ -219,7 +220,7 @@ async function fetchRoutingsInformation() {
           })
         }
         
-        route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
+        route["rules"] = route["rules"]?.length ? sortSequence(route["rules"]) : []
         
         routing["orderFilters"] = route["orderFilters"] || []
         routing["rules"] = route["rules"]

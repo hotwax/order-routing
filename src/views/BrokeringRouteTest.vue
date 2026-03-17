@@ -84,7 +84,7 @@ import { useUtilStore } from "@/store/useUtilStore";
 import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import logger from "@/logger";
 import { translate } from "@/i18n";
 import { OrderRoutingService } from "@/services/RoutingService";

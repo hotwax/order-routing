@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ProductService } from "@/services/ProductService"
 import logger from "@/logger"
-import { commonUtil } from "@/utils/commonUtil"
+import { commonUtil } from "@common"
 
 export const useProductStore = defineStore('product', {
   state: () => {

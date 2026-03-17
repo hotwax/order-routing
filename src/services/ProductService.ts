@@ -1,11 +1,11 @@
 import { api } from "@common";
-import { getOmsURL } from "@common";
+import { commonUtil } from "@common";
 
 const fetchProducts = async (payload: any): Promise <any>  => {
   return api({
     url: "searchProducts",
     method: "post",
-    baseURL: getOmsURL(),
+    baseURL: commonUtil.getOmsURL(),
     data: payload
   });
 }
@@ -14,7 +14,7 @@ const getInventoryAvailableByFacility = async (payload: any): Promise <any> => {
   return api({
     url: "service/getInventoryAvailableByFacility",
     method: "post",
-    baseURL: getOmsURL(),
+    baseURL: commonUtil.getOmsURL(),
     data: payload
   });
 }

@@ -5,27 +5,6 @@ import { DateTime } from "luxon";
 // TODO Use separate files for specific utilities
 
 // TODO Remove it when HC APIs are fully REST compliant
-const hasError = (response: any) => {
-  return !!response.data._ERROR_MESSAGE_ || !!response.data._ERROR_MESSAGE_LIST_;
-}
-const getCurrentTime = (zone: string, format = 't ZZZZ') => {
-  return DateTime.now().setZone(zone).toFormat(format)
-}
-
-const goToOms = (token: string, oms: string) => {
-  const link = (oms.startsWith('http') ? oms.replace(/\/api\/?|\/$/, "") : `https://${oms}.hotwax.io`) + `/commerce/control/main?token=${token}`
-  
-  window.open(link, '_blank', 'noopener, noreferrer')
-}
-const showToast = async (message: string) => {
-  const toast = await toastController
-    .create({
-      message,
-      duration: 3000,
-      position: "top",
-    })
-  return toast.present();
-}
 
 const sortSequence = (sequence: Array<Group | Route | Rule>, sortOnField = "sequenceNum") => {
   // Currently, sorting is only performed on a single parameter, so if two sequence have same value for that parameter then they will be arranged in FCFS basis
@@ -83,4 +62,4 @@ const getOmsRedirectionUrl = (omsRedirectionInfo: any): string => {
   return baseURL && baseURL.startsWith("http") ? baseURL.includes("/api") ? baseURL : `${baseURL}/api/` : `https://${baseURL}.hotwax.io/api/`;
 }
 
-export const commonUtil = { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, showToast, hasError, sortSequence, timeTillRun, getCurrentTime, goToOms }
+export { getColorByDesc, getDate, getDateAndTime, getDateAndTimeShort, getOmsRedirectionUrl, getTime, sortSequence, timeTillRun }

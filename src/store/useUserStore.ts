@@ -1,14 +1,12 @@
 import { defineStore } from 'pinia'
-import { commonUtil } from "@/utils/commonUtil"
 import { translate } from "@/i18n"
 import logger from "@/logger"
 import emitter from "@/event-bus"
 import { Settings, DateTime } from "luxon"
-import { api, cookieHelper, getMaargURL, resetConfig } from '@common'
+import { api, cookieHelper, commonUtil, resetConfig } from '@common'
 import { getServerPermissionsFromRules, prepareAppPermissions, resetPermissions, setPermissions } from "@/authorization"
 import { useProductStore } from './useProductStore'
 import { useUtilStore } from './useUtilStore'
-import { getOmsURL, hasError, showToast } from '@common/utils/commonUtil'
 import { useAuth } from '@/composables/auth'
 import { useOrderRoutingStore } from './useOrderRoutingStore'
 
@@ -62,10 +60,10 @@ export const useUserStore = defineStore('appUser', {
         resp = await api({
           url: "getPermissions",
           method: "post",
-          baseURL: getOmsURL(),
+          baseURL: commonUtil.getOmsURL(),
           data: params,
         })
-        if(resp.status === 200 && resp.data.docs?.length && !hasError(resp)) {
+        if(resp.status === 200 && resp.data.docs?.length && !commonUtil.hasError(resp)) {
           serverPermissions = resp.data.docs.map((permission: any) => permission.permissionId);
           const total = resp.data.count;
           const remainingPermissions = total - serverPermissions.length;
@@ -76,14 +74,14 @@ export const useUserStore = defineStore('appUser', {
               const response = await api({
                 url: "getPermissions",
                 method: "post",
-                baseURL: getOmsURL(),
+                baseURL: commonUtil.getOmsURL(),
                 data: {
                   "viewIndex": index + 1,
                   viewSize,
                   permissionIds: serverPermissionsFromRules
                 }
               })
-              if(!hasError(response)){
+              if(!commonUtil.hasError(response)){
                 return Promise.resolve(response);
                 } else {
                 return Promise.reject(response);
@@ -94,7 +92,7 @@ export const useUserStore = defineStore('appUser', {
               failed: []
             }
             responses.reduce((permissionResponses: any, permissionResponse: any) => {
-              if (permissionResponse.status !== 200 || hasError(permissionResponse) || !permissionResponse.data?.docs) {
+              if (permissionResponse.status !== 200 || commonUtil.hasError(permissionResponse) || !permissionResponse.data?.docs) {
                 permissionResponses.failed.push(permissionResponse);
               } else {
                 permissionResponses.success.push(permissionResponse);
@@ -122,7 +120,7 @@ export const useUserStore = defineStore('appUser', {
           const hasPermission = appPermissions.some((appPermission: any) => appPermission.action === permissionId);
           if (!hasPermission) {
             const permissionError = "You do not have permission to access the app.";
-            showToast(translate(permissionError));
+            commonUtil.showToast(translate(permissionError));
             logger.error("error", permissionError);
             return Promise.reject(new Error(permissionError));
           }
@@ -141,7 +139,7 @@ export const useUserStore = defineStore('appUser', {
         const resp = await api({
           url: "admin/user/profile",
           method: "GET",
-          baseURL: getMaargURL(),
+          baseURL: commonUtil.getMaargURL(),
         });
         if(commonUtil.hasError(resp)) throw "Error getting user profile";
 
@@ -161,7 +159,7 @@ export const useUserStore = defineStore('appUser', {
         const resp = await api({
           url: "admin/user/productStore",
           method: "GET",
-          baseURL : getMaargURL(),
+          baseURL : commonUtil.getMaargURL(),
         });
         if (commonUtil.hasError(resp) || resp.data.length === 0) {
           throw resp.data;
@@ -178,7 +176,7 @@ export const useUserStore = defineStore('appUser', {
       return api({
         url: "checkPermission",
         method: "post",
-        baseURL: getOmsURL(),
+        baseURL: commonUtil.getOmsURL(),
         ...payload
       });
     },
@@ -191,12 +189,12 @@ export const useUserStore = defineStore('appUser', {
           const userProfileResp = await api({
             url: "admin/user/profile",
             method: "get",
-            baseURL: getMaargURL()
+            baseURL: commonUtil.getMaargURL()
           });
           this.current = userProfileResp.data
         } catch(error: any) {
           useAuth().clearAuth();
-          showToast(translate("Failed to fetch user profile information"));
+          commonUtil.showToast(translate("Failed to fetch user profile information"));
           console.error("error", error);
           return Promise.reject(new Error(error));
         }
@@ -207,7 +205,7 @@ export const useUserStore = defineStore('appUser', {
       } catch (error: any) {
         // If any of the API call in try block has status code other than 2xx it will be handled in common catch block.
         // TODO Check if handling of specific status codes is required.
-        showToast(translate('Something went wrong while login. Please contact administrator.'));
+        commonUtil.showToast(translate('Something went wrong while login. Please contact administrator.'));
         console.error("error: ", error);
         return Promise.reject(new Error(error))
       }

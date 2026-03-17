@@ -3,8 +3,7 @@ import logger from "@/logger";
 import { useProductStore } from "@/store/useProductStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";
-import { commonUtil } from "@/utils/commonUtil";
-import { getOmsURL } from "@common";
+import { commonUtil } from "@common";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
@@ -201,7 +200,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
     const resp = await api({
       url: "solr-query",
       method: "post",
-      baseURL: getOmsURL(),
+      baseURL: commonUtil.getOmsURL(),
       data: payload
     });
 

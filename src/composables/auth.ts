@@ -2,9 +2,8 @@ import { resetPermissions } from "@/authorization";
 import emitter from "@/event-bus";
 import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
-import { showToast } from "@common/utils/commonUtil";
 import { translate } from "@/i18n";
-import { api, cookieHelper, getMaargURL, getOmsURL, hasError } from "@common";
+import { api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 
@@ -44,10 +43,10 @@ export function useAuth() {
           "username": username,
           "password": password
         },
-        baseURL: getMaargURL()
+        baseURL: commonUtil.getMaargURL()
       });
-      if (hasError(resp)) {
-        showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
+      if (commonUtil.hasError(resp)) {
+        commonUtil.showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
         console.error("error", resp.data._ERROR_MESSAGE_);
         return Promise.reject(new Error(resp.data._ERROR_MESSAGE_));
       }
@@ -61,7 +60,7 @@ export function useAuth() {
       await useUserStore().fetchAvailableTimeZones();
 
     } catch (err: any) {
-      showToast(translate("Something went wrong while login. Please contact administrator."));
+      commonUtil.showToast(translate("Something went wrong while login. Please contact administrator."));
       console.error("error: ", err.toString());
       clearAuth();
       return Promise.reject(err instanceof Object ? err : new Error(err));
@@ -81,7 +80,7 @@ export function useAuth() {
         resp = await api({
           url: "logout",
           method: "GET",
-          baseURL: getOmsURL()
+          baseURL: commonUtil.getOmsURL()
         });
         resp = JSON.parse(
           resp.data.startsWith("//") ? resp.data.replace("//", "") : resp
@@ -110,9 +109,9 @@ export function useAuth() {
       const resp = await api({
         url: "checkLoginOptions",
         method: "GET",
-        baseURL: getOmsURL()
+        baseURL: commonUtil.getOmsURL()
       });
-      if (!hasError(resp)) {
+      if (!commonUtil.hasError(resp)) {
         loginOption.value = resp.data
         cookieHelper().set("maarg", resp.data.maargInstanceUrl)
       }

@@ -24,7 +24,7 @@ import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { translate } from "@/i18n"
 import { defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
-import { commonUtil } from "@/utils/commonUtil";
+import { commonUtil } from "@common";
 import logger from "@/logger";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 

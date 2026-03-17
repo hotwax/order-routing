@@ -10,7 +10,7 @@ import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import emitter from "@/event-bus"
 import { Settings } from 'luxon'
 import { translate } from "@/i18n"
-import { cookieHelper, getMaargURL, initialise, resetConfig } from '@common'
+import { cookieHelper, commonUtil, initialise, resetConfig } from '@common'
 import { useUserStore } from "./store/useUserStore";
 import { setPermissions } from '@/authorization'
 
@@ -18,7 +18,7 @@ const userStore = useUserStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
 const userToken = computed(() => cookieHelper().get("token"))
-const instanceUrl = computed(() => getMaargURL())
+const instanceUrl = computed(() => commonUtil.getMaargURL())
 setPermissions(userStore.getUserPermissions)
 const loader = ref(null) as any
 const maxAge = import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE ? parseInt(import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE) : 0

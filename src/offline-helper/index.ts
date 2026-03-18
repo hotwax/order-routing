@@ -1,5 +1,5 @@
 import { Plugins } from "@capacitor/core";
-import emitter from "@/event-bus";
+import { emitter } from "@common";
 
 const { Network } = Plugins;
 

@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUpdated, defineProps } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
-import logger from "@/logger";
+import { logger } from "@common";
 
 const props = defineProps({
   src: {

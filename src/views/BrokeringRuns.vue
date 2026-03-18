@@ -88,9 +88,8 @@
 
 <script setup lang="ts">
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
-import emitter from "@/event-bus";
 import { Group } from "@/types";
-import { translate, commonUtil } from "@common";
+import { emitter, translate, commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import { DateTime } from "luxon";

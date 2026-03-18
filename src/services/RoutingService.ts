@@ -1,5 +1,4 @@
-import { api } from "@common"
-import logger from "@/logger";
+import { logger, api } from "@common"
 import { useProductStore } from "@/store/useProductStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useUtilStore } from "@/store/useUtilStore";

@@ -77,7 +77,7 @@
                   <ion-icon slot="end" :icon="addCircleOutline" />
                 </ion-button>
               </ion-card>
-              <ion-card v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+              <ion-card v-if="!userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
                 <ion-item lines="none">
                   <h2>{{ translate("Test drive") }}</h2>
                 </ion-item>
@@ -231,16 +231,13 @@ import { computed, defineProps, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
-import logger from "@/logger";
 import { DateTime } from "luxon";
-import { translate, commonUtil } from "@common";
-import emitter from "@/event-bus";
+import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
-import { Actions, hasPermission } from "@/authorization";
 import { getDate, getDateAndTime, getDateAndTimeShort, getTime, sortSequence, timeTillRun } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore()

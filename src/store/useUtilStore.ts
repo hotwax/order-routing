@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { UtilService } from "@/services/UtilService"
-import { commonUtil } from '@common'
-import logger from "@/logger"
+import { logger, commonUtil } from '@common'
 import { EnumerationAndType } from "@/types"
 import { useOrderRoutingStore } from './useOrderRoutingStore'
 

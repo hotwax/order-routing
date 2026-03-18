@@ -84,11 +84,9 @@ import { useUtilStore } from "@/store/useUtilStore";
 import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonRow, IonSearchbar, IonThumbnail } from "@ionic/vue";
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, defineProps, onMounted, ref } from "vue";
-import { translate, commonUtil } from "@common";
-import logger from "@/logger";
+import { logger, emitter, translate, commonUtil } from "@common";
 import { OrderRoutingService } from "@/services/RoutingService";
 import Image from "@/components/Image.vue"
-import emitter from "@/event-bus";
 
 const props = defineProps({
   routingRuleId: {

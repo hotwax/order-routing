@@ -102,9 +102,7 @@ import { useUtilStore } from "@/store/useUtilStore";
 import { computed, defineProps, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
-import logger from "@/logger";
-import { translate, commonUtil } from "@common";
-import emitter from "@/event-bus";
+import { logger, emitter, translate, commonUtil } from "@common";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";

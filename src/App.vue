@@ -7,26 +7,22 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
-import emitter from "@/event-bus"
 import { Settings } from 'luxon'
-import { translate, cookieHelper, commonUtil, initialise, resetConfig } from '@common'
+import { emitter, translate, initialise, resetConfig } from '@common'
 import { useUserStore } from "./store/useUserStore";
-import { setPermissions } from '@/authorization'
+import { useAuth } from "./composables/auth";
+import router from "./router";
 
 const userStore = useUserStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
-const userToken = computed(() => cookieHelper().get("token"))
-const instanceUrl = computed(() => commonUtil.getMaargURL())
-setPermissions(userStore.getUserPermissions)
 const loader = ref(null) as any
 const maxAge = import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE ? parseInt(import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE) : 0
 
 initialise({
-  token: userToken.value,
-  instanceUrl: instanceUrl.value,
   cacheMaxAge: maxAge,
   events: {
+    unauthorised: unauthorized,
     responseError: () => {
       setTimeout(() => dismissLoader(), 100);
     },
@@ -55,6 +51,16 @@ function dismissLoader() {
   if (loader.value) {
     loader.value.dismiss();
     loader.value = null as any;
+  }
+}
+
+async function unauthorized() {
+  // Mark the user as unauthorised, this will help in not making the logout api call in actions
+  const redirectionUrl = await useAuth().logout({ isUserUnauthorised: true });
+  if(redirectionUrl) {
+    window.location.href = redirectionUrl
+  } else {
+    router.replace("/login");
   }
 }
 

@@ -23,8 +23,7 @@ import { alertController, IonContent, IonIcon, IonItem, IonList, IonListHeader, 
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
-import { translate, commonUtil } from "@common";
-import logger from "@/logger";
+import { logger, translate, commonUtil } from "@common";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 
 const orderRoutingStore = useOrderRoutingStore()

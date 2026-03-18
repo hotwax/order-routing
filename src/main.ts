@@ -25,13 +25,9 @@ import "@ionic/vue/css/display.css";
 import "./theme/variables.css";
 import "@hotwax/apps-theme";
 
-import logger from './logger';
-import permissionPlugin from '@/authorization';
-import permissionRules from '@/authorization/Rules';
-import permissionActions from '@/authorization/Actions';
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { createDxpI18n } from "@common";
+import { logger, createDxpI18n } from "@common";
 import localeMessages from "./locales"
 
 const i18n = createDxpI18n(localeMessages)
@@ -46,10 +42,6 @@ const app = createApp(App)
   .use(router)
   .use(i18n)
   .use(pinia)
-  .use(permissionPlugin, {
-    rules: permissionRules,
-    actions: permissionActions
-  });
 
 router.isReady().then(() => {
   app.mount("#app");

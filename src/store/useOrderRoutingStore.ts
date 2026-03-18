@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { OrderRoutingService } from "@/services/RoutingService"
-import { translate, commonUtil } from "@common"
-import logger from "@/logger"
+import { logger, translate, commonUtil } from "@common"
 import { DateTime } from "luxon"
 import { useUserStore } from './useUserStore'
 import { sortSequence } from '@/utils'

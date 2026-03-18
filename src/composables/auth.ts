@@ -1,9 +1,6 @@
-import { resetPermissions } from "@/authorization";
-import emitter from "@/event-bus";
-import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
 import { translate } from "@common";
-import { api, cookieHelper, commonUtil } from "@common";
+import { logger, emitter, api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
 
@@ -37,13 +34,13 @@ export function useAuth() {
   const login = async (username: string, password: string) => {
     try {
       const resp = await api({
-        url: "admin/login",
+        url: "login",
         method: "post",
         data: {
-          "username": username,
-          "password": password
+          "USERNAME": username,
+          "PASSWORD": password
         },
-        baseURL: commonUtil.getMaargURL()
+        baseURL: commonUtil.getOmsURL()
       });
       if (commonUtil.hasError(resp)) {
         commonUtil.showToast(translate('Sorry, your username or password is incorrect. Please try again.'));
@@ -95,7 +92,6 @@ export function useAuth() {
     }
 
     useUserStore().logout(); // user store in order-routing has a logout method that handles clearing
-    resetPermissions();
     cookieHelper().remove('token');
     cookieHelper().remove('expirationTime');
 

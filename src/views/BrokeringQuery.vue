@@ -25,7 +25,7 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
@@ -268,7 +268,7 @@
                         <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                         {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                       </ion-button>
-                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
                         <ion-icon slot="start" :icon="speedometerOutline" />
                         {{ translate(testRoutingInfo.isRuleTestEnabled ? "Exit test mode" : "Test") }}
                       </ion-button>
@@ -475,19 +475,16 @@ import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
 import { computed, defineProps, nextTick, ref } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { translate, commonUtil } from "@common";
+import { logger, emitter, translate, commonUtil } from "@common";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
-import logger from "@/logger";
 import { DateTime } from "luxon";
-import emitter from "@/event-bus";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 import { UtilService } from "@/services/UtilService";
-import { Actions, hasPermission } from "@/authorization";
 import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
 import { useUtilStore } from "@/store/useUtilStore";
 import { useUserStore } from "@/store/useUserStore";

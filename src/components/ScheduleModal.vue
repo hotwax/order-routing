@@ -46,13 +46,12 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@common";
+import { logger, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";
 import cronstrue from "cronstrue";
 import cronParser from "cron-parser";
-import logger from "@/logger";
 import { useUserStore } from "@/store/useUserStore";
 import { getDateAndTime } from "@/utils";
 

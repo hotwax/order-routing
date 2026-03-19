@@ -31,11 +31,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -96,10 +96,10 @@
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
-import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
-import { useUserStore } from "@/store/useUserStore";
-import { useUtilStore } from "@/store/useUtilStore";
-import { computed, defineProps, reactive, ref, watch } from "vue";
+import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { useUserStore } from "@/store/userStore";
+import { useUtilStore } from "@/store/utilStore";
+import { computed, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
 import { logger, emitter, translate, commonUtil } from "@common";
@@ -109,7 +109,6 @@ import BrokeringRouteTest from "./BrokeringRouteTest.vue";
 import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
 import router from "@/router";
-import { getDateAndTime, sortSequence } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore();
 const userStore = useUserStore();
@@ -193,7 +192,7 @@ async function fetchRoutingGroupInformation() {
   }
 
   if(group.value.routings?.length) {
-    group.value.routings = sortSequence(group.value.routings)
+    group.value.routings = commonUtil.sortSequence(group.value.routings)
   }
 
   emitter.emit("dismissLoader")
@@ -217,7 +216,7 @@ async function fetchRoutingsInformation() {
           })
         }
         
-        route["rules"] = route["rules"]?.length ? sortSequence(route["rules"]) : []
+        route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
         
         routing["orderFilters"] = route["orderFilters"] || []
         routing["rules"] = route["rules"]

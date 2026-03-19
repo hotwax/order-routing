@@ -50,10 +50,8 @@ import { logger, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";
-import cronstrue from "cronstrue";
-import cronParser from "cron-parser";
-import { useUserStore } from "@/store/useUserStore";
-import { getDateAndTime } from "@/utils";
+import { useUserStore } from "@/store/userStore";
+import { commonUtil } from "@common";
 
 const props = defineProps({
   cronExpression: {
@@ -68,7 +66,7 @@ const userProfile = computed(() => useUserStore().getUserProfile)
 
 const isExpressionValid = computed(() => {
   try {
-    cronParser.parseExpression(expression.value, { tz: userProfile.value.timeZone })
+    commonUtil.parseCronExpression(expression.value, userProfile.value.timeZone)
     return true
   } catch(e) {
     logger.warn("Invalid expression", e)
@@ -78,7 +76,7 @@ const isExpressionValid = computed(() => {
 
 const getCronString = computed(() => {
   try {
-    return cronstrue.toString(expression.value)
+    return commonUtil.getCronString(expression.value)
   } catch(e) {
     logger.warn(e)
     return ""
@@ -87,8 +85,8 @@ const getCronString = computed(() => {
 
 const getNextExecutionTime = computed(() => {
   try {
-    const interval = cronParser.parseExpression(expression.value, { tz: userProfile.value.timeZone })
-    return getDateAndTime((interval.next() as any)["_date"].ts)
+    const interval = commonUtil.parseCronExpression(expression.value, userProfile.value.timeZone)
+    return commonUtil.getDateAndTime((interval.next() as any)["_date"].ts)
   } catch(e) {
     logger.error("Invalid expression", e)
     return ""

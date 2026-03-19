@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import { Settings, DateTime } from "luxon"
 import { logger, emitter, api, cookieHelper, commonUtil, resetConfig, translate } from '@common'
 import { useAuth } from '@/composables/auth'
-import { useOrderRoutingStore } from './useOrderRoutingStore'
-import { useUtilStore } from './useUtilStore'
-import { useProductStore } from './useProductStore'
+import { useOrderRoutingStore } from './orderRoutingStore'
+import { useUtilStore } from './utilStore'
+import { useProductStore } from './productStore'
 
 export const useUserStore = defineStore('appUser', {
   state: () => {

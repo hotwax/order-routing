@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { useUtilStore } from "@/store/useUtilStore";
+import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
 import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"

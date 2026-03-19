@@ -1,5 +1,5 @@
 import { logger, api } from "@common"
-import { useUserStore } from "@/store/useUserStore";
+import { useUserStore } from "@/store/userStore";
 import { commonUtil } from "@common";
 
 const fetchEnums = async (payload: any): Promise<any> => {

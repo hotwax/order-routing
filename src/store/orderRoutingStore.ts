@@ -2,8 +2,7 @@ import { defineStore } from 'pinia'
 import { OrderRoutingService } from "@/services/RoutingService"
 import { logger, translate, commonUtil } from "@common"
 import { DateTime } from "luxon"
-import { useUserStore } from './useUserStore'
-import { sortSequence } from '@/utils'
+import { useUserStore } from './userStore'
 
 export const useOrderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -90,7 +89,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
           runTime: schedules[group.jobName]?.nextExecutionDateTime,
           schedule: schedules[group.jobName]
         }))
-        routingGroups = sortSequence(routingGroups, "runTime")
+        routingGroups = commonUtil.sortSequence(routingGroups, "runTime")
       }
       this.groups = routingGroups;
     },
@@ -140,7 +139,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
         logger.error(err);
       }
       if(currentGroup.routings?.length) {
-        currentGroup.routings = sortSequence(currentGroup.routings)
+        currentGroup.routings = commonUtil.sortSequence(currentGroup.routings)
       }
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })
     },
@@ -168,7 +167,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
           commonUtil.showToast(translate("New routing created"))
         }
         if(currentGroup["routings"]?.length) {
-          currentGroup["routings"] = sortSequence(currentGroup["routings"])
+          currentGroup["routings"] = commonUtil.sortSequence(currentGroup["routings"])
         }
         await this.setCurrentGroup(currentGroup)
       } catch(err) {
@@ -212,7 +211,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
               }
             })
           }
-          currentRoute["rules"] = currentRoute["rules"]?.length ? sortSequence(currentRoute["rules"]) : []
+          currentRoute["rules"] = currentRoute["rules"]?.length ? commonUtil.sortSequence(currentRoute["rules"]) : []
         } else {
           throw resp.data
         }
@@ -292,7 +291,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
           })
           commonUtil.showToast(translate("Inventory rule created successfully"))
           if(routingRules.length) {
-            routingRules = sortSequence(routingRules)
+            routingRules = commonUtil.sortSequence(routingRules)
           }
           currentRoute["rules"] = routingRules
           this.currentRoute = currentRoute;
@@ -345,7 +344,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
         if(!commonUtil.hasError(resp) && resp.data.routingRuleId) {
           rulesInformation[routingRuleId] = resp.data
           if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
-            rulesInformation[routingRuleId]["inventoryFilters"] = sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
+            rulesInformation[routingRuleId]["inventoryFilters"] = commonUtil.sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
               if(filterSortDesc.includes(filter.fieldName)) {
                 filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
               }

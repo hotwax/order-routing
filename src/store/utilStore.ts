@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { UtilService } from "@/services/UtilService"
 import { logger, commonUtil } from '@common'
 import { EnumerationAndType } from "@/types"
-import { useOrderRoutingStore } from './useOrderRoutingStore'
+import { useOrderRoutingStore } from './orderRoutingStore'
 
 export const useUtilStore = defineStore('util', {
   state: () => {

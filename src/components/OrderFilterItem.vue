@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { useUtilStore } from "@/store/useUtilStore";
+import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { computed, defineProps } from "vue";

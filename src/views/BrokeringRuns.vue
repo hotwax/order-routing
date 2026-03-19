@@ -39,7 +39,7 @@
               <ion-item>
                 <ion-label>
                   <h1>{{ group.groupName }}</h1>
-                  <p>{{ getDateAndTime(group.createdDate) }}</p>
+                  <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
                 </ion-label>
               </ion-item>
               <ion-item v-if="group.description">
@@ -49,22 +49,22 @@
               </ion-item>
               <ion-item v-if="group.schedule?.paused === 'N'">
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                   <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
                 </ion-label>
                 <ion-badge slot="end" color="dark">
-                  {{ group.schedule ? timeTillRun(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? commonUtil.getRelativeTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-badge>
               </ion-item>
               <ion-item v-else>
                 <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
                 <ion-label>
-                  {{ group.schedule ? getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
                 </ion-label>
                 <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
               </ion-item>
               <ion-item lines="none">
-                {{ `Updated at ${getDateAndTime(group.lastUpdatedStamp)}` }}
+                {{ `Updated at ${commonUtil.getDateAndTime(group.lastUpdatedStamp)}` }}
                 <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
                   <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
                 </ion-button>
@@ -96,10 +96,9 @@ import { DateTime } from "luxon";
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import router from "@/router";
-import { useUserStore } from "@/store/useUserStore";
-import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
-import { useUtilStore } from "@/store/useUtilStore";
-import { getDateAndTime } from "@/utils";
+import { useUserStore } from "@/store/userStore";
+import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { useUtilStore } from "@/store/utilStore";
 
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
@@ -121,14 +120,6 @@ onIonViewWillEnter(async () => {
   utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" })
 })
 
-function timeTillRun(time: any) {
-  if(!time) {
-    return;
-  }
-
-  const timeDiff = DateTime.fromMillis(time).diff(DateTime.local());
-  return DateTime.local().plus(timeDiff).toRelative();
-}
 
 async function addNewRun() {
   const newRunAlert = await alertController.create({

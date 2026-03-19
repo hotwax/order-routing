@@ -1,4 +1,4 @@
-import { useUserStore } from "@/store/useUserStore";
+import { useUserStore } from "@/store/userStore";
 import { translate } from "@common";
 import { logger, emitter, api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";

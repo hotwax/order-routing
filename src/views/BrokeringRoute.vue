@@ -40,11 +40,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -114,13 +114,13 @@
                   <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                     <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                   </ion-select> -->
-                  <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
+                  <ion-label>{{ commonUtil.getCronString(job.cronExpression) || job.cronExpression }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-icon slot="start" :icon="timeOutline"/>
                   <ion-label>{{ translate("Next run") }}</ion-label>
                   <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
+                  <ion-label slot="end">{{ job.paused === 'N' ? commonUtil.getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
                 <ion-item lines="none" button @click="runNow()">
                   <ion-icon slot="start" :icon="flashOutline"/>
@@ -135,10 +135,10 @@
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
-                    <p>{{ getDate(groupHistory[0].startTime) }}</p>
+                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
+                    <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
-                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.getRelativeTime(groupHistory[0].endTime) }}</ion-badge>
                 </ion-item>
               </ion-card>
             </div>
@@ -172,7 +172,7 @@
                     <ion-icon :icon="timeOutline" slot="start" />
                     <ion-label>{{ translate("Last run") }}</ion-label>
                     <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
+                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
                     </ion-chip>
                   </ion-item>
                   <ion-item lines="none">
@@ -224,9 +224,9 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
-import { useOrderRoutingStore } from "@/store/useOrderRoutingStore";
-import { useUserStore } from "@/store/useUserStore";
-import { useUtilStore } from "@/store/useUtilStore";
+import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { useUserStore } from "@/store/userStore";
+import { useUtilStore } from "@/store/utilStore";
 import { computed, defineProps, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
@@ -235,10 +235,8 @@ import { DateTime } from "luxon";
 import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
-import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
-import { getDate, getDateAndTime, getDateAndTimeShort, getTime, sortSequence, timeTillRun } from "@/utils";
 
 const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
@@ -330,15 +328,6 @@ onBeforeRouteLeave(async (to) => {
 
   return;
 })
-
-function getCronString() {
-  try {
-    return cronstrue.toString(job.value.cronExpression)
-  } catch(e) {
-    logger.info(e)
-    return ""
-  }
-}
 
 function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
@@ -633,7 +622,7 @@ function doReorder(event: CustomEvent) {
 
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   routingsForReorder.value = updatedSeq
-  orderRoutings.value = sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
+  orderRoutings.value = commonUtil.sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
   // considering that when reordering there are some changes in the order of routes
   hasUnsavedChanges.value = true
 }
@@ -647,7 +636,7 @@ async function openArchivedRoutingModal() {
       saveRoutings: (routings: any) => {
         if(routings) {
           hasUnsavedChanges.value = true
-          orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+          orderRoutings.value = commonUtil.sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
         }
         initializeOrderRoutings()
       }

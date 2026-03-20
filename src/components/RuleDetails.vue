@@ -130,6 +130,7 @@
 </template>
 
 <script setup lang="ts">
+import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
@@ -155,9 +156,9 @@ let inventoryRuleActions = ref({}) as any
 let ruleActionType = ref("")
 
 const enums = computed(() => useUtilStore().getEnums)
-const facilities = computed(() => useUtilStore().getVirtualFacilities)
-const shippingMethods = computed(() => useUtilStore().getShippingMethods)
-const facilityGroups = computed(() => useUtilStore().getFacilityGroups)
+const facilities = computed(() => productStore().getVirtualFacilities)
+const shippingMethods = computed(() => productStore().getShippingMethods)
+const facilityGroups = computed(() => productStore().getFacilityGroups)
 const getStatusDesc = computed(() => (id: string) => useUtilStore().getStatusDesc(id))
 
 function getRuleIndex() {

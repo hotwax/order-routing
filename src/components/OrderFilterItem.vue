@@ -38,6 +38,7 @@ import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { computed, defineProps } from "vue";
 import { warningOutline } from "ionicons/icons"
+import { productStore } from "@/store/productStore";
 
 const props = defineProps({
   routing: {
@@ -65,9 +66,9 @@ const props = defineProps({
 const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
 
 const enums = computed(() => useUtilStore().getEnums)
-const facilities = computed(() => useUtilStore().getVirtualFacilities)
-const shippingMethods = computed(() => useUtilStore().getShippingMethods)
-const facilityGroups = computed(() => useUtilStore().getFacilityGroups)
+const facilities = computed(() => productStore().getVirtualFacilities)
+const shippingMethods = computed(() => productStore().getShippingMethods)
+const facilityGroups = computed(() => productStore().getFacilityGroups)
 
 const enumCode = props.enumId.includes("_EXCLUDED") ? props.code + "_excluded" : props.code
 const orderPriorityDescription: any = {

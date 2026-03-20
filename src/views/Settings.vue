@@ -66,7 +66,7 @@
           </ion-card-content>
           <ion-item lines="none">
             <ion-select :label="translate('Select store')" interface="popover" :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
-              <ion-select-option v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" :value="store.productStoreId" >{{ store.storeName || store.productStoreId }}</ion-select-option>
+              <ion-select-option v-for="store in ecomStores" :key="store.productStoreId" :value="store.productStoreId" >{{ store.storeName || store.productStoreId }}</ion-select-option>
             </ion-select>
           </ion-item>
         </ion-card>
@@ -114,6 +114,7 @@
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
@@ -126,7 +127,8 @@ const appVersion = ref("")
 const appInfo = (import.meta.env.VITE_VUE_APP_VERSION_INFO ? JSON.parse(import.meta.env.VITE_VUE_APP_VERSION_INFO) : {}) as any
 
 const userProfile = computed(() => userStore.getUserProfile)
-const currentEComStore = computed(() => userStore.getCurrentEComStore)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
+const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));
 const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
 const browserTimeZone = ref({
@@ -154,8 +156,8 @@ onMounted(() => {
 })
 
 function setEComStore(event: CustomEvent) {
-  if(userProfile.value?.stores) {
-    userStore.setEcomStore({
+  if(ecomStores.value.length) {
+    productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
   }

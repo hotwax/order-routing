@@ -24,9 +24,7 @@ import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { defineProps } from "vue"
 import { OrderRoutingService } from "@/services/RoutingService";
 import { logger, translate, commonUtil } from "@common";
-import { useOrderRoutingStore } from "@/store/orderRoutingStore";
-
-const orderRoutingStore = useOrderRoutingStore()
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const props = defineProps(["group"])
 
@@ -42,7 +40,7 @@ async function updateGroupStatus(paused: string) {
     const resp = await OrderRoutingService.scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)) {
       commonUtil.showToast(translate("Group status updated"))
-      routingGroups = await orderRoutingStore.updateGroupStatus({ routingGroupId: props.group.routingGroupId, value: paused })
+      routingGroups = await orderRoutingStore().updateGroupStatus({ routingGroupId: props.group.routingGroupId, value: paused })
     } else {
       throw resp.data
     }

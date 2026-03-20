@@ -1,90 +1,226 @@
 import { defineStore } from 'pinia'
-import { ProductService } from "@/services/ProductService"
-import { logger, commonUtil } from "@common"
+import { UtilService } from "@/services/UtilService"
+import { logger, commonUtil, api } from '@common'
+import { orderRoutingStore } from './orderRoutingStore'
+import { useUtilStore } from './utilStore'
 
-export const useProductStore = defineStore('product', {
+export const productStore = defineStore('productStore', {
   state: () => {
     return {
-      products: {} as any,
-      stock: {} as any
+      ecomStores: [] as any,
+      currentEComStore: {} as any,
+      facilities: {} as any,
+      shippingMethods: {} as any,
+      facilityGroups: {} as any,
+      carriers: {} as any
     }
   },
   getters: {
-    getProducts(state) {
-      return state.products
+    getCurrentEComStore(state) {
+      return state.currentEComStore
     },
-    getProductById: (state) => (id: string) => {
-      return state.products[id] || {}
+    getFacilities(state) {
+      return state.facilities
     },
-    getProductStock: (state) => (productId: string, facilityId: string) => {
-      return state.stock[productId] ? state.stock[productId][facilityId] ? state.stock[productId][facilityId] : {} : {}
+    getVirtualFacilities(state) {
+      return Object.values(state.facilities).reduce((virtualFacilities: any, facility: any) => {
+        if(facility.parentTypeId === "VIRTUAL_FACILITY") {
+          virtualFacilities[facility.facilityId] = facility
+        }
+        return virtualFacilities;
+      }, {}) as any
     },
+    getPhysicalFacilities(state) {
+      return Object.values(state.facilities).reduce((virtualFacilities: any, facility: any) => {
+        if(facility.parentTypeId !== "VIRTUAL_FACILITY") {
+          virtualFacilities[facility.facilityId] = facility
+        }
+        return virtualFacilities;
+      }, {})
+    },
+    getShippingMethods(state) {
+      return state.shippingMethods
+    },
+    getFacilityGroups(state) {
+      return state.facilityGroups
+    },
+    getCarriers(state) {
+      return state.carriers
+    }
   },
   actions: {
-    async fetchProducts(productIds: Array<any>) {
-      const cachedProductIds = Object.keys(this.products);
-      const productIdFilter= productIds.reduce((filter: string, productId: any) => {
-        if (cachedProductIds.includes(productId)) {
-          return filter;
+    async fetchEComStores(): Promise<any> {
+      try {
+        const resp = await api({
+          url: "admin/user/productStore",
+          method: "GET",
+          baseURL : commonUtil.getMaargURL(),
+        });
+        if (commonUtil.hasError(resp) || resp.data.length === 0) {
+          throw resp.data;
         } else {
-          if (filter !== '') filter += ' OR '
-          return filter += productId;
+          this.ecomStores = resp.data;
+          this.currentEComStore = resp.data[0];
+          return Promise.resolve(resp.data);
         }
-      }, '');
+      } catch(error: any) {
+        return Promise.reject(error)
+      }
+    },
+    setEcomStore(payload: any) {
+      let productStore = payload.productStore;
+      if(!productStore) {
+        productStore = this.ecomStores.find((store: any) => store.productStoreId === payload.productStoreId);
+      }
+      this.currentEComStore = productStore;
+      this.updateShippingMethods({});
+      this.updateFacillityGroups({});
+      useUtilStore().updateProductCategories({});
+    },
+    async fetchFacilities() {
+      let facilities = JSON.parse(JSON.stringify(this.facilities))
   
-      if (productIdFilter === '') return;
+      if(Object.keys(facilities).length) {
+        return;
+      }
+  
+      const payload = { pageSize: 500 }
   
       try {
-        const resp = await ProductService.fetchProducts({
-          "filters": ['productId: (' + productIdFilter + ')'],
-          "viewSize": productIds.length
-        })
-        if(resp.data.response && !commonUtil.hasError(resp)) {
-          const products = resp.data.response.docs.reduce((products: any, product: any) => {
-            products[product.productId] = product
-            return products;
-          }, {});
-          if(resp.data) this.products = { ...this.products, ...products };
-        } else {
-          throw resp.data;
+        const resp = await UtilService.fetchFacilities(payload);
+  
+        if(!commonUtil.hasError(resp) && resp.data.length) {
+          facilities = resp.data.reduce((facilities: any, facility: any) => {
+            facilities[facility.facilityId] = facility
+            return facilities
+          }, {})
         }
       } catch(err) {
-        logger.error("Failed to fetch product information", err)
+        logger.error(err)
       }
+      this.facilities = facilities;
     },
-    async fetchStock(shipGroup: Array<any>) {
-      const productIds = shipGroup.map((item: any) => item.productId)
-      const facilityId = shipGroup[0].facilityId
-      for(const productId of productIds) {
-        if(this.stock[productId]?.[facilityId]) {
-          continue;
-        }
+    async fetchShippingMethods() {
+      let shippingMethods = JSON.parse(JSON.stringify(this.shippingMethods))
+      if(Object.keys(shippingMethods).length) return;
   
-        try {
-          const payload = {
-            productId,
-            facilityId
-          }
-    
-          const resp: any = await ProductService.getInventoryAvailableByFacility(payload);
-          if (!commonUtil.hasError(resp)) {
-            if(this.stock[productId]) {
-              this.stock[productId][facilityId] = resp.data
+      const payload = {
+        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+        pageSize: 200
+      }
+  
+      try {
+        const resp = await UtilService.fetchShippingMethods(payload);
+        if(!commonUtil.hasError(resp) && resp.data.length) {
+          shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
+            shippingMethods[shippingMethod.shipmentMethodTypeId] = shippingMethod
+            return shippingMethods
+          }, {})
+        }
+      } catch(err) {
+        logger.error(err)
+      }
+      this.shippingMethods = shippingMethods;
+    },
+    async fetchFacilityGroups() {
+      let facilityGroups = JSON.parse(JSON.stringify(this.facilityGroups))
+      if(Object.keys(facilityGroups).length) return;
+  
+      const payload = {
+        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+        pageSize: 200
+      }
+  
+      try {
+        const resp = await UtilService.fetchFacilityGroups(payload);
+        if(!commonUtil.hasError(resp) && resp.data.length) {
+          facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {
+            facilityGroups[facilityGroup.facilityGroupId] = facilityGroup
+            return facilityGroups
+          }, {})
+        }
+      } catch(err) {
+        logger.error(err)
+      }
+      this.facilityGroups = facilityGroups;
+    },
+    async fetchCarrierInformation(carrierIds: Array<any>) {
+      let carriers = JSON.parse(JSON.stringify(this.carriers))
+      const carrierPartyIds = carrierIds.filter((id: any) => !carriers[id])
+  
+      if(!carrierPartyIds.length) return;
+  
+      const payload = {
+        inputFields: {
+          partyId: carrierIds,
+          partyId_op: "in"
+        },
+        distinct: "Y",
+        viewSize: carrierIds.length,
+        entityName: "PartyNameView",
+      }
+  
+      try {
+        const resp = await UtilService.getCarrierInformation(payload);
+        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
+          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+            carriers[carrier.partyId] = {
+              name: carrier.groupName
+            }
+            return carriers
+          }, carriers)
+        }
+      } catch(err) {
+        logger.error(err)
+      }
+  
+      const deliveryDaysPayload = {
+        inputFields: {
+          partyId: carrierIds,
+          partyId_op: "in",
+          roleTypeId: "CARRIER",
+          deliveryDays_op: "not-empty"
+        },
+        distinct: "Y",
+        viewSize: 200,
+        entityName: "CarrierShipmentMethod",
+      }
+  
+      try {
+        const resp = await UtilService.getCarrierDeliveryDays(deliveryDaysPayload);
+        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
+          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+            if(carriers[carrier.partyId]["deliveryDays"]) {
+              carriers[carrier.partyId]["deliveryDays"] = {
+                ...carriers[carrier.partyId]["deliveryDays"],
+                [carrier.shipmentMethodTypeId]: carrier.deliveryDays
+              }
             } else {
-              this.stock[productId] = {
-                [facilityId]: resp.data
+              carriers[carrier.partyId]["deliveryDays"] = {
+                [carrier.shipmentMethodTypeId]: carrier.deliveryDays
               }
             }
-          } else {
-            throw resp.data;
-          }
-        } catch (err) {
-          logger.error(err)
+            return carriers
+          }, carriers)
         }
+      } catch(err) {
+        logger.error(err)
       }
+      this.carriers = carriers;
     },
-    async clearProductState() {
-      this.products = {};
+    async updateShippingMethods(payload: any) {
+      this.shippingMethods = payload;
+    },
+    async updateFacillityGroups(payload: any) {
+      this.facilityGroups = payload;
+    },
+    async clearProductStoreState() {
+      this.ecomStores = [];
+      this.currentEComStore = {};
+      this.facilities = {};
+      this.shippingMethods = {};
+      this.facilityGroups = {};
+      this.carriers = {};
     }
   },
   persist: true

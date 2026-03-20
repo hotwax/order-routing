@@ -224,10 +224,11 @@ import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader,
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
-import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
-import { computed, defineProps, nextTick, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -238,7 +239,6 @@ import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
 import { UtilService } from "@/services/UtilService";
 
-const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
 const utilStore = useUtilStore()
 const props = defineProps({
@@ -264,18 +264,18 @@ let isReordering = ref(false) // To handle the case of click event being trigger
 let activeTestSessions = ref(0)
 let isBrokeringEnabled = ref(true)
 
-const currentRoutingGroup: any = computed((): Group => orderRoutingStore.getCurrentRoutingGroup)
+const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
-const routingHistory = computed(() => orderRoutingStore.getRoutingHistory)
-const currentEComStore = computed(() => userStore.getCurrentEComStore)
+const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
-  await orderRoutingStore.fetchCurrentRoutingGroup(props.routingGroupId)
+  await orderRoutingStore().fetchCurrentRoutingGroup(props.routingGroupId)
   await fetchGroupHistory()
-  orderRoutingStore.fetchRoutingHistory(props.routingGroupId)
+  orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
   utilStore.fetchStatusInformation()
-  orderRoutingStore.clearRoutingTestInfo()
+  orderRoutingStore().clearRoutingTestInfo()
   await getTestSessions();
   await getProductStoreReservation();
 
@@ -372,7 +372,7 @@ async function saveSchedule() {
     if(!commonUtil.hasError(resp)) {
       commonUtil.showToast(translate("Job updated"))
       // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
-      await orderRoutingStore.fetchCurrentGroupSchedule({ routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
+      await orderRoutingStore().fetchCurrentGroupSchedule({ routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
       job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
     } else {
       throw resp.data
@@ -452,7 +452,7 @@ async function redirect(orderRouting: Route) {
     return;
   }
 
-  await orderRoutingStore.setCurrentOrderRouting(orderRouting)
+  await orderRoutingStore().setCurrentOrderRouting(orderRouting)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
@@ -519,7 +519,7 @@ async function createOrderRoute() {
         createdDate: DateTime.now().toMillis()
       }
 
-      const orderRoutingId = await orderRoutingStore.createOrderRouting(payload)
+      const orderRoutingId = await orderRoutingStore().createOrderRouting(payload)
 
       // update the routing order for reordering and the cloned updated routings again
       if(orderRoutingId) {
@@ -573,7 +573,7 @@ async function updateGroupName() {
   if(groupName.value.trim() && groupName.value.trim() !== currentRoutingGroup.value.groupName.trim()) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
     if(routingGroupId) {
-      await orderRoutingStore.setCurrentGroup({ ...currentRoutingGroup.value, groupName: groupName.value })
+      await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, groupName: groupName.value })
     } else {
       groupName.value = currentRoutingGroup.value.groupName.trim()
     }
@@ -588,7 +588,7 @@ async function updateGroupDescription() {
   if(props.routingGroupId && ((currentRoutingGroup.value.description || description.value) && currentRoutingGroup.value.description != description.value)) {
     const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
     if(routingGroupId) {
-      await orderRoutingStore.setCurrentGroup({ ...currentRoutingGroup.value, description: description.value })
+      await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, description: description.value })
     } else {
       description.value = currentRoutingGroup.value.description
     }
@@ -647,7 +647,7 @@ async function openArchivedRoutingModal() {
 }
 
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
-  await orderRoutingStore.fetchRoutingHistory(props.routingGroupId)
+  await orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
@@ -721,7 +721,7 @@ async function saveRoutingGroup() {
   const routingGroupId = await updateRoutingGroup(payload)
   if(routingGroupId) {
     hasUnsavedChanges.value = false
-    await orderRoutingStore.setCurrentGroup({ ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
+    await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
   }
 }
 
@@ -786,7 +786,7 @@ async function cloneGroup() {
 async function cloneRouting(routing: any) {
   emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
 
-  const orderRoutingId = await orderRoutingStore.cloneOrderRouting({
+  const orderRoutingId = await orderRoutingStore().cloneOrderRouting({
     orderRoutingId: routing.orderRoutingId,
     orderRoutingName: routing.routingName,
     routingGroupId: props.routingGroupId

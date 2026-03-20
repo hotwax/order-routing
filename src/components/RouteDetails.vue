@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
@@ -168,7 +168,7 @@ const filterOptions = [{
 }]
 
 const enums = computed(() => useUtilStore().getEnums)
-const routingHistory = computed(() => useOrderRoutingStore().getRoutingHistory)
+const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
 const getStatusDesc = computed(() => (id: string) => useUtilStore().getStatusDesc(id))
 
 function getRouteIndex() {
@@ -187,7 +187,7 @@ function getLabel(parentType: string, code: string) {
 }
 
 async function openRoutingHistoryModal() {
-  await useOrderRoutingStore().fetchRoutingHistory( props.group.routingGroupId)
+  await orderRoutingStore().fetchRoutingHistory( props.group.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[props.routing.orderRoutingId], routingName: props.routing.routingName, groupName: props.group.groupName }

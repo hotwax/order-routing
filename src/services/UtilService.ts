@@ -1,5 +1,5 @@
 import { logger, api } from "@common"
-import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import { commonUtil } from "@common";
 
 const fetchEnums = async (payload: any): Promise<any> => {
@@ -169,7 +169,7 @@ const updateProductStoreInfo = async (payload: any): Promise<any> => {
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
-  const productStoreId = useUserStore().getCurrentEComStore?.productStoreId
+  const productStoreId = productStore().getCurrentEComStore?.productStoreId
 
   return api({
     url: `admin/productStores/${productStoreId}`,

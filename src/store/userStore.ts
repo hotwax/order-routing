@@ -2,15 +2,15 @@ import { defineStore } from 'pinia'
 import { Settings, DateTime } from "luxon"
 import { logger, emitter, api, cookieHelper, commonUtil, resetConfig, translate } from '@common'
 import { useAuth } from '@/composables/auth'
-import { useOrderRoutingStore } from './orderRoutingStore'
+import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
-import { useProductStore } from './productStore'
+import { productStore as useProduct } from './product'
+import { productStore } from './productStore'
 
 export const useUserStore = defineStore('appUser', {
   state: () => {
     return {
       current: null as any,
-      currentEComStore: {} as any,
       permissions: [] as any,
       timeZones: [] as any[]
     }
@@ -18,9 +18,6 @@ export const useUserStore = defineStore('appUser', {
   getters: {
     getUserProfile(state) {
       return state.current
-    },
-    getCurrentEComStore(state) {
-      return state.currentEComStore
     },
     getUserPermissions (state) {
       return state.permissions;
@@ -117,24 +114,6 @@ export const useUserStore = defineStore('appUser', {
         return Promise.reject(error)
       }
     },
-    async fetchEComStores(): Promise<any> {
-      try {
-        const resp = await api({
-          url: "admin/user/productStore",
-          method: "GET",
-          baseURL : commonUtil.getMaargURL(),
-        });
-        if (commonUtil.hasError(resp) || resp.data.length === 0) {
-          throw resp.data;
-        } else {
-          this.current.stores = resp.data;
-          this.currentEComStore = resp.data[0];
-          return Promise.resolve(resp.data);
-        }
-      } catch(error: any) {
-        return Promise.reject(error)
-      }
-    },
     async checkPermission(payload: any): Promise <any> {
       return api({
         url: "checkPermission",
@@ -163,7 +142,7 @@ export const useUserStore = defineStore('appUser', {
         }
 
         await this.fetchPermissions();
-        await this.fetchEComStores();
+        await productStore().fetchEComStores();
         await this.fetchAvailableTimeZones();
       } catch (error: any) {
         // If any of the API call in try block has status code other than 2xx it will be handled in common catch block.
@@ -177,14 +156,14 @@ export const useUserStore = defineStore('appUser', {
     async logout() {
   
       this.current = null
-      this.currentEComStore = {}
       this.permissions = []
 
       // Instead of dispatching, invoke store actions
-      useOrderRoutingStore().clearRouting()
-      useOrderRoutingStore().clearRoutingTestInfo()
+      orderRoutingStore().clearRouting()
+      orderRoutingStore().clearRoutingTestInfo()
       useUtilStore().clearUtilState()
-      useProductStore().clearProductState()
+      useProduct().clearProductState()
+      productStore().clearProductStoreState()
 
       resetConfig();
   
@@ -221,16 +200,6 @@ export const useUserStore = defineStore('appUser', {
       } catch (err) {
         logger.error('Error fetching timezones', err);
       }
-    },
-    setEcomStore(payload: any) {
-      let productStore = payload.productStore;
-      if(!productStore) {
-        productStore = (this.current as any).stores.find((store: any) => store.productStoreId === payload.productStoreId);
-      }
-      this.currentEComStore = productStore;
-      useUtilStore().updateShippingMethods({});
-      useUtilStore().updateFacillityGroups({});
-      useUtilStore().updateProductCategories({});
     }
   },
   persist: true

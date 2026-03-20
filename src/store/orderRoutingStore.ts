@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import { OrderRoutingService } from "@/services/RoutingService"
 import { logger, translate, commonUtil } from "@common"
 import { DateTime } from "luxon"
-import { useUserStore } from './userStore'
+import { productStore } from './productStore'
 
-export const useOrderRoutingStore = defineStore('orderRouting', {
+export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
     return {
       groups: [] as Array<any>,
@@ -59,7 +59,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
     async fetchOrderRoutingGroups() {
       let routingGroups = [] as any;
       const payload = {
-        productStoreId: useUserStore().currentEComStore.productStoreId,
+        productStoreId: productStore().currentEComStore.productStoreId,
         pageSize: 200
       }
       try {
@@ -96,7 +96,7 @@ export const useOrderRoutingStore = defineStore('orderRouting', {
     async createRoutingGroup(groupName: string) {
       const payload = {
         groupName,
-        productStoreId: useUserStore().currentEComStore.productStoreId,
+        productStoreId: productStore().currentEComStore.productStoreId,
         createdDate: DateTime.now().toMillis()
       }
       try {

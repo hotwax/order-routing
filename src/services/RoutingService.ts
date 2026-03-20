@@ -1,7 +1,6 @@
 import { logger, api } from "@common"
-import { useProductStore } from "@/store/productStore";
-import { useUserStore } from "@/store/userStore";
-import { useUtilStore } from "@/store/utilStore";
+import { productStore as useProduct } from "@/store/product";
+import { productStore } from "@/store/productStore";
 import { commonUtil } from "@common";
 
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
@@ -186,7 +185,7 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
         "defType": "edismax"
       },
       "query": `(*${queryString.trim()}*) OR "${queryString.trim()}"^100`,
-      "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND orderStatusId: ORDER_APPROVED AND productStoreId: ${useUserStore().getCurrentEComStore?.productStoreId} AND -shipmentMethodTypeId: STOREPICKUP`
+      "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND orderStatusId: ORDER_APPROVED AND productStoreId: ${productStore().getCurrentEComStore?.productStoreId} AND -shipmentMethodTypeId: STOREPICKUP`
     }
   }
 
@@ -221,10 +220,10 @@ const findOrder = async (queryString: string, orderId: string): Promise<any> => 
         }
       })
 
-      useUtilStore().fetchCarrierInformation( [...new Set(orderCarrierPartyIds)])
+      productStore().fetchCarrierInformation( [...new Set(orderCarrierPartyIds)])
 
       if(productIds.length) {
-        await useProductStore().fetchProducts( productIds)
+        await useProduct().fetchProducts( productIds)
       }
     } else {
       throw resp

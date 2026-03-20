@@ -15,12 +15,12 @@
 
     <ion-content>
       <!-- Adding find class only when we are displaying product stores, as adding this class takes specific space on page -->
-      <div :class="userProfile?.stores?.length > 1 ? 'find' : ''">
-        <aside class="filters" v-if="userProfile?.stores?.length > 1">
+      <div :class="ecomStores.length > 1 ? 'find' : ''">
+        <aside class="filters" v-if="ecomStores.length > 1">
           <ion-list>
             <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
             <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
-              <ion-item v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" lines="none">
+              <ion-item v-for="store in ecomStores" :key="store.productStoreId" lines="none">
                 <ion-radio :value="store.productStoreId">{{ store.storeName || store.productStoreId }}</ion-radio>
               </ion-item>
             </ion-radio-group>
@@ -92,20 +92,20 @@ import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
-import { DateTime } from "luxon";
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import router from "@/router";
 import { useUserStore } from "@/store/userStore";
-import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { productStore } from "@/store/productStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 
-const orderRoutingStore = useOrderRoutingStore()
 const userStore = useUserStore()
 const utilStore = useUtilStore()
-const groups = computed(() => orderRoutingStore.getRoutingGroups)
+const groups = computed(() => orderRoutingStore().getRoutingGroups)
 const userProfile = computed(() => userStore.getUserProfile)
-const currentEComStore = computed(() => userStore.getCurrentEComStore)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
+const ecomStores = computed(() => productStore().ecomStores)
 
 const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSIONS)
 
@@ -114,7 +114,7 @@ let brokeringGroups = ref([]) as any
 
 onIonViewWillEnter(async () => {
   isLoading.value = true
-  await orderRoutingStore.fetchOrderRoutingGroups();
+  await orderRoutingStore().fetchOrderRoutingGroups();
   isLoading.value = false
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" })
@@ -149,7 +149,7 @@ async function addNewRun() {
     }
 
     if(result.data?.values?.runName.trim()) {
-      await orderRoutingStore.createRoutingGroup(result.data.values.runName.trim())
+      await orderRoutingStore().createRoutingGroup(result.data.values.runName.trim())
       brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
     }
   })
@@ -159,11 +159,11 @@ async function addNewRun() {
 
 async function setEComStore(event: CustomEvent) {
   emitter.emit("presentLoader")
-  if(userProfile.value?.stores) {
-      userStore.setEcomStore({
+  if(ecomStores.value.length) {
+      productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
-    await orderRoutingStore.fetchOrderRoutingGroups();
+    await orderRoutingStore().fetchOrderRoutingGroups();
     brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   }
   emitter.emit("dismissLoader")

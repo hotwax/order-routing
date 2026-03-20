@@ -1,4 +1,5 @@
 import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import { translate } from "@common";
 import { logger, emitter, api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";
@@ -53,7 +54,7 @@ export function useAuth() {
 
       await useUserStore().fetchUserProfile();
       await useUserStore().fetchPermissions();
-      await useUserStore().fetchEComStores();
+      await productStore().fetchEComStores();
       await useUserStore().fetchAvailableTimeZones();
 
     } catch (err: any) {

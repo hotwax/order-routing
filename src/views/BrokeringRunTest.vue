@@ -96,9 +96,10 @@
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
-import { useOrderRoutingStore } from "@/store/orderRoutingStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
 import { useUtilStore } from "@/store/utilStore";
+import { productStore } from "@/store/productStore";
 import { computed, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
 import { OrderRoutingService } from "@/services/RoutingService";
@@ -110,7 +111,6 @@ import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
 import router from "@/router";
 
-const orderRoutingStore = useOrderRoutingStore();
 const userStore = useUserStore();
 const utilStore = useUtilStore();
 const props = defineProps({
@@ -129,12 +129,12 @@ let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let userTestingSession = ref({}) as any
 
-const currentRoutingGroup: any = computed((): Group => orderRoutingStore.getCurrentRoutingGroup)
+const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
-const testRoutingInfo = computed(() => orderRoutingStore.getTestRoutingInfo)
+const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
 const userProfile = computed(() => userStore.getUserProfile)
-const currentEComStore = computed(() => userStore.getCurrentEComStore)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -154,7 +154,7 @@ onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
 
-  await Promise.all([utilStore.fetchFacilities(), utilStore.fetchFacilityGroups(), utilStore.fetchStatusInformation(), utilStore.fetchShippingMethods(), orderRoutingStore.fetchRoutingHistory(props.routingGroupId)])
+  await Promise.all([productStore().fetchFacilities(), productStore().fetchFacilityGroups(), utilStore.fetchStatusInformation(), productStore().fetchShippingMethods(), orderRoutingStore().fetchRoutingHistory(props.routingGroupId)])
 
   await fetchJobInformation()
   await createUserTestSession();
@@ -163,7 +163,7 @@ onIonViewWillEnter(async () => {
 })
 
 onIonViewWillLeave(async () => {
-  await orderRoutingStore.clearRoutingTestInfo()
+  await orderRoutingStore().clearRoutingTestInfo()
 })
 
 onBeforeRouteLeave(async (to: any) => {
@@ -252,7 +252,7 @@ async function openRouteDetails(routing: any) {
 }
 
 async function openRuleDetails(rule: any) {
-  const ruleInfo = await orderRoutingStore.fetchInventoryRuleInformation(rule.routingRuleId)
+  const ruleInfo = await orderRoutingStore().fetchInventoryRuleInformation(rule.routingRuleId)
   currentRule.value = {
     ...rule,
     ...ruleInfo
@@ -293,7 +293,7 @@ async function exitTestMode(isTriggerManually = true) {
     return false; // passing boolean to let the routeLeave hook know to change the route or not
   }
 
-  await orderRoutingStore.clearRoutingTestInfo()
+  await orderRoutingStore().clearRoutingTestInfo()
 
   if(isTriggerManually) {
     router.go(-1);

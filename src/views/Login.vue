@@ -76,6 +76,7 @@ import {
 import { ref } from "vue";
 import router from "@/router";
 import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import Logo from '@/components/Logo.vue';
 import { arrowForwardOutline, gridOutline } from 'ionicons/icons'
 import { translate, cookieHelper } from "@common";
@@ -206,7 +207,7 @@ const basicLogin = async () => {
       return Promise.reject(new Error(error));
     }
     await useUserStore().fetchPermissions();
-    await useUserStore().fetchEComStores();
+    await productStore().fetchEComStores();
     await useUserStore().fetchAvailableTimeZones();
 
   } catch (error) {

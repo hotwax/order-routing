@@ -12,7 +12,11 @@ export const useUserStore = defineStore('appUser', {
     return {
       current: null as any,
       permissions: [] as any,
-      timeZones: [] as any[]
+      timeZones: [] as any[],
+      pwaState: {
+        updateExists: false as boolean,
+        registration: null as any
+      }
     }
   },
   getters: {
@@ -24,6 +28,9 @@ export const useUserStore = defineStore('appUser', {
     },
     getTimeZones(state) {
       return state.timeZones;
+    },
+    getPwaState(state) {
+      return state.pwaState;
     },
     hasPermission: (state: any) => (permissionId: string): boolean => {
       const permissions = state.permissions;
@@ -200,6 +207,10 @@ export const useUserStore = defineStore('appUser', {
       } catch (err) {
         logger.error('Error fetching timezones', err);
       }
+    },
+    updatePwaState(payload: any) {
+      this.pwaState.registration = payload.registration;
+      this.pwaState.updateExists = payload.updateExists;
     }
   },
   persist: true

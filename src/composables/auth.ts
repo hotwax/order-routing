@@ -4,6 +4,7 @@ import { translate } from "@common";
 import { logger, emitter, api, cookieHelper, commonUtil } from "@common";
 import { DateTime } from "luxon";
 import { computed, ref } from "vue";
+import router from "@/router";
 
 interface LoginOption {
   loginAuthType?: string,
@@ -97,7 +98,11 @@ export function useAuth() {
     cookieHelper().remove('expirationTime');
 
     emitter.emit("dismissLoader");
-    return redirectionUrl;
+    if(redirectionUrl) {
+    window.location.href = redirectionUrl
+  } else {
+    router.replace("/login");
+  }
   }
 
   const fetchLoginOptions = async() => {

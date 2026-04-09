@@ -72,13 +72,7 @@
         </ion-card>
       </section>
       <hr />
-      <div class="section-header">
-        <h1>
-          {{ translate("App") }}
-          <p class="overline" >{{ translate("Version:") + appVersion }}</p>
-        </h1>
-        <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
-      </div>
+      <DxpAppVersionInfo />
       <section>
         <ion-card>
           <ion-card-header>
@@ -117,14 +111,12 @@ import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
-import { DateTime } from "luxon";
 import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper } from "@common";
 import { useAuth } from "@/composables/auth";
+import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
 const userStore = useUserStore()
-const appVersion = ref("")
-const appInfo = (import.meta.env.VITE_VUE_APP_VERSION_INFO ? JSON.parse(import.meta.env.VITE_VUE_APP_VERSION_INFO) : {}) as any
 
 const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
@@ -152,7 +144,6 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
 })
 
 function setEComStore(event: CustomEvent) {
@@ -175,10 +166,6 @@ function logout() {
     const redirectUrl = window.location.origin + '/login'
     window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
   })
-}
-
-function getDateTime(time: any) {
-  return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
 }
 
 function goToLaunchpad() {

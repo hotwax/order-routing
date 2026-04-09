@@ -11,7 +11,6 @@ import { Settings } from 'luxon'
 import { emitter, translate, initialise, resetConfig } from '@common'
 import { useUserStore } from "./store/userStore";
 import { useAuth } from "./composables/auth";
-import router from "./router";
 
 const userStore = useUserStore()
 
@@ -22,7 +21,7 @@ const maxAge = import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE ? parseInt(import.meta
 initialise({
   cacheMaxAge: maxAge,
   events: {
-    unauthorised: unauthorized,
+    unauthorised: useAuth().logout,
     responseError: () => {
       setTimeout(() => dismissLoader(), 100);
     },
@@ -51,16 +50,6 @@ function dismissLoader() {
   if (loader.value) {
     loader.value.dismiss();
     loader.value = null as any;
-  }
-}
-
-async function unauthorized() {
-  // Mark the user as unauthorised, this will help in not making the logout api call in actions
-  const redirectionUrl = await useAuth().logout({ isUserUnauthorised: true });
-  if(redirectionUrl) {
-    window.location.href = redirectionUrl
-  } else {
-    router.replace("/login");
   }
 }
 

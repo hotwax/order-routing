@@ -7,6 +7,7 @@
 import { ref, onMounted, onUpdated, defineProps } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
 import { logger } from "@common";
+import defaultImageUrl from "@/assets/images/defaultImage.png";
 
 const props = defineProps({
   src: {
@@ -41,7 +42,7 @@ const setImageUrl = () => {
       checkIfImageExists(props.src).then(() => {
         imageUrl.value = props.src;
       }).catch(() => {
-        imageUrl.value = require("@/assets/images/defaultImage.png") ;
+        imageUrl.value = defaultImageUrl;
         logger.error("Image doesn't exist");
       })
     } else {
@@ -50,7 +51,7 @@ const setImageUrl = () => {
       checkIfImageExists(fullImageUrl).then(() => {
         imageUrl.value = fullImageUrl;
       }).catch(() => {
-        imageUrl.value = require("@/assets/images/defaultImage.png") ;
+        imageUrl.value = defaultImageUrl;
         logger.error("Image doesn't exist");
       })
     }

@@ -1802,4 +1802,8 @@ ion-chip > ion-select {
 .rule-item {
   transition: scale .5s ease, box-shadow .5s ease;
 }
+
+#order-filters{
+  display: unset;
+}
 </style>

@@ -7,7 +7,7 @@ import { useUtilStore } from './utilStore'
 import { productStore as useProduct } from './product'
 import { productStore } from './productStore'
 
-export const useUserStore = defineStore('appUser', {
+export const useUserStore = defineStore('user', {
   state: () => {
     return {
       current: null as any,

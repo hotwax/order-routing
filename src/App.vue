@@ -8,28 +8,13 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { IonApp, IonRouterOutlet, loadingController } from "@ionic/vue";
 import { Settings } from 'luxon'
-import { emitter, translate, initialise, resetConfig } from '@common'
+import { emitter, translate } from '@common'
 import { useUserStore } from "./store/userStore";
-import { useAuth } from "./composables/auth";
 
 const userStore = useUserStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
 const loader = ref(null) as any
-const maxAge = import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE ? parseInt(import.meta.env.VITE_VUE_APP_CACHE_MAX_AGE) : 0
-
-initialise({
-  cacheMaxAge: maxAge,
-  events: {
-    unauthorised: useAuth().logout,
-    responseError: () => {
-      setTimeout(() => dismissLoader(), 100);
-    },
-    queueTask: (payload: any) => {
-      emitter.emit("queueTask", payload);
-    }
-  }
-})
 
 async function presentLoader(options = { message: "Click the backdrop to dismiss.", backdropDismiss: true }) {
   // When having a custom message remove already existing loader, if not removed it takes into account the already existing loader
@@ -72,7 +57,5 @@ onMounted(async () => {
 onUnmounted(() => {
   emitter.off("presentLoader", presentLoader);
   emitter.off("dismissLoader", dismissLoader);
-
-  resetConfig()
 })
 </script>

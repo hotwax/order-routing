@@ -28,8 +28,9 @@ import "./theme/variables.css";
 
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { logger, createDxpI18n } from "@common";
+import { logger, createDxpI18n, initialiseConfig } from "@common";
 import localeMessages from "./locales"
+import { useUserStore } from "@/store/userStore";
 
 const i18n = createDxpI18n(localeMessages)
 const pinia = createPinia().use(piniaPluginPersistedstate);
@@ -43,6 +44,16 @@ const app = createApp(App)
   .use(router)
   .use(i18n)
   .use(pinia)
+
+initialiseConfig({
+  postLogin: useUserStore().postLogin,
+  postLogout: useUserStore().postLogout,
+  get oms() { return useUserStore().oms },
+  set oms(val) { useUserStore().oms = val },
+  get current() { return useUserStore().current },
+  set current(val) { useUserStore().current = val },
+  router: router
+})
 
 router.isReady().then(() => {
   app.mount("#app");

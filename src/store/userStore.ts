@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { Settings, DateTime } from "luxon"
-import { logger, emitter, api, cookieHelper, commonUtil, resetConfig, translate } from '@common'
-import { useAuth } from '@/composables/auth'
+import { logger, api, commonUtil, translate } from '@common'
+import { useAuth } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 import { productStore as useProduct } from './product'
@@ -138,51 +138,25 @@ export const useUserStore = defineStore('user', {
         ...payload
       });
     },
-    async samlLogin(token: string, expirationTime: string) {
+    async postLogin() {
       try {
-        cookieHelper().set("token", token)
-        cookieHelper().set("expirationTime", expirationTime)
-
-        try {
-          const userProfileResp = await api({
-            url: "admin/user/profile",
-            method: "get",
-            baseURL: commonUtil.getMaargURL()
-          });
-          this.current = userProfileResp.data
-        } catch(error: any) {
-          useAuth().clearAuth();
-          commonUtil.showToast(translate("Failed to fetch user profile information"));
-          console.error("error", error);
-          return Promise.reject(new Error(error));
-        }
-
-        await this.fetchPermissions();
-        await productStore().fetchEComStores();
-        await this.fetchAvailableTimeZones();
-      } catch (error: any) {
-        // If any of the API call in try block has status code other than 2xx it will be handled in common catch block.
-        // TODO Check if handling of specific status codes is required.
-        commonUtil.showToast(translate('Something went wrong while login. Please contact administrator.'));
-        console.error("error: ", error);
-        return Promise.reject(new Error(error))
+        await this.fetchUserProfile()
+        await this.setOms(commonUtil.getOMSInstanceName())
+        await this.fetchPermissions()
+        await productStore().fetchEComStores()
+        await this.fetchAvailableTimeZones()
+      } catch(error: any) {
+        return Promise.reject(new Error(error));
       }
     },
-    // This action is just for clearing states of this app, callee should clear the auth in cookies.
-    async logout() {
-  
-      this.current = null
-      this.permissions = []
-
-      // Instead of dispatching, invoke store actions
+    async postLogout() {
       orderRoutingStore().clearRouting()
       orderRoutingStore().clearRoutingTestInfo()
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
       productStore().clearProductStoreState()
 
-      resetConfig();
-  
+      this.$reset();
     },
     async setUserTimeZone(payload: any) {
       const current: any = this.current;

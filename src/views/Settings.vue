@@ -113,7 +113,7 @@ import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper } from "@common";
-import { useAuth } from "@/composables/auth";
+import { useAuth } from "@common";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
 const userStore = useUserStore()

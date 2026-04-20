@@ -1,21 +1,13 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
 import Tabs from "@/views/Tabs.vue"
-import { useAuth } from '@/composables/auth';
-import Login from "@/views/Login.vue";
+import { useAuth } from '@common';
+import Login from "@common/components/Login.vue";
 
-const authGuard = async (to: any, from: any, next: any) => {
+const authGuard = async () => {
   if (!useAuth().isAuthenticated.value) {
-    next('/login')
+    return { path: '/login' }
   }
-  next()
-};
-
-const loginGuard = (to: any, from: any, next: any) => {
-  if (useAuth().isAuthenticated.value && !to.query?.token && !to.query?.oms) {
-    next('/')
-  }
-  next();
 };
 
 const routes: Array<RouteRecordRaw> = [
@@ -60,8 +52,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/login",
     name: "Login",
-    component: Login,
-    beforeEnter: loginGuard
+    component: Login
   },
 ]
 

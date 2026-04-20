@@ -481,10 +481,8 @@ import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
 import { DateTime } from "luxon";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
-import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
-import { UtilService } from "@/services/UtilService";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { productStore } from "@/store/productStore";
@@ -761,16 +759,8 @@ async function updateRouteName() {
 
     let orderRoutingId = ''
     try {
-      const resp = await OrderRoutingService.updateRouting(payload);
-
-      if(!commonUtil.hasError(resp) && resp.data.orderRoutingId) {
-        orderRoutingId = resp.data.orderRoutingId
-        commonUtil.showToast(translate("Order routing information updated"))
-      } else {
-        throw resp.data
-      }
+      orderRoutingId = await orderRoutingStore().updateRouting(payload);
     } catch(err) {
-      commonUtil.showToast(translate("Failed to update routing information"))
       logger.error(err);
     }
 
@@ -1281,7 +1271,7 @@ async function cloneRule() {
   emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
   try {
-    const resp = await OrderRoutingService.cloneRule({
+    const resp = await orderRoutingStore().cloneRule({
       routingRuleId: selectedRoutingRule.value.routingRuleId,
       newOrderRoutingId: props.orderRoutingId,
       newRuleName: `${selectedRoutingRule.value.ruleName} copy`
@@ -1708,7 +1698,7 @@ async function openArchivedRuleModal() {
 }
 
 async function getUserTestSession() {
-  userTestingSession.value = await UtilService.getUserSession({
+  userTestingSession.value = await useUtilStore().getUserSession({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       userId: userProfile.value.userId,
@@ -1728,7 +1718,7 @@ async function createUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.createUserSession({
+  userTestingSession.value = await useUtilStore().createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     productStoreId: currentEComStore.value.productStoreId,
@@ -1741,7 +1731,7 @@ async function updateUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.expireUserSession({
+  userTestingSession.value = await useUtilStore().expireUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,

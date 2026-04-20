@@ -11,6 +11,7 @@ export const useUserStore = defineStore('user', {
   state: () => {
     return {
       current: null as any,
+      oms: null as any,
       permissions: [] as any,
       timeZones: [] as any[],
       pwaState: {
@@ -22,6 +23,9 @@ export const useUserStore = defineStore('user', {
   getters: {
     getUserProfile(state) {
       return state.current
+    },
+    getOms(state) {
+      return state.oms
     },
     getUserPermissions (state) {
       return state.permissions;
@@ -54,6 +58,9 @@ export const useUserStore = defineStore('user', {
     }
   },
   actions: {
+    async setOms(oms: any) {
+      this.oms = oms
+    },
     async fetchPermissions() {
       const permissionId = import.meta.env.VITE_VUE_APP_PERMISSION_ID;
       const serverPermissions = [] as any;
@@ -115,6 +122,8 @@ export const useUserStore = defineStore('user', {
         if (this.current.timeZone) {
           Settings.defaultZone = this.current.timeZone;
         }
+        // Set maarg user id in the cookies.
+        useAuth().updateUserId(this.current.userId);
 
         return Promise.resolve(resp.data)
       } catch(error: any) {

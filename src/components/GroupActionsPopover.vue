@@ -22,7 +22,6 @@
 import { alertController, IonContent, IonIcon, IonItem, IonList, IonListHeader, popoverController } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { defineProps } from "vue"
-import { OrderRoutingService } from "@/services/RoutingService";
 import { logger, translate, commonUtil } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 
@@ -37,7 +36,7 @@ async function updateGroupStatus(paused: string) {
   }
 
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    const resp = await orderRoutingStore().scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)) {
       commonUtil.showToast(translate("Group status updated"))
       routingGroups = await orderRoutingStore().updateGroupStatus({ routingGroupId: props.group.routingGroupId, value: paused })
@@ -77,7 +76,7 @@ async function runNow() {
               }
 
               try {
-                const resp = await OrderRoutingService.scheduleBrokering(payload)
+                const resp = await orderRoutingStore().scheduleBrokering(payload)
                 if(commonUtil.hasError(resp)) {
                   throw resp.data
                 }
@@ -90,7 +89,7 @@ async function runNow() {
             }
 
             try {
-              const resp = await OrderRoutingService.runNow(props.group.routingGroupId)
+              const resp = await orderRoutingStore().runNow(props.group.routingGroupId)
               if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
                 commonUtil.showToast(translate("Service has been scheduled"))
               } else {

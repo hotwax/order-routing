@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
-import { ProductService } from "@/services/ProductService"
-import { logger, commonUtil } from "@common"
+import { logger, commonUtil, api } from "@common"
 
 export const productStore = defineStore('product', {
   state: () => {
@@ -35,9 +34,14 @@ export const productStore = defineStore('product', {
       if (productIdFilter === '') return;
   
       try {
-        const resp = await ProductService.fetchProducts({
-          "filters": ['productId: (' + productIdFilter + ')'],
-          "viewSize": productIds.length
+        const resp = await api({
+          url: "searchProducts",
+          method: "post",
+          baseURL: commonUtil.getOmsURL(),
+          data: {
+            "filters": ['productId: (' + productIdFilter + ')'],
+            "viewSize": productIds.length
+          }
         })
         if(resp.data.response && !commonUtil.hasError(resp)) {
           const products = resp.data.response.docs.reduce((products: any, product: any) => {
@@ -66,7 +70,12 @@ export const productStore = defineStore('product', {
             facilityId
           }
     
-          const resp: any = await ProductService.getInventoryAvailableByFacility(payload);
+          const resp: any = await api({
+            url: "service/getInventoryAvailableByFacility",
+            method: "post",
+            baseURL: commonUtil.getOmsURL(),
+            data: payload
+          });
           if (!commonUtil.hasError(resp)) {
             if(this.stock[productId]) {
               this.stock[productId][facilityId] = resp.data

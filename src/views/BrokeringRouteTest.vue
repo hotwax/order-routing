@@ -84,7 +84,6 @@ import { alertController, IonBadge, IonButton, IonCard, IonChip, IonIcon, IonIte
 import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, onMounted, ref } from "vue";
 import { logger, emitter, translate, commonUtil } from "@common";
-import { OrderRoutingService } from "@/services/RoutingService";
 import Image from "@/components/Image.vue"
 
 const props = defineProps({
@@ -144,7 +143,7 @@ async function searchOrders(orderId = "") {
   }
 
   emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
-  const resp = await OrderRoutingService.findOrder(searchedQuery, orderId) as any;
+  const resp = await orderRoutingStore().findOrder(searchedQuery, orderId) as any;
 
   if(resp.errorMessage) {
     await orderRoutingStore().updateRoutingTestInfo( [
@@ -360,7 +359,7 @@ async function brokerOrder() {
       payload["routingRuleId"] = props.routingRuleId
     }
 
-    let resp = await OrderRoutingService.brokerOrder(payload)
+    let resp = await orderRoutingStore().brokerOrder(payload)
 
     // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
     if(!commonUtil.hasError(resp) && resp.data.attemptedItemCount) {
@@ -393,7 +392,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
   }
 
   try {
-    let resp = await OrderRoutingService.getRecentOrderFacilityChangeInfo(payload)
+    let resp = await orderRoutingStore().getRecentOrderFacilityChangeInfo(payload)
 
     const orderBrokeringInfo = resp.data?.routingHistoryList?.find((history: any) => history.orderItemSeqId === currentShipGroup.value[0].orderItemSeqId)
     if(!commonUtil.hasError(resp) && orderBrokeringInfo) {
@@ -460,7 +459,7 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
 async function resetOrder() {
   emitter.emit("presentLoader", { message: "Resetting order...", backdropDismiss: false })
   try {
-    let resp = await OrderRoutingService.resetOrder({
+    let resp = await orderRoutingStore().resetOrder({
       orderId: testRoutingInfo.value.currentOrderId,
       notify: false,
       items: currentShipGroup.value.map((item: any) => ({

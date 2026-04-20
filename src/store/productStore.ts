@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { UtilService } from "@/services/UtilService"
 import { logger, commonUtil, api } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
@@ -87,7 +86,11 @@ export const productStore = defineStore('productStore', {
       const payload = { pageSize: 500 }
   
       try {
-        const resp = await UtilService.fetchFacilities(payload);
+        const resp = await api({
+          url: "order-routing/facilities", 
+          method: "GET",
+          params: payload
+        });
   
         if(!commonUtil.hasError(resp) && resp.data.length) {
           facilities = resp.data.reduce((facilities: any, facility: any) => {
@@ -110,7 +113,11 @@ export const productStore = defineStore('productStore', {
       }
   
       try {
-        const resp = await UtilService.fetchShippingMethods(payload);
+        const resp = await api({
+          url: `order-routing/productStores/${payload.productStoreId}/shippingMethods`,
+          method: "GET",
+          params: payload
+        });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
             shippingMethods[shippingMethod.shipmentMethodTypeId] = shippingMethod
@@ -132,7 +139,11 @@ export const productStore = defineStore('productStore', {
       }
   
       try {
-        const resp = await UtilService.fetchFacilityGroups(payload);
+        const resp = await api({
+          url: `order-routing/productStores/${payload.productStoreId}/facilityGroups`, 
+          method: "GET",
+          params: payload
+        });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {
             facilityGroups[facilityGroup.facilityGroupId] = facilityGroup
@@ -161,7 +172,12 @@ export const productStore = defineStore('productStore', {
       }
   
       try {
-        const resp = await UtilService.getCarrierInformation(payload);
+        const resp = await api({
+          url: "performFind",
+          method: "post",
+          baseURL: commonUtil.getOmsURL(),
+          data: payload
+        });
         if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
           carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
             carriers[carrier.partyId] = {
@@ -187,7 +203,12 @@ export const productStore = defineStore('productStore', {
       }
   
       try {
-        const resp = await UtilService.getCarrierDeliveryDays(deliveryDaysPayload);
+        const resp = await api({
+          url: "performFind",
+          method: "post",
+          baseURL: commonUtil.getOmsURL(),
+          data: payload
+        });
         if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
           carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
             if(carriers[carrier.partyId]["deliveryDays"]) {

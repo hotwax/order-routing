@@ -85,10 +85,9 @@ const getCronString = computed(() => {
 
 const getNextExecutionTime = computed(() => {
   try {
-    const interval = commonUtil.parseCronExpression(expression.value, userProfile.value.timeZone)
-    return commonUtil.getDateAndTime((interval.next() as any)["_date"].ts)
+    return commonUtil.getNextExecutionTime(expression.value, userProfile.value.timeZone);
   } catch(e) {
-    logger.error("Invalid expression", e)
+    logger.error("Error getting next exection time: ", e)
     return ""
   }
 })

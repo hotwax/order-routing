@@ -102,12 +102,10 @@ import { useUtilStore } from "@/store/utilStore";
 import { productStore } from "@/store/productStore";
 import { computed, reactive, ref, watch } from "vue";
 import { Group } from "@/types";
-import { OrderRoutingService } from "@/services/RoutingService";
-import { logger, emitter, translate, commonUtil } from "@common";
+import { api, logger, emitter, translate, commonUtil } from "@common";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
-import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
 import router from "@/router";
 
@@ -180,7 +178,10 @@ async function fetchRoutingGroupInformation() {
   emitter.emit("presentLoader", { message: "Fetching information", backdropDismiss: false })
 
   try {
-    const resp = await OrderRoutingService.fetchRoutingGroupInformation(props.routingGroupId);
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}`,
+      method: "GET"
+    });
 
     if(!commonUtil.hasError(resp) && resp.data) {
       group.value = resp.data
@@ -203,7 +204,10 @@ async function fetchRoutingsInformation() {
   await group.value.routings.forEach(async (routing: any) => {
     let route = {} as any
     try {
-      const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
+      const resp = await api({
+        url: `order-routing/routings/${routing.orderRoutingId}`,
+        method: "GET"
+      });
   
       if(!commonUtil.hasError(resp) && resp.data) {
         route = resp.data
@@ -263,7 +267,10 @@ async function openRuleDetails(rule: any) {
 async function fetchJobInformation() {
   job.value = {}
   try {
-    const resp = await OrderRoutingService.fetchRoutingScheduleInformation(props.routingGroupId);
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}/schedule`,
+      method: "GET"
+    });
 
     if(!commonUtil.hasError(resp) && resp.data?.schedule) {
       job.value = resp.data.schedule
@@ -365,7 +372,7 @@ function getEligibleRoutesForBrokering(routing: any) {
 }
 
 async function getUserTestSession() {
-  userTestingSession.value = await UtilService.getUserSession({
+  userTestingSession.value = await useUtilStore().getUserSession({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       userId: userProfile.value.userId,
@@ -385,7 +392,7 @@ async function createUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.createUserSession({
+  userTestingSession.value = await useUtilStore().createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     productStoreId: currentEComStore.value.productStoreId,
@@ -394,7 +401,7 @@ async function createUserTestSession() {
 }
 
 async function updateUserTestSession() {
-  userTestingSession.value = await UtilService.expireUserSession({
+  userTestingSession.value = await useUtilStore().expireUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,

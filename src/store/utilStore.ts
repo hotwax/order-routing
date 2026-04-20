@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import { UtilService } from "@/services/UtilService"
-import { logger, commonUtil } from '@common'
+import { logger, commonUtil, api } from '@common'
 import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
+import { productStore } from './productStore'
 
 export const useUtilStore = defineStore('util', {
   state: () => {
@@ -37,10 +37,14 @@ export const useUtilStore = defineStore('util', {
       try {
         let resp: any;
         do {
-          resp = await UtilService.fetchEnums({
-            ...payload,
-            pageIndex,
-            pageSize
+          resp = await api({
+            url: "order-routing/enums", 
+            method: "GET",
+            params: {
+              ...payload,
+              pageIndex,
+              pageSize
+            }
           });
   
           if(!commonUtil.hasError(resp) && resp.data.length) {
@@ -95,9 +99,13 @@ export const useUtilStore = defineStore('util', {
       let enums = { ...this.enums };
   
       try {
-        const resp = await UtilService.fetchOmsEnums({
-          ...payload,
-          pageSize: 500
+        const resp = await api({
+          url: "order-routing/omsenums",
+          method: "GET",
+          params: {
+            ...payload,
+            pageSize: 500
+          }
         });
   
         if(!commonUtil.hasError(resp) && resp.data.length) {
@@ -132,9 +140,14 @@ export const useUtilStore = defineStore('util', {
       try {
         let resp: any
         do {
-          resp = await UtilService.fetchCategories({
-            ...basePayload,
-            pageIndex
+          resp = await api({
+            url: `categories/${basePayload.productStoreId}`,
+            method: "GET",
+            params: {
+              ...basePayload,
+              pageIndex
+            },
+            baseURL: commonUtil.getOmsURL() 
           })
           if (!commonUtil.hasError(resp) && resp.data.length) {
             categories = resp.data.reduce((acc: any, category: any) => {
@@ -157,7 +170,11 @@ export const useUtilStore = defineStore('util', {
       const payload = { parentTypeId: "ROUTING_STATUS" }
   
       try {
-        const resp = await UtilService.fetchStatusInformation(payload);
+        const resp = await api({
+          url: "admin/status",
+          method: "GET",
+          params: payload
+        });
         if(!commonUtil.hasError(resp)) {
           statuses = resp.data.reduce((statues: any, status: any) => {
             statues[status.statusId] = status
@@ -177,6 +194,100 @@ export const useUtilStore = defineStore('util', {
     },
     async updateProductCategories(payload: any) {
       this.categories = payload;
+    },
+    async getUserSession(payload: any): Promise<any> {
+      let userTestingSession = {}
+
+      try {
+        const resp = await api({
+          url: "oms/entityData",
+          method: "POST",
+          baseURL: commonUtil.getMaargURL(),
+          data: payload
+        });
+
+        if(resp.data && resp.data.entityValueList?.length) {
+          userTestingSession = resp.data.entityValueList[0]
+        }
+      } catch(err) {
+        logger.error("Failed to get user session", err)
+      }
+
+      return userTestingSession;
+    },
+    async getTestSessions(payload: any): Promise<any> {
+      let testingSessions = []
+
+      try {
+        const resp = await api({
+          url: "oms/entityData",
+          method: "POST",
+          baseURL: commonUtil.getMaargURL(),
+          data: payload
+        });
+
+        if(resp.data && resp.data.entityValueList?.length) {
+          testingSessions = resp.data.entityValueList
+        }
+      } catch(err) {
+        logger.error("Failed to get testing sessions", err)
+      }
+
+      return testingSessions;
+    },
+    async createUserSession(payload: any): Promise<any> {
+      let userTestingSession = {} as any;
+      try {
+        const resp = await api({
+          url: "order-routing/user/sessions",
+          method: "POST",
+          data: payload
+        }) as any;
+
+        if(resp.data) {
+          userTestingSession = {
+            userSessionId: resp.data.userSessionId
+          }
+        }
+      } catch(err) {
+        logger.error("Failed to create user session", err)
+      }
+
+      return userTestingSession;
+    },
+    async expireUserSession(payload: any, userTestingSession = {}): Promise<any> {
+      try {
+        const resp = await api({
+          url: `order-routing/user/sessions/${payload.userSessionId}`,
+          method: "PUT",
+          data: payload
+        }) as any;
+
+        if(resp.data) {
+          userTestingSession = {}
+        }
+      } catch(err) {
+        logger.error("Failed to update user session", err)
+      }
+
+      return userTestingSession;
+    },
+    async updateProductStoreInfo(payload: any): Promise<any> {
+      return api({
+        url: `order-routing/productStores/${payload.productStoreId}`,
+        method: "PUT",
+        baseURL: commonUtil.getMaargURL(),
+        data: payload
+      })
+    },
+    async getProductStoreInfo(): Promise<any> {
+      const productStoreId = productStore().getCurrentEComStore?.productStoreId
+
+      return api({
+        url: `admin/productStores/${productStoreId}`,
+        method: "GET",
+        baseURL: commonUtil.getMaargURL()
+      })
     }
   },
   persist: true

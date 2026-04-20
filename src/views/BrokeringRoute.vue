@@ -231,13 +231,11 @@ import { useUtilStore } from "@/store/utilStore";
 import { computed, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
-import { OrderRoutingService } from "@/services/RoutingService";
 import { DateTime } from "luxon";
 import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
-import { UtilService } from "@/services/UtilService";
 
 const userStore = useUserStore()
 const utilStore = useUtilStore()
@@ -341,7 +339,7 @@ async function fetchGroupHistory() {
   }
 
   try {
-    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
+    const resp = await orderRoutingStore().fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
 
     if(!commonUtil.hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
@@ -368,7 +366,7 @@ async function saveSchedule() {
   }
 
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    const resp = await orderRoutingStore().scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)) {
       commonUtil.showToast(translate("Job updated"))
       // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
@@ -413,7 +411,7 @@ async function runNow() {
               }
 
               try {
-                const resp = await OrderRoutingService.scheduleBrokering(payload)
+                const resp = await orderRoutingStore().scheduleBrokering(payload)
                 if(commonUtil.hasError(resp)) {
                   throw resp.data
                 }
@@ -426,7 +424,7 @@ async function runNow() {
             }
 
             try {
-              const resp = await OrderRoutingService.runNow(props.routingGroupId)
+              const resp = await orderRoutingStore().runNow(props.routingGroupId)
               if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
                 commonUtil.showToast(translate("Service has been scheduled"))
               } else {
@@ -466,7 +464,7 @@ async function updateGroupStatus(event: CustomEvent) {
   }
 
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
+    const resp = await orderRoutingStore().scheduleBrokering(payload)
     if(!commonUtil.hasError(resp)){
       job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
       commonUtil.showToast(translate("Group status updated"))
@@ -729,7 +727,7 @@ async function updateRoutingGroup(payload: any) {
   emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
   let routingGroupId = ''
   try {
-    const resp = await OrderRoutingService.updateRoutingGroup(payload);
+    const resp = await orderRoutingStore().updateRoutingGroup(payload);
 
     if(!commonUtil.hasError(resp) && resp.data.routingGroupId) {
       routingGroupId = resp.data.routingGroupId
@@ -769,7 +767,7 @@ async function cloneGroup() {
     newGroupName: `${currentRoutingGroup.value.groupName} copy`
   }
   try {
-    const resp = await OrderRoutingService.cloneGroup(payload)
+    const resp = await orderRoutingStore().cloneGroup(payload)
 
     if(!commonUtil.hasError(resp)) {
       // Not fetching the groups list as after cloning as we do not need any information from the newly cloned group
@@ -803,7 +801,7 @@ async function cloneRouting(routing: any) {
 
 async function getProductStoreReservation() {
   try {
-    const resp = await UtilService.getProductStoreInfo()
+    const resp = await useUtilStore().getProductStoreInfo()
 
     if(resp.data) {
       isBrokeringEnabled.value = !resp.data.enableBrokering || resp.data.enableBrokering === "Y"
@@ -821,7 +819,7 @@ async function toggleReservation(event: CustomEvent) {
   }
 
   try {
-    await UtilService.updateProductStoreInfo({
+    await useUtilStore().updateProductStoreInfo({
       productStoreId: currentEComStore.value.productStoreId,
       enableBrokering
     })
@@ -833,7 +831,7 @@ async function toggleReservation(event: CustomEvent) {
 
 async function getTestSessions() {
   activeTestSessions.value = 0
-  const testSessions = await UtilService.getTestSessions({
+  const testSessions = await useUtilStore().getTestSessions({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       productStoreId: currentEComStore.value.productStoreId

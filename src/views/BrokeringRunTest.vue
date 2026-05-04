@@ -153,7 +153,7 @@ onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
 
-  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
+  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId), store.dispatch("util/fetchProductIdentifiers"), store.dispatch("util/fetchProductIdentificationTypes")])
 
   await fetchJobInformation()
   await createUserTestSession();

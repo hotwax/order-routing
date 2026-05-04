@@ -80,6 +80,7 @@
         <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
       </div>
       <section>
+        <DxpProductIdentifier :primaryIdentifier="productIdentifier.primary" :secondaryIdentifier="productIdentifier.secondary" :identificationTypes="productIdentificationTypes" @updatePrimary="updateProductIdentifier($event, 'primary')" @updateSecondary="updateProductIdentifier($event, 'secondary')" />
         <ion-card>
           <ion-card-header>
             <ion-card-title>
@@ -120,7 +121,7 @@ import Image from "@/components/Image.vue"
 import { DateTime } from "luxon";
 import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { goToOms } from "@hotwax/dxp-components";
+import { goToOms, DxpProductIdentifier } from "@hotwax/dxp-components";
 import {getCurrentTime} from "../utils"
 
 const store = useStore()
@@ -132,6 +133,8 @@ const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"
 const oms = computed(() => store.getters["user/getInstanceUrl"])
 const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
 const currentTimeZoneId = computed(() => userProfile.value.timeZone)
+const productIdentifier = computed(() => store.getters["util/getProductIdentifier"])
+const productIdentificationTypes = computed(() => store.getters["util/getProductIdentificationTypes"])
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -169,6 +172,10 @@ async function changeTimeZone() {
     component: TimeZoneModal,
   });
   return timeZoneModal.present();
+}
+
+function updateProductIdentifier(event: any, type: string) {
+  store.dispatch('util/updateProductIdentifier', { [type]: event })
 }
 
 function logout() {

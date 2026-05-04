@@ -60,6 +60,8 @@
               </ion-thumbnail>
               <ion-label>
                 {{ getProduct(item.productId).productName }}
+                <p v-if="getProduct(item.productId)[productIdentifier.primary]">{{ getProduct(item.productId)[productIdentifier.primary] }}</p>
+                <p v-if="productIdentifier.secondary && getProduct(item.productId)[productIdentifier.secondary]">{{ getProduct(item.productId)[productIdentifier.secondary] }}</p>
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
               <ion-badge slot="end" :color="getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
@@ -132,6 +134,7 @@ const getProduct = computed(() => (id: string) => store.getters["product/getProd
 const getProductStock = computed(() => (productId: string, facilityId: string) => store.getters["product/getProductStock"](productId, facilityId)) as any
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const productIdentifier = computed(() => store.getters["util/getProductIdentifier"])
 
 async function searchOrders(orderId = "") {
   const searchedQuery = orderId ? orderId : queryString.value.trim()

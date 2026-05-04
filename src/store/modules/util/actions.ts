@@ -2,11 +2,12 @@ import { ActionTree } from "vuex"
 import RootState from "@/store/RootState"
 import UtilState from "./UtilState"
 import logger from "@/logger"
-import { hasError } from "@/utils"
+import { hasError, showToast } from "@/utils"
 import * as types from "./mutation-types"
 import { UtilService } from "@/services/UtilService"
 import { EnumerationAndType } from "@/types"
 import store from "@/store"
+import { translate } from "@/i18n"
 
 const actions: ActionTree<UtilState, RootState> = {
   async fetchEnums({ commit, state }, payload) {
@@ -344,6 +345,67 @@ const actions: ActionTree<UtilState, RootState> = {
 
   async updateProductCategories({ commit }) {
     commit(types.UTIL_CATEGORIES_UPDATED, {})
+  },
+
+  async fetchProductIdentifiers({ commit }) {
+    try {
+      const resp = await UtilService.getProductStoreInfo();
+
+      if (!hasError(resp) && resp.data) {
+        commit(types.UTIL_PRODUCT_IDENTIFIER_UPDATED, {
+          primary: resp.data.primaryProductIdentifier || "productId",
+          secondary: resp.data.secondaryProductIdentifier || "internalName"
+        })
+      }
+    } catch (err) {
+      logger.error("Failed to fetch product identifiers", err)
+    }
+  },
+
+  async fetchProductIdentificationTypes({ commit, state }) {
+    if(state.productIdentificationTypes.length) {
+      return;
+    }
+
+    try {
+      const resp = await UtilService.fetchEnums({
+        enumTypeId: 'PRODUCT_IDENTIFIER',
+        pageSize: 50
+      });
+
+      if(!hasError(resp) && resp.data.length) {
+        commit(types.UTIL_PRODUCT_IDENTIFICATION_TYPES_UPDATED, resp.data)
+      }
+    } catch(err) {
+      logger.error("Failed to fetch product identification types", err)
+    }
+  },
+
+  async updateProductIdentifier({ commit, state }, payload) {
+    const productIdentifier = {
+      ...state.productIdentifier,
+      ...payload
+    }
+
+    const params = {
+      productStoreId: store.getters['user/getCurrentEComStore']?.productStoreId,
+      primaryProductIdentifier: productIdentifier.primary,
+      secondaryProductIdentifier: productIdentifier.secondary
+    }
+
+    try {
+      const resp = await UtilService.updateProductStoreInfo(params);
+
+      if(!hasError(resp)) {
+        commit(types.UTIL_PRODUCT_IDENTIFIER_UPDATED, productIdentifier)
+        showToast(translate("Product identifier updated successfully"))
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      showToast(translate("Failed to update product identifier"))
+      logger.error("Failed to update product identifier", err)
+    }
   }
 }
 

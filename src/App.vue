@@ -69,6 +69,7 @@ onMounted(async () => {
   if (userProfile.value) {
     // Luxon timezone should be set with the user's selected timezone
     userProfile.value.timeZone && (Settings.defaultZone = userProfile.value.timeZone);
+    store.dispatch("util/fetchProductIdentifiers")
   }
 })
 

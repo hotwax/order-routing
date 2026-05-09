@@ -624,7 +624,5 @@ export const orderRoutingStore = defineStore('orderRouting', {
       })
     }
   },
-  persist: {
-    paths: ["currentGroup", "currentRuleId", "testRouting"]
-  }
+  persist: true
 })

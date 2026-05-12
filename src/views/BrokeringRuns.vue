@@ -114,6 +114,7 @@ let brokeringGroups = ref([]) as any
 
 onIonViewWillEnter(async () => {
   isLoading.value = true
+  await orderRoutingStore().clearCurrentGroup();
   await orderRoutingStore().fetchOrderRoutingGroups();
   isLoading.value = false
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))

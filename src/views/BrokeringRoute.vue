@@ -268,24 +268,29 @@ const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 onIonViewWillEnter(async () => {
-  emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
-  await orderRoutingStore().fetchCurrentRoutingGroup(props.routingGroupId)
-  await fetchGroupHistory()
-  orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
-  utilStore.fetchStatusInformation()
-  orderRoutingStore().clearRoutingTestInfo()
-  await getTestSessions();
-  await getProductStoreReservation();
+  // emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
+  try {
+    await orderRoutingStore().fetchCurrentRoutingGroup(props.routingGroupId)
+    await fetchGroupHistory()
+    orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
+    utilStore.fetchStatusInformation()
+    orderRoutingStore().clearRoutingTestInfo()
+    await getTestSessions();
+    await getProductStoreReservation();
 
-  job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
-  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
-  description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
-  groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
-  
-  if(orderRoutings.value.length) {
-    initializeOrderRoutings();
+    job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
+    orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+    description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
+    groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
+    
+    if(orderRoutings.value.length) {
+      initializeOrderRoutings();
+    }
+  } catch (err) {
+    logger.error(err)
+  } finally {
+    // emitter.emit("dismissLoader")
   }
-  emitter.emit("dismissLoader")
 })
 
 // TODO: Need to revisit this, route entries are empty on router hooks
@@ -359,22 +364,11 @@ async function saveSchedule() {
     return;
   }
 
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    paused: job.value.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
-    ...job.value
-  }
-
   try {
-    const resp = await orderRoutingStore().scheduleBrokering(payload)
-    if(!commonUtil.hasError(resp)) {
-      commonUtil.showToast(translate("Job updated"))
-      // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
-      await orderRoutingStore().fetchCurrentGroupSchedule({ routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
-      job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
-    } else {
-      throw resp.data
-    }
+    commonUtil.showToast(translate("Job updated"))
+    currentRoutingGroup.value["schedule"] = { ...currentRoutingGroup.value["schedule"], paused: job.value.paused || 'N', ...job.value }
+    job.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"]
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value);
   } catch(err) {
     commonUtil.showToast(translate("Failed to update job"))
     logger.error(err)
@@ -450,27 +444,18 @@ async function redirect(orderRouting: Route) {
     return;
   }
 
-  await orderRoutingStore().setCurrentOrderRouting(orderRouting)
+  await orderRoutingStore().setCurrentOrderRouting(orderRouting.orderRoutingId)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
 async function updateGroupStatus(event: CustomEvent) {
   job.value.paused = event.detail.value
 
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    paused: job.value.paused,
-    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
-  }
-
   try {
-    const resp = await orderRoutingStore().scheduleBrokering(payload)
-    if(!commonUtil.hasError(resp)){
-      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-      commonUtil.showToast(translate("Group status updated"))
-    } else {
-      throw resp.data
-    }
+    job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
+    currentRoutingGroup.value['schedule'].cronExpression = job.value.cronExpression
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value)
+    commonUtil.showToast(translate("Group status updated"))
   } catch(err) {
     commonUtil.showToast(translate("Failed to update group status"))
     logger.error(err)
@@ -569,10 +554,8 @@ async function editGroupName() {
 
 async function updateGroupName() {
   if(groupName.value.trim() && groupName.value.trim() !== currentRoutingGroup.value.groupName.trim()) {
-    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
-    if(routingGroupId) {
-      await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, groupName: groupName.value })
-    } else {
+    const routingGroupId = await orderRoutingStore().updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
+    if(!routingGroupId) {
       groupName.value = currentRoutingGroup.value.groupName.trim()
     }
   }
@@ -584,10 +567,8 @@ async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId
   // If the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
   if(props.routingGroupId && ((currentRoutingGroup.value.description || description.value) && currentRoutingGroup.value.description != description.value)) {
-    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
-    if(routingGroupId) {
-      await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, description: description.value })
-    } else {
+    const routingGroupId = await orderRoutingStore().updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
+    if(!routingGroupId) {
       description.value = currentRoutingGroup.value.description
     }
   }
@@ -724,23 +705,23 @@ async function saveRoutingGroup() {
 }
 
 async function updateRoutingGroup(payload: any) {
-  emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
   let routingGroupId = ''
   try {
     const resp = await orderRoutingStore().updateRoutingGroup(payload);
 
-    if(!commonUtil.hasError(resp) && resp.data.routingGroupId) {
-      routingGroupId = resp.data.routingGroupId
+    if(resp) {
+      routingGroupId = resp
       commonUtil.showToast(translate("Routing group information updated"))
     } else {
-      throw resp.data
+      throw new Error("Failed to update group")
     }
   } catch(err) {
     commonUtil.showToast(translate("Failed to update group information"))
     logger.error(err);
   }
 
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
   return routingGroupId
 }
 
@@ -782,7 +763,7 @@ async function cloneGroup() {
 }
 
 async function cloneRouting(routing: any) {
-  emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
 
   const orderRoutingId = await orderRoutingStore().cloneOrderRouting({
     orderRoutingId: routing.orderRoutingId,
@@ -796,7 +777,7 @@ async function cloneRouting(routing: any) {
     initializeOrderRoutings()
   }
 
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 }
 
 async function getProductStoreReservation() {

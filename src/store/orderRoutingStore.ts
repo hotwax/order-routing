@@ -3,14 +3,14 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
+import { v4 as uuidv4 } from 'uuid';
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
     return {
       groups: [] as Array<any>,
-      rules: {} as any,
       currentGroup: {} as any,
-      currentRoute: {} as any,
+      currentRouteId: "",
       routingHistory: {} as any,
       currentRuleId: "",
       testRouting: {
@@ -37,19 +37,28 @@ export const orderRoutingStore = defineStore('orderRouting', {
       return state.groups
     },
     getRulesInformation(state) {
-      return state.rules
+      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId);
+      const rules = currentRouting?.rules || [];
+      return rules.reduce((acc: any, rule: any) => {
+        acc[rule.routingRuleId] = rule;
+        return acc;
+      }, {});
     },
     getCurrentRoutingGroup(state) {
-      return JSON.parse(JSON.stringify(state.currentGroup))
+      return state.currentGroup
     },
     getCurrentOrderRouting(state) {
-      return JSON.parse(JSON.stringify(state.currentRoute))
+      return state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId) || {}
     },
     getRoutingHistory(state) {
-      return JSON.parse(JSON.stringify(state.routingHistory))
+      return state.routingHistory
     },
     getCurrentRuleId(state) {
       return state.currentRuleId
+    },
+    getCurrentRule(state) {
+      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId);
+      return currentRouting?.rules?.find((rule: any) => rule.routingRuleId === state.currentRuleId) || {};
     },
     getTestRoutingInfo(state) {
       return state.testRouting
@@ -98,26 +107,40 @@ export const orderRoutingStore = defineStore('orderRouting', {
         }))
         routingGroups = commonUtil.sortSequence(routingGroups, "runTime")
       }
-      this.groups = routingGroups;
+
+      routingGroups.forEach((group: any) => {
+        const groupIndex = this.groups.findIndex((g: any) => g.routingGroupId === group.routingGroupId);
+        if (groupIndex !== -1) {
+          this.groups[groupIndex] = { ...this.groups[groupIndex], ...group };
+        } else {
+          this.groups.push(group);
+        }
+      });
+      this.groups = commonUtil.sortSequence(this.groups, "runTime")
     },
     async createRoutingGroup(groupName: string) {
       const payload = {
         groupName,
         productStoreId: productStore().currentEComStore.productStoreId,
-        createdDate: DateTime.now().toMillis()
+        createdDate: DateTime.now().toMillis(),
+        routingGroupId: uuidv4(),
+        lastUpdatedStamp: DateTime.now().toMillis(),
+        isNew: true
       }
       try {
-        const resp = await api({
-          url: "order-routing/groups",
-          method: "POST",
-          data: payload
-        })
-        if(!commonUtil.hasError(resp)) {
-          commonUtil.showToast(translate("Brokering run created"))
-          await this.fetchOrderRoutingGroups()
-        } else {
-          throw resp.data
-        }
+        // const resp = await api({
+        //   url: "order-routing/groups",
+        //   method: "POST",
+        //   data: payload
+        // })
+        // if(!commonUtil.hasError(resp)) {
+        //   commonUtil.showToast(translate("Brokering run created"))
+        //   await this.fetchOrderRoutingGroups()
+        // } else {
+        //   throw resp.data
+        // }
+
+        this.groups.push(payload);
       } catch(err) {
         commonUtil.showToast(translate("Failed to create brokering run"))
         logger.error(err)
@@ -125,6 +148,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async fetchCurrentGroupSchedule(payload: any) {
       const currentGroup = payload.currentGroup as any
+      if (currentGroup.isNew) return;
       try {
         const resp = await api({
           url: `order-routing/groups/${payload.routingGroupId}/schedule`,
@@ -138,59 +162,95 @@ export const orderRoutingStore = defineStore('orderRouting', {
       } catch(err) {
         logger.error(err);
       }
-      this.currentGroup = currentGroup;
+      this.setCurrentGroup(currentGroup);
     },
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
       try {
-        const resp = await api({
-          url: `order-routing/groups/${routingGroupId}`,
-          method: "GET"
-        });
-        if(!commonUtil.hasError(resp) && resp.data) {
-          currentGroup = resp.data
-        } else {
-          throw resp.data
+        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId) {
+          return;
+        }
+        // Opened group is new group, which being created locally
+        currentGroup = this.groups.find(group => group.routingGroupId === routingGroupId)
+        if (!currentGroup?.isNew) {
+          const resp = await api({
+            url: `order-routing/groups/${routingGroupId}raw`,
+            method: "GET"
+          });
+          if(!commonUtil.hasError(resp) && resp.data) {
+            currentGroup = resp.data
+          } else {
+            throw resp.data
+          }
         }
       } catch(err) {
         logger.error(err);
       }
-      if(currentGroup.routings?.length) {
-        currentGroup.routings = commonUtil.sortSequence(currentGroup.routings)
+
+      // Normalize entire hierarchy
+      if(currentGroup?.routings?.length) {
+        currentGroup.routings = commonUtil.sortSequence(currentGroup.routings).map((routing: any) => {
+          if (routing.orderFilters?.length) {
+            routing.orderFilters = routing.orderFilters.map((filter: any) => {
+              if (filter.operator === "not-equals" || filter.operator === "not-in") {
+                filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
+              }
+              return filter;
+            })
+          }
+          if (routing.rules?.length) {
+            routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
+              if (rule.inventoryFilters?.length) {
+                const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
+                rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
+                  if (filterSortDesc.includes(filter.fieldName)) {
+                    filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
+                  }
+                  if (filter.operator === "not-equals") {
+                    filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
+                  }
+                  return filter;
+                })
+              }
+              return rule;
+            })
+          }
+          return routing;
+        })
       }
+
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })
+      this.setCurrentGroup(currentGroup);
     },
     async setCurrentGroup(currentGroup: any) {
       this.currentGroup = currentGroup;
+      const groupIndex = this.groups.findIndex((group: any) => group.routingGroupId === currentGroup.routingGroupId)
+      if (groupIndex !== -1) {
+        this.groups[groupIndex] = { ...this.groups[groupIndex], ...currentGroup }
+      }
     },
     async createOrderRouting(payload: any) {
       const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-      let orderRoutingId = ""
+      const orderRoutingId = uuidv4()
       try {
-        const resp = await api({
-          url: "order-routing/routings",
-          method: "POST",
-          data: payload
-        })
-        if(!commonUtil.hasError(resp) && resp?.data.orderRoutingId) {
-          orderRoutingId = resp.data.orderRoutingId
-          if(currentGroup["routings"]) {
-            currentGroup["routings"].push({
-              ...payload,
-              orderRoutingId
-            })
-          } else {
-            currentGroup["routings"] = [{
-              ...payload,
-              orderRoutingId
-            }]
-          }
-          commonUtil.showToast(translate("New routing created"))
+        if(currentGroup["routings"]) {
+          currentGroup["routings"].push({
+            ...payload,
+            orderRoutingId,
+            rules: []
+          })
+        } else {
+          currentGroup["routings"] = [{
+            ...payload,
+            orderRoutingId,
+            rules: []
+          }]
         }
         if(currentGroup["routings"]?.length) {
           currentGroup["routings"] = commonUtil.sortSequence(currentGroup["routings"])
         }
         await this.setCurrentGroup(currentGroup)
+        commonUtil.showToast(translate("New routing created"))
       } catch(err) {
         commonUtil.showToast(translate("Failed to create order routing"))
         logger.error(err)
@@ -199,20 +259,24 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async cloneOrderRouting(payload: any) {
       let orderRoutingId = ""
+      const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
       try {
-        const resp = await api({
-          url: `order-routing/routings/${payload.orderRoutingId}/clone`,
-          method: "POST",
-          data: {
-            orderRoutingId: payload.orderRoutingId,
-            newRoutingName: `${payload.orderRoutingName} copy`,
-            newRoutingGroupId: payload.routingGroupId
-          }
-        })
-        if(!commonUtil.hasError(resp) && resp?.data.newOrderRoutingId) {
-          orderRoutingId = resp.data.newOrderRoutingId
+        const sourceRouting = currentGroup.routings?.find((r: any) => r.orderRoutingId === payload.orderRoutingId)
+        if (sourceRouting) {
+          orderRoutingId = uuidv4()
+          const clonedRouting = JSON.parse(JSON.stringify(sourceRouting))
+          clonedRouting.orderRoutingId = orderRoutingId
+          clonedRouting.routingName = `${payload.orderRoutingName} copy`
+          
+          // Generate new IDs for rules and filters to avoid conflicts
+          clonedRouting.rules?.forEach((rule: any) => {
+            rule.routingRuleId = uuidv4()
+          })
+
+          currentGroup.routings.push(clonedRouting)
+          currentGroup.routings = commonUtil.sortSequence(currentGroup.routings)
+          await this.setCurrentGroup(currentGroup)
           commonUtil.showToast(translate("Routing cloned"))
-          await this.fetchCurrentRoutingGroup(payload.routingGroupId)
         }
       } catch(err) {
         commonUtil.showToast(translate("Failed to clone order routing"))
@@ -220,33 +284,11 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
       return orderRoutingId;
     },
-    async setCurrentOrderRouting(payload: any) {
-      this.currentRoute = payload;
+    async setCurrentOrderRouting(orderRoutingId: string) {
+      this.currentRouteId = orderRoutingId;
     },
     async fetchCurrentOrderRouting(orderRoutingId: string) {
-      let currentRoute = {} as any
-      try {
-        const resp = await api({
-          url: `order-routing/routings/${orderRoutingId}`,
-          method: "GET"
-        });
-        if(!commonUtil.hasError(resp) && resp.data) {
-          currentRoute = resp.data
-          if(currentRoute["orderFilters"]?.length) {
-            currentRoute["orderFilters"].map((filter: any) => {
-              if(filter.operator === "not-equals" || filter.operator === "not-in") {
-                filter.fieldName += "_excluded"
-              }
-            })
-          }
-          currentRoute["rules"] = currentRoute["rules"]?.length ? commonUtil.sortSequence(currentRoute["rules"]) : []
-        } else {
-          throw resp.data
-        }
-      } catch(err) {
-        logger.error(err);
-      }
-      this.setCurrentOrderRouting(currentRoute)
+      this.setCurrentOrderRouting(orderRoutingId)
     },
     async fetchRoutingHistory(routingGroupId: any) {
       let routingHistory = {}
@@ -280,34 +322,63 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async deleteRoutingFilters(payload: any) {
       let hasAllFiltersDeletedSuccessfully = true;
       try {
-        for(const filter of payload.filters) {
-          const resp = await api({
-            url: `order-routing/routings/${payload.orderRoutingId}/orderFilters`,
-            method: "DELETE",
-            data: {
-              orderRoutingId: payload.orderRoutingId,
-              conditionSeqId: filter.conditionSeqId
-            }
-          });
-          if(commonUtil.hasError(resp) || !resp.data.orderRoutingId) {
-            hasAllFiltersDeletedSuccessfully = false
-          }
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const routing = currentGroup.routings?.find((r: any) => r.orderRoutingId === payload.orderRoutingId)
+        if (routing && routing.orderFilters) {
+          const conditionSeqIdsToDelete = payload.filters.map((f: any) => f.conditionSeqId)
+          routing.orderFilters = routing.orderFilters.filter((f: any) => !conditionSeqIdsToDelete.includes(f.conditionSeqId))
+          await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
         logger.error(err);
+        hasAllFiltersDeletedSuccessfully = false
       }
       return hasAllFiltersDeletedSuccessfully
     },
     async updateRouting(payload: any) {
-      let orderRoutingId = ''
+      const orderRoutingId = payload.orderRoutingId
       try {
-        const resp = await api({
-          url: `order-routing/routings/${payload.orderRoutingId}`,
-          method: "POST",
-          data: payload
-        })
-        if(!commonUtil.hasError(resp) && resp.data?.orderRoutingId) {
-          orderRoutingId = resp.data.orderRoutingId
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const routingIndex = currentGroup.routings?.findIndex((r: any) => r.orderRoutingId === orderRoutingId)
+        if (routingIndex !== undefined && routingIndex !== -1) {
+          const routing = currentGroup.routings[routingIndex]
+
+          // Merge rules if provided in payload
+          if (payload.rules && Array.isArray(payload.rules)) {
+            const updatedRules = [...(routing.rules || [])]
+            payload.rules.forEach((updatedRule: any) => {
+              const ruleIndex = updatedRules.findIndex((r: any) => 
+                (updatedRule.routingRuleId && r.routingRuleId === updatedRule.routingRuleId) || 
+                (!updatedRule.routingRuleId && r.ruleName === updatedRule.ruleName)
+              )
+              if (ruleIndex !== -1) {
+                updatedRules[ruleIndex] = { ...updatedRules[ruleIndex], ...updatedRule }
+              } else {
+                updatedRules.push(updatedRule)
+              }
+            })
+            payload.rules = updatedRules
+          }
+
+          // Merge orderFilters if provided in payload
+          if (payload.orderFilters && Array.isArray(payload.orderFilters)) {
+            const updatedFilters = [...(routing.orderFilters || [])]
+            payload.orderFilters.forEach((updatedFilter: any) => {
+              const filterIndex = updatedFilters.findIndex((f: any) => 
+                (updatedFilter.conditionSeqId && f.conditionSeqId === updatedFilter.conditionSeqId) ||
+                (!updatedFilter.conditionSeqId && f.fieldName === updatedFilter.fieldName && f.conditionTypeEnumId === updatedFilter.conditionTypeEnumId)
+              )
+              if (filterIndex !== -1) {
+                updatedFilters[filterIndex] = { ...updatedFilters[filterIndex], ...updatedFilter }
+              } else {
+                updatedFilters.push(updatedFilter)
+              }
+            })
+            payload.orderFilters = updatedFilters
+          }
+
+          currentGroup.routings[routingIndex] = { ...routing, ...payload }
+          await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
         logger.error(err);
@@ -319,27 +390,23 @@ export const orderRoutingStore = defineStore('orderRouting', {
       this.currentRuleId = payload;
     },
     async createRoutingRule(payload: any) {
-      const currentRoute = JSON.parse(JSON.stringify(this.currentRoute))
-      let routingRules = currentRoute.rules?.length ? JSON.parse(JSON.stringify(currentRoute.rules)) : []
-      let routingRuleId = ''
+      const routingRuleId = uuidv4()
       try {
-        const resp = await api({
-          url: "order-routing/rules",
-          method: "POST",
-          data: payload
-        })
-        if(!commonUtil.hasError(resp) && resp?.data.routingRuleId) {
-          routingRuleId = resp.data.routingRuleId
-          routingRules.push({
-            ...payload,
-            routingRuleId
-          })
-          commonUtil.showToast(translate("Inventory rule created successfully"))
-          if(routingRules.length) {
-            routingRules = commonUtil.sortSequence(routingRules)
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        if (currentRoute) {
+          if (!currentRoute.rules) {
+            currentRoute.rules = []
           }
-          currentRoute["rules"] = routingRules
-          this.currentRoute = currentRoute;
+          currentRoute.rules.push({
+            ...payload,
+            routingRuleId,
+            inventoryFilters: [],
+            actions: []
+          })
+          currentRoute.rules = commonUtil.sortSequence(currentRoute.rules)
+          await this.setCurrentGroup(currentGroup)
+          commonUtil.showToast(translate("Inventory rule created successfully"))
         }
       } catch(err) {
         commonUtil.showToast(translate("Failed to create inventory rule"))
@@ -350,96 +417,118 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async deleteRuleConditions(payload: any) {
       let hasAllConditionsDeletedSuccessfully = true;
       try {
-        for(const condition of payload.conditions) {
-          const resp = await api({
-            url: `order-routing/rules/${payload.routingRuleId}/inventoryFilters`,
-            method: "DELETE",
-            data: {
-              routingRuleId: payload.routingRuleId,
-              conditionSeqId: condition.conditionSeqId
-            }
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
+        if (currentRule && currentRule.inventoryFilters) {
+          const conditionSeqIdsToDelete = payload.conditions.map((c: any) => c.conditionSeqId).filter(Boolean)
+          const fieldNamesToDelete = payload.conditions.filter((c: any) => !c.conditionSeqId).map((c: any) => c.fieldName)
+          
+          currentRule.inventoryFilters = currentRule.inventoryFilters.filter((f: any) => {
+            if (f.conditionSeqId) return !conditionSeqIdsToDelete.includes(f.conditionSeqId)
+            return !fieldNamesToDelete.includes(f.fieldName)
           })
-          if(commonUtil.hasError(resp) || !resp.data.conditionSeqId) {
-            hasAllConditionsDeletedSuccessfully = false
-          }
+          await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
         logger.error(err);
+        hasAllConditionsDeletedSuccessfully = false
       }
       return hasAllConditionsDeletedSuccessfully
     },
     async deleteRuleActions(payload: any) {
       let hasAllActionsDeletedSuccessfully = true;
       try {
-        for(const action of payload.actions) {
-          const resp = await api({
-            url: `order-routing/rules/${payload.routingRuleId}/actions`,
-            method: "DELETE",
-            data: {
-              routingRuleId: payload.routingRuleId,
-              actionSeqId: action.actionSeqId
-            }
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
+        if (currentRule && currentRule.actions) {
+          const actionSeqIdsToDelete = payload.actions.map((a: any) => a.actionSeqId).filter(Boolean)
+          const actionTypesToDelete = payload.actions.filter((a: any) => !a.actionSeqId).map((a: any) => a.actionTypeEnumId)
+
+          currentRule.actions = currentRule.actions.filter((a: any) => {
+            if (a.actionSeqId) return !actionSeqIdsToDelete.includes(a.actionSeqId)
+            return !actionTypesToDelete.includes(a.actionTypeEnumId)
           })
-          if(commonUtil.hasError(resp) || !resp.data.actionSeqId) {
-            hasAllActionsDeletedSuccessfully = false
-          }
+          await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
         logger.error(err)
+        hasAllActionsDeletedSuccessfully = false
       }
       return hasAllActionsDeletedSuccessfully
     },
     async fetchInventoryRuleInformation(routingRuleId: string) {
-      const rulesInformation = JSON.parse(JSON.stringify(this.rules))
-      const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
-      try {
-        const resp = await api({
-          url: `order-routing/rules/${routingRuleId}`,
-          method: "GET"
-        });
-        if(!commonUtil.hasError(resp) && resp.data.routingRuleId) {
-          rulesInformation[routingRuleId] = resp.data
-          if(rulesInformation[routingRuleId]["inventoryFilters"]?.length) {
-            rulesInformation[routingRuleId]["inventoryFilters"] = commonUtil.sortSequence(rulesInformation[routingRuleId]["inventoryFilters"]).reduce((filters: any, filter: any) => {
-              if(filterSortDesc.includes(filter.fieldName)) {
-                filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
-              }
-              if(filter.operator === "not-equals") {
-                filter.fieldName += "_excluded"
-              }
-              if(filters[filter.conditionTypeEnumId]) {
-                filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-              } else {
-                filters[filter.conditionTypeEnumId] = {
-                  [filter.fieldName]: filter
-                }
-              }
-              return filters
-            }, {})
+      this.updateRoutingRuleId(routingRuleId)
+      const currentRule = this.getCurrentRule
+      if (!currentRule || !currentRule.routingRuleId) return {}
+      
+      const formattedRule = JSON.parse(JSON.stringify(currentRule))
+      if(formattedRule["inventoryFilters"]?.length) {
+        formattedRule["inventoryFilters"] = formattedRule["inventoryFilters"].reduce((filters: any, filter: any) => {
+          if(filters[filter.conditionTypeEnumId]) {
+            filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+          } else {
+            filters[filter.conditionTypeEnumId] = {
+              [filter.fieldName]: filter
+            }
           }
-          if(rulesInformation[routingRuleId]["actions"]?.length) {
-            rulesInformation[routingRuleId]["actions"] = rulesInformation[routingRuleId]["actions"].reduce((actions: any, action: any) => {
-              actions[action.actionTypeEnumId] = action
-              return actions
-            }, {})
-          }
-        }
-      } catch(err) {
-        logger.error(err)
+          return filters
+        }, {})
       }
-      this.rules = rulesInformation;
-      return rulesInformation[routingRuleId] ? JSON.parse(JSON.stringify(rulesInformation[routingRuleId])) : {}
+      if(formattedRule["actions"]?.length) {
+        formattedRule["actions"] = formattedRule["actions"].reduce((actions: any, action: any) => {
+          actions[action.actionTypeEnumId] = action
+          return actions
+        }, {})
+      }
+      return formattedRule
     },
     async updateRule(payload: any) {
-      let routingRuleId = ''
+      const routingRuleId = payload.routingRuleId
       try {
-        const resp = await api({
-          url: `order-routing/rules/${payload.routingRuleId}`,
-          method: "POST",
-          data: payload
-        });
-        if(!commonUtil.hasError(resp) && resp.data.routingRuleId) {
-          routingRuleId = resp.data.routingRuleId
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRuleIndex = currentRoute?.rules?.findIndex((r: any) => r.routingRuleId === routingRuleId)
+        if (currentRoute && currentRuleIndex !== undefined && currentRuleIndex !== -1) {
+          const rule = currentRoute.rules[currentRuleIndex]
+
+          // Merge inventoryFilters if provided in payload
+          if (payload.inventoryFilters && Array.isArray(payload.inventoryFilters)) {
+            const updatedFilters = [...(rule.inventoryFilters || [])]
+            payload.inventoryFilters.forEach((updatedFilter: any) => {
+              const filterIndex = updatedFilters.findIndex((f: any) => 
+                (updatedFilter.conditionSeqId && f.conditionSeqId === updatedFilter.conditionSeqId) ||
+                (!updatedFilter.conditionSeqId && f.fieldName === updatedFilter.fieldName && f.conditionTypeEnumId === updatedFilter.conditionTypeEnumId)
+              )
+              if (filterIndex !== -1) {
+                updatedFilters[filterIndex] = { ...updatedFilters[filterIndex], ...updatedFilter }
+              } else {
+                updatedFilters.push(updatedFilter)
+              }
+            })
+            payload.inventoryFilters = updatedFilters
+          }
+
+          // Merge actions if provided in payload
+          if (payload.actions && Array.isArray(payload.actions)) {
+            const updatedActions = [...(rule.actions || [])]
+            payload.actions.forEach((updatedAction: any) => {
+              const actionIndex = updatedActions.findIndex((a: any) => 
+                (updatedAction.actionSeqId && a.actionSeqId === updatedAction.actionSeqId) ||
+                (!updatedAction.actionSeqId && a.actionTypeEnumId === updatedAction.actionTypeEnumId)
+              )
+              if (actionIndex !== -1) {
+                updatedActions[actionIndex] = { ...updatedActions[actionIndex], ...updatedAction }
+              } else {
+                updatedActions.push(updatedAction)
+              }
+            })
+            payload.actions = updatedActions
+          }
+
+          currentRoute.rules[currentRuleIndex] = { ...rule, ...payload }
+          await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
         logger.error("Failed to update rule conditions and actions")
@@ -448,13 +537,22 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async clearRouting() {
       this.groups = []
-      this.rules = {}
       this.currentGroup = {}
-      this.currentRoute = {}
+      this.currentRouteId = ""
+      this.currentRuleId = ""
       this.routingHistory = {}
     },
+    async clearCurrentGroup() {
+      this.currentGroup = {};
+      this.clearCurrentRoutingAndRule();
+      this.routingHistory = {}
+    },
+    async clearCurrentRoutingAndRule() {
+      this.currentRouteId = "";
+      this.clearRules();
+    },
     async clearRules() {
-      this.rules = {};
+      this.currentRuleId = "";
     },
     async updateGroupStatus(payload: any) {
       const routingGroups = JSON.parse(JSON.stringify(this.groups))
@@ -504,11 +602,26 @@ export const orderRoutingStore = defineStore('orderRouting', {
       });
     },
     async cloneRule(payload: any): Promise<any> {
-      return await api({
-        url: `order-routing/rules/${payload.routingRuleId}/clone`,
-        method: "POST",
-        data: payload
-      })
+      try {
+        const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const sourceRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
+        
+        if (currentRoute && sourceRule) {
+          const clonedRule = JSON.parse(JSON.stringify(sourceRule))
+          clonedRule.routingRuleId = uuidv4()
+          clonedRule.ruleName = `${sourceRule.ruleName || 'Rule'} copy`
+          
+          currentRoute.rules.push(clonedRule)
+          currentRoute.rules = commonUtil.sortSequence(currentRoute.rules)
+          await this.setCurrentGroup(currentGroup)
+          commonUtil.showToast(translate("Rule cloned"))
+          return { data: { routingRuleId: clonedRule.routingRuleId } } // Returning matching api structure
+        }
+      } catch (err) {
+        logger.error(err)
+      }
+      return Promise.reject("Failed to clone rule")
     },
     async fetchGroupHistory(jobName: string, params: any): Promise<any> {
       return api({
@@ -518,18 +631,35 @@ export const orderRoutingStore = defineStore('orderRouting', {
       });
     },
     async updateRoutingGroup(payload: any): Promise<any> {
-      return api({
-        url: `order-routing/groups/${payload.routingGroupId}`,
-        method: "POST",
-        data: payload
-      })
+      try {
+        const groupIndex = this.groups.findIndex((g: any) => g.routingGroupId === payload.routingGroupId);
+        if (groupIndex !== -1) {
+          this.groups[groupIndex] = { ...this.groups[groupIndex], ...payload };
+          if (this.currentGroup?.routingGroupId === payload.routingGroupId) {
+            this.currentGroup = { ...this.currentGroup, ...payload };
+          }
+          return payload.routingGroupId;
+        }
+      } catch (err) {
+        logger.error(err);
+      }
+      return Promise.reject("Failed to update group");
     },
     async cloneGroup(payload: any): Promise<any> {
-      return api({
-        url: `order-routing/groups/${payload.routingGroupId}/clone`,
-        method: "POST",
-        data: payload
-      })
+      try {
+        const sourceGroup = this.groups.find((g: any) => g.routingGroupId === payload.routingGroupId);
+        if (sourceGroup) {
+          const newGroupId = uuidv4();
+          const clonedGroup = JSON.parse(JSON.stringify(sourceGroup));
+          clonedGroup.routingGroupId = newGroupId;
+          clonedGroup.groupName = payload.newGroupName || `${sourceGroup.groupName || 'Group'} copy`;
+          this.groups.push(clonedGroup);
+          return { data: { routingGroupId: newGroupId } };
+        }
+      } catch (err) {
+        logger.error(err);
+      }
+      return Promise.reject("Failed to clone group");
     },
     async findOrder(queryString: string, orderId: string): Promise<any> {
       let orders = []

@@ -540,14 +540,15 @@ const measurementRef = ref()
 const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
-  emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
-  orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId)
+  // emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
-    await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId)
+    await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId as string)
   }
+
+  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
+  orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId as string)
 
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
@@ -563,7 +564,7 @@ onIonViewWillEnter(async () => {
   routeName.value = currentRouting.value["routingName"] ? currentRouting.value["routingName"] : ""
 
   routingStatus.value = currentRouting.value.statusId
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 })
 
 // TODO: Need to revisit this, route entries are empty on router hooks
@@ -575,9 +576,7 @@ onBeforeRouteLeave(async (to) => {
   }
 
   if(!hasUnsavedChanges.value) {
-    // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
-    orderRoutingStore().updateRoutingRuleId( "")
-    orderRoutingStore().clearRules()
+
     await updateUserTestSession();
     return;
   }
@@ -606,10 +605,7 @@ onBeforeRouteLeave(async (to) => {
     return false;
   }
 
-  // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
-  orderRoutingStore().updateRoutingRuleId( "")
-  orderRoutingStore().clearRules()
-
+  await orderRoutingStore().clearCurrentRoutingAndRule()
   await updateUserTestSession();
   return;
 })
@@ -728,9 +724,30 @@ function initializeOrderRoutingOptions() {
 }
 
 async function initializeInventoryRule(rule: any) {
-  const inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
+  let inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
 
-  inventoryRuleActions.value = rule["actions"] || {}
+  if (Array.isArray(inventoryRuleFilters)) {
+    inventoryRuleFilters = inventoryRuleFilters.reduce((filters: any, filter: any) => {
+      if (filters[filter.conditionTypeEnumId]) {
+        filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+      } else {
+        filters[filter.conditionTypeEnumId] = {
+          [filter.fieldName]: filter
+        }
+      }
+      return filters
+    }, {})
+  }
+
+  let inventoryRuleActionsData = rule["actions"] || {}
+  if (Array.isArray(inventoryRuleActionsData)) {
+    inventoryRuleActionsData = inventoryRuleActionsData.reduce((actions: any, action: any) => {
+      actions[action.actionTypeEnumId] = action
+      return actions
+    }, {})
+  }
+
+  inventoryRuleActions.value = inventoryRuleActionsData
   inventoryRuleFilterOptions.value = inventoryRuleFilters["ENTCT_FILTER"] ? inventoryRuleFilters["ENTCT_FILTER"] : {}
   inventoryRuleSortOptions.value = inventoryRuleFilters["ENTCT_SORT_BY"] ? inventoryRuleFilters["ENTCT_SORT_BY"] : {}
 
@@ -750,7 +767,7 @@ async function editRouteName() {
 async function updateRouteName() {
   if(routeName.value.trim() && routeName.value.trim() !== currentRouting.value.routingName.trim()) {
 
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
     const payload = {
       orderRoutingId: props.orderRoutingId,
@@ -765,12 +782,12 @@ async function updateRouteName() {
     }
 
     if(orderRoutingId) {
-      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, routingName: routeName.value })
+      commonUtil.showToast(translate("Route Name updated"))
     } else {
       routeName.value = currentRouting.value.routingName.trim()
     }
 
-    emitter.emit("dismissLoader")
+    // emitter.emit("dismissLoader")
   }
 
   isRouteNameUpdating.value = false
@@ -1247,9 +1264,10 @@ async function updateRuleName(routingRuleId: string) {
   })
 
   if(isUpdateRequired) {
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
-    let ruleId = await orderRoutingStore().updateRule( {
+    let ruleId = ''
+    ruleId = await orderRoutingStore().updateRule( {
       routingRuleId,
       orderRoutingId: props.orderRoutingId,
       ruleName: selectedRoutingRule.value.ruleName.trim()
@@ -1261,14 +1279,14 @@ async function updateRuleName(routingRuleId: string) {
       commonUtil.showToast(translate("Failed to update rule information"))
     }
 
-    emitter.emit("dismissLoader")
+    // emitter.emit("dismissLoader")
   }
 
   isRuleNameUpdating.value = false
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
   try {
     const resp = await orderRoutingStore().cloneRule({
@@ -1277,7 +1295,7 @@ async function cloneRule() {
       newRuleName: `${selectedRoutingRule.value.ruleName} copy`
     })
 
-    if(commonUtil.hasError(resp) || !resp.data.newRoutingRuleId) {
+    if(commonUtil.hasError(resp) || !resp.data.routingRuleId) {
       throw resp.data
     }
 
@@ -1287,7 +1305,7 @@ async function cloneRule() {
     commonUtil.showToast(translate("Failed to clone rule"))
   }
 
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -1488,160 +1506,161 @@ function doReorder(event: CustomEvent) {
 }
 
 async function save() {
-  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
-  const orderRouting = {
-    orderRoutingId: props.orderRoutingId,
-    routingGroupId: currentRouting.value.routingGroupId
-  } as any
+  // emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  try {
+    const orderRouting = {
+      orderRoutingId: props.orderRoutingId,
+      routingGroupId: currentRouting.value.routingGroupId
+    } as any
 
-  // Check if the status of currentRouting is changed, if yes then update the status for routing
-  if(currentRouting.value.statusId !== routingStatus.value) {
-    orderRouting["statusId"] = routingStatus.value
-  }
-
-  // Find diff for inventory rules
-  if(currentRouting.value["rules"]) {
-    let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
-    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
-  
-    if(diffSeq.length) {
-      orderRouting["rules"] = diffSeq
+    // Check if the status of currentRouting is changed, if yes then update the status for routing
+    if(currentRouting.value.statusId !== routingStatus.value) {
+      orderRouting["statusId"] = routingStatus.value
     }
-  }
-  // Inventory rules diff calculated
 
-  // Find order filters diff
-  const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filters[filter.conditionTypeEnumId]) {
-      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-    } else {
-      filters[filter.conditionTypeEnumId] = {
-        [filter.fieldName]: filter
+    // Find diff for inventory rules
+    if(currentRouting.value["rules"]) {
+      let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
+      diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+    
+      if(diffSeq.length) {
+        orderRouting["rules"] = diffSeq
       }
     }
-    return filters
-  }, {}) : {}
+    // Inventory rules diff calculated
 
-  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
-  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
-
-  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
-  const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
-  // Diff found for removing and updating filters
-
-  if(filtersToRemove?.length) {
-    await orderRoutingStore().deleteRoutingFilters( { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
-
-    // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
-    // if(isSuccess) {
-    //   await useOrderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
-    // }
-  }
-
-  if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
-    orderRouting["orderFilters"] = filtersToUpdate
-    const orderRoutingId = await orderRoutingStore().updateRouting( orderRouting)
-
-    if(orderRoutingId) {
-      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
-    }
-  }
-
-  const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
-
-  // Whenever we will be having a feature to delete a rule then this logic needs updation
-  const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
-    const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-    const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-    const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
-
-    const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
-    Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
-      if(filterSortDesc.includes(option.fieldName)) {
-        option.fieldName += " desc"
+    // Find order filters diff
+    const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
+      if(filters[filter.conditionTypeEnumId]) {
+        filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+      } else {
+        filters[filter.conditionTypeEnumId] = {
+          [filter.fieldName]: filter
+        }
       }
-    })
+      return filters
+    }, {}) : {}
 
-    const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-    const updatedRuleFilterOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-    const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-    const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
-    const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
-    const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
+    const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
+    const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
 
     // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
       if(key.includes("_excluded")) {
         value["fieldName"] = value["fieldName"].split("_")[0]
       }
     })
 
-    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
       if(key.includes("_excluded")) {
         value["fieldName"] = value["fieldName"].split("_")[0]
       }
     })
 
-    return {
-      routingRuleId: ruleId,
-      orderRoutingId: props.orderRoutingId,
-      filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
-      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
-      actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
-      actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
-    }
-  })
+    const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
+    const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
+    // Diff found for removing and updating filters
 
-  for(const key in rulesDiff) {
-    const rule = rulesDiff[key]
-    
-    if(rule.filtersToRemove?.length) {
-      await orderRoutingStore().deleteRuleConditions( { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
+    if(filtersToRemove?.length) {
+      await orderRoutingStore().deleteRoutingFilters( { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+
+      // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
+      // if(isSuccess) {
+      //   await useOrderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+      // }
     }
 
-    if(rule.actionsToRemove?.length) {
-      await orderRoutingStore().deleteRuleActions( { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
+    if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
+      orderRouting["orderFilters"] = filtersToUpdate
+      await orderRoutingStore().updateRouting( orderRouting)
     }
 
-    if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
-      await orderRoutingStore().updateRule( {
-        routingRuleId: rule.routingRuleId,
-        orderRoutingId: rule.orderRoutingId,
-        inventoryFilters: rule.filtersToUpdate,
-        actions: rule.actionsToUpdate
+    const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
+
+    // Whenever we will be having a feature to delete a rule then this logic needs updation
+    const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
+      const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
+      const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
+      const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
+
+      const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
+      Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
+        if(filterSortDesc.includes(option.fieldName)) {
+          option.fieldName += " desc"
+        }
       })
+
+      const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
+      const updatedRuleFilterOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
+      const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
+
+      const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
+      const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
+      const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
+
+      // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+      Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+        if(key.includes("_excluded")) {
+          value["fieldName"] = value["fieldName"].split("_")[0]
+        }
+      })
+
+      Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+        if(key.includes("_excluded")) {
+          value["fieldName"] = value["fieldName"].split("_")[0]
+        }
+      })
+
+      return {
+        routingRuleId: ruleId,
+        orderRoutingId: props.orderRoutingId,
+        filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
+        filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
+        actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
+        actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
+      }
+    })
+
+    for(const key in rulesDiff) {
+      const rule = rulesDiff[key]
+      
+      if(rule.filtersToRemove?.length) {
+        await orderRoutingStore().deleteRuleConditions( { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
+      }
+
+      if(rule.actionsToRemove?.length) {
+        await orderRoutingStore().deleteRuleActions( { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
+      }
+
+      if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
+        await orderRoutingStore().updateRule( {
+          routingRuleId: rule.routingRuleId,
+          orderRoutingId: rule.orderRoutingId,
+          inventoryFilters: rule.filtersToUpdate,
+          actions: rule.actionsToUpdate
+        })
+      }
     }
-  }
 
-  await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
-  if(currentRouting.value["orderFilters"]?.length) {
-    initializeOrderRoutingOptions()
-  }
+    await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
+    if(currentRouting.value["orderFilters"]?.length) {
+      initializeOrderRoutingOptions()
+    }
 
-  // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
-  if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
-    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
-    await fetchRuleInformation(currentRuleId.value, true);
-  }
+    // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
+    if(currentRouting.value["rules"]?.length) {
+      inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+      // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
+      // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
+      await fetchRuleInformation(currentRuleId.value, true);
+    }
 
-  hasUnsavedChanges.value = false
-  emitter.emit("dismissLoader")
+    hasUnsavedChanges.value = false
+  } catch (err) {
+    logger.error(err)
+    commonUtil.showToast(translate("Failed to update inventory rules and filters"))
+  }
+  // emitter.emit("dismissLoader")
 }
 
 function updatePartialGroupItemsAllocation(checked: boolean) {

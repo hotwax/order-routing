@@ -174,7 +174,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
         currentGroup = this.groups.find(group => group.routingGroupId === routingGroupId)
         if (!currentGroup?.isNew) {
           const resp = await api({
-            url: `order-routing/groups/${routingGroupId}raw`,
+            url: `order-routing/groups/${routingGroupId}/raw`,
             method: "GET"
           });
           if(!commonUtil.hasError(resp) && resp.data) {

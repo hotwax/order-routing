@@ -25,7 +25,7 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>

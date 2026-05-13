@@ -526,7 +526,10 @@ let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
-let hasUnsavedChanges = ref(false)
+const hasUnsavedChanges = computed({
+  get: () => orderRoutingStore().hasUnsavedChanges,
+  set: (value: boolean) => orderRoutingStore().setHasUnsavedChanges(value)
+})
 let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
 let routeName = ref("")
@@ -1506,7 +1509,7 @@ function doReorder(event: CustomEvent) {
 }
 
 async function save() {
-  // emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
   try {
     const orderRouting = {
       orderRoutingId: props.orderRoutingId,
@@ -1655,12 +1658,15 @@ async function save() {
       await fetchRuleInformation(currentRuleId.value, true);
     }
 
+    await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value);
+
     hasUnsavedChanges.value = false
+    router.push("/tabs/brokering");
   } catch (err) {
     logger.error(err)
     commonUtil.showToast(translate("Failed to update inventory rules and filters"))
   }
-  // emitter.emit("dismissLoader")
+  emitter.emit("dismissLoader")
 }
 
 function updatePartialGroupItemsAllocation(checked: boolean) {

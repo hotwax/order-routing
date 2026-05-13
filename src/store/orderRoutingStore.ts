@@ -62,6 +62,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     getTestRoutingInfo(state) {
       return state.testRouting
+    },
+    hasUnsavedChanges(state) {
+      return state.currentGroup?.hasUnsavedChanges || false
     }
   },
   actions: {
@@ -125,7 +128,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
         createdDate: DateTime.now().toMillis(),
         routingGroupId: uuidv4(),
         lastUpdatedStamp: DateTime.now().toMillis(),
-        isNew: true
+        isNew: true,
+        hasUnsavedChanges: true
       }
       try {
         // const resp = await api({
@@ -146,6 +150,77 @@ export const orderRoutingStore = defineStore('orderRouting', {
         logger.error(err)
       }
     },
+    async saveRoutingGroupRaw(payload: any) {
+      const transformedPayload = JSON.parse(JSON.stringify(payload));
+      const isNewRoutingGroup = transformedPayload.isNew;
+      let stateRoutingGroupId = transformedPayload.routingGroupId;
+      if (isNewRoutingGroup) {
+        delete transformedPayload.routingGroupId;
+        transformedPayload.routings?.forEach((routing: any) => {
+          delete routing.routingGroupId;
+          delete routing.orderRoutingId;
+          routing.orderFilters?.forEach((orderFilter: any) => {
+            delete orderFilter.orderRoutingId;
+          })
+          routing.rules?.forEach((rule: any) => {
+            delete rule.routingRuleId;
+            delete rule.orderRoutingId;
+            rule.inventoryFilters?.forEach((filter: any) => {
+              delete filter.routingRuleId;
+            });
+            rule.actions?.forEach((action: any) => {
+              delete action.routingRuleId;
+            });
+          });
+        });
+      }
+
+      const schedule = transformedPayload.schedule;
+      delete transformedPayload.schedule;
+
+      try {
+        const resp = await api({
+          url: "order-routing/groups",
+          method: "POST",
+          data: transformedPayload
+        });
+
+        if (resp.data?.routingGroupId) {
+          const routingGroupId = resp.data.routingGroupId;
+          if (schedule) {
+            schedule.routingGroupId = routingGroupId;
+            const scheduleResp = await this.scheduleBrokering(schedule);
+            if (!scheduleResp.data?.jobName) {
+              commonUtil.showToast(translate("Failed to schedule brokering run."));
+            }
+          }
+
+          if (isNewRoutingGroup) {
+            // delete temperary group from local storage with temperary routing group uuid
+            this.groups = this.groups.filter((group: any) => group.routingGroupId !== stateRoutingGroupId)
+          }
+
+          const getResp = await api({
+            url: `order-routing/groups/${routingGroupId}/raw`,
+            method: "GET"
+          });
+
+          if (Object.keys(getResp?.data).length) {
+            this.setCurrentGroup(getResp.data, false);
+          } else {
+            throw "Error getting saved brokering run";
+          }
+        } else {
+          throw "Error saving brokering run"
+        }
+      } catch (err) {
+        logger.error(err);
+        throw err;
+      }
+    },
+    setHasUnsavedChanges(value: boolean) {
+      this.currentGroup.hasUnsavedChanges = value;
+    },
     async fetchCurrentGroupSchedule(payload: any) {
       const currentGroup = payload.currentGroup as any
       if (currentGroup.isNew) return;
@@ -162,7 +237,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       } catch(err) {
         logger.error(err);
       }
-      this.setCurrentGroup(currentGroup);
+      this.setCurrentGroup(currentGroup, false);
     },
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
@@ -220,13 +295,13 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
 
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })
-      this.setCurrentGroup(currentGroup);
+      this.setCurrentGroup(currentGroup, false);
     },
-    async setCurrentGroup(currentGroup: any) {
-      this.currentGroup = currentGroup;
+    async setCurrentGroup(currentGroup: any, hasUnsavedChanges = true) {
+      this.currentGroup = { ...currentGroup, hasUnsavedChanges };
       const groupIndex = this.groups.findIndex((group: any) => group.routingGroupId === currentGroup.routingGroupId)
       if (groupIndex !== -1) {
-        this.groups[groupIndex] = { ...this.groups[groupIndex], ...currentGroup }
+        this.groups[groupIndex] = { ...this.groups[groupIndex], ...currentGroup, hasUnsavedChanges }
       }
     },
     async createOrderRouting(payload: any) {

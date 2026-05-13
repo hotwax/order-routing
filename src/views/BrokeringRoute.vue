@@ -122,7 +122,7 @@
                   <!-- When the group is in draft status, do not display the runTime from the schedule -->
                   <ion-label slot="end">{{ job.paused === 'N' ? commonUtil.getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
-                <ion-item lines="none" button @click="runNow()">
+                <ion-item lines="none" button @click="runNow()" :disabled="hasUnsavedChanges">
                   <ion-icon slot="start" :icon="flashOutline"/>
                   <ion-label>{{ translate("Run Now") }}</ion-label>
                 </ion-item>
@@ -239,7 +239,10 @@ const props = defineProps({
 let routingsForReorder = ref([])
 let description = ref("")
 let isDescUpdating = ref(false)
-let hasUnsavedChanges = ref(false)
+const hasUnsavedChanges = computed({
+  get: () => orderRoutingStore().hasUnsavedChanges,
+  set: (value: boolean) => orderRoutingStore().setHasUnsavedChanges(value)
+})
 const descRef = ref()
 let groupName = ref("")
 let isGroupNameUpdating = ref(false)
@@ -660,8 +663,7 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
 }
 
 async function saveRoutingGroup() {
-  hasUnsavedChanges.value = false
-  commonUtil.showToast(translate("Routing group information updated"))
+  await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value)
 }
 
 async function showGroupHistory() {

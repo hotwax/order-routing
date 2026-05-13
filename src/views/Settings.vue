@@ -162,10 +162,7 @@ async function changeTimeZone() {
 }
 
 function logout() {
-  useAuth().logout({ isUserUnauthorised: false }).then(() => {
-    const redirectUrl = window.location.origin + '/login'
-    window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
-  })
+  useAuth().logout({ isUserUnauthorised: false })
 }
 
 function goToLaunchpad() {

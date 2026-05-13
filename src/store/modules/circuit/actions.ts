@@ -2,14 +2,16 @@ import { ActionTree } from 'vuex'
 import RootState from '@/store/RootState'
 import CircuitState from './CircuitState'
 import * as types from './mutation-types'
-import { CircuitStorageService, ChatThread, ChatMessage } from '@/services/CircuitStorageService'
+import { CircuitStorageService, ChatThread, ChatMessage, DraftFeedbackRecord } from '@/services/CircuitStorageService'
 import CircuitLLMService from '@/services/CircuitLLMService';
 import { translate } from '@/i18n';
+import { clearCurrentChatHistory } from './historyActions';
 
 const actions: ActionTree<CircuitState, RootState> = {
   setIntroDone({ commit }, payload: boolean) {
     commit(types.SET_INTRO_DONE, payload)
   },
+  clearCurrentChatHistory,
   setChatStarted({ commit }, payload: boolean) {
     commit(types.SET_CHAT_STARTED, payload)
   },
@@ -81,6 +83,62 @@ const actions: ActionTree<CircuitState, RootState> = {
       dispatch('loadAllThreads');
     } catch (error) {
       console.error('Failed to delete thread', error);
+    }
+  },
+  async addLocalMessage({ commit, state, dispatch }, payload: { role: 'user' | 'circuit'; content: string; threadName?: string }) {
+    commit(types.SET_CHAT_STARTED, true);
+
+    let threadId = state.currentThreadId;
+    if (!threadId) {
+      threadId = await dispatch('createThread', payload.threadName || payload.content.substring(0, 30) || 'New Chat');
+      if (!threadId) {
+        return;
+      }
+    }
+
+    const message: ChatMessage = {
+      role: payload.role,
+      content: payload.content,
+      id: `${Date.now()}-${payload.role}-${Math.random().toString(36).slice(2, 8)}`,
+      threadId,
+      createdAt: Date.now()
+    };
+
+    await CircuitStorageService.saveMessage(message);
+    if (state.currentThreadId === threadId) {
+      commit(types.ADD_MESSAGE, message);
+    }
+  },
+  async saveDraftFeedback({ state }, payload: {
+    type: DraftFeedbackRecord['type'];
+    userFeedback: string;
+    proposal: {
+      sourcePrompt: string;
+      summary: string;
+      operations: any[];
+      unansweredQuestions: string[];
+    }
+  }) {
+    if (!state.currentThreadId) {
+      return;
+    }
+
+    const record: DraftFeedbackRecord = {
+      id: `${Date.now()}-feedback-${Math.random().toString(36).slice(2, 8)}`,
+      threadId: state.currentThreadId,
+      type: payload.type,
+      userFeedback: payload.userFeedback,
+      sourcePrompt: payload.proposal.sourcePrompt,
+      proposalSummary: payload.proposal.summary,
+      operations: payload.proposal.operations || [],
+      unansweredQuestions: payload.proposal.unansweredQuestions || [],
+      createdAt: Date.now()
+    };
+
+    try {
+      await CircuitStorageService.saveDraftFeedback(record);
+    } catch (error) {
+      console.error('Failed to save draft feedback', error);
     }
   },
   async sendAgentMessage({ commit, state, dispatch }, payload: string) {

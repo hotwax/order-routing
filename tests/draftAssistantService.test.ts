@@ -1,0 +1,717 @@
+import assert from "assert";
+import {
+  convertBrokeringRouteDraftToOperations,
+  createDraftOutputContract,
+  createDraftProposal,
+  formatDraftProposalSections,
+  requestBrokeringRouteDraftOperations,
+  summarizeDraftOperations,
+  validateDraftOperations
+} from "../src/services/DraftAssistantService";
+import type {
+  DraftConversationMessage,
+  DraftOperation,
+  PageCapabilityManifest
+} from "../src/services/DraftAssistantService";
+
+const manifest: PageCapabilityManifest = {
+  pageId: "test.page",
+  route: "/test",
+  visibleEntities: {},
+  editableTargets: [
+    {
+      target: "selected.statusId",
+      label: "Selected status",
+      valueType: "enum",
+      currentValue: "DRAFT",
+      options: [
+        { id: "ACTIVE", label: "Active", aliases: ["activate"] },
+        { id: "DRAFT", label: "Draft" }
+      ],
+      editable: true
+    },
+    {
+      target: "selected.disabledStatusId",
+      label: "Disabled status",
+      valueType: "enum",
+      currentValue: "DRAFT",
+      options: [{ id: "ACTIVE", label: "Active" }],
+      editable: true,
+      disabled: true,
+      disabledReason: "This field is locked."
+    },
+    {
+      target: "selected.ambiguousStatusId",
+      label: "Ambiguous status",
+      valueType: "enum",
+      currentValue: "DRAFT",
+      options: [
+        { id: "FIRST", label: "First", aliases: ["same"] },
+        { id: "SECOND", label: "Second", aliases: ["same"] }
+      ],
+      editable: true
+    },
+    {
+      target: "selected.queueId",
+      label: "Queue",
+      valueType: "enum",
+      currentValue: "BROKERING_QUEUE",
+      options: [
+        { id: "BROKERING_QUEUE", label: "Brokering Queue" },
+        { id: "UNFILLABLE_PARKING", label: "Unfillable Parking", aliases: ["unfillable queue"] }
+      ],
+      editable: true
+    }
+  ],
+  outputContract: createDraftOutputContract()
+};
+
+function validate(operations: DraftOperation[]) {
+  return validateDraftOperations(operations, manifest);
+}
+
+{
+  const result = validate([{ op: "set", target: "selected.statusId", value: "activate" }]);
+  assert.equal(result.unansweredQuestions.length, 0);
+  assert.deepEqual(result.operations, [{ op: "set", target: "selected.statusId", value: "ACTIVE" }]);
+}
+
+{
+  const result = validate([{ op: "set", target: "selected.statusId", value: "ARCHIVED" }]);
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.unansweredQuestions.length, 1);
+  assert.ok(result.unansweredQuestions[0].includes("Active (ACTIVE)"));
+  assert.ok(result.unansweredQuestions[0].includes("Draft (DRAFT)"));
+}
+
+{
+  const result = validate([{ op: "set", target: "selected.disabledStatusId", value: "ACTIVE" }]);
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.unansweredQuestions.length, 1);
+}
+
+{
+  const result = validate([{ op: "set", target: "selected.unknown", value: "ACTIVE" }]);
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.unansweredQuestions.length, 1);
+}
+
+{
+  const result = validate([{ op: "set", target: "selected.ambiguousStatusId", value: "same" }]);
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.unansweredQuestions.length, 1);
+  assert.ok(result.unansweredQuestions[0].includes("First (FIRST)"));
+  assert.ok(result.unansweredQuestions[0].includes("Second (SECOND)"));
+}
+
+{
+  const result = validateDraftOperations([{ op: "append", target: "selected.statusId", value: "ACTIVE" } as any], manifest);
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.unansweredQuestions.length, 1);
+}
+
+{
+  const result = summarizeDraftOperations([{ op: "set", target: "selected.queueId", value: "unfillable queue" }], manifest);
+  assert.equal(result, "Queue: Unfillable Parking");
+}
+
+{
+  const brokeringManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "route.orderFilters.SHIPPING_METHOD",
+        label: "Shipping method filter",
+        valueType: "string[]",
+        currentValue: [],
+        options: [{ id: "STANDARD", label: "Standard Shipping" }],
+        multiple: true,
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+        label: "Inventory facility group filter",
+        valueType: "enum",
+        currentValue: "",
+        options: [
+          { id: "WAREHOUSE", label: "All Warehouses" },
+          { id: "STORES", label: "All Stores" }
+        ],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK",
+        label: "Brokering safety stock filter",
+        valueType: "number",
+        currentValue: undefined,
+        editable: true
+      },
+      {
+        target: "selectedRule.inventorySorts.PROXIMITY",
+        label: "Inventory proximity sort",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true
+      }
+    ]
+  };
+  const result = formatDraftProposalSections([
+    { op: "set", target: "route.orderFilters.SHIPPING_METHOD", value: ["STANDARD"] },
+    { op: "set", target: "selectedRule.inventoryFilters.FACILITY_GROUP", value: "WAREHOUSE", ruleKey: "new:warehouse-first", ruleName: "Rule 1: Warehouse first" },
+    { op: "set", target: "selectedRule.inventoryFilters.FACILITY_GROUP", value: "STORES", ruleKey: "new:stores-threshold", ruleName: "Rule 2: Store threshold" },
+    { op: "set", target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", value: 3, ruleKey: "new:stores-threshold", ruleName: "Rule 2: Store threshold" },
+    { op: "set", target: "selectedRule.inventorySorts.PROXIMITY", value: true, ruleKey: "new:stores-threshold", ruleName: "Rule 2: Store threshold" }
+  ], brokeringManifest);
+
+  assert.equal(result, [
+    "Order filters",
+    "- Shipping method filter: Standard Shipping",
+    "",
+    "Inventory rule: Rule 1: Warehouse first",
+    "- Inventory facility group filter: All Warehouses",
+    "",
+    "Inventory rule: Rule 2: Store threshold",
+    "- Inventory facility group filter: All Stores",
+    "- Brokering safety stock filter: 3",
+    "- Inventory proximity sort: true"
+  ].join("\n"));
+}
+
+{
+  const proposal = createDraftProposal({
+    operations: [
+      { op: "set", target: "selected.statusId", value: "activate" },
+      { op: "set", target: "selected.unknown", value: "ACTIVE" }
+    ],
+    unansweredQuestions: [],
+    summary: "Draft updated"
+  }, manifest);
+
+  assert.equal(proposal.operations.length, 1);
+  assert.equal(proposal.operations[0].value, "ACTIVE");
+  assert.equal(proposal.unansweredQuestions.length, 1);
+  assert.equal(proposal.summary, "Selected status: Active");
+}
+
+{
+  const brokeringManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "route.statusId",
+        label: "Route status",
+        valueType: "enum",
+        currentValue: "ROUTING_DRAFT",
+        options: [
+          { id: "ROUTING_DRAFT", label: "Draft" },
+          { id: "ROUTING_ACTIVE", label: "Active" }
+        ],
+        editable: true
+      },
+      {
+        target: "route.orderFilters.SALES_CHANNEL",
+        label: "Sales channel filter",
+        valueType: "string[]",
+        currentValue: [],
+        options: [{ id: "WEB", label: "Web" }],
+        multiple: true,
+        editable: true
+      },
+      {
+        target: "route.orderSorts.SHIP_BY",
+        label: "Ship-by date sort",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+        label: "Inventory facility group filter",
+        valueType: "enum",
+        currentValue: "",
+        options: [{ id: "STORES", label: "Stores" }],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_GROUP_EXCLUDED",
+        label: "Excluded inventory facility group filter",
+        valueType: "enum",
+        currentValue: "",
+        options: [{ id: "WAREHOUSES", label: "Warehouses" }],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT",
+        label: "Facility order limit check",
+        valueType: "boolean",
+        currentValue: true,
+        options: [
+          { id: "false", label: "Respect facility order limits" },
+          { id: "true", label: "Bypass facility order limits" }
+        ],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventorySorts.PROXIMITY",
+        label: "Inventory proximity sort",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true
+      },
+      {
+        target: "selectedRule.unavailableItemsAction",
+        label: "Unavailable items action",
+        valueType: "enum",
+        currentValue: "ORA_NEXT_RULE",
+        options: [
+          { id: "ORA_NEXT_RULE", label: "Next rule" },
+          { id: "ORA_MV_TO_QUEUE", label: "Queue" }
+        ],
+        editable: true
+      },
+      {
+        target: "selectedRule.unavailableItemsQueueId",
+        label: "Unavailable items queue",
+        valueType: "enum",
+        currentValue: "",
+        options: [{ id: "UNFILLABLE_PARKING", label: "Unfillable Parking" }],
+        editable: true,
+        dependencies: [{
+          target: "selectedRule.unavailableItemsAction",
+          values: ["ORA_MV_TO_QUEUE"],
+          description: "Move unavailable items to a queue before selecting the queue."
+        }]
+      }
+    ]
+  };
+  const result = convertBrokeringRouteDraftToOperations({
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    route: {
+      statusId: "ROUTING_ACTIVE",
+      orderSelection: {
+        filters: {
+          queues: { include: [], exclude: [] },
+          shippingMethods: { include: [], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: ["WEB"], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: [{ field: "shipByDate", direction: "asc" }]
+      },
+      inventoryRules: [{
+        ruleKey: "new:stores-first",
+        name: "Stores first",
+        statusId: "RULE_DRAFT",
+        sequence: 10,
+        inventorySelection: {
+          filters: {
+            facilityGroups: { include: ["STORES"], exclude: ["WAREHOUSES"] },
+            proximity: { maxDistance: null, unit: null },
+            safetyStock: { minimum: null },
+            facilityOrderLimit: "respect",
+            shipmentThreshold: null
+          },
+          sorts: [{ field: "proximity", direction: "asc" }]
+        },
+        allocation: {
+          partialOrderAllocation: false,
+          partialGroupedItemAllocation: false
+        },
+        unavailableItems: {
+          action: "moveToQueue",
+          queueId: "UNFILLABLE_PARKING",
+          autoCancel: { mode: "none", days: null }
+        }
+      }]
+    },
+    questions: [],
+    summary: "Drafted a stores-first route."
+  }, brokeringManifest);
+
+  assert.deepEqual(result.operations.map((operation) => [operation.target, operation.value]), [
+    ["route.statusId", "ROUTING_ACTIVE"],
+    ["route.orderFilters.SALES_CHANNEL", ["WEB"]],
+    ["route.orderSorts.SHIP_BY", true],
+    ["selectedRule.inventoryFilters.FACILITY_GROUP", "STORES"],
+    ["selectedRule.inventoryFilters.FACILITY_GROUP_EXCLUDED", "WAREHOUSES"],
+    ["selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT", false],
+    ["selectedRule.inventorySorts.PROXIMITY", true],
+    ["selectedRule.unavailableItemsAction", "ORA_MV_TO_QUEUE"],
+    ["selectedRule.unavailableItemsQueueId", "UNFILLABLE_PARKING"]
+  ]);
+}
+
+{
+  const brokeringManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+        label: "Inventory facility group filter",
+        valueType: "enum",
+        currentValue: "",
+        options: [
+          { id: "WAREHOUSE", label: "Warehouse" },
+          { id: "STORES", label: "Stores" }
+        ],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK",
+        label: "Brokering safety stock filter",
+        valueType: "number",
+        currentValue: undefined,
+        editable: true
+      },
+      {
+        target: "selectedRule.inventorySorts.PROXIMITY",
+        label: "Inventory proximity sort",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true
+      }
+    ]
+  };
+  const result = convertBrokeringRouteDraftToOperations({
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: {
+        filters: {
+          queues: { include: [], exclude: [] },
+          shippingMethods: { include: [], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: [], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: []
+      },
+      inventoryRules: [
+        {
+          ruleKey: "new:warehouse-first",
+          name: "Warehouse first",
+          statusId: "RULE_DRAFT",
+          sequence: 10,
+          inventorySelection: {
+            filters: {
+              facilityGroups: { include: ["WAREHOUSE"], exclude: [] },
+              proximity: { maxDistance: null, unit: null },
+              safetyStock: { minimum: null },
+              facilityOrderLimit: "unchanged",
+              shipmentThreshold: null
+            },
+            sorts: []
+          },
+          allocation: {
+            partialOrderAllocation: false,
+            partialGroupedItemAllocation: false
+          },
+          unavailableItems: {
+            action: "nextRule",
+            queueId: null,
+            autoCancel: { mode: "none", days: null }
+          }
+        },
+        {
+          ruleKey: "new:stores-fallback",
+          name: "Stores fallback",
+          statusId: "RULE_DRAFT",
+          sequence: 20,
+          inventorySelection: {
+            filters: {
+              facilityGroups: { include: ["STORES"], exclude: [] },
+              proximity: { maxDistance: null, unit: null },
+              safetyStock: { minimum: 3 },
+              facilityOrderLimit: "unchanged",
+              shipmentThreshold: null
+            },
+            sorts: [{ field: "proximity", direction: "asc" }]
+          },
+          allocation: {
+            partialOrderAllocation: false,
+            partialGroupedItemAllocation: false
+          },
+          unavailableItems: {
+            action: "nextRule",
+            queueId: null,
+            autoCancel: { mode: "none", days: null }
+          }
+        }
+      ]
+    },
+    questions: [],
+    summary: "Drafted warehouse and stores fallback rules."
+  }, brokeringManifest);
+
+  assert.deepEqual(result.operations.map((operation) => [operation.ruleKey, operation.ruleName, operation.target, operation.value]), [
+    ["new:warehouse-first", "Warehouse first", "selectedRule.inventoryFilters.FACILITY_GROUP", "WAREHOUSE"],
+    ["new:stores-fallback", "Stores fallback", "selectedRule.inventoryFilters.FACILITY_GROUP", "STORES"],
+    ["new:stores-fallback", "Stores fallback", "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", 3],
+    ["new:stores-fallback", "Stores fallback", "selectedRule.inventorySorts.PROXIMITY", true]
+  ]);
+}
+
+{
+  const brokeringManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "selectedRule.partialAllocation",
+        label: "Partial allocation",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true
+      },
+      {
+        target: "selectedRule.partialGroupItemsAllocation",
+        label: "Grouped item partial allocation",
+        valueType: "boolean",
+        currentValue: false,
+        editable: true,
+        disabled: true,
+        disabledReason: "Grouped item partial allocation requires partial allocation to be enabled.",
+        dependencies: [{
+          target: "selectedRule.partialAllocation",
+          values: [true],
+          description: "Enable partial allocation before changing grouped item partial allocation."
+        }]
+      }
+    ]
+  };
+  const plan = convertBrokeringRouteDraftToOperations({
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: {
+        filters: {
+          queues: { include: [], exclude: [] },
+          shippingMethods: { include: [], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: [], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: []
+      },
+      inventoryRules: [{
+        ruleKey: "new:warehouse-first",
+        name: "Warehouse first",
+        statusId: "RULE_DRAFT",
+        sequence: 10,
+        inventorySelection: {
+          filters: {
+            facilityGroups: { include: [], exclude: [] },
+            proximity: { maxDistance: null, unit: null },
+            safetyStock: { minimum: 0 },
+            facilityOrderLimit: "unchanged",
+            shipmentThreshold: null
+          },
+          sorts: []
+        },
+        allocation: {
+          partialOrderAllocation: false,
+          partialGroupedItemAllocation: false
+        },
+        unavailableItems: {
+          action: "nextRule",
+          queueId: null,
+          autoCancel: { mode: "none", days: null }
+        }
+      }]
+    },
+    questions: [],
+    summary: "Drafted warehouse first rule."
+  }, brokeringManifest);
+  const proposal = createDraftProposal(plan, brokeringManifest);
+
+  assert.equal(plan.operations.some((operation) => operation.target === "selectedRule.partialGroupItemsAllocation"), false);
+  assert.equal(proposal.unansweredQuestions.length, 0);
+}
+
+{
+  const brokeringManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "route.orderFilters.QUEUE",
+        label: "Queue filter",
+        valueType: "string[]",
+        currentValue: [],
+        options: [{ id: "BROKERING_QUEUE", label: "Brokering Queue" }],
+        multiple: true,
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+        label: "Inventory facility group filter",
+        valueType: "enum",
+        currentValue: "",
+        options: [{ id: "WAREHOUSES", label: "All Warehouses" }],
+        editable: true
+      },
+      {
+        target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK",
+        label: "Brokering safety stock filter",
+        valueType: "number",
+        currentValue: 5,
+        editable: true
+      }
+    ]
+  };
+  const proposal = createDraftProposal({
+    operations: [
+      { op: "set", target: "selectedRule.inventoryFilters.FACILITY_GROUP", value: "WAREHOUSES" },
+      { op: "set", target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", value: 0 }
+    ],
+    unansweredQuestions: [
+      "Which inventory facility group(s) do you want to include for filtering inventory? For example, do you have a facility group named 'All Warehouses'?",
+      "Which queue should unavailable items move to?"
+    ],
+    summary: "Drafted a warehouse-only rule."
+  }, brokeringManifest);
+
+  assert.deepEqual(proposal.unansweredQuestions, ["Which queue should unavailable items move to?"]);
+}
+
+{
+  const history: DraftConversationMessage[] = [
+    { role: "user", content: "If no warehouse can fulfill, send it to the exception queue." },
+    { role: "assistant", content: "Which exception queue should be used?" },
+    { role: "user", content: "UNFILLABLE_PARKING" }
+  ];
+  let requestBody: any = null;
+  let requestUrl = "";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    requestUrl = String(url);
+    requestBody = JSON.parse(String(init?.body || "{}"));
+    return {
+      ok: true,
+      json: async () => ({
+        schemaVersion: "brokering-route-assistant.v1",
+        intent: "edit",
+        draft: {
+          schemaVersion: "brokering-route-draft.v1",
+          applyMode: "merge",
+          route: {
+            statusId: "ROUTING_DRAFT",
+            orderSelection: {
+              filters: {
+                queues: { include: [], exclude: [] },
+                shippingMethods: { include: [], exclude: [] },
+                priorities: { include: [], exclude: [] },
+                promiseDateDays: { max: null, excludeMax: null },
+                salesChannels: { include: [], exclude: [] },
+                originFacilityGroups: { include: [], exclude: [] }
+              },
+              sorts: []
+            },
+            inventoryRules: []
+          },
+          questions: [],
+          summary: "No draft changes applied"
+        }
+      })
+    } as Response;
+  }) as typeof fetch;
+
+  await requestBrokeringRouteDraftOperations("UNFILLABLE_PARKING", manifest, { conversationHistory: history });
+  globalThis.fetch = originalFetch;
+
+  assert.ok(requestUrl.endsWith("/brokering-route-assistant"));
+  assert.deepEqual(requestBody.conversationHistory, history);
+}
+
+{
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return {
+      ok: true,
+      json: async () => ({
+        schemaVersion: "brokering-route-assistant.v1",
+        intent: "inquiry",
+        message: "This routing brokers warehouse inventory first, then uses the store fallback rule.",
+        questions: [],
+        summary: "Explained current routing."
+      })
+    } as Response;
+  }) as typeof fetch;
+
+  const result = await requestBrokeringRouteDraftOperations("Explain the open routing.", manifest);
+  globalThis.fetch = originalFetch;
+
+  assert.equal(result.intent, "inquiry");
+  assert.equal(result.operations.length, 0);
+  assert.equal(result.summary, "This routing brokers warehouse inventory first, then uses the store fallback rule.");
+}
+
+{
+  const inquiryManifest: PageCapabilityManifest = {
+    ...manifest,
+    visibleEntities: {
+      brokeringRun: {
+        routingGroupId: "100051",
+        groupName: "Overnight Priority Orders",
+        productStoreId: "STORE",
+        schedule: {
+          cronExpression: "0 */30 * ? * *",
+          timeZone: "America/Chicago",
+          paused: "Y"
+        }
+      },
+      route: {
+        orderRoutingId: "route-1",
+        routingName: "Priority orders",
+        statusId: "ROUTING_ACTIVE",
+        currentOrderFilters: [
+          {
+            target: "route.orderFilters.QUEUE",
+            label: "Queue filter",
+            value: ["UNFILLABLE_PARKING", "BROKERING_QUEUE"],
+            valueLabel: "Unfillable Parking, Brokering Queue"
+          },
+          {
+            target: "route.orderFilters.SHIPPING_METHOD",
+            label: "Shipping method filter",
+            value: ["FEDEX_2_DAY", "NEXT_DAY"],
+            valueLabel: "2 Day FedEx Shipping, Next Day"
+          }
+        ],
+        currentOrderSorts: [],
+        availableInventoryRules: []
+      }
+    }
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return {
+      ok: true,
+      json: async () => ({
+        schemaVersion: "brokering-route-assistant.v1",
+        intent: "inquiry",
+        message: "The current brokering run is named Overnight Priority Orders. It is scheduled to execute every 30 minutes according to the configured cron expression but is currently paused (paused = Y). This run targets orders in the queues Unfillable Parking and Brokering Queue and filters for shipping methods 2 Day FedEx Shipping and Next Day. The route is active.",
+        questions: [
+          "What is the status of the brokering run?",
+          "Which order queues are included in this run?",
+          "What shipping methods does this run filter by?",
+          "Would you like details on specific order filters or sorting criteria applied in this run?",
+          "Which inventory rule should I inspect?"
+        ],
+        summary: "Explained current routing."
+      })
+    } as Response;
+  }) as typeof fetch;
+
+  const plan = await requestBrokeringRouteDraftOperations("help me understand this run", inquiryManifest);
+  const proposal = createDraftProposal(plan, inquiryManifest);
+  globalThis.fetch = originalFetch;
+
+  assert.deepEqual(proposal.unansweredQuestions, ["Which inventory rule should I inspect?"]);
+}
+
+console.log("Draft assistant service validation tests passed");

@@ -361,7 +361,7 @@
             </p>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
               <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -370,7 +370,7 @@
                   <ion-label>{{ translate("Group") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
-                <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -592,6 +592,8 @@ import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
+import { applyDraftOperations, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations, summarizeDraftOperations } from "@/services/DraftAssistantService";
+import { buildBrokeringAgentSnapshot, buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
 
 const props = defineProps({
   routingGroupId: {
@@ -606,6 +608,7 @@ const group = ref({}) as any;
 const activeRoutingId = ref('');
 const activeRuleId = ref('');
 const activeRouting = ref(null) as any;
+const initialActiveRouting = ref(null) as any;
 const activeRule = ref(null) as any;
 
 const orderRoutingFilterOptions = ref({}) as any;
@@ -620,8 +623,10 @@ const routeNameRef = ref()
 const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
+const initialRulesInformation = ref({}) as any;
 const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string || '{}');
 const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string || '{}');
+const conditionSortEnums = JSON.parse(process.env?.VUE_APP_RULE_SORT_ENUMS as string || '{}');
 
 const groupName = ref("");
 const isGroupNameUpdating = ref(false);
@@ -630,25 +635,13 @@ const isReordering = ref(false);
 const job = ref({}) as any;
 const groupHistory = ref([]) as any;
 
-const ruleEnums = {
-  "QUEUE": { "id": "OIP_QUEUE", "code": "facilityId" },
-  "QUEUE_EXCLUDED": { "id": "OIP_QUEUE_EXCLUDED", "code": "facilityId_excluded" },
-  "SHIPPING_METHOD": { "id": "OIP_SHIP_METH_TYPE", "code": "shipmentMethodTypeId" },
-  "SHIPPING_METHOD_EXCLUDED": { "id": "OIP_SHIP_METH_TYPE_EXCLUDED", "code": "shipmentMethodTypeId_excluded" },
-  "PRIORITY": { "id": "OIP_PRIORITY", "code": "priority" },
-  "PRIORITY_EXCLUDED": { "id": "OIP_PRIORITY_EXCLUDED", "code": "priority_excluded" },
-  "PROMISE_DATE": { "id": "OIP_PROMISE_DATE", "code": "promiseDaysCutoff" },
-  "PROMISE_DATE_EXCLUDED": { "id": "OIP_PROMISE_DATE_EXCLUDED", "code": "promiseDaysCutoff_excluded" },
-  "SALES_CHANNEL": { "id": "OIP_SALES_CHANNEL", "code": "salesChannelEnumId" },
-  "SALES_CHANNEL_EXCLUDED": { "id": "OIP_SALES_CHANNEL_EXCLUDED", "code": "salesChannelEnumId_excluded" },
-  "ORIGIN_FACILITY_GROUP": { "id": "OIP_ORIGIN_FAC_GRP", "code": "originFacilityGroupId" },
-  "ORIGIN_FACILITY_GROUP_EXCLUDED": { "id": "OIP_ORIGIN_FAC_GRP_EXCLUDED", "code": "originFacilityGroupId_excluded" }
-};
+const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string || '{}');
 
 const facilities = computed(() => store.getters["util/getVirtualFacilities"]);
 const enums = computed(() => store.getters["util/getEnums"]);
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"]);
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"]);
+const brokeringFacilityGroups = computed(() => store.getters["util/getBrokeringFacilityGroups"]);
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const userProfile = computed(() => store.getters["user/getUserProfile"])
 
@@ -667,15 +660,217 @@ function isInventoryRuleFiltersApplied() {
   return ruleFilters.length
 }
 
-function getFacilityGroupsForBrokering(): { [key: string]: any } {
-  const groups = Object.values(facilityGroups.value || {})
-  return groups.reduce((facilityGroups: { [key: string]: any }, group: any) => {
-    if(group.facilityGroupTypeId === "BROKERING_GROUP") {
-      facilityGroups[group.facilityGroupId] = group
+type CircuitDraftProposal = DraftProposal & {
+  id: string;
+  sourcePrompt: string;
+  createdAt: number;
+};
+
+async function prepareCircuitDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
+  if (!activeRouting.value?.orderRoutingId) {
+    return {
+      proposal: null,
+      message: translate("Select a routing context before asking Circuit to draft changes.")
+    };
+  }
+
+  const manifest = await buildCircuitDraftManifest();
+  const plan = await requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
+  const proposal = createDraftProposal(plan, manifest);
+  const pendingProposal: CircuitDraftProposal | null = proposal.operations.length
+    ? {
+      ...proposal,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      sourcePrompt: prompt,
+      createdAt: Date.now()
     }
-    return facilityGroups
-  }, {} as { [key: string]: any })
+    : null;
+
+  if (proposal.intent === "inquiry") {
+    return {
+      proposal: null,
+      message: formatInquiryMessage(proposal),
+      intent: "inquiry" as const
+    };
+  }
+
+  if (proposal.unansweredQuestions.length && !proposal.operations.length) {
+    showToast(proposal.unansweredQuestions[0]);
+    return {
+      proposal: null,
+      message: proposal.unansweredQuestions[0],
+      intent: proposal.intent
+    };
+  }
+
+  if (pendingProposal) {
+    return {
+      proposal: pendingProposal,
+      message: formatDraftProposalMessage(pendingProposal, manifest),
+      intent: proposal.intent
+    };
+  }
+
+  return {
+    proposal: null,
+    message: proposal.summary || translate("No matching UI values found"),
+    intent: proposal.intent
+  };
 }
+
+async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
+  if (!activeRouting.value?.orderRoutingId) {
+    return {
+      appliedCount: 0,
+      message: translate("Select a routing context before asking Circuit to draft changes.")
+    };
+  }
+
+  const manifest = await buildCircuitDraftManifest();
+  const result = applyDraftOperations(proposal.operations || [], manifest, buildCircuitDraftBindings());
+  const unansweredQuestions = [...(proposal.unansweredQuestions || []), ...result.unansweredQuestions];
+
+  if (unansweredQuestions.length) {
+    showToast(unansweredQuestions[0]);
+    return {
+      appliedCount: result.appliedCount,
+      message: unansweredQuestions[0]
+    };
+  }
+
+  if (result.appliedCount) {
+    const summary = summarizeDraftOperations(proposal.operations || [], manifest) || proposal.summary || translate("Draft updated");
+    showToast(summary);
+    return {
+      appliedCount: result.appliedCount,
+      message: `${translate("Applied draft changes")}: ${summary}`
+    };
+  }
+
+  showToast(translate("No matching UI values found"));
+  return {
+    appliedCount: 0,
+    message: translate("No matching UI values found")
+  };
+}
+
+function buildCircuitDraftBindings() {
+  return buildBrokeringRulesBindings({
+    orderRoutingId: activeRouting.value.orderRoutingId,
+    selectedRoutingRule: getSelectedRuleDraftRef(),
+    routingStatus: getRoutingStatusDraftRef(),
+    orderRoutingFilterOptions,
+    orderRoutingSortOptions,
+    inventoryRuleFilterOptions,
+    inventoryRuleSortOptions,
+    inventoryRuleActions,
+    inventoryRules,
+    rulesInformation,
+    rulesForReorder,
+    ruleActionType,
+    hasUnsavedChanges,
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums
+  });
+}
+
+function formatDraftProposalMessage(proposal: CircuitDraftProposal, manifest: any) {
+  const formattedSections = formatDraftProposalSections(proposal.operations || [], manifest);
+  const summaryLines = formattedSections
+    ? [formattedSections]
+    : (proposal.summary || "")
+      .split(";")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `- ${line}`);
+  const questionLines = (proposal.unansweredQuestions || [])
+    .map((question) => question.trim())
+    .filter(Boolean)
+    .map((question) => `- ${question}`);
+
+  return [
+    translate("Proposed draft changes:"),
+    summaryLines.length ? summaryLines.join("\n") : `- ${proposal.providerSummary || translate("Draft updated")}`,
+    questionLines.length ? `${translate("Open questions:")}\n${questionLines.join("\n")}` : "",
+    translate("Review this proposal before it changes the routing screen. Send feedback to revise it, or apply it when ready.")
+  ].filter(Boolean).join("\n\n");
+}
+
+function formatInquiryMessage(proposal: DraftProposal) {
+  const questionLines = (proposal.unansweredQuestions || [])
+    .map((question) => question.trim())
+    .filter(Boolean)
+    .map((question) => `- ${question}`);
+
+  return [
+    proposal.summary || proposal.providerSummary,
+    questionLines.length ? `${translate("Open questions:")}\n${questionLines.join("\n")}` : ""
+  ].filter(Boolean).join("\n\n");
+}
+
+async function buildCircuitDraftManifest() {
+  await store.dispatch("util/fetchRoutingReferenceData", {
+    productStoreId: group.value.productStoreId
+  });
+  return buildBrokeringRulesManifest({
+    pageRoute: "/tabs/circuit",
+    orderRoutingId: activeRouting.value?.orderRoutingId || "",
+    routingName: routeName.value,
+    routingStatus: activeRouting.value?.statusId || "",
+    brokeringRun: {
+      routingGroupId: group.value.routingGroupId || routingGroupId.value || "",
+      groupName: groupName.value || group.value.groupName || "",
+      productStoreId: group.value.productStoreId || "",
+      schedule: job.value || null
+    },
+    selectedRoutingRule: activeRule.value || {},
+    isTestEnabled: false,
+    orderRoutingFilterOptions: orderRoutingFilterOptions.value,
+    orderRoutingSortOptions: orderRoutingSortOptions.value,
+    inventoryRuleFilterOptions: inventoryRuleFilterOptions.value,
+    inventoryRuleSortOptions: inventoryRuleSortOptions.value,
+    inventoryRuleActions: inventoryRuleActions.value,
+    inventoryRules: inventoryRules.value,
+    rulesInformation: rulesInformation.value,
+    ruleActionType: ruleActionType.value,
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums,
+    ...buildBrokeringAgentSnapshot(store)
+  });
+}
+
+function getSelectedRuleDraftRef() {
+  return {
+    get value() {
+      return activeRule.value || {};
+    },
+    set value(rule: any) {
+      activeRule.value = rule;
+    }
+  };
+}
+
+function getRoutingStatusDraftRef() {
+  return {
+    get value() {
+      return activeRouting.value?.statusId || "";
+    },
+    set value(statusId: string) {
+      if (activeRouting.value) {
+        activeRouting.value.statusId = statusId;
+      }
+    }
+  };
+}
+
+defineExpose({
+  prepareCircuitDraftProposal,
+  applyCircuitDraftProposal
+});
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
   const facilityGroupIncluded = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP')?.fieldValue;
@@ -759,6 +954,7 @@ async function fetchRoutingGroupInformation() {
     activeRoutingId.value = '';
     activeRuleId.value = '';
     activeRouting.value = null;
+    initialActiveRouting.value = null;
     activeRule.value = null;
     inventoryRules.value = [];
     rulesForReorder.value = [];
@@ -771,11 +967,16 @@ async function fetchRoutingGroupInformation() {
     if(!hasError(resp) && resp.data) {
       group.value = resp.data
       groupName.value = group.value.groupName || ""
+      await store.dispatch("orderRouting/setCurrentGroup", group.value)
       
       // Fetching schedule and history
       await Promise.all([
         fetchGroupSchedule(),
-        fetchGroupHistory()
+        fetchGroupHistory(),
+        store.dispatch("util/fetchRoutingReferenceData", {
+          productStoreId: group.value.productStoreId,
+          force: true
+        })
       ])
 
       if(group.value.routings?.length) {
@@ -815,8 +1016,11 @@ async function fetchRoutingsInformation() {
 const selectRouting = (routing: any) => {
   activeRoutingId.value = routing.orderRoutingId;
   activeRouting.value = routing;
+  initialActiveRouting.value = JSON.parse(JSON.stringify(routing));
   activeRuleId.value = '';
   activeRule.value = null;
+  rulesInformation.value = {};
+  initialRulesInformation.value = {};
   
   routeName.value = routing.routingName || ""
   isRouteNameUpdating.value = false
@@ -838,6 +1042,7 @@ const selectRule = async (rule: any) => {
   try {
     if(!rulesInformation.value[rule.routingRuleId]) {
       rulesInformation.value[rule.routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
+      initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
     }
     activeRule.value = rulesInformation.value[rule.routingRuleId] || rule
   } catch (err) {
@@ -1406,6 +1611,30 @@ async function openArchivedRuleModal() {
 
 async function save() {
   emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  syncActiveRuleDraft()
+  const localRulesPersisted = await persistLocalInventoryRules()
+  if(!localRulesPersisted) {
+    emitter.emit("dismissLoader")
+    return
+  }
+
+  const orderRouting = {
+    orderRoutingId: activeRouting.value.orderRoutingId,
+    routingGroupId: group.value.routingGroupId
+  } as any;
+
+  if(initialActiveRouting.value?.statusId !== activeRouting.value.statusId) {
+    orderRouting.statusId = activeRouting.value.statusId;
+  }
+
+  if(activeRouting.value["rules"]) {
+    let diffSeq = findRulesDiff(activeRouting.value["rules"], inventoryRules.value);
+    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key]);
+
+    if(diffSeq.length) {
+      orderRouting.rules = diffSeq;
+    }
+  }
   
   // Save routing-level changes first
   const initialOrderFilters = activeRouting.value["orderFilters"]?.length ? activeRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
@@ -1442,72 +1671,199 @@ async function save() {
     await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: activeRouting.value.orderRoutingId })
   }
 
-  if(filtersToUpdate?.length) {
-    activeRouting.value["orderFilters"] = filtersToUpdate
-    await store.dispatch("orderRouting/updateRouting", activeRouting.value)
-  }
-
-  const initialInventoryRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
-
-  // Find diff for current rule
-  const ruleId = activeRule.value.routingRuleId
-  const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]?.["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-  const updatedRuleSortOptions = inventoryRuleSortOptions.value
-  const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
-
-  const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC as string || ""
-  Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
-    if(filterSortDesc.includes(option.fieldName)) {
-      option.fieldName += " desc"
+  if(filtersToUpdate?.length || orderRouting.rules?.length || orderRouting.statusId) {
+    orderRouting["orderFilters"] = filtersToUpdate
+    const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
+    if(orderRoutingId) {
+      activeRouting.value["orderFilters"] = Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value })
+      if(orderRouting.rules?.length) {
+        activeRouting.value["rules"] = JSON.parse(JSON.stringify(inventoryRules.value))
+      }
+      initialActiveRouting.value = JSON.parse(JSON.stringify(activeRouting.value))
     }
-  })
+  }
 
-  const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]?.["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-  const updatedRuleFilterOptions = inventoryRuleFilterOptions.value
-  const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-  const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]?.["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
-  const updatedRuleActionOptions = inventoryRuleActions.value
-  const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
-
-  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-  Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
+  const rulesDiff = buildRulesInformationDiff()
+  for(const rule of rulesDiff) {
+    if(rule.filtersToRemove?.length) {
+      await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
     }
-  })
 
-  Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
+    if(rule.actionsToRemove?.length) {
+      await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
     }
-  })
 
-  if(Object.keys(filterOptionsDiff.seqToRemove).length || Object.keys(sortOptionsDiff.seqToRemove).length) {
-    await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: ruleId, conditions: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }) })
+    if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
+      await store.dispatch("orderRouting/updateRule", {
+        routingRuleId: rule.routingRuleId,
+        orderRoutingId: rule.orderRoutingId,
+        inventoryFilters: rule.filtersToUpdate,
+        actions: rule.actionsToUpdate
+      })
+    }
   }
 
-  if(Object.keys(ruleActionsDiff.seqToRemove).length) {
-    await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: ruleId, actions: Object.values(ruleActionsDiff.seqToRemove) })
-  }
-
-  if(Object.keys(filterOptionsDiff.seqToUpdate).length || Object.keys(sortOptionsDiff.seqToUpdate).length || Object.keys(ruleActionsDiff.seqToUpdate).length) {
-    await store.dispatch("orderRouting/updateRule", {
-      routingRuleId: ruleId,
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      inventoryFilters: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
-      actions: Object.values(ruleActionsDiff.seqToUpdate)
-    })
-  }
-
-  // Refresh current routing and rule information
+  // Refresh current routing and touched rule information
   await store.dispatch("orderRouting/fetchCurrentOrderRouting", activeRouting.value.orderRoutingId)
-  rulesInformation.value[ruleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", ruleId)
-  initializeInventoryRule(rulesInformation.value[ruleId]);
+  for(const rule of rulesDiff) {
+    rulesInformation.value[rule.routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
+    initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
+  }
+  initialRulesInformation.value = {
+    ...initialRulesInformation.value,
+    ...JSON.parse(JSON.stringify(rulesInformation.value))
+  }
+  if(activeRule.value?.routingRuleId && rulesInformation.value[activeRule.value.routingRuleId]) {
+    initializeInventoryRule(rulesInformation.value[activeRule.value.routingRuleId]);
+  }
+  activeRouting.value["rules"] = JSON.parse(JSON.stringify(inventoryRules.value))
+  initialActiveRouting.value = JSON.parse(JSON.stringify(activeRouting.value))
+  initializeInventoryRules()
 
   hasUnsavedChanges.value = false
   emitter.emit("dismissLoader")
   showToast(translate("Changes saved successfully"))
+}
+
+function syncActiveRuleDraft() {
+  const ruleId = activeRule.value?.routingRuleId
+  if(!ruleId) return
+
+  rulesInformation.value[ruleId] = {
+    ...(rulesInformation.value[ruleId] || activeRule.value),
+    ...activeRule.value,
+    inventoryFilters: {
+      ENTCT_FILTER: inventoryRuleFilterOptions.value,
+      ENTCT_SORT_BY: inventoryRuleSortOptions.value
+    },
+    actions: inventoryRuleActions.value
+  }
+}
+
+async function persistLocalInventoryRules() {
+  const localRules = inventoryRules.value.filter((rule: any) => isLocalRuleId(rule.routingRuleId))
+
+  for(const rule of localRules) {
+    const localRuleId = rule.routingRuleId
+    const payload = {
+      ...rule,
+      routingRuleId: "",
+      orderRoutingId: activeRouting.value.orderRoutingId,
+      createdDate: rule.createdDate || DateTime.now().toMillis()
+    }
+    const persistedRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
+    if(!persistedRuleId) {
+      showToast(translate("Failed to create inventory rule"))
+      return false
+    }
+
+    replaceLocalRuleId(localRuleId, persistedRuleId)
+  }
+
+  return true
+}
+
+function replaceLocalRuleId(localRuleId: string, persistedRuleId: string) {
+  replaceRuleIdInList(inventoryRules.value, localRuleId, persistedRuleId)
+  replaceRuleIdInList(rulesForReorder.value, localRuleId, persistedRuleId)
+
+  const ruleInfo = rulesInformation.value[localRuleId] || {}
+  delete rulesInformation.value[localRuleId]
+  rulesInformation.value[persistedRuleId] = rewriteRuleOwnerIds({
+    ...ruleInfo,
+    routingRuleId: persistedRuleId
+  }, persistedRuleId)
+
+  delete initialRulesInformation.value[localRuleId]
+  initialRulesInformation.value[persistedRuleId] = {}
+
+  if(activeRule.value?.routingRuleId === localRuleId) {
+    activeRule.value.routingRuleId = persistedRuleId
+    activeRuleId.value = persistedRuleId
+  }
+}
+
+function replaceRuleIdInList(rules: any[], localRuleId: string, persistedRuleId: string) {
+  rules.forEach((rule: any) => {
+    if(rule.routingRuleId === localRuleId) {
+      rule.routingRuleId = persistedRuleId
+    }
+  })
+}
+
+function rewriteRuleOwnerIds(ruleInfo: any, routingRuleId: string) {
+  const inventoryFilters = ruleInfo.inventoryFilters || {}
+  Object.values(inventoryFilters.ENTCT_FILTER || {}).forEach((filter: any) => filter.routingRuleId = routingRuleId)
+  Object.values(inventoryFilters.ENTCT_SORT_BY || {}).forEach((filter: any) => filter.routingRuleId = routingRuleId)
+  Object.values(ruleInfo.actions || {}).forEach((action: any) => action.routingRuleId = routingRuleId)
+  return ruleInfo
+}
+
+function isLocalRuleId(ruleId: string) {
+  return String(ruleId || "").startsWith("new:") || String(ruleId || "").startsWith("draft:")
+}
+
+function buildRulesInformationDiff() {
+  const currentRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
+  const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC as string || ""
+
+  return Object.keys(currentRulesInformation).map((ruleId: string) => {
+    const previousRuleInformation = initialRulesInformation.value[ruleId] || {}
+    const updatedRuleInformation = currentRulesInformation[ruleId] || {}
+    const previousRuleSortOptions = previousRuleInformation["inventoryFilters"]?.["ENTCT_SORT_BY"] || {}
+    const updatedRuleSortOptions = updatedRuleInformation["inventoryFilters"]?.["ENTCT_SORT_BY"] || {}
+    const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
+
+    Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
+      if(filterSortDesc.includes(option.fieldName)) {
+        option.fieldName += " desc"
+      }
+    })
+
+    const previousRuleFilterOptions = previousRuleInformation["inventoryFilters"]?.["ENTCT_FILTER"] || {}
+    const updatedRuleFilterOptions = updatedRuleInformation["inventoryFilters"]?.["ENTCT_FILTER"] || {}
+    const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
+
+    const previousRuleActionOptions = previousRuleInformation["actions"] || {}
+    const updatedRuleActionOptions = updatedRuleInformation["actions"] || {}
+    const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
+
+    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
+
+    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+      if(key.includes("_excluded")) {
+        value["fieldName"] = value["fieldName"].split("_")[0]
+      }
+    })
+
+    return {
+      routingRuleId: ruleId,
+      orderRoutingId: activeRouting.value.orderRoutingId,
+      filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
+      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
+      actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
+      actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
+    }
+  }).filter((rule: any) => rule.filtersToRemove.length || rule.filtersToUpdate.length || rule.actionsToRemove.length || rule.actionsToUpdate.length)
+}
+
+function findRulesDiff(previousSeq: any, updatedSeq: any) {
+  const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
+    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId
+      && updatedSeq[key].statusId === previousSeq[key].statusId
+      && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId
+      && updatedSeq[key].ruleName === previousSeq[key].ruleName
+      && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
+    return {
+      ...diff,
+      [key]: updatedSeq[key]
+    }
+  }, {})
+  return diffSeq;
 }
 
 function findSortDiff(previousSeq: any, updatedSeq: any) {

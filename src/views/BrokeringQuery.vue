@@ -281,7 +281,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -290,7 +290,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -486,6 +486,7 @@ const facilities = computed(() => store.getters["util/getVirtualFacilities"])
 const enums = computed(() => store.getters["util/getEnums"])
 const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
 const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const brokeringFacilityGroups = computed(() => store.getters["util/getBrokeringFacilityGroups"])
 const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
 const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
 const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
@@ -520,13 +521,20 @@ const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
-  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
+  await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
 
-  // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
+  // Facility groups and shipping methods are product-store scoped, so load the
+  // route group before fetching those reference lists.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
     await store.dispatch("orderRouting/fetchCurrentRoutingGroup", router.currentRoute.value.params.routingGroupId)
   }
+
+  await store.dispatch("util/fetchRoutingReferenceData", {
+    productStoreId: currentRoutingGroup.value.productStoreId,
+    force: true
+  })
+
+  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
 
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
@@ -678,15 +686,6 @@ function getRuleIndex() {
 
   // adding one (1) as currentRuleIndex will have the index based on array, and used + as currentRuleIndex is a string
   return `${+currentRuleIndex + 1}/${total}`
-}
-
-function getFacilityGroupsForBrokering() {
-  return Object.values(facilityGroups.value)?.reduce((facilityGroups: any, group: any) => {
-    if(group.facilityGroupTypeId === "BROKERING_GROUP") {
-      facilityGroups[group.facilityGroupId] = group
-    }
-    return facilityGroups
-  }, {})
 }
 
 function initializeOrderRoutingOptions() {

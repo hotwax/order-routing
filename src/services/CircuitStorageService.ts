@@ -1,6 +1,6 @@
 
 const DB_NAME = 'CircuitDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface ChatThread {
   id: string;
@@ -13,6 +13,18 @@ export interface ChatMessage {
   threadId: string;
   role: 'user' | 'circuit';
   content: string;
+  createdAt: number;
+}
+
+export interface DraftFeedbackRecord {
+  id: string;
+  threadId: string;
+  type: 'approved' | 'revision_requested' | 'rejected';
+  userFeedback: string;
+  sourcePrompt: string;
+  proposalSummary: string;
+  operations: any[];
+  unansweredQuestions: string[];
   createdAt: number;
 }
 
@@ -36,6 +48,10 @@ const initDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains('messages')) {
         const messageStore = db.createObjectStore('messages', { keyPath: 'id' });
         messageStore.createIndex('threadId', 'threadId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('draftFeedback')) {
+        const feedbackStore = db.createObjectStore('draftFeedback', { keyPath: 'id' });
+        feedbackStore.createIndex('threadId', 'threadId', { unique: false });
       }
     };
 
@@ -126,6 +142,28 @@ const getMessages = async (threadId: string): Promise<ChatMessage[]> => {
   });
 };
 
+const deleteMessages = async (threadId: string): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(['messages'], 'readwrite');
+    const messageStore = transaction.objectStore('messages');
+    const index = messageStore.index('threadId');
+    const request = index.openCursor(IDBKeyRange.only(threadId));
+
+    request.onsuccess = (event: any) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(new Error('Transaction aborted'));
+  });
+};
+
 const deleteThread = async (threadId: string): Promise<void> => {
   const database = await initDB();
   return new Promise((resolve, reject) => {
@@ -152,10 +190,26 @@ const deleteThread = async (threadId: string): Promise<void> => {
   });
 };
 
+const saveDraftFeedback = async (record: DraftFeedbackRecord): Promise<void> => {
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(['draftFeedback'], 'readwrite');
+    const store = transaction.objectStore('draftFeedback');
+    const request = store.put(record);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(new Error('Transaction aborted'));
+    request.onerror = () => reject(request.error);
+  });
+};
+
 export const CircuitStorageService = {
   saveThread,
   getThreads,
   saveMessage,
   getMessages,
-  deleteThread
+  deleteMessages,
+  deleteThread,
+  saveDraftFeedback
 };

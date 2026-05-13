@@ -8,6 +8,15 @@ import { UtilService } from "@/services/UtilService"
 import { EnumerationAndType } from "@/types"
 import store from "@/store"
 
+type ProductStoreReferenceDataPayload = {
+  productStoreId?: string;
+  force?: boolean;
+};
+
+function getProductStoreId(payload?: ProductStoreReferenceDataPayload) {
+  return payload?.productStoreId || store.state.orderRouting.currentGroup.productStoreId;
+}
+
 const actions: ActionTree<UtilState, RootState> = {
   async fetchEnums({ commit, state }, payload) {
     let enums = {
@@ -123,22 +132,28 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_FACILITIES_UPDATED, facilities)
   },
 
-  async fetchShippingMethods({ commit, state }) {
-    let shippingMethods = JSON.parse(JSON.stringify(state.shippingMethods))
+  async fetchShippingMethods({ commit, state }, payload: ProductStoreReferenceDataPayload = {}) {
+    let shippingMethods = payload.force ? {} : JSON.parse(JSON.stringify(state.shippingMethods))
 
     // Do not fetch shipping methods if already available
-    if(Object.keys(shippingMethods).length) {
+    if(Object.keys(shippingMethods).length && !payload.force) {
+      return;
+    }
+
+    const productStoreId = getProductStoreId(payload);
+    if(!productStoreId) {
+      logger.warn("Skipping shipping method fetch because productStoreId is missing.")
       return;
     }
 
     // Fetching shipping methods for productStore of the currentGroup
-    const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+    const fetchPayload = {
+      productStoreId,
       pageSize: 200
     }
 
     try {
-      const resp = await UtilService.fetchShippingMethods(payload);
+      const resp = await UtilService.fetchShippingMethods(fetchPayload);
 
       if(!hasError(resp) && resp.data.length) {
         shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
@@ -153,21 +168,27 @@ const actions: ActionTree<UtilState, RootState> = {
     commit(types.UTIL_SHIPPING_METHOD_UPDATED, shippingMethods)
   },
 
-  async fetchFacilityGroups({ commit, state }) {
-    let facilityGroups = JSON.parse(JSON.stringify(state.facilityGroups))
+  async fetchFacilityGroups({ commit, state }, payload: ProductStoreReferenceDataPayload = {}) {
+    let facilityGroups = payload.force ? {} : JSON.parse(JSON.stringify(state.facilityGroups))
 
     // Do not fetch groups again if already available
-    if(Object.keys(facilityGroups).length) {
+    if(Object.keys(facilityGroups).length && !payload.force) {
       return;
     }
 
-    const payload = {
-      productStoreId: store.state.orderRouting.currentGroup.productStoreId,
+    const productStoreId = getProductStoreId(payload);
+    if(!productStoreId) {
+      logger.warn("Skipping facility group fetch because productStoreId is missing.")
+      return;
+    }
+
+    const fetchPayload = {
+      productStoreId,
       pageSize: 200
     }
 
     try {
-      const resp = await UtilService.fetchFacilityGroups(payload);
+      const resp = await UtilService.fetchFacilityGroups(fetchPayload);
 
       if(!hasError(resp) && resp.data.length) {
         facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {
@@ -280,6 +301,15 @@ const actions: ActionTree<UtilState, RootState> = {
     }
 
     commit(types.UTIL_CARRIERS_UPDATED, carriers)
+  },
+
+  async fetchRoutingReferenceData({ dispatch }, payload: ProductStoreReferenceDataPayload = {}) {
+    await Promise.all([
+      dispatch("fetchFacilities"),
+      dispatch("fetchFacilityGroups", payload),
+      dispatch("fetchShippingMethods", payload),
+      dispatch("fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" })
+    ])
   },
 
   async clearUtilState({ commit }) {

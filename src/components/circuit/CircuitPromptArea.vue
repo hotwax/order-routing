@@ -5,10 +5,11 @@
       label-placement="floating" 
       fill="outline" 
       :auto-grow="true" 
+      :disabled="disabled"
       v-model="internalPrompt"
       @keydown="handleKeydown"
     >
-      <ion-button :disabled="!internalPrompt?.trim()" slot="end" fill="clear" @click="onSend">
+      <ion-button :disabled="disabled || !internalPrompt?.trim()" slot="end" fill="clear" @click="onSend">
         <ion-icon slot="icon-only" :icon="sendOutline" />
       </ion-button>
     </ion-textarea>          
@@ -44,7 +45,8 @@
   /* eslint-disable no-undef */
   const props = defineProps<{
     modelValue: string,
-    selectedContext: any
+    selectedContext: any,
+    disabled?: boolean
   }>();
   
   const emit = defineEmits<{

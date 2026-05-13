@@ -222,7 +222,12 @@
   "View All": "View All",
   "value": "value",
   "Browser TimeZone":"Browser TimeZone",
+  "Applied draft changes": "Applied draft changes",
+  "Changes saved successfully": "Changes saved successfully",
   "Circuit": "Circuit",
+  "Clear chat history": "Clear chat history",
+  "Draft updated": "Draft updated",
+  "Failed to apply draft changes": "Failed to apply draft changes",
   "Threads": "Threads",
   "User": "User",
   "Your prompt here": "Your prompt here",
@@ -232,7 +237,9 @@
   "Unload": "Unload",
   "Re-verify": "Re-verify",
   "Add context": "Add context",
+  "No matching UI values found": "No matching UI values found",
   "Select a Routing Context": "Select a Routing Context",
+  "Select a routing context before asking Circuit to draft changes.": "Select a routing context before asking Circuit to draft changes.",
   "Select a routing from the list to view its details and manage inventory rules.": "Select a routing from the list to view its details and manage inventory rules.",
   "Ask Circuit to help you create or modify rules": "Ask Circuit to help you create or modify rules"
 }

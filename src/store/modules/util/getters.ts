@@ -31,6 +31,14 @@ const getters: GetterTree<UtilState, RootState> = {
   getFacilityGroups(state) {
     return state.facilityGroups
   },
+  getBrokeringFacilityGroups(state) {
+    return Object.values(state.facilityGroups).reduce((result: any, group: any) => {
+      if (group.facilityGroupTypeId === "BROKERING_GROUP") {
+        result[group.facilityGroupId] = group
+      }
+      return result
+    }, {})
+  },
   getStatusDesc: (state) => (id: any) => {
     return state.statuses[id]?.description ? state.statuses[id]?.description : id
   },

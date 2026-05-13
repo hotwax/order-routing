@@ -3,7 +3,7 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, validate } from 'uuid';
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -173,6 +173,13 @@ export const orderRoutingStore = defineStore('orderRouting', {
             });
           });
         });
+      } else {
+        transformedPayload.routings.forEach((routing: any) => {
+          if(validate(routing.orderRoutingId)) delete routing.orderRoutingId
+          routing.rules.forEach((rule: any) => {
+            if(validate(rule.routingRuleId)) delete rule.routingRuleId
+          })
+        })
       }
 
       const schedule = transformedPayload.schedule;

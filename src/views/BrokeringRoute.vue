@@ -205,12 +205,18 @@
           </div>
         </aside>
       </div>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
+          <ion-icon :icon="saveOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";

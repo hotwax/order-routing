@@ -146,9 +146,10 @@ import {
   terminalOutline,
   trashOutline
 } from 'ionicons/icons';
-import { translate } from '@/i18n';
+import { translate } from '@common';
 import { ref, computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { useCircuitStore } from '@/store/circuit';
+import { storeToRefs } from 'pinia';
 import { DateTime } from 'luxon';
 import { modalController } from '@ionic/vue';
 import { DraftConversationMessage, DraftProposal } from '@/services/DraftAssistantService';
@@ -160,7 +161,15 @@ import {
   DraftFeedbackType
 } from '@/services/CircuitDraftFeedbackService';
 
-const store = useStore();
+const circuitStore = useCircuitStore();
+const { 
+  messages, 
+  threads, 
+  currentThreadId, 
+  lastPrompt, 
+  activeContext: selectedContext,
+  isChatStarted
+} = storeToRefs(circuitStore);
 const prompt = ref('');
 const isApplyingDraft = ref(false);
 type CircuitDraftProposal = DraftProposal & {
@@ -176,22 +185,13 @@ const circuitCanvasRef = ref<{
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
 const pendingDiscardFeedbackProposal = ref<CircuitDraftProposal | null>(null);
 
-const messages = computed(() => store.getters['circuit/getMessages']);
-const threads = computed(() => store.getters['circuit/getThreads']);
-const currentThreadId = computed(() => store.getters['circuit/getCurrentThreadId']);
-const lastPrompt = computed(() => store.getters['circuit/getLastPrompt']);
+onMounted(() => {
+  circuitStore.loadAllThreads();
+});
+
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
-
-onMounted(() => {
-  store.dispatch('circuit/loadAllThreads');
-});
-
-const selectedContext = computed({
-  get: () => store.state.circuit.activeContext,
-  set: (value) => store.commit('circuit/SET_ACTIVE_CONTEXT', value)
-});
 
 const onSend = async () => {
   const message = prompt.value.trim();
@@ -200,7 +200,7 @@ const onSend = async () => {
   prompt.value = '';
 
   isApplyingDraft.value = true;
-  await store.dispatch('circuit/addLocalMessage', {
+  await circuitStore.addLocalMessage({
     role: 'user',
     content: message,
     threadName: message.substring(0, 30) || 'New Chat'
@@ -253,7 +253,7 @@ const approvePendingProposal = async () => {
 
   isApplyingDraft.value = true;
   try {
-    await store.dispatch('circuit/addLocalMessage', {
+    await circuitStore.addLocalMessage({
       role: 'user',
       content: translate("Apply proposal"),
       threadName: translate("Apply proposal")
@@ -272,7 +272,7 @@ const discardPendingProposal = async () => {
 
   isApplyingDraft.value = true;
   try {
-    await store.dispatch('circuit/addLocalMessage', {
+    await circuitStore.addLocalMessage({
       role: 'user',
       content: translate("Discard proposal"),
       threadName: translate("Discard proposal")
@@ -306,7 +306,7 @@ async function savePendingDraftFeedback(type: DraftFeedbackType, userFeedback: s
 }
 
 async function saveDraftFeedbackForProposal(type: DraftFeedbackType, userFeedback: string, proposal: CircuitDraftProposal) {
-  await store.dispatch('circuit/saveDraftFeedback', {
+  await circuitStore.saveDraftFeedback({
     type,
     userFeedback,
     proposal
@@ -330,7 +330,7 @@ async function reviseDiscardedProposal(proposal: CircuitDraftProposal, feedback:
 }
 
 async function addCircuitMessage(content: string) {
-  await store.dispatch('circuit/addLocalMessage', {
+  await circuitStore.addLocalMessage({
     role: 'circuit',
     content
   });
@@ -374,7 +374,7 @@ const addContext = async () => {
   
   modal.onDidDismiss().then((result) => {
     if (result.data) {
-      store.commit('circuit/SET_ACTIVE_CONTEXT', result.data);
+      circuitStore.setActiveContext(result.data);
     }
   });
 
@@ -382,24 +382,21 @@ const addContext = async () => {
 }
 
 const removeContext = () => {
-  store.commit('circuit/SET_ACTIVE_CONTEXT', null);
+  circuitStore.setActiveContext(null);
 }
 
-const isChatStarted = computed(() => store.getters['circuit/isChatStarted']);
-
 const resetCircuit = () => {
-  store.dispatch('circuit/resetCircuit');
+  circuitStore.resetCircuit();
 }
 
 const createNewChat = () => {
   console.log('createNewChat called');
-  store.dispatch('circuit/setChatStarted', false);
-  store.commit('circuit/SET_CURRENT_THREAD_ID', null);
-  store.commit('circuit/SET_MESSAGES', []);
+  circuitStore.setChatStarted(false);
+  circuitStore.switchThread(null);
 }
 
 const clearCurrentChatHistory = () => {
-  store.dispatch('circuit/clearCurrentChatHistory');
+  circuitStore.clearCurrentChatHistory();
 }
 
 const openThreadModal = () => {
@@ -407,13 +404,13 @@ const openThreadModal = () => {
 }
 
 const selectThread = (threadId: string) => {
-  store.dispatch('circuit/switchThread', threadId);
+  circuitStore.switchThread(threadId);
   showThreadMenu.value = false;
 }
 
 const confirmDelete = (threadId: string) => {
   // Simple delete for now
-  store.dispatch('circuit/deleteThread', threadId);
+  circuitStore.deleteThread(threadId);
 }
 
 const formatDate = (timestamp: number) => {

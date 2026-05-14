@@ -5,22 +5,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { onMounted } from 'vue';
+import { useCircuitStore } from '@/store/circuit';
 import CircuitIntro from '@/components/circuit/CircuitIntro.vue';
 import CircuitStart from '@/components/circuit/CircuitStart.vue';
 import CircuitChatCanvas from '@/components/circuit/CircuitChatCanvas.vue';
+import { storeToRefs } from 'pinia';
 
 
-const store = useStore();
+const circuitStore = useCircuitStore();
+const { isIntroDone, isChatStarted } = storeToRefs(circuitStore);
 
 onMounted(() => {
-  store.dispatch('circuit/checkWebGPUSupport');
+  circuitStore.checkWebGPUSupport();
 });
-
-
-const isIntroDone = computed(() => store.getters['circuit/isIntroDone']);
-const isChatStarted = computed(() => store.getters['circuit/isChatStarted']);
 </script>
 
 <style scoped>

@@ -66,17 +66,17 @@ import {
 } from 'ionicons/icons';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import { modalController } from '@ionic/vue';
-import { translate } from '@/i18n';
-import { ref, computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
+import { translate } from '@common';
+import { ref, onMounted } from 'vue';
+import { useCircuitStore } from '@/store/circuit';
+import { storeToRefs } from 'pinia';
 
-const store = useStore();
+const circuitStore = useCircuitStore();
+const { threads } = storeToRefs(circuitStore);
 const prompt = ref('');
 
-const threads = computed(() => store.getters['circuit/getThreads']);
-
 onMounted(() => {
-  store.dispatch('circuit/loadAllThreads');
+  circuitStore.loadAllThreads();
 });
 
 const selectedContext = ref(null as any);
@@ -89,9 +89,9 @@ const startChat = () => {
       selectedContext.value = null;
     }
     // Reset current thread ID to null to ensure a new thread is created
-    store.dispatch('circuit/switchThread', null);
+    circuitStore.switchThread(null);
     // Use sendAgentMessage for agentic behavior
-    store.dispatch('circuit/sendAgentMessage', message);
+    circuitStore.sendAgentMessage(message);
     prompt.value = '';
   }
 }
@@ -115,12 +115,12 @@ const removeContext = () => {
 }
 
 const resetCircuit = () => {
-  store.dispatch('circuit/resetCircuit');
+  circuitStore.resetCircuit();
 }
 
 const openThread = (threadId: string) => {
-  store.dispatch('circuit/switchThread', threadId);
-  store.dispatch('circuit/setChatStarted', true);
+  circuitStore.switchThread(threadId);
+  circuitStore.setChatStarted(true);
 }
 </script>
 

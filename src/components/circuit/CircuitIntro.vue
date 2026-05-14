@@ -40,13 +40,13 @@ import {
   IonToolbar 
 } from '@ionic/vue';
 import { arrowForwardOutline } from 'ionicons/icons';
-import { translate } from '@/i18n';
-import { useStore } from 'vuex';
+import { translate } from '@common';
+import { useCircuitStore } from '@/store/circuit';
 
-const store = useStore();
+const circuitStore = useCircuitStore();
 
 const getStarted = () => {
-  store.dispatch('circuit/setIntroDone', true);
+  circuitStore.setIntroDone(true);
 }
 </script>
 

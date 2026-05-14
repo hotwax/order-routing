@@ -275,7 +275,7 @@ export function createDraftTargetBindings(bindings: DraftTargetBinding[]): Draft
 
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
-  const mastraUrl = (process.env.VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const mastraUrl = (import.meta.env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
   let response: Response;
   try {
     response = await fetch(`${mastraUrl}${ROUTE_ASSISTANT_ENDPOINT}`, {

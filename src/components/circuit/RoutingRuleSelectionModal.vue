@@ -45,15 +45,14 @@ import {
   modalController 
 } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
-import { translate } from "@/i18n";
+import { translate, commonUtil, logger } from "@common";
 import { ref, onMounted } from "vue";
-import { OrderRoutingService } from "@/services/RoutingService";
-import { hasError } from "@/utils";
-import logger from "@/logger";
-import store from "@/store";
+import { productStore } from "@/store/productStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const routingRules = ref([]) as any;
 const isLoading = ref(false);
+const store = productStore();
 
 onMounted(async () => {
   await fetchRoutingRules();
@@ -63,17 +62,16 @@ const fetchRoutingRules = async () => {
   isLoading.value = true;
   try {
     const payload = {
-      productStoreId: store.state.user.currentEComStore.productStoreId,
+      productStoreId: store.currentEComStore.productStoreId,
       pageSize: 200
     }
-    const resp = await OrderRoutingService.fetchRoutingGroups(payload);
-    if (!hasError(resp) && resp.data.length) {
+    const resp = await orderRoutingStore().fetchOrderRoutingGroups();
+      const routingGroups = orderRoutingStore().getRoutingGroups
       // The API returns routing groups. We'll use these as the "rules" to select.
-      routingRules.value = resp.data.map((group: any) => ({
+      routingRules.value = routingGroups.map((group: any) => ({
         ...group,
         routingName: group.groupName // Normalize the name field for display
       }));
-    }
   } catch (err) {
     logger.error("Failed to fetch routing rules", err);
   } finally {

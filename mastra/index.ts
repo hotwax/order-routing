@@ -79,13 +79,13 @@ const brokeringRouteInquiryInstructions = [
 const brokeringRouteDraftAgent = new Agent({
   id: "brokering-route-draft-agent",
   name: "Brokering Route Draft Agent",
-  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini"
+  model: import.meta.env.VITE_MASTRA_MODEL || "openai/gpt-4.1-mini"
 });
 
 const brokeringRouteInquiryAgent = new Agent({
   id: "brokering-route-inquiry-agent",
   name: "Brokering Route Inquiry Agent",
-  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini"
+  model: import.meta.env.VITE_MASTRA_MODEL || "openai/gpt-4.1-mini"
 });
 
 export const mastra = new Mastra({
@@ -94,9 +94,9 @@ export const mastra = new Mastra({
     brokeringRouteDraftAgent
   },
   server: {
-    port: Number(process.env.MASTRA_PORT || 4111),
+    port: Number(import.meta.env.VITE_MASTRA_PORT || 4111),
     cors: {
-      origin: process.env.MASTRA_ALLOWED_ORIGIN || "*",
+      origin: import.meta.env.VITE_MASTRA_ALLOWED_ORIGIN || "*",
       allowMethods: ["GET", "POST", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"]
     },
@@ -116,7 +116,7 @@ export const mastra = new Mastra({
             return c.json({ error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml." }, 500);
           }
 
-          if (!process.env.OPENAI_API_KEY) {
+          if (!import.meta.env.VITE_OPENAI_API_KEY) {
             return c.json(buildProviderUnavailableAssistantResponse());
           }
 
@@ -177,7 +177,7 @@ export const mastra = new Mastra({
             return c.json({ error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml." }, 500);
           }
 
-          if (!process.env.OPENAI_API_KEY) {
+          if (!import.meta.env.VITE_OPENAI_API_KEY) {
             return c.json(buildProviderUnavailableBrokeringRouteDraft());
           }
 

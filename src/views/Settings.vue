@@ -160,6 +160,7 @@
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
+import { useCircuitStore } from "@/store/circuit";
 import { productStore } from "@/store/productStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
@@ -169,14 +170,15 @@ import { useAuth } from "@common";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
 const userStore = useUserStore()
+const circuitStore = useCircuitStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));
 const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
-const modelInfo = computed(() => store.state.circuit.modelInfo)
-const gpuInfo = computed(() => store.state.circuit.gpuInfo)
+const modelInfo = computed(() => circuitStore.modelInfo)
+const gpuInfo = computed(() => circuitStore.gpuInfo)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -200,7 +202,7 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  store.dispatch('circuit/checkWebGPUSupport');
+  circuitStore.checkWebGPUSupport();
 })
 
 function setEComStore(event: CustomEvent) {
@@ -223,11 +225,11 @@ function logout() {
 }
 
 function installModel() {
-  store.dispatch('circuit/initLLM');
+  circuitStore.initLLM();
 }
 
 function unloadModel() {
-  store.dispatch('circuit/unloadLLM');
+  circuitStore.unloadLLM();
 }
 
 function goToLaunchpad() {

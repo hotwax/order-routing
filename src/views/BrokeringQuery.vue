@@ -300,7 +300,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -309,7 +309,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -530,6 +530,7 @@ const hasUnsavedChanges = computed({
   get: () => orderRoutingStore().hasUnsavedChanges,
   set: (value: boolean) => orderRoutingStore().setHasUnsavedChanges(value)
 })
+const brokeringFacilityGroups = computed(() => productStore().getBrokeringFacilityGroups)
 let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
 let routeName = ref("")
@@ -551,7 +552,13 @@ onIonViewWillEnter(async () => {
     await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId as string)
   }
 
-  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
+  await Promise.all([
+    orderRoutingStore().fetchCurrentOrderRouting(props.orderRoutingId),
+    useUtilStore().fetchCategories(),
+    productStore().fetchRoutingReferenceData({
+      productStoreId: currentRoutingGroup.value.productStoreId
+    })
+  ])
   orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId as string)
 
   if(currentRouting.value["orderFilters"]?.length) {

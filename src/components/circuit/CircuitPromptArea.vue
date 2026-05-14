@@ -39,7 +39,7 @@
     closeCircleOutline,
     sendOutline 
   } from 'ionicons/icons';
-  import { translate } from '@/i18n';
+  import { translate } from '@common';
   import { computed } from 'vue';
   
   /* eslint-disable no-undef */

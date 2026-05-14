@@ -13,8 +13,6 @@ import type {
   DraftValueType,
   PageCapabilityManifest
 } from "../services/DraftAssistantService";
-import type { Store } from "vuex";
-import type RootState from "@/store/RootState";
 
 type EnumInfo = {
   id: string;
@@ -160,15 +158,20 @@ const inventorySortDefinitions: SortDefinition[] = [
   { key: "CUSTOMER_SEQ", label: "Customer sequence sort" }
 ];
 
+import { useUtilStore } from "@/store/utilStore";
+import { productStore } from "@/store/productStore";
+
 // Reads reference data from the store's data document and returns a plain snapshot.
 // Called by the manifest builder so it always receives hydrated, non-reactive values.
-export function buildBrokeringAgentSnapshot(store: Store<RootState>): Pick<ManifestInput, "facilities" | "shippingMethods" | "salesChannels" | "facilityGroups" | "brokeringFacilityGroups"> {
+export function buildBrokeringAgentSnapshot(): Pick<ManifestInput, "facilities" | "shippingMethods" | "salesChannels" | "facilityGroups" | "brokeringFacilityGroups"> {
+  const utilStore = useUtilStore();
+  const product = productStore();
   return {
-    facilities: store.getters["util/getVirtualFacilities"],
-    shippingMethods: store.getters["util/getShippingMethods"],
-    salesChannels: store.getters["util/getEnums"]["ORDER_SALES_CHANNEL"] || {},
-    facilityGroups: store.getters["util/getFacilityGroups"],
-    brokeringFacilityGroups: store.getters["util/getBrokeringFacilityGroups"]
+    facilities: product.getVirtualFacilities,
+    shippingMethods: product.getShippingMethods,
+    salesChannels: utilStore.getEnums["ORDER_SALES_CHANNEL"] || {},
+    facilityGroups: product.getFacilityGroups,
+    brokeringFacilityGroups: product.getFacilityGroups
   }
 }
 

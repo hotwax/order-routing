@@ -50,8 +50,8 @@ function loadKnowledgeFile(fileName: string) {
 function resolveKnowledgePath(fileName: string) {
   const mastraDir = dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    process.env.ORDER_ROUTING_KNOWLEDGE_DIR
-      ? join(process.env.ORDER_ROUTING_KNOWLEDGE_DIR, fileName)
+    import.meta.env.VITE_ORDER_ROUTING_KNOWLEDGE_DIR
+      ? join(import.meta.env.VITE_ORDER_ROUTING_KNOWLEDGE_DIR, fileName)
       : "",
     join(mastraDir, "public", "knowledge", fileName),
     join(mastraDir, "knowledge", fileName),

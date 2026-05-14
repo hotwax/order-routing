@@ -7,19 +7,12 @@ import type {
   PageCapabilityManifest
 } from "./pageCapabilitySchema";
 
-export const brokeringRouteAssistantIntentSchema = z.object({
-  intent: z.enum(["inquiry", "edit"]),
-  confidence: z.number().min(0).max(1),
-  reason: z.string().min(1)
-}).strict();
-
 export const brokeringRouteInquirySchema = z.object({
   answer: z.string().min(1),
-  questions: z.array(z.string()),
+  questions: z.array(z.string().min(1)),
   summary: z.string().min(1)
 }).strict();
 
-export type BrokeringRouteAssistantIntent = z.infer<typeof brokeringRouteAssistantIntentSchema>;
 export type BrokeringRouteInquiry = z.infer<typeof brokeringRouteInquirySchema>;
 
 export type BrokeringRouteAssistantPayload = {
@@ -54,18 +47,41 @@ export type BrokeringRouteAssistantResponse =
   };
 
 type GenerateBrokeringRouteAssistantResponseParams = BrokeringRouteAssistantPayload & {
-  classify: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteAssistantIntent>;
   generateInquiry: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteInquiry>;
   generateDraft: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteDraft>;
 };
+
+// Single-word imperative verbs that signal an edit when matched as a whole token.
+// Nouns that overlap with inquiry vocab (route, broker, fallback, apply, put) are
+// intentionally excluded — substring matching them misroutes inquiries like
+// "what does this route do?" or "is there a fallback rule?".
+const EDIT_VERB_TOKENS = new Set([
+  "add", "set", "update", "change", "create", "remove", "clear", "enable",
+  "disable", "activate", "archive", "bypass", "respect", "include", "exclude",
+  "make", "move", "switch", "replace", "rebuild", "reset", "configure", "assign"
+]);
+
+// Multi-word edit cues. These are precise enough to match as substrings.
+const EDIT_PHRASES = ["sort by", "filter by", "turn on", "turn off", "set up"];
+
+export function classifyIntent(prompt: string): "edit" | "inquiry" {
+  const norm = normalizePrompt(prompt);
+  if (!norm) {
+    return "inquiry";
+  }
+  if (EDIT_PHRASES.some((phrase) => norm.includes(phrase))) {
+    return "edit";
+  }
+  return norm.split(" ").some((token) => EDIT_VERB_TOKENS.has(token)) ? "edit" : "inquiry";
+}
 
 export async function generateBrokeringRouteAssistantResponse(
   params: GenerateBrokeringRouteAssistantResponseParams
 ): Promise<BrokeringRouteAssistantResponse> {
   const payload = buildPayload(params);
-  const routingDecision = brokeringRouteAssistantIntentSchema.parse(await params.classify(payload));
+  const intent = classifyIntent(params.prompt);
 
-  if (routingDecision.intent === "inquiry") {
+  if (intent === "inquiry") {
     const inquiry = brokeringRouteInquirySchema.parse(await params.generateInquiry(payload));
     return {
       schemaVersion: "brokering-route-assistant.v1",

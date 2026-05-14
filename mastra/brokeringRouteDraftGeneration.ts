@@ -12,6 +12,9 @@ import {
   BrokeringRouteDraftValidationError,
   validateBrokeringRouteDraftJson
 } from "./brokeringRouteDraftValidator";
+import {
+  pruneManifestForDraft
+} from "./manifestUtils";
 
 type BrokeringRouteDraftGenerate = (
   messages: Array<{ role: "user"; content: string }>,
@@ -30,7 +33,10 @@ type BrokeringRouteDraftGenerationParams = {
   generate: BrokeringRouteDraftGenerate;
 };
 
-const DEFAULT_MAX_ATTEMPTS = 4;
+// Two attempts: an initial pass and one correction round.
+// Validation issues are fed back on retry so the model can fix targeted fields.
+// Going beyond two rounds rarely improves quality and burns the request budget.
+const DEFAULT_MAX_ATTEMPTS = 2;
 
 export async function generateValidatedBrokeringRouteDraft(params: BrokeringRouteDraftGenerationParams): Promise<BrokeringRouteDraft> {
   const maxAttempts = Math.max(1, params.maxAttempts || DEFAULT_MAX_ATTEMPTS);
@@ -40,7 +46,7 @@ export async function generateValidatedBrokeringRouteDraft(params: BrokeringRout
     const result = await params.generate(
       [{
         role: "user",
-        content: JSON.stringify(buildBrokeringRouteDraftPromptPayload(params, previousValidationFailure, attempt, maxAttempts))
+        content: JSON.stringify(buildBrokeringRouteDraftPromptPayload(params, previousValidationFailure, attempt))
       }],
       {
         maxSteps: 1,
@@ -73,17 +79,18 @@ export async function generateValidatedBrokeringRouteDraft(params: BrokeringRout
 function buildBrokeringRouteDraftPromptPayload(
   params: BrokeringRouteDraftGenerationParams,
   previousValidationFailure: { issues: string[]; draft: unknown } | null,
-  attempt: number,
-  maxAttempts: number
+  attempt: number
 ) {
   return {
     userPrompt: params.prompt,
-    conversationHistory: params.conversationHistory,
+    // Conversation history is only relevant on the first attempt.
+    // Correction passes need the failed draft + issues, not the full history.
+    conversationHistory: attempt === 1 ? params.conversationHistory : [],
     orderRoutingDomainKnowledge: params.orderRoutingDomainKnowledge,
-    pageCapabilityManifest: params.pageCapabilityManifest,
+    // Send only editable, non-static-disabled targets to the model.
+    // The full manifest is still used by the validator below.
+    pageCapabilityManifest: pruneManifestForDraft(params.pageCapabilityManifest),
     outputContract: params.outputContract || params.pageCapabilityManifest.outputContract,
-    attempt,
-    maxAttempts,
     previousValidationFailure
   };
 }

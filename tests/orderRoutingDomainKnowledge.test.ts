@@ -12,27 +12,19 @@ import {
 }
 
 {
-  const excerpt = getOrderRoutingDomainKnowledge("marketplace orders should only go to warehouses", 12000);
-  assert.ok(excerpt.includes("marketplace"));
-  assert.ok(excerpt.includes("warehouse"));
+  // The full YAML is now returned uncached-trimmed; verify wrapper preamble
+  // and a representative content marker are present.
+  const excerpt = getOrderRoutingDomainKnowledge();
+  assert.ok(excerpt.includes("Order-routing knowledge base context."));
   assert.ok(excerpt.includes("hotwax_order_routing_domain_knowledge.yaml"));
   assert.ok(excerpt.includes("page capability manifest"));
+  assert.ok(excerpt.includes("marketplace"));
+  assert.ok(excerpt.includes("warehouse"));
 }
 
 {
-  const excerpt = getOrderRoutingDomainKnowledge("add a filter to exclude unfillable orders", 18000);
-  assert.ok(excerpt.includes("Options listed under the same filter are valid choices"));
-  assert.ok(excerpt.includes("semantic_tags"));
-  assert.ok(excerpt.includes("lifecycle_role"));
-}
-
-{
-  const excerpt = requireOrderRoutingDomainKnowledge("marketplace orders should only go to warehouses", 12000);
+  const excerpt = requireOrderRoutingDomainKnowledge();
   assert.ok(excerpt.includes("Order-routing knowledge base context."));
-  assert.throws(
-    () => requireOrderRoutingDomainKnowledge("marketplace orders should only go to warehouses", 1),
-    /knowledge base is unavailable/
-  );
 }
 
 console.log("Order routing domain knowledge tests passed");

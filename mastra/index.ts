@@ -16,10 +16,14 @@ import {
   generateValidatedBrokeringRouteDraft
 } from "./brokeringRouteDraftGeneration";
 import {
-  brokeringRouteAssistantIntentSchema,
   brokeringRouteInquirySchema,
+  classifyIntent,
   generateBrokeringRouteAssistantResponse
 } from "./brokeringRouteAssistantRouting";
+import { pruneManifestForInquiry } from "./manifestUtils";
+
+// Instructions live here only — agents are model configs, not instruction holders.
+// callStructured() passes instructions at call time so there is exactly one copy.
 
 const brokeringRouteDraftInstructions = [
   "You convert natural language into one brokering route draft JSON object.",
@@ -48,23 +52,6 @@ const brokeringRouteDraftInstructions = [
   "Return only data that fits the structured output schema."
 ].join("\n");
 
-const brokeringRouteDraftAgent = new Agent({
-  id: "brokering-route-draft-agent",
-  name: "Brokering Route Draft Agent",
-  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini",
-  instructions: brokeringRouteDraftInstructions
-});
-
-const brokeringRouteRequestRouterInstructions = [
-  "You classify a single user turn for the HotWax order routing assistant.",
-  "Return intent='inquiry' when the user asks to understand, summarize, explain, inspect, list, compare, or ask why/how/what about the currently open routing.",
-  "Return intent='edit' when the user asks to create, change, update, set, remove, clear, enable, disable, activate, archive, sort, filter, route, fallback, broker, or otherwise modify routing behavior.",
-  "If a turn mixes explanation and a requested change, choose edit.",
-  "Use conversationHistory only to resolve follow-up references. The latest user prompt decides the current intent.",
-  "Short follow-ups can switch intent inside the same thread. For example, 'what does it do?' is inquiry, then 'make stores active' is edit.",
-  "Return only the structured output object."
-].join("\n");
-
 const brokeringRouteInquiryInstructions = [
   "You answer questions about the currently open HotWax order routing draft.",
   "Use pageCapabilityManifest.visibleEntities and editableTargets as the source of truth for the current route, selected rule, visible values, available choices, and limitations.",
@@ -87,23 +74,22 @@ const brokeringRouteInquiryInstructions = [
   "Return only the structured output object."
 ].join("\n");
 
-const brokeringRouteRequestRouterAgent = new Agent({
-  id: "brokering-route-request-router-agent",
-  name: "Brokering Route Request Router Agent",
-  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini",
-  instructions: brokeringRouteRequestRouterInstructions
+// Agents are model configs only — no instructions stored on the instance.
+// Instructions are passed at call time via callStructured() below.
+const brokeringRouteDraftAgent = new Agent({
+  id: "brokering-route-draft-agent",
+  name: "Brokering Route Draft Agent",
+  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini"
 });
 
 const brokeringRouteInquiryAgent = new Agent({
   id: "brokering-route-inquiry-agent",
   name: "Brokering Route Inquiry Agent",
-  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini",
-  instructions: brokeringRouteInquiryInstructions
+  model: process.env.MASTRA_MODEL || "openai/gpt-4.1-mini"
 });
 
 export const mastra = new Mastra({
   agents: {
-    brokeringRouteRequestRouterAgent,
     brokeringRouteInquiryAgent,
     brokeringRouteDraftAgent
   },
@@ -121,15 +107,13 @@ export const mastra = new Mastra({
         handler: async (c) => {
           const body = await c.req.json();
           const parsedBody = brokeringRouteDraftRequestSchema.parse(body);
-          const promptWithHistory = buildPromptWithConversation(parsedBody.prompt, parsedBody.conversationHistory);
+
           let orderRoutingDomainKnowledge = "";
           try {
-            orderRoutingDomainKnowledge = requireOrderRoutingDomainKnowledge(promptWithHistory);
+            orderRoutingDomainKnowledge = requireOrderRoutingDomainKnowledge();
           } catch (error: any) {
             console.error("Brokering route assistant knowledge base unavailable", error?.message || error);
-            return c.json({
-              error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml."
-            }, 500);
+            return c.json({ error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml." }, 500);
           }
 
           if (!process.env.OPENAI_API_KEY) {
@@ -137,7 +121,6 @@ export const mastra = new Mastra({
           }
 
           const mastraInstance = c.get("mastra");
-          const routerAgent = mastraInstance.getAgent("brokeringRouteRequestRouterAgent");
           const inquiryAgent = mastraInstance.getAgent("brokeringRouteInquiryAgent");
           const draftAgent = mastraInstance.getAgent("brokeringRouteDraftAgent");
           const abortController = new AbortController();
@@ -150,41 +133,14 @@ export const mastra = new Mastra({
               orderRoutingDomainKnowledge,
               pageCapabilityManifest: parsedBody.pageCapabilityManifest,
               outputContract: parsedBody.outputContract || parsedBody.pageCapabilityManifest.outputContract,
-              classify: async (payload) => {
-                const result = await routerAgent.generate(
-                  [{
-                    role: "user",
-                    content: JSON.stringify(payload)
-                  }],
-                  {
-                    maxSteps: 1,
-                    abortSignal: abortController.signal,
-                    instructions: brokeringRouteRequestRouterInstructions,
-                    structuredOutput: {
-                      schema: brokeringRouteAssistantIntentSchema,
-                      errorStrategy: "strict"
-                    }
-                  }
-                );
-                return result.object as any;
-              },
               generateInquiry: async (payload) => {
-                const result = await inquiryAgent.generate(
-                  [{
-                    role: "user",
-                    content: JSON.stringify(payload)
-                  }],
-                  {
-                    maxSteps: 1,
-                    abortSignal: abortController.signal,
-                    instructions: brokeringRouteInquiryInstructions,
-                    structuredOutput: {
-                      schema: brokeringRouteInquirySchema,
-                      errorStrategy: "strict"
-                    }
-                  }
+                return callStructured(
+                  inquiryAgent,
+                  brokeringRouteInquiryInstructions,
+                  { ...payload, pageCapabilityManifest: pruneManifestForInquiry(payload.pageCapabilityManifest) },
+                  brokeringRouteInquirySchema,
+                  abortController.signal
                 );
-                return result.object as any;
               },
               generateDraft: async (payload) => generateValidatedBrokeringRouteDraft({
                 prompt: payload.prompt,
@@ -199,57 +155,26 @@ export const mastra = new Mastra({
             });
             return c.json(assistantResponse);
           } catch (error: any) {
-            if (error?.name === "AbortError") {
-              return c.json({
-                error: "Draft assistant timed out. Try a shorter prompt or retry."
-              }, 504);
-            }
-
-            if (error instanceof BrokeringRouteDraftValidationError) {
-              console.warn("Brokering route draft assistant returned invalid JSON", error.issues);
-              return c.json({
-                error: "Draft assistant returned invalid brokering route draft output.",
-                issues: error.issues
-              }, 422);
-            }
-
-            const providerCode = error?.data?.error?.code;
-            const providerType = error?.data?.error?.type;
-            if (providerCode === "invalid_api_key" || isMissingApiKeyError(error)) {
-              console.warn("Brokering route assistant provider unavailable", error?.message || error);
-              return c.json(buildProviderUnavailableAssistantResponse(providerCode));
-            }
-
-            const statusCode = providerCode === "insufficient_quota" || providerType === "insufficient_quota"
-              ? 402
-              : 502;
-            console.error("Brokering route assistant route failed", error?.message || error);
-
-            return c.json({
-              error: statusCode === 402
-                ? "Draft assistant quota exceeded. Check the OpenAI project billing or use a key with available quota."
-                : "Draft assistant service failed. Check the Mastra server logs."
-            }, statusCode);
+            return handleLLMError(error, "assistant", c);
           } finally {
             clearTimeout(timeout);
           }
         }
       }),
+
       registerApiRoute("/brokering-route-draft", {
         method: "POST",
         requiresAuth: false,
         handler: async (c) => {
           const body = await c.req.json();
           const parsedBody = brokeringRouteDraftRequestSchema.parse(body);
-          const promptWithHistory = buildPromptWithConversation(parsedBody.prompt, parsedBody.conversationHistory);
+
           let orderRoutingDomainKnowledge = "";
           try {
-            orderRoutingDomainKnowledge = requireOrderRoutingDomainKnowledge(promptWithHistory);
+            orderRoutingDomainKnowledge = requireOrderRoutingDomainKnowledge();
           } catch (error: any) {
             console.error("Brokering route draft knowledge base unavailable", error?.message || error);
-            return c.json({
-              error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml."
-            }, 500);
+            return c.json({ error: "Draft assistant knowledge base is not available. Check mastra/public/knowledge/hotwax_order_routing_domain_knowledge.yaml." }, 500);
           }
 
           if (!process.env.OPENAI_API_KEY) {
@@ -273,37 +198,7 @@ export const mastra = new Mastra({
             });
             return c.json(providerDraft);
           } catch (error: any) {
-            if (error?.name === "AbortError") {
-              return c.json({
-                error: "Draft assistant timed out. Try a shorter prompt or retry."
-              }, 504);
-            }
-
-            if (error instanceof BrokeringRouteDraftValidationError) {
-              console.warn("Brokering route draft assistant returned invalid JSON", error.issues);
-              return c.json({
-                error: "Draft assistant returned invalid brokering route draft output.",
-                issues: error.issues
-              }, 422);
-            }
-
-            const providerCode = error?.data?.error?.code;
-            const providerType = error?.data?.error?.type;
-            if (providerCode === "invalid_api_key" || isMissingApiKeyError(error)) {
-              console.warn("Brokering route draft provider unavailable", error?.message || error);
-              return c.json(buildProviderUnavailableBrokeringRouteDraft(providerCode));
-            }
-
-            const statusCode = providerCode === "insufficient_quota" || providerType === "insufficient_quota"
-              ? 402
-              : 502;
-            console.error("Brokering route draft route failed", error?.message || error);
-
-            return c.json({
-              error: statusCode === 402
-                ? "Draft assistant quota exceeded. Check the OpenAI project billing or use a key with available quota."
-                : "Draft assistant service failed. Check the Mastra server logs."
-            }, statusCode);
+            return handleLLMError(error, "draft", c);
           } finally {
             clearTimeout(timeout);
           }
@@ -313,16 +208,56 @@ export const mastra = new Mastra({
   }
 });
 
-function buildPromptWithConversation(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
-  const historyText = conversationHistory
-    .slice(-12)
-    .map((message) => `${message.role}: ${message.content}`)
-    .join("\n");
+// Thin wrapper: sends one user message and returns typed structured output.
+// Keeps all agent call sites uniform and ensures instructions are set exactly once.
+async function callStructured<T>(
+  agent: Agent,
+  instructions: string,
+  payload: object,
+  schema: any,
+  signal: AbortSignal
+): Promise<T> {
+  const result = await agent.generate(
+    [{ role: "user" as const, content: JSON.stringify(payload) }],
+    {
+      maxSteps: 1,
+      abortSignal: signal,
+      instructions,
+      structuredOutput: { schema, errorStrategy: "strict" }
+    }
+  );
+  return result.object as T;
+}
 
-  return [
-    historyText,
-    `Latest user message: ${prompt}`
-  ].filter(Boolean).join("\n");
+function handleLLMError(error: any, context: "assistant" | "draft", c: any) {
+  if (error?.name === "AbortError") {
+    return c.json({ error: "Draft assistant timed out. Try a shorter prompt or retry." }, 504);
+  }
+
+  if (error instanceof BrokeringRouteDraftValidationError) {
+    console.warn(`Brokering route ${context} returned invalid JSON`, error.issues);
+    return c.json({ error: "Draft assistant returned invalid brokering route draft output.", issues: error.issues }, 422);
+  }
+
+  const providerCode = error?.data?.error?.code;
+  const providerType = error?.data?.error?.type;
+
+  if (providerCode === "invalid_api_key" || isMissingApiKeyError(error)) {
+    console.warn(`Brokering route ${context} provider unavailable`, error?.message || error);
+    if (context === "assistant") {
+      return c.json(buildProviderUnavailableAssistantResponse(providerCode));
+    }
+    return c.json(buildProviderUnavailableBrokeringRouteDraft(providerCode));
+  }
+
+  const statusCode = providerCode === "insufficient_quota" || providerType === "insufficient_quota" ? 402 : 502;
+  console.error(`Brokering route ${context} route failed`, error?.message || error);
+
+  return c.json({
+    error: statusCode === 402
+      ? "Draft assistant quota exceeded. Check the OpenAI project billing or use a key with available quota."
+      : "Draft assistant service failed. Check the Mastra server logs."
+  }, statusCode);
 }
 
 function buildProviderUnavailableBrokeringRouteDraft(reason?: string) {

@@ -46,34 +46,12 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
-import {
-  alertController,
-  IonButton,
-  IonButtons,
-  IonContent,
-  IonFab,
-  IonFabButton,
-  IonHeader,
-  IonIcon,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonListHeader,
-  IonRadio,
-  IonRadioGroup,
-  IonTitle,
-  IonToolbar,
-  modalController,
-} from "@ionic/vue";
+import { logger, translate } from "@common";
+import { alertController, IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
 import { computed, defineProps, ref } from "vue";
-import cronstrue from "cronstrue";
-import cronParser from "cron-parser";
-import logger from "@/logger";
-import { getDateAndTime } from "@/utils";
-import store from "@/store";
+import { useUserStore } from "@/store/userStore";
+import { commonUtil } from "@common";
 
 const props = defineProps({
   cronExpression: {
@@ -83,12 +61,12 @@ const props = defineProps({
 })
 
 let expression = ref(props.cronExpression)
-const cronExpressions = JSON.parse(process.env?.VUE_APP_CRON_EXPRESSIONS as string)
-const userProfile = computed(() => store.getters["user/getUserProfile"])
+const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSIONS as string)
+const userProfile = computed(() => useUserStore().getUserProfile)
 
 const isExpressionValid = computed(() => {
   try {
-    cronParser.parseExpression(expression.value, { tz: userProfile.value.timeZone })
+    commonUtil.parseCronExpression(expression.value, userProfile.value.timeZone)
     return true
   } catch(e) {
     logger.warn("Invalid expression", e)
@@ -98,7 +76,7 @@ const isExpressionValid = computed(() => {
 
 const getCronString = computed(() => {
   try {
-    return cronstrue.toString(expression.value)
+    return commonUtil.getCronString(expression.value)
   } catch(e) {
     logger.warn(e)
     return ""
@@ -107,10 +85,9 @@ const getCronString = computed(() => {
 
 const getNextExecutionTime = computed(() => {
   try {
-    const interval = cronParser.parseExpression(expression.value, { tz: userProfile.value.timeZone })
-    return getDateAndTime((interval.next() as any)["_date"].ts)
+    return commonUtil.getNextExecutionTime(expression.value, userProfile.value.timeZone);
   } catch(e) {
-    logger.error("Invalid expression", e)
+    logger.error("Error getting next exection time: ", e)
     return ""
   }
 })

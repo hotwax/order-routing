@@ -31,11 +31,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -53,7 +53,7 @@
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
                   </ion-label>
-                  {{ `${index + 1}/${group.routings.length}` }}
+                  {{ `${(index as number) + 1}/${group.routings.length}` }}
                 </ion-item>
                 <ion-item lines="full" v-if="routing.filtersCount">
                   <ion-label>{{ routing.filtersCount }}{{ " filters" }}</ion-label>
@@ -65,7 +65,7 @@
                 </ion-item>
                 <ion-item lines="none">
                   <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(routing.statusId) }}</ion-badge>
-                  <ion-button fill="clear" slot="end" @click.stop="openRouteDetails(routing)">{{ $t("Details") }}</ion-button>
+                  <ion-button fill="clear" slot="end" @click.stop="openRouteDetails(routing)">{{ translate("Details") }}</ion-button>
                 </ion-item>
               </ion-card>
             </ion-list>
@@ -95,23 +95,22 @@
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
 import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { useStore } from "vuex";
-import { computed, defineProps, reactive, ref, resolveComponent, watch } from "vue";
-import { Group, Route } from "@/types";
-import { OrderRoutingService } from "@/services/RoutingService";
-import logger from "@/logger";
-import { hasError, getDateAndTime, sortSequence } from "@/utils";
-import emitter from "@/event-bus";
-import { translate } from "@/i18n";
+import { onBeforeRouteLeave } from "vue-router";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { useUserStore } from "@/store/userStore";
+import { useUtilStore } from "@/store/utilStore";
+import { productStore } from "@/store/productStore";
+import { computed, reactive, ref, watch } from "vue";
+import { Group } from "@/types";
+import { api, logger, emitter, translate, commonUtil } from "@common";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
-import { UtilService } from "@/services/UtilService";
 import { DateTime } from "luxon";
+import router from "@/router";
 
-const router = useRouter();
-const store = useStore();
+const userStore = useUserStore();
+const utilStore = useUtilStore();
 const props = defineProps({
   routingGroupId: {
     type: String,
@@ -128,12 +127,12 @@ let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let userTestingSession = ref({}) as any
 
-const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
-const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
+const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
+const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
+const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 let unmatchedRoutingProperties = reactive({}) as Record<string, string>
 
@@ -153,7 +152,7 @@ onIonViewWillEnter(async () => {
   await fetchRoutingGroupInformation()
   await fetchRoutingsInformation()
 
-  await Promise.all([store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchFacilityGroups"), store.dispatch("util/fetchStatusInformation"), store.dispatch("util/fetchShippingMethods"), store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)])
+  await Promise.all([productStore().fetchFacilities(), productStore().fetchFacilityGroups(), utilStore.fetchStatusInformation(), productStore().fetchShippingMethods(), orderRoutingStore().fetchRoutingHistory(props.routingGroupId)])
 
   await fetchJobInformation()
   await createUserTestSession();
@@ -162,7 +161,7 @@ onIonViewWillEnter(async () => {
 })
 
 onIonViewWillLeave(async () => {
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await orderRoutingStore().clearRoutingTestInfo()
 })
 
 onBeforeRouteLeave(async (to: any) => {
@@ -179,9 +178,12 @@ async function fetchRoutingGroupInformation() {
   emitter.emit("presentLoader", { message: "Fetching information", backdropDismiss: false })
 
   try {
-    const resp = await OrderRoutingService.fetchRoutingGroupInformation(props.routingGroupId);
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}`,
+      method: "GET"
+    });
 
-    if(!hasError(resp) && resp.data) {
+    if(!commonUtil.hasError(resp) && resp.data) {
       group.value = resp.data
     } else {
       throw resp.data
@@ -191,7 +193,7 @@ async function fetchRoutingGroupInformation() {
   }
 
   if(group.value.routings?.length) {
-    group.value.routings = sortSequence(group.value.routings)
+    group.value.routings = commonUtil.sortSequence(group.value.routings)
   }
 
   emitter.emit("dismissLoader")
@@ -202,9 +204,12 @@ async function fetchRoutingsInformation() {
   await group.value.routings.forEach(async (routing: any) => {
     let route = {} as any
     try {
-      const resp = await OrderRoutingService.fetchOrderRouting(routing.orderRoutingId);
+      const resp = await api({
+        url: `order-routing/routings/${routing.orderRoutingId}`,
+        method: "GET"
+      });
   
-      if(!hasError(resp) && resp.data) {
+      if(!commonUtil.hasError(resp) && resp.data) {
         route = resp.data
   
         if(route["orderFilters"]?.length) {
@@ -215,9 +220,9 @@ async function fetchRoutingsInformation() {
           })
         }
         
-        route["rules"] = route["rules"]?.length ? sortSequence(route["rules"]) : []
+        route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
         
-        routing["orderFilters"] = route["orderFilters"]
+        routing["orderFilters"] = route["orderFilters"] || []
         routing["rules"] = route["rules"]
 
         routing["filterConditions"] = routing["orderFilters"].reduce((filters: any, orderFilter: any) => {
@@ -251,7 +256,7 @@ async function openRouteDetails(routing: any) {
 }
 
 async function openRuleDetails(rule: any) {
-  const ruleInfo = await store.dispatch("orderRouting/fetchInventoryRuleInformation", rule.routingRuleId)
+  const ruleInfo = await orderRoutingStore().fetchInventoryRuleInformation(rule.routingRuleId)
   currentRule.value = {
     ...rule,
     ...ruleInfo
@@ -262,9 +267,12 @@ async function openRuleDetails(rule: any) {
 async function fetchJobInformation() {
   job.value = {}
   try {
-    const resp = await OrderRoutingService.fetchRoutingScheduleInformation(props.routingGroupId);
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}/schedule`,
+      method: "GET"
+    });
 
-    if(!hasError(resp) && resp.data?.schedule) {
+    if(!commonUtil.hasError(resp) && resp.data?.schedule) {
       job.value = resp.data.schedule
     } else {
       throw resp.data
@@ -292,7 +300,7 @@ async function exitTestMode(isTriggerManually = true) {
     return false; // passing boolean to let the routeLeave hook know to change the route or not
   }
 
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await orderRoutingStore().clearRoutingTestInfo()
 
   if(isTriggerManually) {
     router.go(-1);
@@ -364,7 +372,7 @@ function getEligibleRoutesForBrokering(routing: any) {
 }
 
 async function getUserTestSession() {
-  userTestingSession.value = await UtilService.getUserSession({
+  userTestingSession.value = await useUtilStore().getUserSession({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       userId: userProfile.value.userId,
@@ -384,7 +392,7 @@ async function createUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.createUserSession({
+  userTestingSession.value = await useUtilStore().createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     productStoreId: currentEComStore.value.productStoreId,
@@ -393,7 +401,7 @@ async function createUserTestSession() {
 }
 
 async function updateUserTestSession() {
-  userTestingSession.value = await UtilService.expireUserSession({
+  userTestingSession.value = await useUtilStore().expireUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,

@@ -40,11 +40,11 @@
               <div>
                 <ion-item>
                   <ion-label>{{ translate("Created at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.createdDate) }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-label>{{ translate("Updated at") }}</ion-label>
-                  <ion-label slot="end">{{ getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(currentRoutingGroup.lastUpdatedStamp) }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-icon slot="start" :icon="pulseOutline" />
@@ -77,7 +77,7 @@
                   <ion-icon slot="end" :icon="addCircleOutline" />
                 </ion-button>
               </ion-card>
-              <ion-card v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+              <ion-card v-if="!userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
                 <ion-item lines="none">
                   <h2>{{ translate("Test drive") }}</h2>
                 </ion-item>
@@ -114,15 +114,15 @@
                   <ion-select v-else :label="translate('Schedule')" interface="popover" :placeholder="translate('Select')" :value="job.cronExpression" @ionChange="updateCronExpression($event)">
                     <ion-select-option v-for="(expression, description) in cronExpressions" :key="expression" :value="expression">{{ description }}</ion-select-option>
                   </ion-select> -->
-                  <ion-label>{{ getCronString() || job.cronExpression }}</ion-label>
+                  <ion-label>{{ commonUtil.getCronString(job.cronExpression) || job.cronExpression }}</ion-label>
                 </ion-item>
                 <ion-item>
                   <ion-icon slot="start" :icon="timeOutline"/>
                   <ion-label>{{ translate("Next run") }}</ion-label>
                   <!-- When the group is in draft status, do not display the runTime from the schedule -->
-                  <ion-label slot="end">{{ job.paused === 'N' ? getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
+                  <ion-label slot="end">{{ job.paused === 'N' ? commonUtil.getDateAndTime(job.nextExecutionDateTime) : "-" }}</ion-label>
                 </ion-item>
-                <ion-item lines="none" button @click="runNow()">
+                <ion-item lines="none" button @click="runNow()" :disabled="hasUnsavedChanges">
                   <ion-icon slot="start" :icon="flashOutline"/>
                   <ion-label>{{ translate("Run Now") }}</ion-label>
                 </ion-item>
@@ -135,10 +135,10 @@
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ getTime(groupHistory[0].startTime) }}</h3>
-                    <p>{{ getDate(groupHistory[0].startTime) }}</p>
+                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
+                    <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
-                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ timeTillRun(groupHistory[0].endTime) }}</ion-badge>
+                  <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.getRelativeTime(groupHistory[0].endTime) }}</ion-badge>
                 </ion-item>
               </ion-card>
             </div>
@@ -155,7 +155,7 @@
                 </ion-button>
               </ion-list-header>
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-                <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
+                <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in (routingsForReorder as any[])" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
                       <h1>{{ routing.routingName }}</h1>
@@ -163,7 +163,7 @@
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">
                       <ion-chip outline>
-                        <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
+                        <ion-label>{{ `${(index as number) + 1}/${routingsForReorder.length}` }}</ion-label>
                         <ion-icon :icon="reorderTwoOutline"/>
                       </ion-chip>
                     </ion-reorder>
@@ -172,13 +172,13 @@
                     <ion-icon :icon="timeOutline" slot="start" />
                     <ion-label>{{ translate("Last run") }}</ion-label>
                     <ion-chip outline @click.stop="openRoutingHistoryModal(routing.orderRoutingId, routing.routingName)">
-                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
+                      <ion-label>{{ routingHistory[routing.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[routing.orderRoutingId][0].startDate) : translate("No run history") }}</ion-label>
                     </ion-chip>
                   </ion-item>
                   <ion-item lines="none">
-                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ (getStatusDesc as any)(routing.statusId as any) }}</ion-badge>
                     <div slot="end">
-                      <ion-button size="default" fill="clear" color="medium" @click.stop="cloneRouting(routing)">
+                      <ion-button size="default" fill="clear" color="medium" @click.stop="cloneRouting(routing as any)">
                         <ion-icon slot="icon-only" :icon="copyOutline" />
                       </ion-button>
                       <ion-button size="default" fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">
@@ -203,45 +203,38 @@
               {{ translate("Create order batch") }}
             </ion-button>
           </div>
-          <div class="save-batches" v-if="hasUnsavedChanges">
-            <ion-item lines="none">
-              <ion-icon slot="start" :icon="listOutline" />
-              <ion-label>{{ translate("Save batch sequence?") }}</ion-label>
-              <ion-button fill="outline" @click="saveRoutingGroup">
-                {{ translate("Save") }}
-                <ion-icon slot="end" :icon="saveOutline" />
-              </ion-button>
-            </ion-item>
-          </div>
         </aside>
       </div>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+        <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
+          <ion-icon :icon="saveOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
 import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { useStore } from "vuex";
-import { computed, defineProps, nextTick, ref } from "vue";
+import { onBeforeRouteLeave } from "vue-router";
+import router from "@/router";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
+import { useUtilStore } from "@/store/utilStore";
+import { computed, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
-import { OrderRoutingService } from "@/services/RoutingService";
-import logger from "@/logger";
 import { DateTime } from "luxon";
-import { hasError, getDate, getDateAndTime, getDateAndTimeShort, getTime, showToast, sortSequence, timeTillRun } from "@/utils";
-import emitter from "@/event-bus";
-import { translate } from "@/i18n";
+import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
-import cronstrue from "cronstrue"
 import ScheduleModal from "@/components/ScheduleModal.vue";
-import { UtilService } from "@/services/UtilService";
-import { Actions, hasPermission } from "@/authorization";
 
-const router = useRouter();
-const store = useStore();
+const userStore = useUserStore()
+const utilStore = useUtilStore()
 const props = defineProps({
   routingGroupId: {
     type: String,
@@ -252,7 +245,10 @@ const props = defineProps({
 let routingsForReorder = ref([])
 let description = ref("")
 let isDescUpdating = ref(false)
-let hasUnsavedChanges = ref(false)
+const hasUnsavedChanges = computed({
+  get: () => orderRoutingStore().hasUnsavedChanges,
+  set: (value: boolean) => orderRoutingStore().setHasUnsavedChanges(value)
+})
 const descRef = ref()
 let groupName = ref("")
 let isGroupNameUpdating = ref(false)
@@ -265,36 +261,47 @@ let isReordering = ref(false) // To handle the case of click event being trigger
 let activeTestSessions = ref(0)
 let isBrokeringEnabled = ref(true)
 
-const currentRoutingGroup: any = computed((): Group => store.getters["orderRouting/getCurrentRoutingGroup"])
-const getStatusDesc = computed(() => (id: string) => store.getters["util/getStatusDesc"](id))
-const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
+const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
+const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
+const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 onIonViewWillEnter(async () => {
-  await store.dispatch("orderRouting/fetchCurrentRoutingGroup", props.routingGroupId)
-  await fetchGroupHistory()
-  store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
-  store.dispatch("util/fetchStatusInformation")
-  store.dispatch("orderRouting/clearRoutingTestInfo")
-  await getTestSessions();
-  await getProductStoreReservation();
+  // emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
+  try {
+    await orderRoutingStore().fetchCurrentRoutingGroup(props.routingGroupId)
+    await fetchGroupHistory()
+    orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
+    utilStore.fetchStatusInformation()
+    orderRoutingStore().clearRoutingTestInfo()
+    await getTestSessions();
+    await getProductStoreReservation();
 
-  job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
-  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
-  description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
-  groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
-  
-  if(orderRoutings.value.length) {
-    initializeOrderRoutings();
+    job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
+    orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+    description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
+    groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
+    
+    if(orderRoutings.value.length) {
+      initializeOrderRoutings();
+    }
+  } catch (err) {
+    logger.error(err)
+  } finally {
+    // emitter.emit("dismissLoader")
   }
 })
 
+// TODO: Need to revisit this, route entries are empty on router hooks
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
 
   // If there are no unsaved changes do not create and present the alert
   if(!hasUnsavedChanges.value) {
+    return;
+  }
+
+  if (to.path === "/rules") {
     return;
   }
 
@@ -328,15 +335,6 @@ onBeforeRouteLeave(async (to) => {
   return;
 })
 
-function getCronString() {
-  try {
-    return cronstrue.toString(job.value.cronExpression)
-  } catch(e) {
-    logger.error(e)
-    return ""
-  }
-}
-
 function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
 }
@@ -349,9 +347,9 @@ async function fetchGroupHistory() {
   }
 
   try {
-    const resp = await OrderRoutingService.fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
+    const resp = await orderRoutingStore().fetchGroupHistory(currentRoutingGroup.value.jobName, { orderByField: "startTime DESC" })
 
-    if(!hasError(resp)) {
+    if(!commonUtil.hasError(resp)) {
       // Sorting the history based on startTime, as we does not get the records in sorted order from api
       groupHistory.value = resp.data.sort((a: any, b: any) => b.startTime - a.startTime)
     } else {
@@ -364,29 +362,19 @@ async function fetchGroupHistory() {
 
 async function saveSchedule() {
   if(!job.value.cronExpression) {
-    showToast(translate("Please select a scheduling for job"))
+    commonUtil.showToast(translate("Please select a scheduling for job"))
     logger.error("Please select a scheduling for job")
     return;
   }
 
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    paused: job.value.paused || 'N',  // considering job in active status as soon as scheduled, if the paused value on the job is not set
-    ...job.value
-  }
-
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)) {
-      showToast(translate("Job updated"))
-      // Fetching the group schedule information again after making changes to the job schedule to fetch the correct nextExecutionTime for job, doing so as we do not get the updated information in POST schedule api call
-      await store.dispatch("orderRouting/fetchCurrentGroupSchedule", { routingGroupId: props.routingGroupId, currentGroup: currentRoutingGroup.value })
-      job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
-    } else {
-      throw resp.data
-    }
+    commonUtil.showToast(translate("Job updated"))
+    currentRoutingGroup.value["schedule"] = { ...currentRoutingGroup.value["schedule"], paused: job.value.paused || 'N', ...job.value }
+    job.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"]
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value);
+    hasUnsavedChanges.value = true;
   } catch(err) {
-    showToast(translate("Failed to update job"))
+    commonUtil.showToast(translate("Failed to update job"))
     logger.error(err)
   }
 }
@@ -421,8 +409,8 @@ async function runNow() {
               }
 
               try {
-                const resp = await OrderRoutingService.scheduleBrokering(payload)
-                if(hasError(resp)) {
+                const resp = await orderRoutingStore().scheduleBrokering(payload)
+                if(commonUtil.hasError(resp)) {
                   throw resp.data
                 }
                 // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
@@ -434,14 +422,14 @@ async function runNow() {
             }
 
             try {
-              const resp = await OrderRoutingService.runNow(props.routingGroupId)
-              if(!hasError(resp) && resp.data.jobRunId) {
-                showToast(translate("Service has been scheduled"))
+              const resp = await orderRoutingStore().runNow(props.routingGroupId)
+              if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
+                commonUtil.showToast(translate("Service has been scheduled"))
               } else {
                 throw resp.data
               }
             } catch(err) {
-              showToast(translate("Failed to schedule service"))
+              commonUtil.showToast(translate("Failed to schedule service"))
               logger.error(err)
             }
           }
@@ -456,33 +444,25 @@ async function redirect(orderRouting: Route) {
   let isRoutingArchived = currentRoutingGroup.value["routings"].some((routing: any) => routing.orderRoutingId === orderRouting.orderRoutingId && routing.statusId === "ROUTING_ARCHIVED" )
 
   if(isRoutingArchived) {
-    showToast(translate("Save changes before moving to the details page of unarchived route"))
+    commonUtil.showToast(translate("Save changes before moving to the details page of unarchived route"))
     return;
   }
 
-  await store.dispatch("orderRouting/setCurrentOrderRouting", orderRouting)
+  await orderRoutingStore().setCurrentOrderRouting(orderRouting.orderRoutingId)
   router.push(`${orderRouting.orderRoutingId}/rules`)
 }
 
 async function updateGroupStatus(event: CustomEvent) {
   job.value.paused = event.detail.value
 
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    paused: job.value.paused,
-    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
-  }
-
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)){
-      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-      showToast(translate("Group status updated"))
-    } else {
-      throw resp.data
-    }
+    job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
+    currentRoutingGroup.value['schedule'].cronExpression = job.value.cronExpression
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value)
+    hasUnsavedChanges.value = true;
+    commonUtil.showToast(translate("Group status updated"))
   } catch(err) {
-    showToast(translate("Failed to update group status"))
+    commonUtil.showToast(translate("Failed to update group status"))
     logger.error(err)
   }
 }
@@ -497,7 +477,7 @@ async function createOrderRoute() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.routingName?.trim().length) {
-          showToast(translate("Please enter a valid name"))
+          commonUtil.showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -527,7 +507,7 @@ async function createOrderRoute() {
         createdDate: DateTime.now().toMillis()
       }
 
-      const orderRoutingId = await store.dispatch("orderRouting/createOrderRouting", payload)
+      const orderRoutingId = await orderRoutingStore().createOrderRouting(payload)
 
       // update the routing order for reordering and the cloned updated routings again
       if(orderRoutingId) {
@@ -554,6 +534,7 @@ async function createOrderRoute() {
         })
 
         orderRoutings.value = routings
+        hasUnsavedChanges.value = true
         initializeOrderRoutings();
       }
     }
@@ -579,12 +560,9 @@ async function editGroupName() {
 
 async function updateGroupName() {
   if(groupName.value.trim() && groupName.value.trim() !== currentRoutingGroup.value.groupName.trim()) {
-    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, groupName: groupName.value })
-    if(routingGroupId) {
-      await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, groupName: groupName.value })
-    } else {
-      groupName.value = currentRoutingGroup.value.groupName.trim()
-    }
+    currentRoutingGroup.value.groupName = groupName.value.trim();
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value);
+    hasUnsavedChanges.value = true;
   }
 
   isGroupNameUpdating.value = false
@@ -594,12 +572,9 @@ async function updateGroupDescription() {
   // Do not update description, if the desc is unchanged, and we do not have routingGroupId
   // If the group does not have a description then we get `undefined` and if the description entered by the user is left empty then `undefined != ''` is true and thus it makes an api call, even when description is unchanged in this case.
   if(props.routingGroupId && ((currentRoutingGroup.value.description || description.value) && currentRoutingGroup.value.description != description.value)) {
-    const routingGroupId = await updateRoutingGroup({ routingGroupId: props.routingGroupId, productStoreId: currentRoutingGroup.value.productStoreId, description: description.value })
-    if(routingGroupId) {
-      await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, description: description.value })
-    } else {
-      description.value = currentRoutingGroup.value.description
-    }
+    currentRoutingGroup.value.description = description.value;
+    orderRoutingStore().setCurrentGroup(currentRoutingGroup.value);
+    hasUnsavedChanges.value = true;
   }
   isDescUpdating.value = false
 }
@@ -630,9 +605,10 @@ function doReorder(event: CustomEvent) {
 
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   routingsForReorder.value = updatedSeq
-  orderRoutings.value = sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
+  orderRoutings.value = commonUtil.sortSequence(updatedSeq.concat(getArchivedOrderRoutings()))
   // considering that when reordering there are some changes in the order of routes
   hasUnsavedChanges.value = true
+  orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
 }
 
 async function openArchivedRoutingModal() {
@@ -644,7 +620,8 @@ async function openArchivedRoutingModal() {
       saveRoutings: (routings: any) => {
         if(routings) {
           hasUnsavedChanges.value = true
-          orderRoutings.value = sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+          orderRoutings.value = commonUtil.sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+          orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
         }
         initializeOrderRoutings()
       }
@@ -655,7 +632,7 @@ async function openArchivedRoutingModal() {
 }
 
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
-  await store.dispatch("orderRouting/fetchRoutingHistory", props.routingGroupId)
+  await orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
     componentProps: { routingHistory: routingHistory.value[orderRoutingId], routingName, groupName: currentRoutingGroup.value.groupName }
@@ -687,71 +664,12 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
     }
   })
   hasUnsavedChanges.value = true
+  await orderRoutingStore().setCurrentGroup({ ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
   initializeOrderRoutings()
 }
 
 async function saveRoutingGroup() {
-  // Converting the routings into object { orderRoutingId: routing } format as to find the diff after performing all the operations
-  const initialRoutings = currentRoutingGroup.value["routings"].reduce((routings: any, routing: any) => {
-    routings[routing.orderRoutingId] = routing
-    return routings
-  }, {})
-
-  const finalRoutings = orderRoutings.value.reduce((routings: any, routing: any) => {
-    routings[routing.orderRoutingId] = routing
-    return routings
-  }, {})
-
-  const diff = findRoutingsDiff(initialRoutings, finalRoutings)
-
-  // If there is no diff in the routing order then do not make any api call and update hasUnsavedChanges values as we have made its value to true on calling of doReorder function
-  if(!Object.keys(diff).length) {
-    hasUnsavedChanges.value = false
-    return;
-  }
-
-  const routings = Object.values(diff).map((routing: any) => {
-    return {
-      routingGroupId: props.routingGroupId,
-      orderRoutingId: routing.orderRoutingId,
-      routingName: routing.routingName,
-      sequenceNum: routing.sequenceNum,
-      statusId: routing.statusId
-    }
-  })
-
-  const payload = {
-    routingGroupId: props.routingGroupId,
-    productStoreId: currentRoutingGroup.value.productStoreId,
-    routings
-  }
-
-  const routingGroupId = await updateRoutingGroup(payload)
-  if(routingGroupId) {
-    hasUnsavedChanges.value = false
-    await store.dispatch("orderRouting/setCurrentGroup", { ...currentRoutingGroup.value, routings: JSON.parse(JSON.stringify(orderRoutings.value)) })
-  }
-}
-
-async function updateRoutingGroup(payload: any) {
-  emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
-  let routingGroupId = ''
-  try {
-    const resp = await OrderRoutingService.updateRoutingGroup(payload);
-
-    if(!hasError(resp) && resp.data.routingGroupId) {
-      routingGroupId = resp.data.routingGroupId
-      showToast(translate("Routing group information updated"))
-    } else {
-      throw resp.data
-    }
-  } catch(err) {
-    showToast(translate("Failed to update group information"))
-    logger.error(err);
-  }
-
-  emitter.emit("dismissLoader")
-  return routingGroupId
+  await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value)
 }
 
 async function showGroupHistory() {
@@ -777,24 +695,24 @@ async function cloneGroup() {
     newGroupName: `${currentRoutingGroup.value.groupName} copy`
   }
   try {
-    const resp = await OrderRoutingService.cloneGroup(payload)
+    const resp = await orderRoutingStore().cloneGroup(payload)
 
-    if(!hasError(resp)) {
+    if(!commonUtil.hasError(resp)) {
       // Not fetching the groups list as after cloning as we do not need any information from the newly cloned group
-      showToast(translate("Brokering run cloned"))
+      commonUtil.showToast(translate("Brokering run cloned"))
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to clone brokering run"))
+    commonUtil.showToast(translate("Failed to clone brokering run"))
     logger.error(err)
   }
 }
 
 async function cloneRouting(routing: any) {
-  emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: "Cloning route", backdropDismiss: false })
 
-  const orderRoutingId = await store.dispatch("orderRouting/cloneOrderRouting", {
+  const orderRoutingId = await orderRoutingStore().cloneOrderRouting({
     orderRoutingId: routing.orderRoutingId,
     orderRoutingName: routing.routingName,
     routingGroupId: props.routingGroupId
@@ -803,15 +721,16 @@ async function cloneRouting(routing: any) {
   // Updating the order routings as we have created a new route that needs to be added on the UI
   if(orderRoutingId) {
     orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+    hasUnsavedChanges.value = true
     initializeOrderRoutings()
   }
 
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 }
 
 async function getProductStoreReservation() {
   try {
-    const resp = await UtilService.getProductStoreInfo()
+    const resp = await useUtilStore().getProductStoreInfo()
 
     if(resp.data) {
       isBrokeringEnabled.value = !resp.data.enableBrokering || resp.data.enableBrokering === "Y"
@@ -829,19 +748,19 @@ async function toggleReservation(event: CustomEvent) {
   }
 
   try {
-    await UtilService.updateProductStoreInfo({
+    await useUtilStore().updateProductStoreInfo({
       productStoreId: currentEComStore.value.productStoreId,
       enableBrokering
     })
   } catch(err) {
-    showToast(translate("Failed to pause the brokering"))
+    commonUtil.showToast(translate("Failed to pause the brokering"))
     logger.error("Failed to update the brokering for product store")
   }
 }
 
 async function getTestSessions() {
   activeTestSessions.value = 0
-  const testSessions = await UtilService.getTestSessions({
+  const testSessions = await useUtilStore().getTestSessions({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       productStoreId: currentEComStore.value.productStoreId

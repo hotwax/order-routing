@@ -23,12 +23,10 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
+import { translate } from "@common";
 import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
 import { settingsOutline, shuffleOutline, terminalOutline } from "ionicons/icons";
-import { useRouter } from "vue-router";
-
-const router = useRouter();
+import router from "@/router";
 
 function showFooter() {
   if (['/tabs/settings', '/tabs/brokering', '/tabs/circuit'].includes(router.currentRoute.value.path)) return true

@@ -23,7 +23,7 @@
             </ion-card-header>
           </ion-item>
           <ion-button color="danger" @click="logout()">{{ translate("Logout") }}</ion-button>
-          <ion-button :standalone-hidden="!hasPermission(Actions.APP_PWA_STANDALONE_ACCESS)" fill="outline" @click="goToLaunchpad()">
+          <ion-button :standalone-hidden="!userStore.hasPermission('COMMON_ADMIN')" fill="outline" @click="goToLaunchpad()">
             {{ translate("Go to Launchpad") }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -39,17 +39,17 @@
         <ion-card>
           <ion-card-header>
             <ion-card-subtitle>
-              {{ $t('OMS instance') }}
+              {{ translate('OMS instance') }}
             </ion-card-subtitle>
             <ion-card-title>
               {{ oms }}
             </ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            {{ $t('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
+            {{ translate('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button :disabled="!omsRedirectionInfo.token || !omsRedirectionInfo.url" @click="goToOms(omsRedirectionInfo.token, omsRedirectionInfo.url)" fill="clear">
-            {{ $t('Go to OMS') }}
+          <ion-button :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
+            {{ translate('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
         </ion-card>
@@ -67,19 +67,13 @@
           </ion-card-content>
           <ion-item lines="none">
             <ion-select :label="translate('Select store')" interface="popover" :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
-              <ion-select-option v-for="store in (userProfile ? userProfile.stores : [])" :key="store.productStoreId" :value="store.productStoreId" >{{ store.storeName || store.productStoreId }}</ion-select-option>
+              <ion-select-option v-for="store in ecomStores" :key="store.productStoreId" :value="store.productStoreId" >{{ store.storeName || store.productStoreId }}</ion-select-option>
             </ion-select>
           </ion-item>
         </ion-card>
       </section>
       <hr />
-      <div class="section-header">
-        <h1>
-          {{ translate("App") }}
-          <p class="overline" >{{ translate("Version:") + appVersion }}</p>
-        </h1>
-        <p class="overline">{{ translate("Built:") + getDateTime(appInfo.builtTime) }}</p>
-      </div>
+      <DxpAppVersionInfo />
       <section>
         <ion-card>
           <ion-card-header>
@@ -94,14 +88,14 @@
             <ion-label>
               <p class="overline">{{ translate("Browser TimeZone") }}</p>
               {{ browserTimeZone.id }}
-              <p v-if="showDateTime">{{ getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
+              <p v-if="showDateTime">{{ commonUtil.getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
             </ion-label>
           </ion-item>
           <ion-item lines="none">
             <ion-label>
               <p class="overline">{{ translate("Selected TimeZone") }}</p>
               {{ currentTimeZoneId }}
-              <p v-if="showDateTime">{{ getCurrentTime(currentTimeZoneId, dateTimeFormat) }}</p>
+              <p v-if="showDateTime">{{ commonUtil.getCurrentTime(currentTimeZoneId, dateTimeFormat) }}</p>
             </ion-label>
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
@@ -163,27 +157,24 @@
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonProgressBar, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
-import { Actions, hasPermission } from "@/authorization";
-import { useStore } from "vuex";
+import { useUserStore } from "@/store/userStore";
+import { productStore } from "@/store/productStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
-import { DateTime } from "luxon";
-import { translate } from "@/i18n"
 import { openOutline } from "ionicons/icons"
-import { goToOms } from "@hotwax/dxp-components";
-import {getCurrentTime} from "../utils"
+import { translate, commonUtil, cookieHelper } from "@common";
+import { useAuth } from "@common";
+import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
-const store = useStore()
-const appVersion = ref("")
-const appInfo = (process.env.VUE_APP_VERSION_INFO ? JSON.parse(process.env.VUE_APP_VERSION_INFO) : {}) as any
+const userStore = useUserStore()
 
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
-const oms = computed(() => store.getters["user/getInstanceUrl"])
-const omsRedirectionInfo = computed(() => store.getters["user/getOmsRedirectionInfo"])
-const currentTimeZoneId = computed(() => userProfile.value.timeZone)
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
+const ecomStores = computed(() => productStore().ecomStores)
+const oms = computed(() => cookieHelper().get("oms"));
+const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
 const modelInfo = computed(() => store.state.circuit.modelInfo)
 const gpuInfo = computed(() => store.state.circuit.gpuInfo)
 const browserTimeZone = ref({
@@ -209,13 +200,12 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  appVersion.value = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag;
   store.dispatch('circuit/checkWebGPUSupport');
 })
 
 function setEComStore(event: CustomEvent) {
-  if(userProfile.value?.stores) {
-    store.dispatch("user/setEcomStore", {
+  if(ecomStores.value.length) {
+    productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
   }
@@ -229,10 +219,7 @@ async function changeTimeZone() {
 }
 
 function logout() {
-  store.dispatch("user/logout").then(() => {
-    const redirectUrl = window.location.origin + '/login'
-    window.location.href = `${process.env.VUE_APP_LOGIN_URL}?isLoggedOut=true&redirectUrl=${redirectUrl}`
-  })
+  useAuth().logout({ isUserUnauthorised: false })
 }
 
 function installModel() {
@@ -243,12 +230,8 @@ function unloadModel() {
   store.dispatch('circuit/unloadLLM');
 }
 
-function getDateTime(time: any) {
-  return time ? DateTime.fromMillis(time).toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }) : "";
-}
-
 function goToLaunchpad() {
-  window.location.href = `${process.env.VUE_APP_LOGIN_URL}`
+  window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}`
 }
 </script>
 

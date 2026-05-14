@@ -22,9 +22,8 @@
         <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
       </div>
       <ion-list v-else>
-        <!-- Added this div as we need to hide ProductCategory option from filters, need to remove this once we add support for ProductCategory filter-->
-        <div v-for="sort in getOptions()" :key="sort.enumId">
-          <ion-item v-if="sort.enumId !== 'OIP_PROD_CATEGORY' && sort.enumId !== 'OIP_PROD_CATEGORY_EXCLUDED'">
+        <div v-for="sort in (getOptions() as any[])" :key="sort.enumId">
+          <ion-item>
             <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
           </ion-item>
         </div>
@@ -41,14 +40,14 @@
 
 <script setup lang="ts">
 import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { useStore } from "vuex";
+import { useUtilStore } from "@/store/utilStore";
 import { computed, defineProps, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
-import { translate } from "@/i18n";
+import { translate } from "@common";
 
-const store = useStore();
-const enums = computed(() => store.getters["util/getEnums"])
+const utilStore = useUtilStore();
+const enums = computed(() => utilStore.getEnums)
 
 const props = defineProps({
   orderRoutingId: {

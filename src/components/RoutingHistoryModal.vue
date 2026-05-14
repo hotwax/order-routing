@@ -29,7 +29,7 @@
           <ion-icon v-if="history.hasError === 'Y'" :icon="warningOutline" color="warning" slot="start" />
           <ion-icon v-else :icon="checkmarkDoneOutline" slot="start"/>
           <ion-label>{{ history.routingResult }}</ion-label>
-          <ion-label slot="end">{{ getDateAndTime(history.startDate) }}</ion-label>
+          <ion-label slot="end">{{ commonUtil.getDateAndTime(history.startDate) }}</ion-label>
         </ion-item>
       </div>
     </ion-list>
@@ -37,24 +37,14 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
-import store from "@/store";
-import { getDateAndTime } from "@/utils";
-import {
-  IonButton,
-  IonButtons,
-  IonContent,
-  IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonTitle,
-  IonToolbar,
-  modalController,
-} from "@ionic/vue";
+import { useUserStore } from "@/store/userStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { productStore } from "@/store/productStore";
+import { translate } from "@common";
+import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { checkmarkDoneOutline, closeOutline, warningOutline } from "ionicons/icons";
 import { computed, defineProps } from "vue";
+import { commonUtil } from "@common";
 
 defineProps({
   routingHistory: {
@@ -72,10 +62,10 @@ defineProps({
   }
 })
 
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
+const currentRoutingGroup: any = computed(() => orderRoutingStore().getCurrentRoutingGroup)
+const ecomStores = computed(() => productStore().ecomStores)
 
-const productStoreName = computed(() => userProfile.value.stores.find((store: any) => store.productStoreId === currentRoutingGroup.value.productStoreId)?.storeName || currentRoutingGroup.value.productStoreId)
+const productStoreName = computed(() => ecomStores.value.find((store: any) => store.productStoreId === currentRoutingGroup.value.productStoreId)?.storeName || currentRoutingGroup.value.productStoreId)
 
 function closeModal() {
   modalController.dismiss();

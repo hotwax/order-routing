@@ -22,72 +22,39 @@ import "@ionic/vue/css/flex-utils.css";
 import "@ionic/vue/css/display.css";
 
 /* Theme variables */
+import "@common/css/settings.css"
+import "@common/css/theme.css"
 import "./theme/variables.css";
 import "./theme/circuit.css";
-import "@hotwax/apps-theme";
 
-import { dxpComponents } from "@hotwax/dxp-components"
-import { login, logout, loader } from "@/user-utils";
-import { getConfig, initialise } from '@/adapter';
+import { createPinia } from "pinia";
+import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import { logger, createDxpI18n, initialiseConfig } from "@common";
+import localeMessages from "./locales"
+import { useUserStore } from "@/store/userStore";
 
-import i18n from "./i18n"
-import store from "./store"
-import { DateTime } from "luxon";
-import logger from './logger';
-import permissionPlugin from '@/authorization';
-import permissionRules from '@/authorization/Rules';
-import permissionActions from '@/authorization/Actions';
-
+const i18n = createDxpI18n(localeMessages)
+const pinia = createPinia().use(piniaPluginPersistedstate);
 const app = createApp(App)
   .use(IonicVue, {
     mode: "md"
   })
   .use(logger, {
-    level: process.env.VUE_APP_DEFAULT_LOG_LEVEL
+    level: import.meta.env.VITE_VUE_APP_DEFAULT_LOG_LEVEL
   })
   .use(router)
   .use(i18n)
-  .use(store)
-  .use(permissionPlugin, {
-    rules: permissionRules,
-    actions: permissionActions
-  })
-  .use(dxpComponents, {
-    defaultImgUrl: require("@/assets/images/defaultImage.png"),
-    login,
-    logout,
-    loader,
-    appLoginUrl: process.env.VUE_APP_LOGIN_URL as string,
-    getConfig,
-    initialise
-  });
+  .use(pinia)
 
-// Filters are removed in Vue 3 and global filter introduced https://v3.vuejs.org/guide/migration/filters.html#global-filters
-app.config.globalProperties.$filters = {
-  formatDate(value: any, inFormat?: string, outFormat?: string) {
-    // TODO Make default format configurable and from environment variables
-    if(inFormat){
-      return DateTime.fromFormat(value, inFormat).toFormat(outFormat ? outFormat : "MM-DD-YYYY");
-    }
-    return DateTime.fromISO(value).toFormat(outFormat ? outFormat : "MM-DD-YYYY");
-  },
-  formatUtcDate(value: any, inFormat?: any, outFormat?: string) {
-    // TODO Make default format configurable and from environment variables
-    const userProfile = store.getters["user/getUserProfile"];
-    // TODO Fix this setDefault should set the default timezone instead of getting it everytiem and setting the tz
-    return DateTime.utc(value, inFormat).setZone(userProfile.userTimeZone).toFormat(outFormat ? outFormat : "MM-DD-YYYY")
-  },
-  getFeature(featureHierarchy: any, featureKey: string) {
-    let  featureValue = ""
-    if (featureHierarchy) {
-      const feature = featureHierarchy.find((featureItem: any) => featureItem.startsWith(featureKey))
-      const featureSplit = feature ? feature.split("/") : [];
-      featureValue = featureSplit[2] ? featureSplit[2] : "";
-    }
-    return featureValue;
-  }
-}
-
+initialiseConfig({
+  postLogin: useUserStore().postLogin,
+  postLogout: useUserStore().postLogout,
+  get oms() { return useUserStore().oms },
+  set oms(val) { useUserStore().oms = val },
+  get current() { return useUserStore().current },
+  set current(val) { useUserStore().current = val },
+  router: router
+})
 
 router.isReady().then(() => {
   app.mount("#app");

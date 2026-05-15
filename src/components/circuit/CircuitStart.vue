@@ -84,12 +84,17 @@ const selectedContext = ref(null as any);
 const startChat = () => {
   if (prompt.value.trim()) {
     let message = prompt.value;
-    if (selectedContext.value) {
-      message += ` [Context: ${selectedContext.value.routingName}]`;
+    const contextToApply = selectedContext.value;
+    if (contextToApply) {
+      message += ` [Context: ${contextToApply.routingName}]`;
       selectedContext.value = null;
     }
     // Reset current thread ID to null to ensure a new thread is created
     circuitStore.switchThread(null);
+    // switchThread clears activeContext, so set it after.
+    if (contextToApply) {
+      circuitStore.setActiveContext(contextToApply);
+    }
     // Use sendAgentMessage for agentic behavior
     circuitStore.sendAgentMessage(message);
     prompt.value = '';

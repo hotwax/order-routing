@@ -249,20 +249,26 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
       try {
-        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId) {
+        // Only skip when we have the FULL hierarchy cached. Metadata-only currentGroup
+        // (just the groups[] shape with no routings) means we still need to fetch /raw.
+        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
           return;
         }
-        // Opened group is new group, which being created locally
         currentGroup = this.groups.find(group => group.routingGroupId === routingGroupId)
         if (!currentGroup?.isNew) {
           const resp = await api({
             url: `order-routing/groups/${routingGroupId}/raw`,
             method: "GET"
           });
-          if(!commonUtil.hasError(resp) && resp.data) {
+          // /raw can come back 200 with an empty body or a non-object payload for groups
+          // that have no routings yet. Treat that as "valid group, no routings" rather
+          // than an error, so we don't poison currentGroup with a swallowed throw.
+          if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === 'object' && !Array.isArray(resp.data)) {
             currentGroup = resp.data
+          } else if (currentGroup) {
+            currentGroup = { ...currentGroup, routings: [] }
           } else {
-            throw resp.data
+            throw resp?.data
           }
         }
       } catch(err) {

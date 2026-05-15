@@ -227,6 +227,7 @@ import { useUtilStore } from "@/store/utilStore";
 import { computed, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
+import { useCreateRouting } from "@/composables/useCreateRouting";
 import { DateTime } from "luxon";
 import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -467,80 +468,28 @@ async function updateGroupStatus(event: CustomEvent) {
   }
 }
 
-async function createOrderRoute() {
-  const newRouteAlert = await alertController.create({
-    header: translate("New Order Route"),
-    buttons: [{
-      text: translate("Cancel"),
-      role: "cancel"
-    }, {
-      text: translate("Save"),
-      handler: (data) => {
-        if(!data.routingName?.trim().length) {
-          commonUtil.showToast(translate("Please enter a valid name"))
-          return false;
-        }
-      }
-    }],
-    inputs: [{
-      name: "routingName",
-      placeholder: translate("route name")
-    }]
-  })
-
-  newRouteAlert.onDidDismiss().then(async (result: any) => {
-    // considered that if a role is available on dismiss, it will be a negative role in which we don't need to perform any action
-    if(result.role) {
-      return;
+const { promptCreateRouting } = useCreateRouting();
+function createOrderRoute() {
+  return promptCreateRouting({
+    routingGroupId: props.routingGroupId,
+    existingRoutings: orderRoutings.value,
+    onCreated: () => {
+      // If a route is archived/unarchived without saving and the user then creates a new
+      // route, those status changes are lost on re-bind. Re-apply them from local state.
+      const archivedRoutingIds = getArchivedOrderRoutings()?.map((r: Route) => r.orderRoutingId)
+      const activeRoutingIds = orderRoutings.value.filter((r: Route) => r.statusId === "ROUTING_ACTIVE").map((r: Route) => r.orderRoutingId)
+      const draftRoutingIds = orderRoutings.value.filter((r: Route) => r.statusId === "ROUTING_DRAFT").map((r: Route) => r.orderRoutingId)
+      const routings = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
+      routings.forEach((routing: any) => {
+        if (archivedRoutingIds.includes(routing.orderRoutingId)) routing.statusId = "ROUTING_ARCHIVED"
+        else if (activeRoutingIds.includes(routing.orderRoutingId)) routing.statusId = "ROUTING_ACTIVE"
+        else if (draftRoutingIds.includes(routing.orderRoutingId)) routing.statusId = "ROUTING_DRAFT"
+      })
+      orderRoutings.value = routings
+      hasUnsavedChanges.value = true
+      initializeOrderRoutings();
     }
-
-    const routingName = result.data?.values?.routingName;
-    if(routingName && props.routingGroupId) {
-      // TODO: check for the default value of params
-      const payload = {
-        orderRoutingId: "",
-        routingGroupId: props.routingGroupId,
-        statusId: "ROUTING_DRAFT",
-        routingName,
-        sequenceNum: orderRoutings.value.length && orderRoutings.value[orderRoutings.value.length - 1].sequenceNum >= 0 ? orderRoutings.value[orderRoutings.value.length - 1].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new route seqNum to 0, also considering archivedRouting when calculating new seqNum
-        description: "",
-        createdDate: DateTime.now().toMillis()
-      }
-
-      const orderRoutingId = await orderRoutingStore().createOrderRouting(payload)
-
-      // update the routing order for reordering and the cloned updated routings again
-      if(orderRoutingId) {
-
-        // If we archive/unarchive a route and without saving the changes, creates a new route then the changes in the route status are lost.
-        // Added the below logic to maintain the state of unarchived/archived route when the status changes are not saved
-        // and user creates a new route
-        const archivedRoutingIds = getArchivedOrderRoutings()?.map((routing: Route) => routing.orderRoutingId)
-        const activeRoutingIds = orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_ACTIVE")?.map((routing: Route) => routing.orderRoutingId)
-        const draftRoutingIds = orderRoutings.value.filter((routing: Route) => routing.statusId === "ROUTING_DRAFT")?.map((routing: Route) => routing.orderRoutingId)
-        const routings = JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"]
-        routings.map((routing: any) => {
-          if(archivedRoutingIds.includes(routing.orderRoutingId)) {
-            routing.statusId = "ROUTING_ARCHIVED"
-          }
-
-          if(activeRoutingIds.includes(routing.orderRoutingId)) {
-            routing.statusId = "ROUTING_ACTIVE"
-          }
-
-          if(draftRoutingIds.includes(routing.orderRoutingId)) {
-            routing.statusId = "ROUTING_DRAFT"
-          }
-        })
-
-        orderRoutings.value = routings
-        hasUnsavedChanges.value = true
-        initializeOrderRoutings();
-      }
-    }
-  })
-
-  return newRouteAlert.present();
+  });
 }
 
 function getActiveAndDraftOrderRoutings() {

@@ -1,5 +1,5 @@
 <template>
-  <div class="circuit-canvas" v-if="activeRouting?.orderRoutingId">
+  <div class="circuit-canvas" v-if="group?.routingGroupId">
     <!-- Routing Group Column -->
     <div class="routing-group">
       <ion-card class="info">
@@ -70,6 +70,10 @@
 
       <ion-list-header>
         <ion-label>{{ translate("Routings") }}</ion-label>
+        <ion-button fill="clear" color="primary" @click="createNewRouting()">
+          <ion-icon slot="start" :icon="addCircleOutline" />
+          {{ translate("New") }}
+        </ion-button>
       </ion-list-header>
       <ion-list v-if="group.routings?.length">
       <ion-reorder-group @ionItemReorder="doRoutingReorder($event)" :disabled="false">
@@ -116,12 +120,16 @@
         </ion-item>
       </ion-list>
       <div v-else class="empty-state">
-        <p>{{ translate("No routings available") }}</p>
+        <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
+        <ion-button @click="createNewRouting()" fill="outline">
+          <ion-icon :icon="addOutline" slot="start" />
+          {{ translate("Create order batch") }}
+        </ion-button>
       </div>
     </div>
 
     <!-- Routing Column -->
-    <div class="routing">
+    <div class="routing" v-if="activeRouting?.orderRoutingId">
       <ion-card class="summary">
         <ion-item class="title" lines="none">
           <ion-label>
@@ -314,7 +322,7 @@
     </div>
 
     <!-- Routing Rules Column -->
-    <div class="routing-rule">
+    <div class="routing-rule" v-if="activeRouting?.orderRoutingId">
       <div v-if="activeRule?.routingRuleId">
         <ion-card class="summary">
           <ion-item class="title" lines="none">
@@ -513,7 +521,7 @@
         </div>
         <h2>{{ translate("Select a Routing Context") }}</h2>
         <p class="description">{{ translate("Select a routing from the list to view its details and manage inventory rules.") }}</p>
-        
+
         <div class="action-prompt">
           <ion-icon :icon="sparklesOutline" />
           <p>{{ translate("Ask Circuit to help you create or modify rules") }}</p>
@@ -593,6 +601,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import { applyDraftOperations, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations, summarizeDraftOperations } from "@/services/DraftAssistantService";
 import { buildBrokeringAgentSnapshot, buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
+import { useCreateRouting } from "@/composables/useCreateRouting";
 
 const props = defineProps({
   routingGroupId: {
@@ -954,7 +963,6 @@ watch(routingGroupId, async () => {
 
 async function fetchRoutingGroupInformation() {
   if (!routingGroupId.value || "") {
-    // Reset all state when no routing group is selected
     group.value = {};
     activeRoutingId.value = '';
     activeRuleId.value = '';
@@ -972,18 +980,14 @@ async function fetchRoutingGroupInformation() {
     if(Object.keys(currentRoutingGroup.value).length) {
       group.value = currentRoutingGroup.value
       groupName.value = group.value.groupName || ""
-      
-      // Fetching reference data, enums and status information
+
       await Promise.all([
         fetchGroupHistory(),
-        product.fetchRoutingReferenceData({
-          productStoreId: group.value.productStoreId,
-        }),
+        product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
         utilStore.fetchStatusInformation()
       ])
 
       if(group.value.routings?.length) {
-        // Auto select first routing
         selectRouting(group.value.routings[0]);
       }
     }
@@ -998,6 +1002,21 @@ async function fetchRoutingsInformation() {
   return;
 }
 
+const { promptCreateRouting } = useCreateRouting();
+function createNewRouting() {
+  if (!routingGroupId.value) return;
+  return promptCreateRouting({
+    routingGroupId: routingGroupId.value,
+    existingRoutings: group.value?.routings || [],
+    onCreated: (newRoutingId) => {
+      group.value = currentRoutingGroup.value;
+      hasUnsavedChanges.value = true;
+      const created = group.value.routings?.find((r: any) => r.orderRoutingId === newRoutingId);
+      if (created) selectRouting(created);
+    }
+  });
+}
+
 const selectRouting = (routing: any) => {
   activeRoutingId.value = routing.orderRoutingId;
   activeRouting.value = routing;
@@ -1006,12 +1025,16 @@ const selectRouting = (routing: any) => {
   activeRule.value = null;
   rulesInformation.value = {};
   initialRulesInformation.value = {};
-  
+
+  // Sync store-side currentRouteId so getCurrentRule / fetchInventoryRuleInformation
+  // resolve correctly (BrokeringQuery does the equivalent via fetchCurrentOrderRouting).
+  routingStore.setCurrentOrderRouting(routing.orderRoutingId);
+
   routeName.value = routing.routingName || ""
   isRouteNameUpdating.value = false
 
   initializeOrderRoutingOptions();
-  
+
   inventoryRules.value = routing.rules ? JSON.parse(JSON.stringify(routing.rules)) : [];
   initializeInventoryRules();
 
@@ -1022,11 +1045,15 @@ const selectRouting = (routing: any) => {
 
 const selectRule = async (rule: any) => {
   activeRuleId.value = rule.routingRuleId;
-  
+
   // Fetch full rule information including actions and filters
   try {
     if(!rulesInformation.value[rule.routingRuleId]) {
-      rulesInformation.value[rule.routingRuleId] = await routingStore.fetchInventoryRuleInformation(rule.routingRuleId)
+      const formatted = await routingStore.fetchInventoryRuleInformation(rule.routingRuleId)
+      // fetchInventoryRuleInformation returns {} if the store can't resolve the rule
+      // (e.g. currentRouteId mismatch). Fall back to the raw rule object so the
+      // detail panel still renders something usable.
+      rulesInformation.value[rule.routingRuleId] = (formatted && formatted.routingRuleId) ? formatted : rule
       initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
     }
     activeRule.value = rulesInformation.value[rule.routingRuleId] || rule

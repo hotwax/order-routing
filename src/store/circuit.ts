@@ -76,11 +76,8 @@ export const useCircuitStore = defineStore('circuit', {
       try {
         const threads = await CircuitStorageService.getThreads();
         this.threads = threads;
-        
-        if (threads.length > 0 && !this.currentThreadId) {
-          const mostRecent = threads.reduce((prev, current) => (prev.createdAt > current.createdAt) ? prev : current);
-          this.switchThread(mostRecent.id);
-        } else if (this.currentThreadId) {
+
+        if (this.currentThreadId) {
           const messages = await CircuitStorageService.getMessages(this.currentThreadId);
           this.messages = messages;
         }
@@ -96,16 +93,18 @@ export const useCircuitStore = defineStore('circuit', {
       };
       try {
         await CircuitStorageService.saveThread(thread);
-        await this.switchThread(thread.id);
+        await this.switchThread(thread.id, { preserveContext: true });
         await this.loadAllThreads();
         return thread.id;
       } catch (error) {
         console.error('Failed to create thread', error);
       }
     },
-    async switchThread(threadId: string | null) {
+    async switchThread(threadId: string | null, options: { preserveContext?: boolean } = {}) {
       this.currentThreadId = threadId;
-      this.activeContext = null;
+      if (!options.preserveContext) {
+        this.activeContext = null;
+      }
       if (!threadId) {
         this.messages = [];
         return;

@@ -3,25 +3,6 @@ import logger from "@/logger";
 import store from "@/store";
 import { getOmsRedirectionUrl, hasError } from "@/utils";
 
-const getAdminBaseURL = (): string => {
-  const url = store.getters["user/getBaseUrl"]
-  if (url.startsWith("http")) {
-    return url.includes("/rest/s1/order-routing")
-      ? url.replace(/\/rest\/s1\/order-routing\/?$/, "/rest/s1/admin/")
-      : `${url}/rest/s1/admin/`;
-  }
-  return `https://${url}.hotwax.io/rest/s1/admin/`;
-}
-
-const getAdminHeaders = () => {
-  const token = store.getters["user/getUserToken"]
-  return {
-    Api_Key: token,
-    Authorization: "Bearer " + token,
-    "Content-Type": "application/json"
-  }
-}
-
 const fetchRoutingGroups = async (payload: any): Promise<any> => {
   return api({
     url: "groups", 
@@ -53,11 +34,9 @@ const fetchRoutingHistory = async (routingGroupId: string, params: any): Promise
 }
 
 const fetchGroupHistory = async (jobName: string, params: any): Promise<any> => {
-  return client({
-    url: `serviceJobs/${jobName}/runs`,
+  return api({
+    url: `admin/serviceJobs/${jobName}/runs`,
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params
   });
 }

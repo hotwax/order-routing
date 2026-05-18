@@ -83,13 +83,20 @@ const api = async (customConfig: any) => {
     method: customConfig.method,
     data: customConfig.data,
     params: customConfig.params,
+    headers: customConfig.headers,
     // withCredentials: true
   }
 
   const baseURL = store.getters["user/getInstanceUrl"];
 
   if (baseURL) {
-    config.baseURL = baseURL.startsWith('http') ? baseURL.includes('/rest/s1/order-routing') ? baseURL : `${baseURL}/rest/s1/order-routing/` : `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
+    if (customConfig.url?.startsWith("admin/")) {
+      config.baseURL = baseURL.startsWith('http')
+        ? baseURL.includes('/rest/s1/order-routing') ? baseURL.replace(/\/order-routing\/?$/, "/") : baseURL.includes('/rest/s1') ? baseURL : `${baseURL}/rest/s1/`
+        : `https://${baseURL}.hotwax.io/rest/s1/`;
+    } else {
+      config.baseURL = baseURL.startsWith('http') ? baseURL.includes('/rest/s1/order-routing') ? baseURL : `${baseURL}/rest/s1/order-routing/` : `https://${baseURL}.hotwax.io/rest/s1/order-routing/`;
+    }
   }
   
   if(customConfig.cache) config.adapter = axiosCache.adapter;

@@ -3,51 +3,26 @@ import logger from "@/logger";
 import store from "@/store";
 import { getOmsRedirectionUrl } from "@/utils";
 
-const getAdminBaseURL = (): string => {
-  const url = store.getters["user/getBaseUrl"]
-  if (url.startsWith("http")) {
-    return url.includes("/rest/s1/order-routing")
-      ? url.replace(/\/rest\/s1\/order-routing\/?$/, "/rest/s1/admin/")
-      : `${url}/rest/s1/admin/`;
-  }
-  return `https://${url}.hotwax.io/rest/s1/admin/`;
-}
-
-const getAdminHeaders = () => {
-  const token = store.getters["user/getUserToken"]
-  return {
-    Api_Key: token,
-    Authorization: "Bearer " + token,
-    "Content-Type": "application/json"
-  }
-}
-
 const fetchEnums = async (payload: any): Promise<any> => {
-  return client({
-    url: "enums", 
+  return api({
+    url: "admin/enums",
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchOmsEnums = async (payload: any): Promise<any> => {
-  return client({
-    url: "enums",
+  return api({
+    url: "admin/enums",
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchFacilities = async (payload: any): Promise<any> => {
-  return client({
-    url: "facilities", 
+  return api({
+    url: "admin/facilities",
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
@@ -61,31 +36,25 @@ const fetchCategories = async (payload: any): Promise<any> => {
 }
 
 const fetchShippingMethods = async (payload: any): Promise<any> => {
-  return client({
-    url: `productStores/${payload.productStoreId}/shippingMethods`,
+  return api({
+    url: `admin/productStores/${payload.productStoreId}/shippingMethods`,
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchFacilityGroups = async (payload: any): Promise<any> => {
-  return client({
-    url: `productStores/${payload.productStoreId}/facilityGroups`, 
+  return api({
+    url: `admin/productStores/${payload.productStoreId}/facilityGroups`,
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchStatusInformation = async (payload: any): Promise<any> => {
-  return client({
-    url: "status",
+  return api({
+    url: "admin/status",
     method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders(),
     params: payload
   });
 }
@@ -179,11 +148,9 @@ const getTestSessions = async(payload: any): Promise<any> => {
 const createUserSession = async (payload: any): Promise<any> => {
   let userTestingSession = {} as any;
   try {
-    const resp = await client({
-      url: "user/sessions",
+    const resp = await api({
+      url: "admin/user/sessions",
       method: "POST",
-      baseURL: getAdminBaseURL(),
-      headers: getAdminHeaders(),
       data: payload
     }) as any;
 
@@ -201,11 +168,9 @@ const createUserSession = async (payload: any): Promise<any> => {
 
 const expireUserSession = async(payload: any, userTestingSession = {}): Promise<any> => {
   try {
-    const resp = await client({
-      url: `user/sessions/${payload.userSessionId}`,
+    const resp = await api({
+      url: `admin/user/sessions/${payload.userSessionId}`,
       method: "PUT",
-      baseURL: getAdminBaseURL(),
-      headers: getAdminHeaders(),
       data: payload
     }) as any;
 
@@ -220,23 +185,19 @@ const expireUserSession = async(payload: any, userTestingSession = {}): Promise<
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
-  return client({
-    url: `productStores/${payload.productStoreId}`,
+  return api({
+    url: `admin/productStores/${payload.productStoreId}`,
     method: "PUT",
-    baseURL: getAdminBaseURL(),
-    data: payload,
-    headers: getAdminHeaders()
+    data: payload
   })
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
   const productStoreId = store.getters["user/getCurrentEComStore"]?.productStoreId
 
-  return client({
-    url: `productStores/${productStoreId}`,
-    method: "GET",
-    baseURL: getAdminBaseURL(),
-    headers: getAdminHeaders()
+  return api({
+    url: `admin/productStores/${productStoreId}`,
+    method: "GET"
   })
 }
 

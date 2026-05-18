@@ -2,24 +2,13 @@ import api, { client } from "@/api"
 import store from "@/store";
 import { hasError } from "@/utils";
 
-const getAdminBaseURL = (): string => {
-  const url = store.getters["user/getBaseUrl"];
-  if (url.startsWith("http")) {
-    return url.includes("/rest/s1/order-routing")
-      ? url.replace(/\/rest\/s1\/order-routing\/?$/, "/rest/s1/admin/")
-      : `${url}/rest/s1/admin/`;
-  }
-  return `https://${url}.hotwax.io/rest/s1/admin/`;
-}
-
 const login = async (token: string): Promise <any> => {
   let api_key = ""
 
   try {
-    const resp = await client({
-      url: "login", 
+    const resp = await api({
+      url: "admin/login",
       method: "post",
-      baseURL: getAdminBaseURL(),
       params: {
         token
       },
@@ -131,10 +120,9 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
 
 const getUserProfile = async (token: any): Promise<any> => {
   try {
-    const resp = await client({
-      url: "user/profile",
+    const resp = await api({
+      url: "admin/user/profile",
       method: "GET",
-      baseURL: getAdminBaseURL(),
       headers: {
         "api_key": token,
         "Content-Type": "application/json"
@@ -149,10 +137,9 @@ const getUserProfile = async (token: any): Promise<any> => {
 
 const getEComStores = async (token: any): Promise<any> => {
   try {
-    const resp = await client({
-      url: "user/productStore",
+    const resp = await api({
+      url: "admin/user/productStore",
       method: "GET",
-      baseURL: getAdminBaseURL(),
       headers: {
         "api_key": token,
         "Content-Type": "application/json"
@@ -170,15 +157,10 @@ const getEComStores = async (token: any): Promise<any> => {
 }
 
 const getAvailableTimeZones = async (): Promise <any>  => {
-  const token = store.getters["user/getUserToken"]
-  return client({
-    url: "user/getAvailableTimeZones",
+  return api({
+    url: "admin/user/getAvailableTimeZones",
     method: "get",
-    baseURL: getAdminBaseURL(),
-    headers: {
-      "api_key": token,
-      "Content-Type": "application/json"
-    }
+    cache: true
   });
 }
 const setUserTimeZone = async (payload: any): Promise <any>  => {

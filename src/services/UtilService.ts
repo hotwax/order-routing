@@ -3,26 +3,51 @@ import logger from "@/logger";
 import store from "@/store";
 import { getOmsRedirectionUrl } from "@/utils";
 
+const getAdminBaseURL = (): string => {
+  const url = store.getters["user/getBaseUrl"]
+  if (url.startsWith("http")) {
+    return url.includes("/rest/s1/order-routing")
+      ? url.replace(/\/rest\/s1\/order-routing\/?$/, "/rest/s1/admin/")
+      : `${url}/rest/s1/admin/`;
+  }
+  return `https://${url}.hotwax.io/rest/s1/admin/`;
+}
+
+const getAdminHeaders = () => {
+  const token = store.getters["user/getUserToken"]
+  return {
+    Api_Key: token,
+    Authorization: "Bearer " + token,
+    "Content-Type": "application/json"
+  }
+}
+
 const fetchEnums = async (payload: any): Promise<any> => {
-  return api({
+  return client({
     url: "enums", 
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchOmsEnums = async (payload: any): Promise<any> => {
-  return api({
-    url: "omsenums",
+  return client({
+    url: "enums",
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchFacilities = async (payload: any): Promise<any> => {
-  return api({
+  return client({
     url: "facilities", 
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
@@ -36,25 +61,31 @@ const fetchCategories = async (payload: any): Promise<any> => {
 }
 
 const fetchShippingMethods = async (payload: any): Promise<any> => {
-  return api({
+  return client({
     url: `productStores/${payload.productStoreId}/shippingMethods`,
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchFacilityGroups = async (payload: any): Promise<any> => {
-  return api({
+  return client({
     url: `productStores/${payload.productStoreId}/facilityGroups`, 
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
 
 const fetchStatusInformation = async (payload: any): Promise<any> => {
-  return api({
+  return client({
     url: "status",
     method: "GET",
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders(),
     params: payload
   });
 }
@@ -148,9 +179,11 @@ const getTestSessions = async(payload: any): Promise<any> => {
 const createUserSession = async (payload: any): Promise<any> => {
   let userTestingSession = {} as any;
   try {
-    const resp = await api({
+    const resp = await client({
       url: "user/sessions",
       method: "POST",
+      baseURL: getAdminBaseURL(),
+      headers: getAdminHeaders(),
       data: payload
     }) as any;
 
@@ -168,9 +201,11 @@ const createUserSession = async (payload: any): Promise<any> => {
 
 const expireUserSession = async(payload: any, userTestingSession = {}): Promise<any> => {
   try {
-    const resp = await api({
+    const resp = await client({
       url: `user/sessions/${payload.userSessionId}`,
       method: "PUT",
+      baseURL: getAdminBaseURL(),
+      headers: getAdminHeaders(),
       data: payload
     }) as any;
 
@@ -185,38 +220,23 @@ const expireUserSession = async(payload: any, userTestingSession = {}): Promise<
 }
 
 const updateProductStoreInfo = async (payload: any): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
-  const baseURL = url.startsWith("http") ? url.includes("/rest/s1/order-routing") ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
-
   return client({
     url: `productStores/${payload.productStoreId}`,
     method: "PUT",
-    baseURL: baseURL,
+    baseURL: getAdminBaseURL(),
     data: payload,
-    headers: {
-      Api_Key: token,
-      Authorization: "Bearer " + token,
-      "Content-Type": "application/json"
-    }
+    headers: getAdminHeaders()
   })
 }
 
 const getProductStoreInfo = async (): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const token = store.getters["user/getUserToken"]
-  const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url.replace("/order-routing", "/oms") : `${url}/rest/s1/oms/` : `https://${url}.hotwax.io/rest/s1/oms/`;
   const productStoreId = store.getters["user/getCurrentEComStore"]?.productStoreId
 
   return client({
     url: `productStores/${productStoreId}`,
     method: "GET",
-    baseURL: baseURL,
-    headers: {
-      Api_Key: token,
-      Authorization: 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    }
+    baseURL: getAdminBaseURL(),
+    headers: getAdminHeaders()
   })
 }
 

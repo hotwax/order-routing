@@ -2,16 +2,24 @@ import api, { client } from "@/api"
 import store from "@/store";
 import { hasError } from "@/utils";
 
+const getAdminBaseURL = (): string => {
+  const url = store.getters["user/getBaseUrl"];
+  if (url.startsWith("http")) {
+    return url.includes("/rest/s1/order-routing")
+      ? url.replace(/\/rest\/s1\/order-routing\/?$/, "/rest/s1/admin/")
+      : `${url}/rest/s1/admin/`;
+  }
+  return `https://${url}.hotwax.io/rest/s1/admin/`;
+}
+
 const login = async (token: string): Promise <any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   let api_key = ""
 
   try {
     const resp = await client({
       url: "login", 
       method: "post",
-      baseURL,
+      baseURL: getAdminBaseURL(),
       params: {
         token
       },
@@ -122,13 +130,11 @@ const getUserPermissions = async (payload: any, url: string, token: any): Promis
 }
 
 const getUserProfile = async (token: any): Promise<any> => {
-  const url = store.getters["user/getBaseUrl"]
-  const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
   try {
     const resp = await client({
       url: "user/profile",
       method: "GET",
-      baseURL,
+      baseURL: getAdminBaseURL(),
       headers: {
         "api_key": token,
         "Content-Type": "application/json"
@@ -143,12 +149,10 @@ const getUserProfile = async (token: any): Promise<any> => {
 
 const getEComStores = async (token: any): Promise<any> => {
   try {
-    const url = store.getters["user/getBaseUrl"]
-    const baseURL = url.startsWith('http') ? url.includes('/rest/s1/order-routing') ? url : `${url}/rest/s1/order-routing/` : `https://${url}.hotwax.io/rest/s1/order-routing/`;
     const resp = await client({
       url: "user/productStore",
       method: "GET",
-      baseURL,
+      baseURL: getAdminBaseURL(),
       headers: {
         "api_key": token,
         "Content-Type": "application/json"
@@ -166,10 +170,15 @@ const getEComStores = async (token: any): Promise<any> => {
 }
 
 const getAvailableTimeZones = async (): Promise <any>  => {
-  return api({
+  const token = store.getters["user/getUserToken"]
+  return client({
     url: "user/getAvailableTimeZones",
     method: "get",
-    cache: true
+    baseURL: getAdminBaseURL(),
+    headers: {
+      "api_key": token,
+      "Content-Type": "application/json"
+    }
   });
 }
 const setUserTimeZone = async (payload: any): Promise <any>  => {

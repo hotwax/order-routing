@@ -38,7 +38,7 @@ export const useUtilStore = defineStore('util', {
         let resp: any;
         do {
           resp = await api({
-            url: "order-routing/enums", 
+            url: "admin/enums",
             method: "GET",
             params: {
               ...payload,
@@ -100,7 +100,7 @@ export const useUtilStore = defineStore('util', {
   
       try {
         const resp = await api({
-          url: "order-routing/omsenums",
+          url: "admin/enums",
           method: "GET",
           params: {
             ...payload,
@@ -239,7 +239,7 @@ export const useUtilStore = defineStore('util', {
       let userTestingSession = {} as any;
       try {
         const resp = await api({
-          url: "order-routing/user/sessions",
+          url: "admin/user/sessions",
           method: "POST",
           data: payload
         }) as any;
@@ -258,7 +258,7 @@ export const useUtilStore = defineStore('util', {
     async expireUserSession(payload: any, userTestingSession = {}): Promise<any> {
       try {
         const resp = await api({
-          url: `order-routing/user/sessions/${payload.userSessionId}`,
+          url: `admin/user/sessions/${payload.userSessionId}`,
           method: "PUT",
           data: payload
         }) as any;
@@ -274,9 +274,8 @@ export const useUtilStore = defineStore('util', {
     },
     async updateProductStoreInfo(payload: any): Promise<any> {
       return api({
-        url: `order-routing/productStores/${payload.productStoreId}`,
+        url: `admin/productStores/${payload.productStoreId}`,
         method: "PUT",
-        baseURL: commonUtil.getMaargURL(),
         data: payload
       })
     },

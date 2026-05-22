@@ -53,48 +53,6 @@ type GenerateBrokeringRouteAssistantResponseParams = BrokeringRouteAssistantPayl
   generateDraft: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteDraft>;
 };
 
-// Single-word imperative verbs that signal an edit when matched as a whole token.
-// Nouns that overlap with inquiry vocab (route, broker, fallback, apply, put) are
-// intentionally excluded — substring matching them misroutes inquiries like
-// "what does this route do?" or "is there a fallback rule?".
-const EDIT_VERB_TOKENS = new Set([
-  "add", "set", "update", "change", "create", "remove", "clear", "enable",
-  "disable", "activate", "archive", "bypass", "respect", "include", "exclude",
-  "make", "move", "switch", "replace", "rebuild", "reset", "configure", "assign"
-]);
-
-// Softer verbs that ARE imperative when they lead the prompt ("allow partial
-// allocation for B bucket") but appear inside inquiries too ("Do both rules
-// allow partial allocation?"). Only treat them as edit when they are the first
-// content token, after optional politeness prefixes like "please"/"can you".
-const LEAD_EDIT_VERB_TOKENS = new Set(["allow", "permit", "deny", "forbid"]);
-const LEAD_SKIP_TOKENS = new Set(["please", "can", "could", "would", "you", "kindly"]);
-
-// Multi-word edit cues. These are precise enough to match as substrings.
-const EDIT_PHRASES = ["sort by", "filter by", "turn on", "turn off", "set up"];
-
-export function classifyIntent(prompt: string): "edit" | "inquiry" {
-  const norm = normalizePrompt(prompt);
-  if (!norm) {
-    return "inquiry";
-  }
-  if (EDIT_PHRASES.some((phrase) => norm.includes(phrase))) {
-    return "edit";
-  }
-  const tokens = norm.split(" ");
-  if (tokens.some((token) => EDIT_VERB_TOKENS.has(token))) {
-    return "edit";
-  }
-  let leadIndex = 0;
-  while (leadIndex < tokens.length && LEAD_SKIP_TOKENS.has(tokens[leadIndex])) {
-    leadIndex += 1;
-  }
-  if (LEAD_EDIT_VERB_TOKENS.has(tokens[leadIndex])) {
-    return "edit";
-  }
-  return "inquiry";
-}
-
 export async function generateBrokeringRouteAssistantResponse(
   params: GenerateBrokeringRouteAssistantResponseParams
 ): Promise<BrokeringRouteAssistantResponse> {

@@ -1,6 +1,5 @@
 import assert from "assert";
 import {
-  classifyIntent,
   generateBrokeringRouteAssistantResponse
 } from "../mastra/brokeringRouteAssistantRouting";
 import type { PageCapabilityManifest } from "../mastra/pageCapabilitySchema";
@@ -61,37 +60,8 @@ const emptyDraft = {
 };
 
 (async () => {
-  // classifyIntent — regression coverage for the substring-vs-token bug.
-  // Nouns like "route", "broker", "fallback" must NOT trigger edit.
-  assert.equal(classifyIntent("What does this route do?"), "inquiry");
-  assert.equal(classifyIntent("Is there a fallback rule?"), "inquiry");
-  assert.equal(classifyIntent("Tell me about the broker logic"), "inquiry");
-  assert.equal(classifyIntent("How do these rules apply?"), "inquiry");
-  assert.equal(classifyIntent("Where do you put orders that fail?"), "inquiry");
-  assert.equal(classifyIntent(""), "inquiry");
-
-  // classifyIntent — true edits.
-  assert.equal(classifyIntent("Make the stores fallback active."), "edit");
-  assert.equal(classifyIntent("Add a queue filter for backorders"), "edit");
-  assert.equal(classifyIntent("Set up a new rule"), "edit");
-  assert.equal(classifyIntent("Sort by proximity"), "edit");
-  assert.equal(classifyIntent("Turn off auto-cancel"), "edit");
-  assert.equal(classifyIntent("Change the schedule to weekdays"), "edit");
-
-  // classifyIntent — soft verbs leading the prompt must be treated as edits,
-  // even though the same verbs appear in inquiries (covered below).
-  assert.equal(classifyIntent("allow partial allocation for B bucket"), "edit");
-  assert.equal(classifyIntent("Allow partial allocation"), "edit");
-  assert.equal(classifyIntent("Please allow partial allocation"), "edit");
-  assert.equal(classifyIntent("Can you allow partial allocation?"), "edit");
-  assert.equal(classifyIntent("Deny partial allocation"), "edit");
-
-  // classifyIntent — soft verbs embedded inside an inquiry must stay inquiry.
-  assert.equal(classifyIntent("Do both inventory rules allow partial allocation?"), "inquiry");
-  assert.equal(classifyIntent("Which rules allow partial allocation?"), "inquiry");
-
-  // generateBrokeringRouteAssistantResponse — inquiry path uses classifyIntent
-  // directly; no classify callback is passed.
+  // generateBrokeringRouteAssistantResponse — inquiry path dispatches to the
+  // injected classifyIntent callback, which returns "inquiry".
   {
     let inquiryCalls = 0;
     let draftCalls = 0;

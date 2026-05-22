@@ -714,4 +714,114 @@ function validate(operations: DraftOperation[]) {
   assert.deepEqual(proposal.unansweredQuestions, ["Which inventory rule should I inspect?"]);
 }
 
+// Regression: "allow partial allocation for B bucket" — the agent returns the
+// full B Bucket rule with current values for every field plus partialAllocation
+// flipped to true. convertBrokeringRouteDraftToOperations must produce exactly
+// one operation (the actual change), not eight.
+{
+  const ruleId = "RULE_B_BUCKET";
+  const bBucketRuleManifest: PageCapabilityManifest = {
+    pageId: "order-routing.rules",
+    route: "/tabs/circuit",
+    visibleEntities: {
+      route: {
+        availableInventoryRules: [{
+          routingRuleId: ruleId,
+          ruleName: "B Bucket",
+          statusId: "RULE_ACTIVE",
+          sequenceNum: 20,
+          currentValues: {
+            assignmentEnumId: "ORA_SINGLE",
+            partialAllocation: false,
+            partialGroupedItemAllocation: false,
+            inventoryFilters: [
+              { target: "selectedRule.inventoryFilters.FACILITY_GROUP", label: "Facility group", value: ["B_BUCKET"] },
+              { target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", label: "Safety stock", value: 2 }
+            ],
+            inventorySorts: [
+              { target: "selectedRule.inventorySorts.PROXIMITY", label: "Proximity" },
+              { target: "selectedRule.inventorySorts.INV_BALANCE", label: "Inventory balance" }
+            ],
+            unavailableItems: {
+              actionTypeEnumId: "ORA_MV_TO_QUEUE",
+              queueId: "UNFILLABLE_PARKING",
+              clearAutoCancelDays: false,
+              autoCancelDays: null
+            }
+          }
+        }]
+      }
+    },
+    editableTargets: [
+      { target: "selectedRule.statusId", label: "Status", valueType: "enum", currentValue: "RULE_ACTIVE", options: [{ id: "RULE_DRAFT" }, { id: "RULE_ACTIVE" }, { id: "RULE_ARCHIVED" }], editable: true } as any,
+      { target: "selectedRule.inventoryFilters.FACILITY_GROUP", label: "Facility group", valueType: "string[]", currentValue: ["B_BUCKET"], multiple: true, options: [{ id: "B_BUCKET" }], editable: true } as any,
+      { target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", label: "Safety stock", valueType: "number", currentValue: 2, editable: true } as any,
+      { target: "selectedRule.inventorySorts.PROXIMITY", label: "Proximity sort", valueType: "boolean", currentValue: true, editable: true } as any,
+      { target: "selectedRule.inventorySorts.INV_BALANCE", label: "Inventory balance sort", valueType: "boolean", currentValue: true, editable: true } as any,
+      { target: "selectedRule.partialAllocation", label: "Partial allocation", valueType: "boolean", currentValue: false, editable: true } as any,
+      { target: "selectedRule.partialGroupItemsAllocation", label: "Grouped partial allocation", valueType: "boolean", currentValue: false, editable: true } as any,
+      { target: "selectedRule.unavailableItemsAction", label: "Unavailable items action", valueType: "enum", currentValue: "ORA_MV_TO_QUEUE", options: [{ id: "ORA_NEXT_RULE" }, { id: "ORA_MV_TO_QUEUE" }], editable: true } as any,
+      { target: "selectedRule.unavailableItemsQueueId", label: "Unavailable items queue", valueType: "enum", currentValue: "UNFILLABLE_PARKING", options: [{ id: "UNFILLABLE_PARKING" }], editable: true } as any
+    ],
+    outputContract: createDraftOutputContract()
+  };
+
+  const result = convertBrokeringRouteDraftToOperations({
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: {
+        filters: {
+          queues: { include: [], exclude: [] },
+          shippingMethods: { include: [], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: [], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: []
+      },
+      inventoryRules: [{
+        ruleKey: ruleId,
+        name: "B Bucket",
+        statusId: "RULE_ACTIVE",
+        sequence: 20,
+        inventorySelection: {
+          filters: {
+            facilityGroups: { include: ["B_BUCKET"], exclude: [] },
+            proximity: { maxDistance: null, unit: null },
+            safetyStock: { minimum: 2 },
+            facilityOrderLimit: "unchanged",
+            shipmentThreshold: null
+          },
+          sorts: [
+            { field: "proximity", direction: "asc" },
+            { field: "inventoryBalance", direction: "asc" }
+          ]
+        },
+        allocation: {
+          partialOrderAllocation: true,
+          partialGroupedItemAllocation: false
+        },
+        unavailableItems: {
+          action: "moveToQueue",
+          queueId: "UNFILLABLE_PARKING",
+          autoCancel: { mode: "none", days: null }
+        }
+      }]
+    },
+    questions: [],
+    summary: "Enable partial allocation on B Bucket."
+  }, bBucketRuleManifest);
+
+  assert.deepEqual(
+    result.operations.map((operation) => [operation.target, operation.value]),
+    [["selectedRule.partialAllocation", true]],
+    "only the actual change (partial allocation) should reach the operation list"
+  );
+  assert.equal(result.operations[0].ruleKey, ruleId,
+    "the partial allocation op must be scoped to the B Bucket rule by ruleKey");
+}
+
 console.log("Draft assistant service validation tests passed");

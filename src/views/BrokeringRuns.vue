@@ -3,6 +3,11 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-title>{{ translate("Brokering Runs") }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button :aria-label="translate('Open brokering runs assistant')" @click="openAssistant">
+            <ion-icon slot="icon-only" :icon="sparklesOutline" />
+          </ion-button>
+        </ion-buttons>
         <ion-buttons slot="end" v-if="userProfile?.stores?.length > 1">
           <ion-item lines="none" class="store-selector">
             <ion-label position="stacked">{{ translate("Product Store") }}</ion-label>
@@ -86,15 +91,18 @@
         </main>
       </div>
     </ion-content>
+
+    <brokering-runs-assistant-modal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
+import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
 import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
+import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/icons"
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import router from "@/router";
@@ -115,6 +123,11 @@ const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSION
 let isLoading = ref(false)
 let brokeringGroups = ref([]) as any
 let selectedFilter = ref('all')
+const isAssistantOpen = ref(false)
+
+function openAssistant() {
+  isAssistantOpen.value = true
+}
 // Map: day (1-7) -> hour (0-23) -> { interval: Group[], single: Group[] }
 let weeklySchedule = ref<any>({})
 

@@ -121,6 +121,36 @@ export const orderRoutingStore = defineStore('orderRouting', {
       });
       this.groups = commonUtil.sortSequence(this.groups, "runTime")
     },
+    // Fetches the raw routings/rules/filters for every group in state.groups that
+    // is missing them. Used by the Brokering Runs assistant to give the agent full
+    // detail visibility across all listed runs without forcing the user to open each one.
+    async fetchOrderRoutingGroupsDetails() {
+      const groupsNeedingDetail = this.groups.filter((group: any) => !group.isNew && !Array.isArray(group.routings));
+      if (!groupsNeedingDetail.length) return;
+
+      const responses = await Promise.allSettled(groupsNeedingDetail.map((group: any) => api({
+        url: `order-routing/groups/${group.routingGroupId}/raw`,
+        method: "GET"
+      })));
+
+      responses.forEach((response: any, index: number) => {
+        const group = groupsNeedingDetail[index];
+        const data = response.status === "fulfilled" && !commonUtil.hasError(response.value) ? response.value.data : null;
+        const detail = data && typeof data === "object" && !Array.isArray(data) ? data : { routings: [] };
+        if (detail?.routings?.length) {
+          detail.routings = commonUtil.sortSequence(detail.routings).map((routing: any) => {
+            if (routing.rules?.length) {
+              routing.rules = commonUtil.sortSequence(routing.rules);
+            }
+            return routing;
+          });
+        }
+        const groupIndex = this.groups.findIndex((g: any) => g.routingGroupId === group.routingGroupId);
+        if (groupIndex !== -1) {
+          this.groups[groupIndex] = { ...this.groups[groupIndex], ...detail };
+        }
+      });
+    },
     async createRoutingGroup(groupName: string) {
       const payload = {
         groupName,

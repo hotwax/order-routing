@@ -158,22 +158,6 @@ const inventorySortDefinitions: SortDefinition[] = [
   { key: "CUSTOMER_SEQ", label: "Customer sequence sort" }
 ];
 
-import { useUtilStore } from "@/store/utilStore";
-import { productStore } from "@/store/productStore";
-
-// Reads reference data from the store's data document and returns a plain snapshot.
-// Called by the manifest builder so it always receives hydrated, non-reactive values.
-export function buildBrokeringAgentSnapshot(): Pick<ManifestInput, "facilities" | "shippingMethods" | "salesChannels" | "facilityGroups" | "brokeringFacilityGroups"> {
-  const utilStore = useUtilStore();
-  const product = productStore();
-  return {
-    facilities: product.getVirtualFacilities,
-    shippingMethods: product.getShippingMethods,
-    salesChannels: utilStore.getEnums["ORDER_SALES_CHANNEL"] || {},
-    facilityGroups: product.getFacilityGroups,
-    brokeringFacilityGroups: product.getFacilityGroups
-  }
-}
 
 export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilityManifest {
   const hasSelectedRule = Boolean(input.selectedRoutingRule?.routingRuleId);

@@ -275,7 +275,8 @@ export function createDraftTargetBindings(bindings: DraftTargetBinding[]): Draft
 
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
-  const mastraUrl = (import.meta.env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
+  const mastraUrl = (env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
   let response: Response;
   try {
     response = await fetch(`${mastraUrl}${ROUTE_ASSISTANT_ENDPOINT}`, {
@@ -609,13 +610,13 @@ function addSelectedRuleOperations(operations: DraftOperation[], manifest: PageC
     include: "selectedRule.inventoryFilters.FACILITY_GROUP",
     exclude: "selectedRule.inventoryFilters.FACILITY_GROUP_EXCLUDED"
   }, ruleMetadata);
-  addOperation(operations, manifest, "selectedRule.inventoryFilters.PROXIMITY", rule.inventorySelection.filters.proximity.maxDistance, { skipEmpty: true, ...ruleMetadata });
-  addOperation(operations, manifest, "selectedRule.inventoryFilters.MEASUREMENT_SYSTEM", rule.inventorySelection.filters.proximity.unit, { skipEmpty: true, ...ruleMetadata });
+  addOperation(operations, manifest, "selectedRule.inventoryFilters.PROXIMITY", rule.inventorySelection.filters.proximity.maxDistance, { skipEmpty: true, skipUnchanged: true, ...ruleMetadata });
+  addOperation(operations, manifest, "selectedRule.inventoryFilters.MEASUREMENT_SYSTEM", rule.inventorySelection.filters.proximity.unit, { skipEmpty: true, skipUnchanged: true, ...ruleMetadata });
   if ((rule.inventorySelection.filters.safetyStock.minimum || 0) > 0) {
-    addOperation(operations, manifest, "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", rule.inventorySelection.filters.safetyStock.minimum, { skipEmpty: true, ...ruleMetadata });
+    addOperation(operations, manifest, "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", rule.inventorySelection.filters.safetyStock.minimum, { skipEmpty: true, skipUnchanged: true, ...ruleMetadata });
   }
   addFacilityOrderLimitOperation(operations, manifest, rule.inventorySelection.filters.facilityOrderLimit, ruleMetadata);
-  addOperation(operations, manifest, "selectedRule.inventoryFilters.SHIP_THRESHOLD", rule.inventorySelection.filters.shipmentThreshold, { skipEmpty: true, ...ruleMetadata });
+  addOperation(operations, manifest, "selectedRule.inventoryFilters.SHIP_THRESHOLD", rule.inventorySelection.filters.shipmentThreshold, { skipEmpty: true, skipUnchanged: true, ...ruleMetadata });
   rule.inventorySelection.sorts.forEach((sort) => addOperation(operations, manifest, inventorySortTargets[sort.field], true, { skipUnchanged: true, ...ruleMetadata }));
   if (rule.allocation.partialOrderAllocation) {
     addOperation(operations, manifest, "selectedRule.partialAllocation", true, { skipUnchanged: true, ...ruleMetadata });
@@ -667,7 +668,7 @@ function addUnavailableItemOperations(
 
   const actionValue = unavailableItems.action === "moveToQueue" ? "ORA_MV_TO_QUEUE" : "ORA_NEXT_RULE";
   addOperation(operations, manifest, "selectedRule.unavailableItemsAction", actionValue, {
-    skipUnchanged: unavailableItems.queueId === null,
+    skipUnchanged: true,
     ...metadata
   });
 
@@ -704,8 +705,13 @@ function addOperation(
     return;
   }
 
-  if (options.skipUnchanged && !options.ruleKey && target && valuesEqual(operationValue, target.currentValue)) {
-    return;
+  if (options.skipUnchanged) {
+    const currentValue = options.ruleKey
+      ? getRuleCurrentValue(manifest, options.ruleKey, targetName)
+      : target.currentValue;
+    if (currentValue !== undefined && valuesEqual(operationValue, currentValue)) {
+      return;
+    }
   }
 
   operations.push({
@@ -714,6 +720,67 @@ function addOperation(
     value: operationValue,
     ...buildOperationMetadata(options)
   });
+}
+
+// For rule-scoped operations, target.currentValue reflects the currently selected
+// rule — not necessarily the rule the operation targets. Look up the target's
+// current value on the specific rule named by ruleKey so skipUnchanged can drop
+// operations that don't actually change anything on that rule. Returns undefined
+// for new:* rules (no current state to compare against) and for any target whose
+// shape isn't represented in the rule's currentValues snapshot.
+function getRuleCurrentValue(manifest: PageCapabilityManifest, ruleKey: string, target: string): DraftValue | undefined {
+  if (ruleKey.startsWith("new:")) {
+    return undefined;
+  }
+
+  const rules = (manifest.visibleEntities as any)?.route?.availableInventoryRules;
+  if (!Array.isArray(rules)) {
+    return undefined;
+  }
+
+  const rule = rules.find((candidate: any) => candidate.routingRuleId === ruleKey);
+  if (!rule) {
+    return undefined;
+  }
+
+  if (target === "selectedRule.statusId") {
+    return rule.statusId;
+  }
+
+  const currentValues = rule.currentValues || {};
+
+  if (target === "selectedRule.partialAllocation") {
+    return Boolean(currentValues.partialAllocation);
+  }
+  if (target === "selectedRule.partialGroupItemsAllocation") {
+    return Boolean(currentValues.partialGroupedItemAllocation);
+  }
+
+  const unavailableItems = currentValues.unavailableItems || {};
+  if (target === "selectedRule.unavailableItemsAction") {
+    return unavailableItems.actionTypeEnumId || undefined;
+  }
+  if (target === "selectedRule.unavailableItemsQueueId") {
+    return unavailableItems.queueId || undefined;
+  }
+  if (target === "selectedRule.clearAutoCancelDays") {
+    return Boolean(unavailableItems.clearAutoCancelDays);
+  }
+  if (target === "selectedRule.autoCancelDays") {
+    return unavailableItems.autoCancelDays ?? undefined;
+  }
+
+  if (target.startsWith("selectedRule.inventoryFilters.")) {
+    const filter = (currentValues.inventoryFilters || []).find((entry: any) => entry?.target === target);
+    return filter ? (filter.value as DraftValue) : undefined;
+  }
+
+  if (target.startsWith("selectedRule.inventorySorts.")) {
+    const sort = (currentValues.inventorySorts || []).find((entry: any) => entry?.target === target);
+    return Boolean(sort);
+  }
+
+  return undefined;
 }
 
 function buildOperationMetadata(options: OperationCandidateOptions) {

@@ -458,7 +458,11 @@ async function updateGroupStatus(event: CustomEvent) {
 
   try {
     job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-    currentRoutingGroup.value['schedule'].cronExpression = job.value.cronExpression
+    currentRoutingGroup.value['schedule'] = {
+      ...currentRoutingGroup.value['schedule'],
+      paused: job.value.paused,
+      cronExpression: job.value.cronExpression
+    }
     orderRoutingStore().setCurrentGroup(currentRoutingGroup.value)
     hasUnsavedChanges.value = true;
     commonUtil.showToast(translate("Group status updated"))

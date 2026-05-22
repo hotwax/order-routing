@@ -141,7 +141,7 @@ export const useUserStore = defineStore('user', {
     async postLogin() {
       try {
         await this.fetchUserProfile()
-        await this.setOms(commonUtil.getOMSInstanceName())
+        await this.setOms(commonUtil.getOmsURL())
         await this.fetchPermissions()
         await productStore().fetchEComStores()
         await this.fetchAvailableTimeZones()

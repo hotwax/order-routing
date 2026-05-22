@@ -600,7 +600,8 @@ import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import { applyDraftOperations, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations, summarizeDraftOperations } from "@/services/DraftAssistantService";
-import { buildBrokeringAgentSnapshot, buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
+import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
+import { buildBrokeringAgentSnapshot } from "@/draftTargets/BrokeringAgentSnapshot";
 import { useCreateRouting } from "@/composables/useCreateRouting";
 
 const props = defineProps({

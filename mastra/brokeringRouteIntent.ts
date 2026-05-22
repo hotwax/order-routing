@@ -34,8 +34,12 @@ type ClassifyParams = BrokeringRouteIntentPayload & {
 
 // Pure function — accepts an injected `generate` callback so it can be unit
 // tested without a real Mastra agent. The route handler in mastra/index.ts
-// supplies `agent.generate.bind(agent)` as the callback in production.
+// supplies `agent.generate.bind(agent) as any` as the callback in production
+// (the `as any` matches the established pattern in brokeringRouteDraftGeneration.ts —
+// Mastra's `Agent.generate` type is stricter than this callback signature).
 export async function classifyBrokeringRouteIntent(params: ClassifyParams): Promise<BrokeringRouteIntent> {
+  // 6 turns of recent history — enough to resolve pronoun/anaphora across a
+  // short back-and-forth in the route editor; cheaper than passing full history.
   const payload: BrokeringRouteIntentPayload = {
     userPrompt: params.userPrompt,
     conversationHistory: params.conversationHistory.slice(-6)
@@ -45,7 +49,7 @@ export async function classifyBrokeringRouteIntent(params: ClassifyParams): Prom
     [{ role: "user", content: JSON.stringify(payload) }],
     {
       maxSteps: 1,
-      abortSignal: params.abortSignal,
+      ...(params.abortSignal !== undefined ? { abortSignal: params.abortSignal } : {}),
       instructions: brokeringRouteIntentInstructions,
       structuredOutput: { schema: brokeringRouteIntentSchema, errorStrategy: "strict" }
     }

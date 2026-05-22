@@ -78,6 +78,18 @@ const emptyDraft = {
   assert.equal(classifyIntent("Turn off auto-cancel"), "edit");
   assert.equal(classifyIntent("Change the schedule to weekdays"), "edit");
 
+  // classifyIntent — soft verbs leading the prompt must be treated as edits,
+  // even though the same verbs appear in inquiries (covered below).
+  assert.equal(classifyIntent("allow partial allocation for B bucket"), "edit");
+  assert.equal(classifyIntent("Allow partial allocation"), "edit");
+  assert.equal(classifyIntent("Please allow partial allocation"), "edit");
+  assert.equal(classifyIntent("Can you allow partial allocation?"), "edit");
+  assert.equal(classifyIntent("Deny partial allocation"), "edit");
+
+  // classifyIntent — soft verbs embedded inside an inquiry must stay inquiry.
+  assert.equal(classifyIntent("Do both inventory rules allow partial allocation?"), "inquiry");
+  assert.equal(classifyIntent("Which rules allow partial allocation?"), "inquiry");
+
   // generateBrokeringRouteAssistantResponse — inquiry path uses classifyIntent
   // directly; no classify callback is passed.
   {
@@ -91,6 +103,7 @@ const emptyDraft = {
       orderRoutingDomainKnowledge: "domain knowledge",
       pageCapabilityManifest: manifest,
       outputContract: manifest.outputContract,
+      classifyIntent: async () => ({ intent: "inquiry", reasoning: "broad question" }),
       generateInquiry: async (payload) => {
         inquiryCalls += 1;
         inquiryPayload = payload;
@@ -128,6 +141,7 @@ const emptyDraft = {
       orderRoutingDomainKnowledge: "domain knowledge",
       pageCapabilityManifest: manifest,
       outputContract: manifest.outputContract,
+      classifyIntent: async () => ({ intent: "inquiry", reasoning: "yes/no question" }),
       generateInquiry: async (payload) => {
         inquiryPayload = payload;
         return {
@@ -161,6 +175,7 @@ const emptyDraft = {
       orderRoutingDomainKnowledge: "domain knowledge",
       pageCapabilityManifest: manifest,
       outputContract: manifest.outputContract,
+      classifyIntent: async () => ({ intent: "edit", reasoning: "imperative make" }),
       generateInquiry: async () => {
         throw new Error("inquiry agent should not handle edit requests");
       },
@@ -177,6 +192,31 @@ const emptyDraft = {
     assert.equal(response.intent, "edit");
     if (response.intent !== "edit") throw new Error("unreachable");
     assert.equal(response.draft.summary, "Drafted stores fallback status change.");
+    assert.equal(draftCalls, 1);
+  }
+
+  // Classifier-driven dispatch — even a "soft" prompt the old dictionary
+  // would have called inquiry (e.g. "the B bucket" with no verb) must route
+  // to draft when the classifier returns edit.
+  {
+    let draftCalls = 0;
+    const response = await generateBrokeringRouteAssistantResponse({
+      prompt: "the B bucket",
+      conversationHistory: [],
+      orderRoutingDomainKnowledge: "domain knowledge",
+      pageCapabilityManifest: manifest,
+      outputContract: manifest.outputContract,
+      classifyIntent: async () => ({ intent: "edit", reasoning: "stub" }),
+      generateInquiry: async () => {
+        throw new Error("classifier said edit; inquiry agent must not run");
+      },
+      generateDraft: async () => {
+        draftCalls += 1;
+        return { ...emptyDraft, summary: "Stub edit dispatched by classifier." };
+      }
+    });
+
+    assert.equal(response.intent, "edit");
     assert.equal(draftCalls, 1);
   }
 

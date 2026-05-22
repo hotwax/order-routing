@@ -6,6 +6,7 @@ import type {
   DraftConversationMessage,
   PageCapabilityManifest
 } from "./pageCapabilitySchema";
+import type { BrokeringRouteIntent, BrokeringRouteIntentPayload } from "./brokeringRouteIntent";
 
 export const brokeringRouteInquirySchema = z.object({
   answer: z.string().min(1),
@@ -47,6 +48,7 @@ export type BrokeringRouteAssistantResponse =
   };
 
 type GenerateBrokeringRouteAssistantResponseParams = BrokeringRouteAssistantPayload & {
+  classifyIntent: (payload: BrokeringRouteIntentPayload) => Promise<BrokeringRouteIntent>;
   generateInquiry: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteInquiry>;
   generateDraft: (payload: BrokeringRouteAssistantPayload) => Promise<BrokeringRouteDraft>;
 };
@@ -61,6 +63,13 @@ const EDIT_VERB_TOKENS = new Set([
   "make", "move", "switch", "replace", "rebuild", "reset", "configure", "assign"
 ]);
 
+// Softer verbs that ARE imperative when they lead the prompt ("allow partial
+// allocation for B bucket") but appear inside inquiries too ("Do both rules
+// allow partial allocation?"). Only treat them as edit when they are the first
+// content token, after optional politeness prefixes like "please"/"can you".
+const LEAD_EDIT_VERB_TOKENS = new Set(["allow", "permit", "deny", "forbid"]);
+const LEAD_SKIP_TOKENS = new Set(["please", "can", "could", "would", "you", "kindly"]);
+
 // Multi-word edit cues. These are precise enough to match as substrings.
 const EDIT_PHRASES = ["sort by", "filter by", "turn on", "turn off", "set up"];
 
@@ -72,14 +81,28 @@ export function classifyIntent(prompt: string): "edit" | "inquiry" {
   if (EDIT_PHRASES.some((phrase) => norm.includes(phrase))) {
     return "edit";
   }
-  return norm.split(" ").some((token) => EDIT_VERB_TOKENS.has(token)) ? "edit" : "inquiry";
+  const tokens = norm.split(" ");
+  if (tokens.some((token) => EDIT_VERB_TOKENS.has(token))) {
+    return "edit";
+  }
+  let leadIndex = 0;
+  while (leadIndex < tokens.length && LEAD_SKIP_TOKENS.has(tokens[leadIndex])) {
+    leadIndex += 1;
+  }
+  if (LEAD_EDIT_VERB_TOKENS.has(tokens[leadIndex])) {
+    return "edit";
+  }
+  return "inquiry";
 }
 
 export async function generateBrokeringRouteAssistantResponse(
   params: GenerateBrokeringRouteAssistantResponseParams
 ): Promise<BrokeringRouteAssistantResponse> {
   const payload = buildPayload(params);
-  const intent = classifyIntent(params.prompt);
+  const { intent } = await params.classifyIntent({
+    userPrompt: params.prompt,
+    conversationHistory: params.conversationHistory
+  });
 
   if (intent === "inquiry") {
     const inquiry = brokeringRouteInquirySchema.parse(await params.generateInquiry(payload));

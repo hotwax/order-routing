@@ -246,7 +246,7 @@ export const mastra = new Mastra({
 
           const intentAgent = mastraInstance.getAgent("brokeringRouteIntentAgent");
 
-          const classifyIntent = async (payload: { userPrompt: string; conversationHistory: any[] }) => {
+          const classifyIntent = async (payload: { userPrompt: string; conversationHistory: DraftConversationMessage[] }) => {
             const classifierAbort = new AbortController();
             const classifierTimeout = setTimeout(() => classifierAbort.abort(), 5000);
             try {
@@ -258,11 +258,11 @@ export const mastra = new Mastra({
               });
             } catch (error: any) {
               console.warn(
-                `[brokering-route-assistant] intent classifier unavailable; used dictionary fallback (reason=${error?.name || "error"})`
+                `[brokering-route-assistant] intent classifier unavailable; used dictionary fallback (reason=${error?.message || error?.name || "error"})`
               );
               return {
                 intent: dictionaryIntentFallback(payload.userPrompt),
-                reasoning: `fallback (${error?.name || "error"})`
+                reasoning: `fallback (${error?.message || error?.name || "error"})`
               };
             } finally {
               clearTimeout(classifierTimeout);

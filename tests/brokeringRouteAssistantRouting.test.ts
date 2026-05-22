@@ -190,6 +190,19 @@ const emptyDraft = {
     assert.equal(draftCalls, 1);
   }
 
+  // Dictionary fallback contract — the production /brokering-route-assistant handler
+  // invokes dictionaryIntentFallback when the LLM classifier errors or times out.
+  // These assertions pin the contract that closure relies on.
+  {
+    const { dictionaryIntentFallback } = await import("../mastra/brokeringRouteIntentFallback");
+    assert.equal(dictionaryIntentFallback("add a queue filter"), "edit",
+      "fallback must route imperative verbs to edit");
+    assert.equal(dictionaryIntentFallback("what does this route do?"), "inquiry",
+      "fallback must route verb-less inquiries to inquiry");
+    assert.equal(dictionaryIntentFallback(""), "inquiry",
+      "fallback must default empty prompt to inquiry");
+  }
+
   console.log("Brokering route assistant routing tests passed");
 })().catch((error) => {
   console.error(error);

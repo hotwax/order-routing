@@ -246,23 +246,31 @@ export const mastra = new Mastra({
 
           const intentAgent = mastraInstance.getAgent("brokeringRouteIntentAgent");
 
+          const classifierFailureReason = (error: any): string => {
+            if (error?.name === "AbortError") return "timeout";
+            return error?.message || error?.name || "error";
+          };
+
           const classifyIntent = async (payload: { userPrompt: string; conversationHistory: DraftConversationMessage[] }) => {
             const classifierAbort = new AbortController();
             const classifierTimeout = setTimeout(() => classifierAbort.abort(), 5000);
             try {
-              return await classifyBrokeringRouteIntent({
+              const result = await classifyBrokeringRouteIntent({
                 userPrompt: payload.userPrompt,
                 conversationHistory: payload.conversationHistory,
                 abortSignal: classifierAbort.signal,
                 generate: intentAgent.generate.bind(intentAgent) as any
               });
+              console.log("[brokering-route-assistant] intent classified:", { intent: result.intent, reasoning: result.reasoning });
+              return result;
             } catch (error: any) {
+              const reason = classifierFailureReason(error);
               console.warn(
-                `[brokering-route-assistant] intent classifier unavailable; used dictionary fallback (reason=${error?.message || error?.name || "error"})`
+                `[brokering-route-assistant] intent classifier unavailable; used dictionary fallback (reason=${reason})`
               );
               return {
                 intent: dictionaryIntentFallback(payload.userPrompt),
-                reasoning: `fallback (${error?.message || error?.name || "error"})`
+                reasoning: `fallback (${reason})`
               };
             } finally {
               clearTimeout(classifierTimeout);

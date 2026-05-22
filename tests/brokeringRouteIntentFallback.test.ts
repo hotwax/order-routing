@@ -10,6 +10,17 @@ assert.equal(dictionaryIntentFallback("clear the auto cancel days"), "edit");
 assert.equal(dictionaryIntentFallback("delete the second rule"), "edit");
 assert.equal(dictionaryIntentFallback("create a new fallback rule"), "edit");
 
+// Punctuation between tokens still produces a clean match
+assert.equal(dictionaryIntentFallback("please add. the filter"), "edit");
+assert.equal(dictionaryIntentFallback("add, a new rule"), "edit");
+
+// Verb at end of prompt still matches
+assert.equal(dictionaryIntentFallback("this route has many rules and I want to remove"), "edit");
+
+// Case-insensitive matching
+assert.equal(dictionaryIntentFallback("ADD a filter"), "edit");
+assert.equal(dictionaryIntentFallback("CLEAR the safety stock"), "edit");
+
 // Inquiries — no fallback verb present
 assert.equal(dictionaryIntentFallback("what does this route do?"), "inquiry");
 assert.equal(dictionaryIntentFallback("is partial allocation on for B bucket?"), "inquiry");

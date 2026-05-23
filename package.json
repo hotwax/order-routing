@@ -9,9 +9,7 @@
     "preview": "vite preview",
     "test:e2e": "cypress run",
     "test:unit": "vitest",
-    "lint": "eslint .",
-    "mastra:dev": "mastra dev --dir mastra",
-    "mastra:build": "mastra build --dir mastra"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@capacitor/android": "^2.4.7",
@@ -19,7 +17,6 @@
     "@ionic/core": "8.4.2",
     "@ionic/vue": "8.4.2",
     "@ionic/vue-router": "8.4.2",
-    "@mastra/core": "^1.32.1",
     "@mlc-ai/web-llm": "^0.2.80",
     "@webgpu/types": "^0.1.69",
     "axios": "^0.21.1",
@@ -28,14 +25,12 @@
     "core-js": "^3.6.5",
     "http-status-codes": "^2.1.4",
     "luxon": "^2.3.0",
-    "mastra": "^1.8.1",
     "pinia": "^2.1.7",
     "pinia-plugin-persistedstate": "^3.2.0",
     "vue": "^3.3.0",
     "vue-i18n": "~9.1.6",
     "vue-router": "^4.3.0",
-    "uuid": "^10.0.0",
-    "zod": "^4.4.3"
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^2.4.7",

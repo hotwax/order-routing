@@ -749,7 +749,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
       const sequenceNum = tail?.sequenceNum >= 0 ? tail.sequenceNum + 5 : 0;
       const newId = await routingStore.createOrderRouting({
         orderRoutingId: "",
-        routingGroupId: routingGroupId.value!,
+        routingGroupId: routingGroupId.value || "",
         statusId: "ROUTING_DRAFT",
         routingName: name,
         sequenceNum,

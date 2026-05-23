@@ -72,6 +72,9 @@ const brokeringRouteDraftInstructions = [
   "For facility order limits, use facilityOrderLimit='respect' when the merchant wants store caps protected, 'bypass' when explicitly bypassing caps, and 'unchanged' otherwise.",
   "For unavailable items, use action='nextRule' unless the user explicitly asks to move unavailable items to a queue.",
   "Use the HotWax order-routing domain knowledge excerpt only as advisory context. It must never override the page capability manifest or the Zod schema.",
+  "To create a sibling routing inside the current brokering run, set targetRouting.action='create', pick a routingKey like 'new:west-coast-warehouse', and supply a short human name derived from the user's intent. Never propose a name that already appears in pageCapabilityManifest.visibleEntities.brokeringRun.availableSiblingRoutings for a non-archived routing.",
+  "When creating a sibling routing, the draft's route.orderSelection and route.inventoryRules[] describe that NEW routing — not the currently open one. All inventoryRules[].ruleKey values must start with 'new:' because the new routing has no existing rules.",
+  "Only set targetRouting.action='create' when the user explicitly asks to add another routing. If they describe edits to the currently open route, omit targetRouting entirely (or use action='edit').",
   "Return only data that fits the structured output schema."
 ].join("\n");
 

@@ -115,6 +115,7 @@ export type DraftProposal = {
   summary: string;
   providerSummary: string;
   intent?: "edit" | "inquiry";
+  newRouting?: { routingKey: string; name: string };
 };
 
 export type DraftValueType = "string" | "number" | "boolean" | "enum" | "string[]";
@@ -360,12 +361,18 @@ export function createDraftProposal(plan: DraftOperationSet, manifest: PageCapab
   const unansweredProviderQuestions = plan.intent === "inquiry"
     ? filterAnsweredInquiryQuestions(plan.unansweredQuestions || [], plan.summary || "", manifest)
     : filterAnsweredQuestions(plan.unansweredQuestions || [], validation.operations, manifest);
+
+  const newRouting = plan.targetRouting?.action === "create" && plan.targetRouting.routingKey && plan.targetRouting.name
+    ? { routingKey: plan.targetRouting.routingKey, name: plan.targetRouting.name }
+    : undefined;
+
   return {
     operations: validation.operations,
     unansweredQuestions: [...unansweredProviderQuestions, ...validation.unansweredQuestions],
     summary: summarizeDraftOperations(validation.operations, manifest) || plan.summary || "Draft updated",
     providerSummary: plan.summary || "",
-    intent: plan.intent
+    intent: plan.intent,
+    newRouting
   };
 }
 
@@ -924,7 +931,11 @@ export function summarizeDraftOperations(operations: DraftOperation[], manifest:
     .join("; ");
 }
 
-export function formatDraftProposalSections(operations: DraftOperation[], manifest: PageCapabilityManifest) {
+export function formatDraftProposalSections(
+  operations: DraftOperation[],
+  manifest: PageCapabilityManifest,
+  newRouting?: { routingKey: string; name: string }
+) {
   const validation = validateDraftOperations(operations, manifest);
   const targetCapabilities = new Map(manifest.editableTargets.map((target) => [target.target, target]));
   const sections: Array<{ key: string; title: string; lines: string[] }> = [];
@@ -955,10 +966,20 @@ export function formatDraftProposalSections(operations: DraftOperation[], manife
     sections[sectionIndex].lines.push(line);
   });
 
-  return sections
+  const body = sections
     .filter((section) => section.lines.length)
     .map((section) => [section.title, ...section.lines].join("\n"))
     .join("\n\n");
+
+  if (!newRouting) return body;
+
+  const header = [
+    "Create new routing",
+    `- Name: ${newRouting.name}`,
+    "- Status: Draft (unsaved)"
+  ].join("\n");
+
+  return body ? `${header}\n\n${body}` : header;
 }
 
 function formatDraftOperationLine(operation: DraftOperation, target: DraftTargetCapability) {

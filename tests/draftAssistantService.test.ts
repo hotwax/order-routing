@@ -865,4 +865,60 @@ function validate(operations: DraftOperation[]) {
   assert.deepStrictEqual(set.targetRouting, { action: "create", routingKey: "new:foo", name: "Foo" });
 }
 
+// --- createDraftProposal surfaces newRouting when targetRouting.action=create ---
+{
+  const minimalManifest: any = {
+    pageId: "order-routing.rules",
+    route: "/tabs/circuit",
+    visibleEntities: {
+      brokeringRun: { availableSiblingRoutings: [] },
+      route: { draftLimitations: { canCreateSiblingRoutings: true } }
+    },
+    editableTargets: [],
+    outputContract: {}
+  };
+
+  const proposal = createDraftProposal({
+    operations: [],
+    unansweredQuestions: [],
+    summary: "Create West Coast",
+    intent: "edit",
+    targetRouting: { action: "create", routingKey: "new:west-coast", name: "West Coast" }
+  }, minimalManifest);
+
+  assert.deepStrictEqual(proposal.newRouting, { routingKey: "new:west-coast", name: "West Coast" });
+}
+
+{
+  // Edit path: no newRouting on the proposal
+  const minimalManifest: any = {
+    pageId: "order-routing.rules",
+    route: "/tabs/circuit",
+    visibleEntities: { brokeringRun: { availableSiblingRoutings: [] }, route: { draftLimitations: { canCreateSiblingRoutings: true } } },
+    editableTargets: [],
+    outputContract: {}
+  };
+  const proposal = createDraftProposal({
+    operations: [],
+    unansweredQuestions: [],
+    summary: "Edited",
+    intent: "edit"
+  }, minimalManifest);
+  assert.equal(proposal.newRouting, undefined);
+}
+
+{
+  // formatDraftProposalSections prepends a "Create new routing" section when newRouting is set
+  const minimalManifest: any = {
+    pageId: "order-routing.rules",
+    route: "/tabs/circuit",
+    visibleEntities: {},
+    editableTargets: [],
+    outputContract: {}
+  };
+  const rendered = formatDraftProposalSections([], minimalManifest, { routingKey: "new:west-coast", name: "West Coast" });
+  assert.match(rendered, /Create new routing/);
+  assert.match(rendered, /West Coast/);
+}
+
 console.log("Draft assistant service validation tests passed");

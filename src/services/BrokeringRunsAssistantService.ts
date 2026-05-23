@@ -33,7 +33,7 @@ export async function requestBrokeringRunsListInquiry(
       })
     });
   } catch {
-    throw new Error(`Mastra is not reachable at ${mastraUrl}. Start it with npm run mastra:dev.`);
+    throw new Error(`Mastra is not reachable at ${mastraUrl}. Start it with pnpm mastra:dev in sandbox/circuit.`);
   }
 
   if (!response.ok) {

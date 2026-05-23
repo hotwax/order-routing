@@ -838,7 +838,13 @@ async function buildCircuitDraftManifest() {
       routingGroupId: group.value.routingGroupId || routingGroupId.value || "",
       groupName: groupName.value || group.value.groupName || "",
       productStoreId: group.value.productStoreId || "",
-      schedule: job.value || null
+      schedule: job.value || null,
+      routings: (group.value?.routings || []).map((r: any) => ({
+        orderRoutingId: r.orderRoutingId,
+        routingName: r.routingName,
+        statusId: r.statusId,
+        sequenceNum: r.sequenceNum
+      }))
     },
     selectedRoutingRule: activeRule.value || {},
     isTestEnabled: false,

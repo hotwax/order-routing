@@ -1,5 +1,6 @@
 import assert from "assert";
 import {
+  applyDraftProposal,
   convertBrokeringRouteDraftToOperations,
   createDraftOutputContract,
   createDraftProposal,
@@ -12,6 +13,7 @@ import type {
   BrokeringRouteDraft,
   DraftConversationMessage,
   DraftOperation,
+  DraftProposal,
   PageCapabilityManifest
 } from "../src/services/DraftAssistantService";
 
@@ -919,6 +921,75 @@ function validate(operations: DraftOperation[]) {
   const rendered = formatDraftProposalSections([], minimalManifest, { routingKey: "new:west-coast", name: "West Coast" });
   assert.match(rendered, /Create new routing/);
   assert.match(rendered, /West Coast/);
+}
+
+// --- applyDraftProposal wrapper ---
+{
+  // With newRouting: createSiblingRouting → selectRouting → buildBindings, in that order
+  const callOrder: string[] = [];
+  const ctx = {
+    createSiblingRouting: async (name: string) => {
+      callOrder.push(`create:${name}`);
+      return "NEW_ID";
+    },
+    selectRouting: (id: string) => {
+      callOrder.push(`select:${id}`);
+    },
+    buildBindings: () => {
+      callOrder.push("buildBindings");
+      return {};
+    }
+  };
+  const proposal: DraftProposal = {
+    operations: [],
+    unansweredQuestions: [],
+    summary: "",
+    providerSummary: "",
+    newRouting: { routingKey: "new:x", name: "X" }
+  };
+  const minimalManifest: any = { pageId: "x", route: "/x", visibleEntities: {}, editableTargets: [], outputContract: {} };
+  await applyDraftProposal(proposal, minimalManifest, ctx);
+  assert.deepStrictEqual(callOrder, ["create:X", "select:NEW_ID", "buildBindings"]);
+}
+
+{
+  // Without newRouting: create/select are skipped entirely
+  const callOrder: string[] = [];
+  const ctx = {
+    createSiblingRouting: async () => { callOrder.push("create"); return ""; },
+    selectRouting: () => { callOrder.push("select"); },
+    buildBindings: () => { callOrder.push("buildBindings"); return {}; }
+  };
+  const proposal: DraftProposal = {
+    operations: [],
+    unansweredQuestions: [],
+    summary: "",
+    providerSummary: ""
+  };
+  const minimalManifest: any = { pageId: "x", route: "/x", visibleEntities: {}, editableTargets: [], outputContract: {} };
+  await applyDraftProposal(proposal, minimalManifest, ctx);
+  assert.deepStrictEqual(callOrder, ["buildBindings"]);
+}
+
+{
+  // createSiblingRouting returning "" short-circuits; bindings are never built
+  const callOrder: string[] = [];
+  const ctx = {
+    createSiblingRouting: async () => { callOrder.push("create"); return ""; },
+    selectRouting: () => { callOrder.push("select"); },
+    buildBindings: () => { callOrder.push("buildBindings"); return {}; }
+  };
+  const proposal: DraftProposal = {
+    operations: [],
+    unansweredQuestions: [],
+    summary: "",
+    providerSummary: "",
+    newRouting: { routingKey: "new:x", name: "X" }
+  };
+  const minimalManifest: any = { pageId: "x", route: "/x", visibleEntities: {}, editableTargets: [], outputContract: {} };
+  const result = await applyDraftProposal(proposal, minimalManifest, ctx);
+  assert.deepStrictEqual(callOrder, ["create"], "select and buildBindings must NOT run when create fails");
+  assert.equal(result.appliedCount, 0);
 }
 
 console.log("Draft assistant service validation tests passed");

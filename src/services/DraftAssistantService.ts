@@ -913,6 +913,32 @@ export function applyDraftOperations(operations: DraftOperation[], manifest: Pag
   return result;
 }
 
+export interface ApplyDraftProposalContext {
+  createSiblingRouting: (name: string) => Promise<string>;
+  selectRouting: (orderRoutingId: string) => void;
+  buildBindings: () => DraftTargetBindings;
+}
+
+export async function applyDraftProposal(
+  proposal: DraftProposal,
+  manifest: PageCapabilityManifest,
+  ctx: ApplyDraftProposalContext
+): Promise<DraftApplyResult> {
+  if (proposal.newRouting) {
+    const newId = await ctx.createSiblingRouting(proposal.newRouting.name);
+    if (!newId) {
+      return {
+        appliedCount: 0,
+        skipped: ["Failed to create sibling routing"],
+        unansweredQuestions: []
+      };
+    }
+    ctx.selectRouting(newId);
+  }
+  const bindings = ctx.buildBindings();
+  return applyDraftOperations(proposal.operations || [], manifest, bindings);
+}
+
 export function summarizeDraftOperations(operations: DraftOperation[], manifest: PageCapabilityManifest) {
   const validation = validateDraftOperations(operations, manifest);
   const targetCapabilities = new Map(manifest.editableTargets.map((target) => [target.target, target]));

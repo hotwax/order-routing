@@ -163,4 +163,50 @@ import {
   assert.equal(normalized.summary, "Drafted brokering route changes.");
 }
 
+// --- targetRouting discriminator ---
+{
+  // Default: when targetRouting is omitted, normalize fills { action: "edit" }
+  const normalized = normalizeBrokeringRouteDraft({ summary: "x" });
+  assert.deepStrictEqual(normalized.targetRouting, { action: "edit" });
+}
+
+{
+  // action="create" with a name passes through and routingKey is prefixed
+  const normalized = normalizeBrokeringRouteDraft({
+    summary: "x",
+    targetRouting: { action: "create", routingKey: "west-coast", name: "West Coast" }
+  });
+  assert.equal(normalized.targetRouting?.action, "create");
+  assert.equal(normalized.targetRouting?.name, "West Coast");
+  assert.equal(normalized.targetRouting?.routingKey, "new:west-coast", "routingKey should be normalized to a new: prefix on create");
+}
+
+{
+  // action="create" with already-prefixed routingKey is left alone
+  const normalized = normalizeBrokeringRouteDraft({
+    summary: "x",
+    targetRouting: { action: "create", routingKey: "new:already-prefixed", name: "Foo" }
+  });
+  assert.equal(normalized.targetRouting?.routingKey, "new:already-prefixed");
+}
+
+{
+  // action="edit" strips any stray name (avoid leaking model mistakes downstream)
+  const normalized = normalizeBrokeringRouteDraft({
+    summary: "x",
+    targetRouting: { action: "edit", name: "ignored" }
+  });
+  assert.equal(normalized.targetRouting?.action, "edit");
+  assert.equal(normalized.targetRouting?.name, undefined);
+}
+
+{
+  // Malformed targetRouting falls back to edit default
+  const normalized = normalizeBrokeringRouteDraft({
+    summary: "x",
+    targetRouting: { action: "garbage" }
+  });
+  assert.deepStrictEqual(normalized.targetRouting, { action: "edit" });
+}
+
 console.log("Brokering route draft schema tests passed");

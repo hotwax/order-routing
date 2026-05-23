@@ -72,9 +72,16 @@ const inventoryRuleSchema = z.object({
   }).strict()
 }).strict();
 
+const targetRoutingSchema = z.object({
+  action: z.enum(["edit", "create"]),
+  routingKey: z.string().min(1).optional(),
+  name: z.string().min(1).max(80).optional()
+}).strict();
+
 export const brokeringRouteDraftSchema = z.object({
   schemaVersion: z.literal("brokering-route-draft.v1"),
   applyMode: z.enum(["merge", "replace"]),
+  targetRouting: targetRoutingSchema.optional(),
   route: z.object({
     statusId: routeStatusSchema,
     orderSelection: orderSelectionSchema,
@@ -98,6 +105,7 @@ export function normalizeBrokeringRouteDraft(value: any): BrokeringRouteDraft {
   return brokeringRouteDraftSchema.parse({
     schemaVersion: "brokering-route-draft.v1",
     applyMode: normalizeApplyMode(value?.applyMode),
+    targetRouting: normalizeTargetRouting(value?.targetRouting),
     route: {
       statusId: normalizeRouteStatus(value?.route?.statusId),
       orderSelection: normalizeOrderSelection(value?.route?.orderSelection),
@@ -110,6 +118,22 @@ export function normalizeBrokeringRouteDraft(value: any): BrokeringRouteDraft {
       ? value.summary.trim()
       : "Drafted brokering route changes."
   });
+}
+
+function normalizeTargetRouting(value: unknown): BrokeringRouteDraft["targetRouting"] {
+  if (!value || typeof value !== "object") return { action: "edit" };
+  const v = value as Record<string, unknown>;
+  if (v.action === "create") {
+    const name = typeof v.name === "string" && v.name.trim() ? v.name.trim() : undefined;
+    const rawKey = typeof v.routingKey === "string" && v.routingKey.trim() ? v.routingKey.trim() : "";
+    const routingKey = rawKey
+      ? (rawKey.startsWith("new:") ? rawKey : `new:${rawKey}`)
+      : undefined;
+    return { action: "create", routingKey, name };
+  }
+  // Any value other than "create" — including unknown strings — falls back to edit.
+  // Edit branch never carries a name.
+  return { action: "edit" };
 }
 
 function normalizeApplyMode(value: unknown): BrokeringRouteDraft["applyMode"] {

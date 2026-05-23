@@ -301,7 +301,7 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       })
     });
   } catch {
-    throw new Error(`Mastra is not reachable at ${mastraUrl}. Start it with pnpm mastra:dev in sandbox/circuit.`);
+    throw new Error(`Mastra is not reachable at ${mastraUrl}. Start the circuit server (pnpm dev in sandbox/circuit).`);
   }
 
   if (!response.ok) {

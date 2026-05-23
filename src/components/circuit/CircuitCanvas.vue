@@ -599,7 +599,7 @@ import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
-import { applyDraftOperations, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations, summarizeDraftOperations } from "@/services/DraftAssistantService";
+import { applyDraftProposal, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations } from "@/services/DraftAssistantService";
 import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
 import { buildBrokeringAgentSnapshot } from "@/draftTargets/BrokeringAgentSnapshot";
 import { useCreateRouting } from "@/composables/useCreateRouting";
@@ -691,7 +691,7 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   const manifest = await buildCircuitDraftManifest();
   const plan = await requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
   const proposal = createDraftProposal(plan, manifest);
-  const pendingProposal: CircuitDraftProposal | null = proposal.operations.length
+  const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)
     ? {
       ...proposal,
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -741,7 +741,33 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
   }
 
   const manifest = await buildCircuitDraftManifest();
-  const result = applyDraftOperations(proposal.operations || [], manifest, buildCircuitDraftBindings());
+
+  const result = await applyDraftProposal(proposal, manifest, {
+    createSiblingRouting: async (name: string) => {
+      const existing = group.value?.routings || [];
+      const tail = existing[existing.length - 1];
+      const sequenceNum = tail?.sequenceNum >= 0 ? tail.sequenceNum + 5 : 0;
+      const newId = await routingStore.createOrderRouting({
+        orderRoutingId: "",
+        routingGroupId: routingGroupId.value!,
+        statusId: "ROUTING_DRAFT",
+        routingName: name,
+        sequenceNum,
+        description: "",
+        createdDate: DateTime.now().toMillis()
+      });
+      return newId || "";
+    },
+    selectRouting: (id: string) => {
+      group.value = routingStore.currentGroup;
+      const created = group.value.routings?.find((r: any) => r.orderRoutingId === id);
+      if (created) selectRouting(created);
+    },
+    buildBindings: () => buildCircuitDraftBindings()
+  });
+
+  hasUnsavedChanges.value = true;
+
   const unansweredQuestions = [...(proposal.unansweredQuestions || []), ...result.unansweredQuestions];
 
   if (unansweredQuestions.length) {
@@ -752,19 +778,10 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
     };
   }
 
-  if (result.appliedCount) {
-    const summary = summarizeDraftOperations(proposal.operations || [], manifest) || proposal.summary || translate("Draft updated");
-    commonUtil.showToast(summary);
-    return {
-      appliedCount: result.appliedCount,
-      message: `${translate("Applied draft changes")}: ${summary}`
-    };
-  }
-
-  commonUtil.showToast(translate("No matching UI values found"));
   return {
-    appliedCount: 0,
-    message: translate("No matching UI values found")
+    appliedCount: result.appliedCount,
+    message: proposal.summary || translate("No matching UI values found"),
+    intent: proposal.intent
   };
 }
 
@@ -791,7 +808,7 @@ function buildCircuitDraftBindings() {
 }
 
 function formatDraftProposalMessage(proposal: CircuitDraftProposal, manifest: any) {
-  const formattedSections = formatDraftProposalSections(proposal.operations || [], manifest);
+  const formattedSections = formatDraftProposalSections(proposal.operations || [], manifest, proposal.newRouting);
   const summaryLines = formattedSections
     ? [formattedSections]
     : (proposal.summary || "")

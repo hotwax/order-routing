@@ -228,4 +228,134 @@ function validationError(value: unknown) {
   assert.ok(error.issues.some((issue) => issue.includes("partialOrderAllocation")));
 }
 
+// --- targetRouting.action="create" validation ---
+
+// Helper: extend the existing manifest with sibling-routing fields for create tests.
+function manifestWithSiblings(siblings: Array<{ orderRoutingId: string; routingName: string; statusId: string; sequenceNum: number }>, allow = true): PageCapabilityManifest {
+  return {
+    ...manifest,
+    visibleEntities: {
+      ...(manifest.visibleEntities as any),
+      brokeringRun: { availableSiblingRoutings: siblings },
+      route: { draftLimitations: { canCreateSiblingRoutings: allow } }
+    }
+  };
+}
+
+// Happy path: create with new: ruleKey, unique name
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:west-coast", name: "West Coast" }
+  });
+  const result = validateBrokeringRouteDraftJson(draft, manifestWithSiblings([
+    { orderRoutingId: "ROUTING_A", routingName: "East Coast", statusId: "ROUTING_ACTIVE", sequenceNum: 20 }
+  ]));
+  assert.equal(result.targetRouting?.action, "create");
+  assert.equal(result.targetRouting?.routingKey, "new:west-coast");
+}
+
+// Reject: canCreateSiblingRoutings = false blocks creation
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:x", name: "X" }
+  });
+  let caught: any;
+  try {
+    validateBrokeringRouteDraftJson(draft, manifestWithSiblings([], false));
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof BrokeringRouteDraftValidationError, "must throw when creation is disallowed");
+  assert.match(String(caught.issues?.[0] ?? caught.message), /not permitted/i);
+}
+
+// Reject: missing name
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:x" }
+  });
+  let caught: any;
+  try {
+    validateBrokeringRouteDraftJson(draft, manifestWithSiblings([]));
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof BrokeringRouteDraftValidationError, "must throw when name is missing");
+  assert.match(String(caught.issues?.[0] ?? caught.message), /non-empty name/i);
+}
+
+// Reject: routingKey without new: prefix
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:west-coast", name: "West Coast" }
+  });
+  // Re-strip the prefix on a fresh JSON copy so we can test the validator's own gate.
+  const raw = JSON.parse(JSON.stringify(draft));
+  raw.targetRouting.routingKey = "west-coast";
+  let caught: any;
+  try {
+    validateBrokeringRouteDraftJson(raw, manifestWithSiblings([]));
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof BrokeringRouteDraftValidationError, "must throw when routingKey is missing the new: prefix");
+  assert.match(String(caught.issues?.[0] ?? caught.message), /new:/);
+}
+
+// Reject: name collision with non-archived sibling (case-insensitive)
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:east-coast", name: "east COAST" }
+  });
+  let caught: any;
+  try {
+    validateBrokeringRouteDraftJson(draft, manifestWithSiblings([
+      { orderRoutingId: "ROUTING_A", routingName: "East Coast", statusId: "ROUTING_ACTIVE", sequenceNum: 20 }
+    ]));
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof BrokeringRouteDraftValidationError, "must throw on case-insensitive name collision");
+  assert.match(String(caught.issues?.[0] ?? caught.message), /already exists/i);
+}
+
+// Allow: archived sibling with the same name does NOT collide
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:east-coast", name: "East Coast" }
+  });
+  const result = validateBrokeringRouteDraftJson(draft, manifestWithSiblings([
+    { orderRoutingId: "ROUTING_OLD", routingName: "East Coast", statusId: "ROUTING_ARCHIVED", sequenceNum: 10 }
+  ]));
+  assert.equal(result.targetRouting?.action, "create");
+}
+
+// Reject: inventory rule with non-new: key on a create draft
+{
+  const draft = validDraft({
+    targetRouting: { action: "create", routingKey: "new:x", name: "X" }
+  });
+  // Mutate the first inventory rule's ruleKey so it's not "new:"
+  draft.route.inventoryRules[0].ruleKey = "EXISTING_RULE_ID";
+  let caught: any;
+  try {
+    validateBrokeringRouteDraftJson(draft, manifestWithSiblings([]));
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught instanceof BrokeringRouteDraftValidationError, "must throw when a create draft references a non-new rule");
+  assert.match(String(caught.issues?.[0] ?? caught.message), /new:/);
+}
+
+// Edit path with sibling fields present must still validate (back-compat)
+{
+  const draft = validDraft(); // no targetRouting
+  const result = validateBrokeringRouteDraftJson(draft, manifestWithSiblings([
+    { orderRoutingId: "ROUTING_A", routingName: "East Coast", statusId: "ROUTING_ACTIVE", sequenceNum: 20 }
+  ]));
+  // Schema doesn't require targetRouting; if absent in input, validator does not add it.
+  // The assertion is that this still validates without throwing.
+  assert.ok(result.route);
+}
+
 console.log("Brokering route draft validator tests passed");

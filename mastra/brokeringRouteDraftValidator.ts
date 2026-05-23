@@ -151,11 +151,54 @@ function validateBrokeringRouteDraftAgainstManifest(draft: BrokeringRouteDraft, 
     )
   };
 
+  validateTargetRoutingForCreate(context, draft, manifest);
+
   validateTargetChange(context, "route.statusId", draft.route.statusId, "route.statusId");
   validateOrderSelection(context, draft.route.orderSelection);
   draft.route.inventoryRules.forEach((rule, index) => validateInventoryRule(context, rule, `route.inventoryRules[${index}]`));
 
   return context.issues;
+}
+
+function validateTargetRoutingForCreate(context: ValidationContext, draft: BrokeringRouteDraft, manifest: PageCapabilityManifest) {
+  if (draft.targetRouting?.action !== "create") return;
+
+  const visible = manifest.visibleEntities as any;
+  const allow = Boolean(visible?.route?.draftLimitations?.canCreateSiblingRoutings);
+  if (!allow) {
+    context.issues.push("Creating a sibling routing is not permitted in this context.");
+    return;
+  }
+
+  const name = draft.targetRouting.name?.trim();
+  if (!name) {
+    context.issues.push("Sibling routing requires a non-empty name.");
+    return;
+  }
+
+  const key = draft.targetRouting.routingKey || "";
+  if (!key.startsWith("new:")) {
+    context.issues.push('targetRouting.routingKey must start with "new:" when creating a sibling routing.');
+    return;
+  }
+
+  const siblings: Array<{ routingName: string; statusId: string }> = Array.isArray(visible?.brokeringRun?.availableSiblingRoutings)
+    ? visible.brokeringRun.availableSiblingRoutings
+    : [];
+  const collision = siblings.some((sibling) =>
+    sibling.statusId !== "ROUTING_ARCHIVED" &&
+    String(sibling.routingName || "").trim().toLowerCase() === name.toLowerCase()
+  );
+  if (collision) {
+    context.issues.push(`A routing named "${name}" already exists in this group.`);
+    return;
+  }
+
+  draft.route.inventoryRules.forEach((rule, index) => {
+    if (!rule.ruleKey.startsWith("new:")) {
+      context.issues.push(`On a new sibling routing, every inventoryRules[${index}].ruleKey must start with "new:" (got "${rule.ruleKey}").`);
+    }
+  });
 }
 
 function validateOrderSelection(context: ValidationContext, orderSelection: BrokeringRouteDraft["route"]["orderSelection"]) {

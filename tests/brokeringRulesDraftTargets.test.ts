@@ -538,4 +538,91 @@ const queueFacilities = {
   assert.equal(result.unansweredQuestions.length, 1);
 }
 
+// --- targetRouting/sibling-routing manifest fields ---
+{
+  const manifest = buildBrokeringRulesManifest({
+    pageRoute: "/tabs/circuit",
+    orderRoutingId: "ROUTING_A",
+    routingName: "East Coast",
+    routingStatus: "ROUTING_DRAFT",
+    brokeringRun: {
+      routingGroupId: "GROUP_1",
+      groupName: "US Brokering",
+      productStoreId: "STORE_1",
+      schedule: null,
+      routings: [
+        { orderRoutingId: "ROUTING_A", routingName: "East Coast", statusId: "ROUTING_ACTIVE", sequenceNum: 20 },
+        { orderRoutingId: "ROUTING_B", routingName: "West Coast", statusId: "ROUTING_DRAFT", sequenceNum: 25 }
+      ]
+    },
+    selectedRoutingRule: {},
+    isTestEnabled: false,
+    orderRoutingFilterOptions: {},
+    orderRoutingSortOptions: {},
+    inventoryRuleFilterOptions: {},
+    inventoryRuleSortOptions: {},
+    inventoryRuleActions: {},
+    inventoryRules: [],
+    rulesInformation: {},
+    ruleActionType: "",
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums,
+    facilities: {},
+    shippingMethods: {},
+    salesChannels: {},
+    facilityGroups: {},
+    brokeringFacilityGroups: {}
+  });
+
+  const brokeringRun = (manifest.visibleEntities as any).brokeringRun;
+  assert.equal(Array.isArray(brokeringRun.availableSiblingRoutings), true, "brokeringRun.availableSiblingRoutings must be an array");
+  assert.equal(brokeringRun.availableSiblingRoutings.length, 2);
+  assert.equal(brokeringRun.availableSiblingRoutings[0].orderRoutingId, "ROUTING_A");
+  assert.equal(brokeringRun.availableSiblingRoutings[1].routingName, "West Coast");
+
+  const route = (manifest.visibleEntities as any).route;
+  assert.equal(route.draftLimitations.canCreateSiblingRoutings, true, "route.draftLimitations.canCreateSiblingRoutings must default to true");
+}
+
+// Sibling routings array must be empty (not undefined) when group has no routings
+{
+  const manifest = buildBrokeringRulesManifest({
+    pageRoute: "/tabs/circuit",
+    orderRoutingId: "ROUTING_A",
+    routingName: "East Coast",
+    routingStatus: "ROUTING_DRAFT",
+    brokeringRun: {
+      routingGroupId: "GROUP_1",
+      groupName: "US Brokering",
+      productStoreId: "STORE_1",
+      schedule: null
+      // routings omitted entirely
+    },
+    selectedRoutingRule: {},
+    isTestEnabled: false,
+    orderRoutingFilterOptions: {},
+    orderRoutingSortOptions: {},
+    inventoryRuleFilterOptions: {},
+    inventoryRuleSortOptions: {},
+    inventoryRuleActions: {},
+    inventoryRules: [],
+    rulesInformation: {},
+    ruleActionType: "",
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums,
+    facilities: {},
+    shippingMethods: {},
+    salesChannels: {},
+    facilityGroups: {},
+    brokeringFacilityGroups: {}
+  });
+
+  const brokeringRun = (manifest.visibleEntities as any).brokeringRun;
+  assert.deepStrictEqual(brokeringRun.availableSiblingRoutings, []);
+}
+
 console.log("Brokering rules draft target tests passed");

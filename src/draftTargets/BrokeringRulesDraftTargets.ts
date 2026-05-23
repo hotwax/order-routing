@@ -60,6 +60,12 @@ type ManifestInput = {
     groupName?: string;
     productStoreId?: string;
     schedule?: any;
+    routings?: Array<{
+      orderRoutingId: string;
+      routingName: string;
+      statusId: string;
+      sequenceNum: number;
+    }>;
   };
   selectedRoutingRule: any;
   isTestEnabled: boolean;
@@ -351,6 +357,12 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
         groupName: input.brokeringRun?.groupName || "",
         productStoreId: input.brokeringRun?.productStoreId || "",
         schedule: input.brokeringRun?.schedule || null,
+        availableSiblingRoutings: (input.brokeringRun?.routings || []).map((r) => ({
+          orderRoutingId: r.orderRoutingId,
+          routingName: r.routingName,
+          statusId: r.statusId,
+          sequenceNum: r.sequenceNum
+        })),
         note: "This is the currently open Circuit brokering run/routing group. Use this groupName when answering questions about the current brokering run."
       },
       route: {
@@ -365,6 +377,7 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
         draftLimitations: {
           selectedRuleOnly: false,
           canCreateInventoryRules: true,
+          canCreateSiblingRoutings: true,
           canRenameInventoryRules: false,
           note: "Circuit can draft changes across existing inventory rules and can create new local draft inventory rules. New rules and edits are persisted only when the user saves the route."
         }

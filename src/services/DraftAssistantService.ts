@@ -27,11 +27,21 @@ export type DraftOperationSet = {
   unansweredQuestions: string[];
   summary: string;
   intent?: "edit" | "inquiry";
+  targetRouting?: {
+    action: "edit" | "create";
+    routingKey?: string;
+    name?: string;
+  };
 };
 
 export type BrokeringRouteDraft = {
   schemaVersion: "brokering-route-draft.v1";
   applyMode: "merge" | "replace";
+  targetRouting?: {
+    action: "edit" | "create";
+    routingKey?: string;
+    name?: string;
+  };
   route: {
     statusId: "ROUTING_DRAFT" | "ROUTING_ACTIVE" | "ROUTING_ARCHIVED";
     orderSelection: {
@@ -340,7 +350,8 @@ export function convertBrokeringRouteDraftToOperations(draft: BrokeringRouteDraf
   return {
     operations,
     unansweredQuestions: [...(draft.questions || [])],
-    summary: draft.summary || "Draft updated"
+    summary: draft.summary || "Draft updated",
+    targetRouting: draft.targetRouting
   };
 }
 

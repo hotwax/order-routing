@@ -9,6 +9,7 @@ import {
   validateDraftOperations
 } from "../src/services/DraftAssistantService";
 import type {
+  BrokeringRouteDraft,
   DraftConversationMessage,
   DraftOperation,
   PageCapabilityManifest
@@ -822,6 +823,46 @@ function validate(operations: DraftOperation[]) {
   );
   assert.equal(result.operations[0].ruleKey, ruleId,
     "the partial allocation op must be scoped to the B Bucket rule by ruleKey");
+}
+
+// --- targetRouting passthrough ---
+{
+  const minimalManifest: any = {
+    pageId: "order-routing.rules",
+    route: "/tabs/circuit",
+    visibleEntities: {
+      brokeringRun: { availableSiblingRoutings: [] },
+      route: { draftLimitations: { canCreateSiblingRoutings: true } }
+    },
+    editableTargets: [],
+    outputContract: {}
+  };
+
+  const draft: BrokeringRouteDraft = {
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    targetRouting: { action: "create", routingKey: "new:foo", name: "Foo" },
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: {
+        filters: {
+          queues: { include: [], exclude: [] },
+          shippingMethods: { include: [], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: [], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: []
+      },
+      inventoryRules: []
+    },
+    questions: [],
+    summary: "Create Foo"
+  };
+
+  const set = convertBrokeringRouteDraftToOperations(draft, minimalManifest);
+  assert.deepStrictEqual(set.targetRouting, { action: "create", routingKey: "new:foo", name: "Foo" });
 }
 
 console.log("Draft assistant service validation tests passed");

@@ -1,3 +1,5 @@
+import { commonUtil, cookieHelper } from "@common";
+
 export type DraftValue = string | number | boolean | string[];
 
 export type DraftOperationReason = {
@@ -288,6 +290,8 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
   const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
   const mastraUrl = (env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();
+  const authToken = cookieHelper().get("token");
   let response: Response;
   try {
     response = await fetch(`${mastraUrl}${ROUTE_ASSISTANT_ENDPOINT}`, {
@@ -297,7 +301,9 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
         prompt,
         conversationHistory,
         pageCapabilityManifest: manifest,
-        outputContract: manifest.outputContract
+        outputContract: manifest.outputContract,
+        ...(omsBaseUrl ? { omsBaseUrl } : {}),
+        ...(authToken ? { authToken } : {})
       })
     });
   } catch {

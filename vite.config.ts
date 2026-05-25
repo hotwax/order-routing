@@ -6,6 +6,8 @@ import path from 'path'
 import { defineConfig, loadEnv } from 'vite'
 import pkg from './package.json'
 import { versionInfoUtil } from '../../common/utils/versionInfoUtil';
+import { VitePWA } from 'vite-plugin-pwa'
+import manifest from "./manifest.json"
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -14,7 +16,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      legacy()
+      legacy(),
+      VitePWA({
+        registerType: "autoUpdate",
+        selfDestroying: true,
+        manifest: manifest as any,
+        devOptions: {
+          enabled: true
+        }
+      })
     ],
     resolve: {
       alias: {

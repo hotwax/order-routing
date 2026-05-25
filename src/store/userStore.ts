@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { Settings, DateTime } from "luxon"
-import { logger, api, commonUtil, translate } from '@common'
+import { logger, api, commonUtil, translate, cookieHelper } from '@common'
 import { useAuth } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
@@ -141,7 +141,7 @@ export const useUserStore = defineStore('user', {
     async postLogin() {
       try {
         await this.fetchUserProfile()
-        await this.setOms(commonUtil.getOMSInstanceName())
+        await this.setOms(cookieHelper().get("oms"))
         await this.fetchPermissions()
         await productStore().fetchEComStores()
         await this.fetchAvailableTimeZones()

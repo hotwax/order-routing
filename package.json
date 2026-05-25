@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "cypress run",
     "test:unit": "vitest",
     "lint": "eslint ."
   },

@@ -21,7 +21,7 @@
           <ion-radio label-placement="end" justify="start" :value="browserTimeZone.id">
             <ion-label>
                 {{ browserTimeZone.label }} ({{ browserTimeZone.id }})
-            <p v-if="showDateTime">{{ getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
+            <p v-if="showDateTime">{{ commonUtil.getCurrentTime(browserTimeZone.id, dateTimeFormat) }}</p>
             </ion-label>
           </ion-radio>
         </ion-item>
@@ -44,7 +44,7 @@
             <ion-radio label-placement="end" justify="start" :value="timeZone.id">
               <ion-label>
                 {{ timeZone.label }} ({{ timeZone.id }})
-                <p v-if="showDateTime">{{ getCurrentTime(timeZone.id, dateTimeFormat) }}</p>
+                <p v-if="showDateTime">{{ commonUtil.getCurrentTime(timeZone.id, dateTimeFormat) }}</p>
               </ion-label>
             </ion-radio>
           </ion-item>
@@ -80,21 +80,17 @@ import {
   IonToolbar,
   modalController,
 } from "@ionic/vue";
-import { onBeforeMount,computed,defineProps,ref} from "vue";
+import { onBeforeMount,computed,ref} from "vue";
 import { close, save } from "ionicons/icons";
-import { useStore } from "@/store";
-import { useUserStore } from "@hotwax/dxp-components";
-import { getCurrentTime} from "@/utils";
-import { translate } from "@/i18n"
+import { useUserStore } from "@/store/userStore";
+import { translate, commonUtil } from "@common";
 
-const userStore=useUserStore();
-const store = useStore();
 let queryString = ref("")
 let filteredTimeZones = ref<any[]>([])
-let timeZones = computed(() => userStore.getTimeZones)
+let timeZones = computed(() => useUserStore().getTimeZones)
 let timeZoneId = ref("")
 let isLoading = ref(true)
-const userProfile = computed(() => store.getters["user/getUserProfile"])
+const userProfile = computed(() => useUserStore().getUserProfile)
 // Fetching timeZone of the browser
 const browserTimeZone = ref({
   label: '',
@@ -118,9 +114,8 @@ const props = defineProps({
 
 onBeforeMount(async () => {
   isLoading.value = true;
-  await userStore.getAvailableTimeZones();
+  useUserStore().getTimeZones;
   if(userProfile.value && userProfile.value.timeZone) {
-    userStore.currentTimeZoneId = userProfile.value.timeZone
     timeZoneId.value = userProfile.value.timeZone
   }
 
@@ -151,7 +146,7 @@ function selectSearchBarText(event: any) {
 }
 
 async function setUserTimeZone() {
-  return store.dispatch("user/setUserTimeZone", {
+  return useUserStore().setUserTimeZone({
     "tzId": timeZoneId.value
   }).then(() => {
     closeModal()

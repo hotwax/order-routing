@@ -33,11 +33,12 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
+import { useUtilStore } from "@/store/utilStore";
+import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
 import { computed, defineProps } from "vue";
-import store from "@/store";
 import { warningOutline } from "ionicons/icons"
+import { productStore } from "@/store/productStore";
 
 const props = defineProps({
   routing: {
@@ -62,12 +63,12 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
 
-const enums = computed(() => store.getters["util/getEnums"])
-const facilities = computed(() => store.getters["util/getVirtualFacilities"])
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
+const enums = computed(() => useUtilStore().getEnums)
+const facilities = computed(() => productStore().getVirtualFacilities)
+const shippingMethods = computed(() => productStore().getShippingMethods)
+const facilityGroups = computed(() => productStore().getFacilityGroups)
 
 const enumCode = props.enumId.includes("_EXCLUDED") ? props.code + "_excluded" : props.code
 const orderPriorityDescription: any = {

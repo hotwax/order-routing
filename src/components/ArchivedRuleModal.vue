@@ -24,20 +24,8 @@
 </template>
 
 <script setup lang="ts">
-import { translate } from "@/i18n";
-import {
-  IonButton,
-  IonButtons,
-  IonContent,
-  IonHeader,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonTitle,
-  IonToolbar,
-  modalController,
-} from "@ionic/vue";
+import { translate } from "@common";
+import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import { defineProps, ref } from "vue";
 

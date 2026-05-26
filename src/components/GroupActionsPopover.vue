@@ -19,24 +19,11 @@
 </template>
 
 <script setup lang="ts">
-import {
-  alertController,
-  IonContent,
-  IonIcon,
-  IonItem,
-  IonList,
-  IonListHeader,
-  popoverController
-} from "@ionic/vue";
+import { alertController, IonContent, IonIcon, IonItem, IonList, IonListHeader, popoverController } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
-import { translate } from "@/i18n"
 import { defineProps } from "vue"
-import { OrderRoutingService } from "@/services/RoutingService";
-import { hasError, showToast } from "@/utils";
-import logger from "@/logger";
-import { useStore } from "vuex";
-
-const store = useStore()
+import { logger, translate, commonUtil } from "@common";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const props = defineProps(["group"])
 
@@ -49,15 +36,15 @@ async function updateGroupStatus(paused: string) {
   }
 
   try {
-    const resp = await OrderRoutingService.scheduleBrokering(payload)
-    if(!hasError(resp)) {
-      showToast(translate("Group status updated"))
-      routingGroups = await store.dispatch("orderRouting/updateGroupStatus", { routingGroupId: props.group.routingGroupId, value: paused })
+    const resp = await orderRoutingStore().scheduleBrokering(payload)
+    if(!commonUtil.hasError(resp)) {
+      commonUtil.showToast(translate("Group status updated"))
+      routingGroups = await orderRoutingStore().updateGroupStatus({ routingGroupId: props.group.routingGroupId, value: paused })
     } else {
       throw resp.data
     }
   } catch(err) {
-    showToast(translate("Failed to update group status"))
+    commonUtil.showToast(translate("Failed to update group status"))
     logger.error(err)
   }
 
@@ -89,8 +76,8 @@ async function runNow() {
               }
 
               try {
-                const resp = await OrderRoutingService.scheduleBrokering(payload)
-                if(hasError(resp)) {
+                const resp = await orderRoutingStore().scheduleBrokering(payload)
+                if(commonUtil.hasError(resp)) {
                   throw resp.data
                 }
                 // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
@@ -102,14 +89,14 @@ async function runNow() {
             }
 
             try {
-              const resp = await OrderRoutingService.runNow(props.group.routingGroupId)
-              if(!hasError(resp) && resp.data.jobRunId) {
-                showToast(translate("Service has been scheduled"))
+              const resp = await orderRoutingStore().runNow(props.group.routingGroupId)
+              if(!commonUtil.hasError(resp) && resp.data.jobRunId) {
+                commonUtil.showToast(translate("Service has been scheduled"))
               } else {
                 throw resp.data
               }
             } catch(err) {
-              showToast(translate("Failed to schedule service"))
+              commonUtil.showToast(translate("Failed to schedule service"))
               logger.error(err)
             }
           }

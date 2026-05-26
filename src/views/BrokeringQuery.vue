@@ -25,7 +25,7 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
@@ -45,7 +45,7 @@
             <ion-icon :icon="timeOutline" slot="start" />
             <ion-label>{{ translate("Last run") }}</ion-label>
             <ion-chip outline @click.stop="openRoutingHistoryModal()">
-              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
+              <ion-label>{{ routingHistory[currentRouting.orderRoutingId] ? commonUtil.getDateAndTimeShort(routingHistory[currentRouting.orderRoutingId][0].startDate) : "-" }}</ion-label>
             </ion-chip>
           </ion-item>
           <ion-item-group>
@@ -69,7 +69,7 @@
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['PROD_CATEGORY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   {{ translate("Product Category") }}
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
@@ -79,7 +79,7 @@
                   <ion-label>{{ translate("Product Category") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
@@ -212,8 +212,8 @@
               </ion-button>
             </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
-              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
-                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
+              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in (orderRoutingSortOptions as Record<string, any>)" :key="code as string">
+                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -268,7 +268,7 @@
                         <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
                         {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
                       </ion-button>
-                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
+                      <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRuleTest()" :disabled="selectedRoutingRule.statusId !== 'RULE_ACTIVE' || routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
                         <ion-icon slot="start" :icon="speedometerOutline" />
                         {{ translate(testRoutingInfo.isRuleTestEnabled ? "Exit test mode" : "Test") }}
                       </ion-button>
@@ -300,7 +300,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -309,7 +309,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -371,8 +371,8 @@
                       </ion-button>
                     </p>
                     <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-                      <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
+                      <ion-item v-for="(sort, code) in (inventoryRuleSortOptions as Record<string, any>)" :key="code as string">
+                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
                         <ion-reorder />
                       </ion-item>
                     </ion-reorder-group>
@@ -471,26 +471,23 @@
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addCircleOutline, closeCircleOutline, filterOutline, golfOutline, optionsOutline, pencilOutline, playForwardOutline, pulseOutline, saveOutline, speedometerOutline, swapVerticalOutline, timeOutline } from "ionicons/icons"
-import { onBeforeRouteLeave, useRouter } from "vue-router";
-import { computed, defineProps, nextTick, ref } from "vue";
-import store from "@/store";
+import { onBeforeRouteLeave } from "vue-router";
+import router from "@/router";
+import { computed, nextTick, ref } from "vue";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
-import { getDateAndTimeShort, hasError, showToast, sortSequence } from "@/utils";
+import { logger, emitter, translate, commonUtil } from "@common";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
-import logger from "@/logger";
 import { DateTime } from "luxon";
-import emitter from "@/event-bus";
-import { translate } from "@/i18n";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
-import { OrderRoutingService } from "@/services/RoutingService";
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue";
 import BrokeringRouteTest from "./BrokeringRouteTest.vue";
-import { UtilService } from "@/services/UtilService";
-import { Actions, hasPermission } from "@/authorization";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { useUtilStore } from "@/store/utilStore";
+import { productStore } from "@/store/productStore";
+import { useUserStore } from "@/store/userStore";
 
-const router = useRouter();
 const props = defineProps({
   orderRoutingId: {
     type: String,
@@ -498,23 +495,23 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(process.env?.VUE_APP_RULE_ENUMS as string)
-const actionEnums = JSON.parse(process.env?.VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(process.env?.VUE_APP_RULE_FILTER_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
 
-const currentRoutingGroup: any = computed(() => store.getters["orderRouting/getCurrentRoutingGroup"])
-const currentRouting = computed(() => store.getters["orderRouting/getCurrentOrderRouting"])
-const routingRules = computed(() => store.getters["orderRouting/getRulesInformation"])
-const facilities = computed(() => store.getters["util/getVirtualFacilities"])
-const catalogCategories = computed(() => store.getters["util/getCatalogCategories"])
-const enums = computed(() => store.getters["util/getEnums"])
-const shippingMethods = computed(() => store.getters["util/getShippingMethods"])
-const facilityGroups = computed(() => store.getters["util/getFacilityGroups"])
-const routingHistory = computed(() => store.getters["orderRouting/getRoutingHistory"])
-const currentRuleId = computed(() => store.getters["orderRouting/getCurrentRuleId"])
-const testRoutingInfo = computed(() => store.getters["orderRouting/getTestRoutingInfo"])
-const userProfile = computed(() => store.getters["user/getUserProfile"])
-const currentEComStore = computed(() => store.getters["user/getCurrentEComStore"])
+const currentRoutingGroup: any = computed(() => orderRoutingStore().getCurrentRoutingGroup)
+const currentRouting = computed(() => orderRoutingStore().getCurrentOrderRouting)
+const routingRules = computed(() => orderRoutingStore().getRulesInformation)
+const facilities = computed(() => productStore().getVirtualFacilities)
+const catalogCategories = computed(() => useUtilStore().getCatalogCategories)
+const enums = computed(() => useUtilStore().getEnums)
+const shippingMethods = computed(() => productStore().getShippingMethods)
+const facilityGroups = computed(() => productStore().getFacilityGroups)
+const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
+const currentRuleId = computed(() => orderRoutingStore().getCurrentRuleId)
+const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
+const userProfile = computed(() => useUserStore().getUserProfile)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
 const isFilterUnmatched = computed(() => (id: string) => testRoutingInfo.value.isRoutingTestEnabled && testRoutingInfo.value.unmatchedFilters?.includes(id))
 const isTestEnabled = computed(() => testRoutingInfo.value.isRoutingTestEnabled || testRoutingInfo.value.isRuleTestEnabled)
@@ -544,12 +541,12 @@ const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId), store.dispatch("util/fetchFacilities"), store.dispatch("util/fetchCategories"), store.dispatch("util/fetchOmsEnums", { enumTypeId: "ORDER_SALES_CHANNEL" }), store.dispatch("util/fetchShippingMethods"), store.dispatch("util/fetchFacilityGroups")])
-  store.dispatch("orderRouting/fetchRoutingHistory", router.currentRoute.value.params.routingGroupId)
+  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
+  orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
-    await store.dispatch("orderRouting/fetchCurrentRoutingGroup", router.currentRoute.value.params.routingGroupId)
+    await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId)
   }
 
   if(currentRouting.value["orderFilters"]?.length) {
@@ -558,7 +555,7 @@ onIonViewWillEnter(async () => {
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     initializeInventoryRules()
     await fetchRuleInformation(currentRuleId.value || rulesForReorder.value[0].routingRuleId);
   }
@@ -569,6 +566,7 @@ onIonViewWillEnter(async () => {
   emitter.emit("dismissLoader")
 })
 
+// TODO: Need to revisit this, route entries are empty on router hooks
 onBeforeRouteLeave(async (to) => {
   if(to.path === "/login") return;
 
@@ -578,8 +576,8 @@ onBeforeRouteLeave(async (to) => {
 
   if(!hasUnsavedChanges.value) {
     // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
-    store.dispatch("orderRouting/updateRoutingRuleId", "")
-    store.dispatch("orderRouting/clearRules")
+    orderRoutingStore().updateRoutingRuleId( "")
+    orderRoutingStore().clearRules()
     await updateUserTestSession();
     return;
   }
@@ -609,8 +607,8 @@ onBeforeRouteLeave(async (to) => {
   }
 
   // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
-  store.dispatch("orderRouting/updateRoutingRuleId", "")
-  store.dispatch("orderRouting/clearRules")
+  orderRoutingStore().updateRoutingRuleId( "")
+  orderRoutingStore().clearRules()
 
   await updateUserTestSession();
   return;
@@ -643,7 +641,7 @@ async function exitTestMode() {
     return false; // passing boolean to let the routeLeave hook know to change the route or not
   }
 
-  await store.dispatch("orderRouting/clearRoutingTestInfo")
+  await orderRoutingStore().clearRoutingTestInfo()
   await updateUserTestSession();
   return true;
 }
@@ -660,7 +658,7 @@ async function enableRoutingTest() {
     return;
   }
 
-  store.dispatch("orderRouting/updateRoutingTestInfo", [
+  orderRoutingStore().updateRoutingTestInfo( [
     { key: "isRoutingTestEnabled", value: !testRoutingInfo.value.isRoutingTestEnabled },
     { key: "selectedRuleId", value: "" },
     { key: "unmatchedOrderFilters", value: [] }
@@ -679,7 +677,7 @@ async function enableRuleTest() {
     return;
   }
 
-  store.dispatch("orderRouting/updateRoutingTestInfo", [
+  orderRoutingStore().updateRoutingTestInfo( [
     { key: "isRuleTestEnabled", value: !testRoutingInfo.value.isRuleTestEnabled },
     { key: "selectedRuleId", value: "" },
     { key: "unmatchedOrderFilters", value: [] }
@@ -714,7 +712,7 @@ function getFacilityGroupsForBrokering() {
 }
 
 function initializeOrderRoutingOptions() {
-  const orderRouteFilters = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
+  const orderRouteFilters = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
       filters[filter.conditionTypeEnumId][filter.fieldName] = filter
     } else {
@@ -761,21 +759,13 @@ async function updateRouteName() {
 
     let orderRoutingId = ''
     try {
-      const resp = await OrderRoutingService.updateRouting(payload);
-
-      if(!hasError(resp) && resp.data.orderRoutingId) {
-        orderRoutingId = resp.data.orderRoutingId
-        showToast(translate("Order routing information updated"))
-      } else {
-        throw resp.data
-      }
+      orderRoutingId = await orderRoutingStore().updateRouting(payload);
     } catch(err) {
-      showToast(translate("Failed to update routing information"))
       logger.error(err);
     }
 
     if(orderRoutingId) {
-      await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, routingName: routeName.value })
+      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, routingName: routeName.value })
     } else {
       routeName.value = currentRouting.value.routingName.trim()
     }
@@ -790,7 +780,7 @@ async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) 
   // Changing the value to false, as when fetching the information initially or after changing the rule we should stop the process of name updation
   isRuleNameUpdating.value = false
 
-  await store.dispatch("orderRouting/updateRoutingRuleId", routingRuleId)
+  await orderRoutingStore().updateRoutingRuleId( routingRuleId)
 
   // When clicking the same enum again do not fetch its information
   // TODO: check behaviour when creating a new rule, when no rule exist and when already some rule exist and a rule is open
@@ -800,7 +790,7 @@ async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) 
 
   // Only fetch the rules information, if already not present, as we are updating rule values
   if(!rulesInformation.value[routingRuleId] || forceUpdate) {
-    rulesInformation.value[routingRuleId] = await store.dispatch("orderRouting/fetchInventoryRuleInformation", routingRuleId)
+    rulesInformation.value[routingRuleId] = await orderRoutingStore().fetchInventoryRuleInformation( routingRuleId)
   }
 
   // TODO: check on this condition, remove if not required
@@ -880,7 +870,7 @@ async function addInventoryRule() {
       text: translate("Save"),
       handler: (data) => {
         if(!data.ruleName?.trim().length) {
-          showToast(translate("Please enter a valid name"))
+          commonUtil.showToast(translate("Please enter a valid name"))
           return false;
         }
       }
@@ -906,10 +896,10 @@ async function addInventoryRule() {
         createdDate: DateTime.now().toMillis()
       }
 
-      const routingRuleId = await store.dispatch("orderRouting/createRoutingRule", payload)
+      const routingRuleId = await orderRoutingStore().createRoutingRule( payload)
       if(routingRuleId) {
         // Updating the rule action to NEXT_RULE by default after creation
-        await store.dispatch("orderRouting/updateRule", {
+        await orderRoutingStore().updateRule( {
           routingRuleId,
           orderRoutingId: props.orderRoutingId,
           actions: [{
@@ -941,7 +931,7 @@ async function addInventoryRule() {
           }
         })
 
-        inventoryRules.value = sortSequence(routingRules)
+        inventoryRules.value = commonUtil.sortSequence(routingRules)
         initializeInventoryRules()
         fetchRuleInformation(routingRuleId)
       }
@@ -1039,7 +1029,7 @@ async function updateAutoCancelDays() {
             }
           }
         } else {
-          showToast(translate("Enter a valid value"))
+          commonUtil.showToast(translate("Enter a valid value"))
           return false;
         }
         updateRule()
@@ -1259,16 +1249,16 @@ async function updateRuleName(routingRuleId: string) {
   if(isUpdateRequired) {
     emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
-    let ruleId = await store.dispatch("orderRouting/updateRule", {
+    let ruleId = await orderRoutingStore().updateRule( {
       routingRuleId,
       orderRoutingId: props.orderRoutingId,
       ruleName: selectedRoutingRule.value.ruleName.trim()
     })
 
     if(ruleId) {
-      showToast(translate("Order rule information updated"))
+      commonUtil.showToast(translate("Order rule information updated"))
     } else {
-      showToast(translate("Failed to update rule information"))
+      commonUtil.showToast(translate("Failed to update rule information"))
     }
 
     emitter.emit("dismissLoader")
@@ -1281,20 +1271,20 @@ async function cloneRule() {
   emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
   try {
-    const resp = await OrderRoutingService.cloneRule({
+    const resp = await orderRoutingStore().cloneRule({
       routingRuleId: selectedRoutingRule.value.routingRuleId,
       newOrderRoutingId: props.orderRoutingId,
       newRuleName: `${selectedRoutingRule.value.ruleName} copy`
     })
 
-    if(hasError(resp) || !resp.data.newRoutingRuleId) {
+    if(commonUtil.hasError(resp) || !resp.data.newRoutingRuleId) {
       throw resp.data
     }
 
-    await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+    await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
   } catch (err) {
     logger.error(err)
-    showToast(translate("Failed to clone rule"))
+    commonUtil.showToast(translate("Failed to clone rule"))
   }
 
   emitter.emit("dismissLoader")
@@ -1553,20 +1543,20 @@ async function save() {
   // Diff found for removing and updating filters
 
   if(filtersToRemove?.length) {
-    await store.dispatch("orderRouting/deleteRoutingFilters", { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+    await orderRoutingStore().deleteRoutingFilters( { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
 
     // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
     // if(isSuccess) {
-    //   await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+    //   await useOrderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
     // }
   }
 
   if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
     orderRouting["orderFilters"] = filtersToUpdate
-    const orderRoutingId = await store.dispatch("orderRouting/updateRouting", orderRouting)
+    const orderRoutingId = await orderRoutingStore().updateRouting( orderRouting)
 
     if(orderRoutingId) {
-      await store.dispatch("orderRouting/setCurrentOrderRouting", { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
     }
   }
 
@@ -1578,7 +1568,7 @@ async function save() {
     const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
     const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
 
-    const filterSortDesc = process.env.VUE_APP_FILTER_SORT_DESC
+    const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
     Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
       if(filterSortDesc.includes(option.fieldName)) {
         option.fieldName += " desc"
@@ -1620,15 +1610,15 @@ async function save() {
     const rule = rulesDiff[key]
     
     if(rule.filtersToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleConditions", { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
+      await orderRoutingStore().deleteRuleConditions( { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
     }
 
     if(rule.actionsToRemove?.length) {
-      await store.dispatch("orderRouting/deleteRuleActions", { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
+      await orderRoutingStore().deleteRuleActions( { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
     }
 
     if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
-      await store.dispatch("orderRouting/updateRule", {
+      await orderRoutingStore().updateRule( {
         routingRuleId: rule.routingRuleId,
         orderRoutingId: rule.orderRoutingId,
         inventoryFilters: rule.filtersToUpdate,
@@ -1637,14 +1627,14 @@ async function save() {
     }
   }
 
-  await store.dispatch("orderRouting/fetchCurrentOrderRouting", props.orderRoutingId)
+  await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
   }
 
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
-    inventoryRules.value = sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
     // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
     // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
     await fetchRuleInformation(currentRuleId.value, true);
@@ -1677,7 +1667,7 @@ function isPartialGroupItemsAllocationActive() {
 function initializeInventoryRules() {
   // Sorting the sequence once again here, as after making some changes in the rules like status, enumId etc
   // the original reordered sequence is lost thus before updating the variable sorting it first and then saving changes
-  rulesForReorder.value = sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
+    rulesForReorder.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
 }
 
 function getActiveAndDraftOrderRules() {
@@ -1697,7 +1687,7 @@ async function openArchivedRuleModal() {
       saveRules: (rules: any) => {
         if(rules) {
           hasUnsavedChanges.value = true
-          inventoryRules.value = sortSequence(getActiveAndDraftOrderRules().concat(rules))
+          inventoryRules.value = commonUtil.sortSequence(getActiveAndDraftOrderRules().concat(rules))
         }
         initializeInventoryRules()
       }
@@ -1708,7 +1698,7 @@ async function openArchivedRuleModal() {
 }
 
 async function getUserTestSession() {
-  userTestingSession.value = await UtilService.getUserSession({
+  userTestingSession.value = await useUtilStore().getUserSession({
     customParametersMap: {
       sessionTypeEnumId: "ROUTING_TEST_DRIVE",
       userId: userProfile.value.userId,
@@ -1728,7 +1718,7 @@ async function createUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.createUserSession({
+  userTestingSession.value = await useUtilStore().createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     productStoreId: currentEComStore.value.productStoreId,
@@ -1741,7 +1731,7 @@ async function updateUserTestSession() {
     return;
   }
 
-  userTestingSession.value = await UtilService.expireUserSession({
+  userTestingSession.value = await useUtilStore().expireUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,

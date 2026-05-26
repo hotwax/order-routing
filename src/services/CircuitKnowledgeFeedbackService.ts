@@ -61,6 +61,18 @@ export type ApproveResult =
     }
   | { ok: false; stage: ApproveErrorStage; error: string };
 
+export type SuggestPromptErrorStage = "validation" | "llm" | "network";
+
+export type SuggestPromptRequest = {
+  messages: KnowledgeFeedbackMessage[];
+  correctionCategory?: CorrectionCategory;
+  context?: KnowledgeFeedbackContext;
+};
+
+export type SuggestPromptResult =
+  | { ok: true; suggestedPrompt: string }
+  | { ok: false; stage: SuggestPromptErrorStage; error: string };
+
 export type ProposeRequest = {
   messages: KnowledgeFeedbackMessage[];
   userCorrection: string;
@@ -83,6 +95,7 @@ export type ApproveRequest = {
 const ENDPOINT_PROPOSE = "/knowledge-feedback/propose";
 const ENDPOINT_REFINE = "/knowledge-feedback/refine";
 const ENDPOINT_APPROVE = "/knowledge-feedback/approve";
+const ENDPOINT_SUGGEST = "/knowledge-feedback/suggest-prompt";
 
 function resolveMastraUrl(): string {
   const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
@@ -102,6 +115,12 @@ const VALID_APPROVE_STAGES = new Set<ApproveErrorStage>([
   "applier",
   "yaml_parse",
   "git",
+  "network"
+]);
+
+const VALID_SUGGEST_STAGES = new Set<SuggestPromptErrorStage>([
+  "validation",
+  "llm",
   "network"
 ]);
 
@@ -215,5 +234,57 @@ export async function approveKnowledgeFeedback(
     shortSha: String(parsed.shortSha || ""),
     summary: String(parsed.summary || ""),
     editCount: Number(parsed.editCount || 0)
+  };
+}
+
+export async function suggestKnowledgeFeedbackPrompt(
+  request: SuggestPromptRequest,
+  signal?: AbortSignal
+): Promise<SuggestPromptResult> {
+  const url = `${resolveMastraUrl()}${ENDPOINT_SUGGEST}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+      signal
+    });
+  } catch (err: any) {
+    return {
+      ok: false,
+      stage: "network",
+      error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable."
+    };
+  }
+
+  let parsed: any;
+  try {
+    parsed = await response.json();
+  } catch {
+    return {
+      ok: false,
+      stage: "network",
+      error: `Unexpected non-JSON response (HTTP ${response.status}).`
+    };
+  }
+
+  if (!response.ok || parsed?.ok === false) {
+    const stage: SuggestPromptErrorStage = VALID_SUGGEST_STAGES.has(parsed?.stage)
+      ? parsed.stage
+      : "network";
+    return {
+      ok: false,
+      stage,
+      error:
+        typeof parsed?.error === "string" && parsed.error
+          ? parsed.error
+          : `Suggestion failed with HTTP ${response.status}`
+    };
+  }
+
+  return {
+    ok: true,
+    suggestedPrompt: String(parsed.suggestedPrompt || "")
   };
 }

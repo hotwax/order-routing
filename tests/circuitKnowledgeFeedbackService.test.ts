@@ -2,7 +2,8 @@ import assert from "node:assert";
 import {
   proposeKnowledgeFeedback,
   refineKnowledgeFeedback,
-  approveKnowledgeFeedback
+  approveKnowledgeFeedback,
+  suggestKnowledgeFeedbackPrompt
 } from "../src/services/CircuitKnowledgeFeedbackService";
 
 type FetchInit = { method?: string; headers?: Record<string, string>; body?: string };
@@ -193,12 +194,96 @@ async function approveValidationFailure() {
   }
 }
 
+// suggestKnowledgeFeedbackPrompt happy path
+async function suggestHappy() {
+  let capturedUrl = "";
+  let capturedBody: any = null;
+  const restore = withMockFetch(async (url, init) => {
+    capturedUrl = url;
+    capturedBody = JSON.parse(init.body || "{}");
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        suggestedPrompt: "Circuit should have asked which order id before answering."
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  });
+  try {
+    const result = await suggestKnowledgeFeedbackPrompt({
+      messages: [
+        { role: "user", content: "why didn't order route" },
+        { role: "assistant", content: "could not find a matching rule" }
+      ],
+      correctionCategory: "missed_clarifying_question",
+      context: { routingGroupId: "rg-1" }
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(
+        result.suggestedPrompt,
+        "Circuit should have asked which order id before answering."
+      );
+    }
+    assert.ok(capturedUrl.endsWith("/knowledge-feedback/suggest-prompt"));
+    assert.equal(capturedBody.correctionCategory, "missed_clarifying_question");
+    assert.equal(capturedBody.messages.length, 2);
+    assert.equal(capturedBody.context.routingGroupId, "rg-1");
+  } finally {
+    restore();
+  }
+}
+
+// suggest network rejection
+async function suggestNetworkRejection() {
+  const restore = withMockFetch(async () => {
+    throw new Error("offline");
+  });
+  try {
+    const result = await suggestKnowledgeFeedbackPrompt({
+      messages: [{ role: "user", content: "hi" }]
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "network");
+      assert.match(result.error, /offline/);
+    }
+  } finally {
+    restore();
+  }
+}
+
+// suggest llm failure from server
+async function suggestLlmFailure() {
+  const restore = withMockFetch(async () =>
+    new Response(JSON.stringify({ ok: false, stage: "llm", error: "model error" }), {
+      status: 502,
+      headers: { "content-type": "application/json" }
+    })
+  );
+  try {
+    const result = await suggestKnowledgeFeedbackPrompt({
+      messages: [{ role: "user", content: "hi" }]
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "llm");
+      assert.equal(result.error, "model error");
+    }
+  } finally {
+    restore();
+  }
+}
+
 async function main() {
   await proposeHappy();
   await refineHappy();
   await approveHappy();
   await proposeNetworkRejection();
   await approveValidationFailure();
+  await suggestHappy();
+  await suggestNetworkRejection();
+  await suggestLlmFailure();
   console.log("circuitKnowledgeFeedbackService tests passed");
 }
 

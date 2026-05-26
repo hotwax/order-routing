@@ -155,7 +155,7 @@
                 </ion-button>
               </ion-list-header>
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-                <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in (routingsForReorder as any[])" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
+                <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
                       <h1>{{ routing.routingName }}</h1>
@@ -163,7 +163,7 @@
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">
                       <ion-chip outline>
-                        <ion-label>{{ `${(index as number) + 1}/${routingsForReorder.length}` }}</ion-label>
+                        <ion-label>{{ `${index + 1}/${routingsForReorder.length}` }}</ion-label>
                         <ion-icon :icon="reorderTwoOutline"/>
                       </ion-chip>
                     </ion-reorder>
@@ -176,9 +176,9 @@
                     </ion-chip>
                   </ion-item>
                   <ion-item lines="none">
-                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ (getStatusDesc as any)(routing.statusId as any) }}</ion-badge>
+                    <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'" @click.stop="updateOrderRouting(routing, 'statusId', `${routing.statusId === 'ROUTING_DRAFT' ? 'ROUTING_ACTIVE' : 'ROUTING_DRAFT'}`)">{{ getStatusDesc(routing.statusId) }}</ion-badge>
                     <div slot="end">
-                      <ion-button size="default" fill="clear" color="medium" @click.stop="cloneRouting(routing as any)">
+                      <ion-button size="default" fill="clear" color="medium" @click.stop="cloneRouting(routing)">
                         <ion-icon slot="icon-only" :icon="copyOutline" />
                       </ion-button>
                       <ion-button size="default" fill="clear" color="medium" @click.stop="updateOrderRouting(routing, 'statusId', 'ROUTING_ARCHIVED')">

@@ -3,19 +3,55 @@ export type KnowledgeFeedbackMessage = {
   content: string;
 };
 
-export type KnowledgeFeedbackRequest = {
-  messages: KnowledgeFeedbackMessage[];
-  userCorrection: string;
-  context?: {
-    routingGroupId?: string | null;
-    routingRuleId?: string | null;
-    activeContextLabel?: string;
-  };
+export type KnowledgeFeedbackContext = {
+  routingGroupId?: string | null;
+  routingRuleId?: string | null;
+  activeContextLabel?: string;
 };
 
-export type KnowledgeFeedbackStage = "network" | "llm" | "validation" | "yaml_parse" | "git";
+export type CorrectionCategory =
+  | "wrong_recommendation"
+  | "missed_clarifying_question"
+  | "misnamed_entity"
+  | "should_have_used_tool"
+  | "other";
 
-export type KnowledgeFeedbackResult =
+export type EditOp =
+  | { op: "append"; path: string; value: unknown }
+  | { op: "set"; path: string; value: unknown }
+  | { op: "remove"; path: string }
+  | { op: "insertAt"; path: string; index: number; value: unknown };
+
+export type EditDescription = {
+  op: "append" | "set" | "remove" | "insertAt";
+  path: string;
+  text: string;
+};
+
+export type ProposalPayload = {
+  proposalId: string;
+  summary: string;
+  rationale: string;
+  edits: EditOp[];
+  editDescriptions: EditDescription[];
+};
+
+export type CarriedProposal = {
+  proposalId: string;
+  summary: string;
+  rationale: string;
+  edits: EditOp[];
+};
+
+export type ProposalErrorStage = "validation" | "llm" | "applier_dry_run" | "network";
+
+export type ProposalResult =
+  | { ok: true; proposal: ProposalPayload }
+  | { ok: false; stage: ProposalErrorStage; error: string };
+
+export type ApproveErrorStage = "validation" | "applier" | "yaml_parse" | "git" | "network";
+
+export type ApproveResult =
   | {
       ok: true;
       commitSha: string;
@@ -23,13 +59,30 @@ export type KnowledgeFeedbackResult =
       summary: string;
       editCount: number;
     }
-  | {
-      ok: false;
-      error: string;
-      stage: KnowledgeFeedbackStage;
-    };
+  | { ok: false; stage: ApproveErrorStage; error: string };
 
-const ENDPOINT = "/knowledge-feedback";
+export type ProposeRequest = {
+  messages: KnowledgeFeedbackMessage[];
+  userCorrection: string;
+  correctionCategory?: CorrectionCategory;
+  context?: KnowledgeFeedbackContext;
+};
+
+export type RefineRequest = ProposeRequest & {
+  previousProposal: CarriedProposal;
+  refinementFeedback: string;
+};
+
+export type ApproveRequest = {
+  proposal: CarriedProposal;
+  userCorrection: string;
+  refinementHistory?: string[];
+  messages: KnowledgeFeedbackMessage[];
+};
+
+const ENDPOINT_PROPOSE = "/knowledge-feedback/propose";
+const ENDPOINT_REFINE = "/knowledge-feedback/refine";
+const ENDPOINT_APPROVE = "/knowledge-feedback/approve";
 
 function resolveMastraUrl(): string {
   const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
@@ -37,14 +90,85 @@ function resolveMastraUrl(): string {
   return raw.replace(/\/$/, "");
 }
 
-function isValidStage(value: unknown): value is KnowledgeFeedbackStage {
-  return value === "network" || value === "llm" || value === "validation" || value === "yaml_parse" || value === "git";
+const VALID_PROPOSAL_STAGES = new Set<ProposalErrorStage>([
+  "validation",
+  "llm",
+  "applier_dry_run",
+  "network"
+]);
+
+const VALID_APPROVE_STAGES = new Set<ApproveErrorStage>([
+  "validation",
+  "applier",
+  "yaml_parse",
+  "git",
+  "network"
+]);
+
+async function postProposal(
+  endpoint: string,
+  body: unknown
+): Promise<ProposalResult> {
+  const url = `${resolveMastraUrl()}${endpoint}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  } catch (err: any) {
+    return {
+      ok: false,
+      stage: "network",
+      error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable."
+    };
+  }
+
+  let parsed: any;
+  try {
+    parsed = await response.json();
+  } catch {
+    return {
+      ok: false,
+      stage: "network",
+      error: `Unexpected non-JSON response (HTTP ${response.status}).`
+    };
+  }
+
+  if (!response.ok || parsed?.ok === false) {
+    const stage: ProposalErrorStage = VALID_PROPOSAL_STAGES.has(parsed?.stage)
+      ? parsed.stage
+      : "network";
+    return {
+      ok: false,
+      stage,
+      error:
+        typeof parsed?.error === "string" && parsed.error
+          ? parsed.error
+          : `Feedback proposal failed with HTTP ${response.status}`
+    };
+  }
+
+  return { ok: true, proposal: parsed.proposal as ProposalPayload };
 }
 
-export async function submitKnowledgeFeedback(
-  request: KnowledgeFeedbackRequest
-): Promise<KnowledgeFeedbackResult> {
-  const url = `${resolveMastraUrl()}${ENDPOINT}`;
+export async function proposeKnowledgeFeedback(
+  request: ProposeRequest
+): Promise<ProposalResult> {
+  return postProposal(ENDPOINT_PROPOSE, request);
+}
+
+export async function refineKnowledgeFeedback(
+  request: RefineRequest
+): Promise<ProposalResult> {
+  return postProposal(ENDPOINT_REFINE, request);
+}
+
+export async function approveKnowledgeFeedback(
+  request: ApproveRequest
+): Promise<ApproveResult> {
+  const url = `${resolveMastraUrl()}${ENDPOINT_APPROVE}`;
   let response: Response;
   try {
     response = await fetch(url, {
@@ -60,9 +184,9 @@ export async function submitKnowledgeFeedback(
     };
   }
 
-  let body: any;
+  let parsed: any;
   try {
-    body = await response.json();
+    parsed = await response.json();
   } catch {
     return {
       ok: false,
@@ -71,19 +195,25 @@ export async function submitKnowledgeFeedback(
     };
   }
 
-  if (!response.ok || body?.ok === false) {
-    const stage = isValidStage(body?.stage) ? body.stage : "network";
-    const error = typeof body?.error === "string" && body.error
-      ? body.error
-      : `Knowledge feedback failed with HTTP ${response.status}`;
-    return { ok: false, stage, error };
+  if (!response.ok || parsed?.ok === false) {
+    const stage: ApproveErrorStage = VALID_APPROVE_STAGES.has(parsed?.stage)
+      ? parsed.stage
+      : "network";
+    return {
+      ok: false,
+      stage,
+      error:
+        typeof parsed?.error === "string" && parsed.error
+          ? parsed.error
+          : `Feedback approval failed with HTTP ${response.status}`
+    };
   }
 
   return {
     ok: true,
-    commitSha: String(body.commitSha || ""),
-    shortSha: String(body.shortSha || ""),
-    summary: String(body.summary || ""),
-    editCount: Number(body.editCount || 0)
+    commitSha: String(parsed.commitSha || ""),
+    shortSha: String(parsed.shortSha || ""),
+    summary: String(parsed.summary || ""),
+    editCount: Number(parsed.editCount || 0)
   };
 }

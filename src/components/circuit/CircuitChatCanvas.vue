@@ -16,6 +16,13 @@
           <ion-button @click="showPromptModal = true">
             <ion-icon slot="icon-only" :icon="terminalOutline" />
           </ion-button>
+          <ion-button
+            v-if="canSendFeedback"
+            :aria-label="translate('Send feedback to improve Circuit')"
+            @click="showFeedbackModal = true"
+          >
+            <ion-icon slot="icon-only" :icon="bulbOutline" />
+          </ion-button>
           <ion-button @click="openThreadModal">
             <ion-icon slot="start" :icon="chatbubblesOutline" />
             {{ translate("Threads") }}
@@ -116,6 +123,12 @@
         </ion-list>
       </ion-content>
     </ion-modal>
+    <CircuitFeedbackModal
+      :is-open="showFeedbackModal"
+      :messages="buildFeedbackMessages()"
+      :context="feedbackContext"
+      @dismiss="showFeedbackModal = false"
+    />
   </ion-page>
 </template>
 
@@ -136,10 +149,13 @@ import {
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
+import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
-import { 
-  addOutline, 
-  chatbubblesOutline, 
+import type { KnowledgeFeedbackMessage } from '@/services/CircuitKnowledgeFeedbackService';
+import {
+  addOutline,
+  bulbOutline,
+  chatbubblesOutline,
   checkmarkCircleOutline,
   closeCircleOutline,
   refreshOutline,
@@ -192,6 +208,26 @@ onMounted(() => {
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
+const showFeedbackModal = ref(false);
+
+const canSendFeedback = computed(() => messages.value.length > 0);
+
+function buildFeedbackMessages(): KnowledgeFeedbackMessage[] {
+  return messages.value
+    .map((message: any) => ({
+      role: message.role === 'circuit' ? 'assistant' : message.role,
+      content: String(message.content || '').trim()
+    }))
+    .filter((message: { role: string; content: string }) =>
+      (message.role === 'user' || message.role === 'assistant') && message.content
+    ) as KnowledgeFeedbackMessage[];
+}
+
+const feedbackContext = computed(() => ({
+  routingGroupId: selectedContext.value?.routingGroupId ?? null,
+  routingRuleId: (selectedContext.value as any)?.routingRuleId ?? null,
+  activeContextLabel: (selectedContext.value as any)?.label ?? undefined
+}));
 
 const onSend = async () => {
   const message = prompt.value.trim();

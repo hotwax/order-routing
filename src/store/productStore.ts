@@ -160,26 +160,20 @@ export const productStore = defineStore('productStore', {
       const carrierPartyIds = carrierIds.filter((id: any) => !carriers[id])
   
       if(!carrierPartyIds.length) return;
-  
-      const payload = {
-        inputFields: {
-          partyId: carrierIds,
-          partyId_op: "in"
-        },
-        distinct: "Y",
-        viewSize: carrierIds.length,
-        entityName: "PartyNameView",
-      }
-  
+
       try {
         const resp = await api({
-          url: "performFind",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
+          url: "/oms/parties",
+          method: "GET",
+          params: {
+            partyId: carrierPartyIds,
+            partyId_op: "in",
+            fieldsToSelect: ["firstName", "middleName", "lastName", "groupName", "partyId"],
+            pageSize: carrierPartyIds.length
+          }
         });
-        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
-          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+        if(resp.data?.length) {
+          carriers = resp.data.reduce((carriers: any, carrier: any) => {
             carriers[carrier.partyId] = {
               name: carrier.groupName
             }
@@ -189,28 +183,24 @@ export const productStore = defineStore('productStore', {
       } catch(err) {
         logger.error(err)
       }
-  
-      const deliveryDaysPayload = {
-        inputFields: {
-          partyId: carrierIds,
-          partyId_op: "in",
-          roleTypeId: "CARRIER",
-          deliveryDays_op: "not-empty"
-        },
-        distinct: "Y",
-        viewSize: 200,
-        entityName: "CarrierShipmentMethod",
-      }
-  
+
       try {
         const resp = await api({
-          url: "performFind",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
+          url: "/oms/shippingGateways/carrierShipmentMethods",
+          method: "GET",
+          params: {
+            partyId: carrierIds,
+            partyId_op: "in",
+            deliveryDays_op: "not-empty",
+            roleTypeId: "CARRIER",
+            pageIndex: 0,
+            pageSize: 250,
+            orderByField: "sequenceNumber"
+          }
         });
-        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
-          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+
+        if(resp.data?.length) {
+          carriers = resp.data.reduce((carriers: any, carrier: any) => {
             if(carriers[carrier.partyId]["deliveryDays"]) {
               carriers[carrier.partyId]["deliveryDays"] = {
                 ...carriers[carrier.partyId]["deliveryDays"],

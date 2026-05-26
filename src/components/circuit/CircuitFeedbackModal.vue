@@ -346,7 +346,7 @@ async function submitApprove() {
     errorResult.value = result;
     // applier / yaml_parse on approve mean the YAML changed under us — go back to form
     errorReturnPhase.value =
-      result.stage === "applier" || result.stage === "yaml_parse" ? "form" : "review";
+      result.stage === "applier" || result.stage === "yaml_parse" || result.stage === "validation" ? "form" : "review";
     phase.value = "error";
   }
 }

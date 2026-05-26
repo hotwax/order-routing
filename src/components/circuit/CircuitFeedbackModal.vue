@@ -32,9 +32,10 @@
           :auto-grow="true"
           :counter="true"
           :maxlength="2000"
-          :placeholder="translate('Describe the correction...')"
+          :placeholder="isSuggesting ? translate('Generating suggestion...') : translate('Describe the correction...')"
           :disabled="isSubmitting"
           fill="outline"
+          @ion-input="userTouchedCorrection = true"
         />
 
         <ion-button
@@ -166,6 +167,7 @@ import {
   proposeKnowledgeFeedback,
   refineKnowledgeFeedback,
   approveKnowledgeFeedback,
+  suggestKnowledgeFeedbackPrompt,
   type ApproveResult,
   type CorrectionCategory,
   type KnowledgeFeedbackContext,
@@ -186,32 +188,12 @@ const emit = defineEmits<{
   (e: "dismiss"): void;
 }>();
 
-const categories: Array<{ value: CorrectionCategory; label: string; template: string }> = [
-  {
-    value: "wrong_recommendation",
-    label: "Wrong recommendation",
-    template:
-      "Circuit recommended ___. The correct recommendation would have been ___ because ___."
-  },
-  {
-    value: "missed_clarifying_question",
-    label: "Missed clarifying question",
-    template:
-      "Circuit should have asked ___ before answering. The right next question is ___."
-  },
-  {
-    value: "misnamed_entity",
-    label: "Misnamed entity",
-    template:
-      "Circuit referred to ___ as ___. The correct name/id is ___."
-  },
-  {
-    value: "should_have_used_tool",
-    label: "Should have used a tool",
-    template:
-      "Circuit answered from memory but should have called the ___ tool, which would have told it ___."
-  },
-  { value: "other", label: "Other", template: "" }
+const categories: Array<{ value: CorrectionCategory; label: string }> = [
+  { value: "wrong_recommendation", label: "Wrong recommendation" },
+  { value: "missed_clarifying_question", label: "Missed clarifying question" },
+  { value: "misnamed_entity", label: "Misnamed entity" },
+  { value: "should_have_used_tool", label: "Should have used a tool" },
+  { value: "other", label: "Other" }
 ];
 
 const phase = ref<Phase>("form");
@@ -226,17 +208,24 @@ const errorResult = ref<
   Extract<ProposalResult, { ok: false }> | Extract<ApproveResult, { ok: false }> | null
 >(null);
 const errorReturnPhase = ref<Phase>("form");
+const isSuggesting = ref(false);
+const userTouchedCorrection = ref(false);
+let suggestController: AbortController | null = null;
 
 watch(
   () => props.isOpen,
   (open) => {
     if (open) {
       resetAll();
+      void requestSuggestion(null);
+    } else {
+      abortSuggest();
     }
   }
 );
 
 function resetAll() {
+  abortSuggest();
   phase.value = "form";
   category.value = null;
   userCorrection.value = "";
@@ -247,14 +236,51 @@ function resetAll() {
   successResult.value = null;
   errorResult.value = null;
   errorReturnPhase.value = "form";
+  isSuggesting.value = false;
+  userTouchedCorrection.value = false;
+}
+
+function abortSuggest() {
+  if (suggestController) {
+    suggestController.abort();
+    suggestController = null;
+  }
+}
+
+async function requestSuggestion(cat: CorrectionCategory | null) {
+  abortSuggest();
+  if (userTouchedCorrection.value) {
+    return;
+  }
+  const controller = new AbortController();
+  suggestController = controller;
+  isSuggesting.value = true;
+  try {
+    const result = await suggestKnowledgeFeedbackPrompt(
+      {
+        messages: props.messages,
+        correctionCategory: cat ?? undefined,
+        context: props.context
+      },
+      controller.signal
+    );
+    if (controller.signal.aborted) return;
+    if (result.ok && !userTouchedCorrection.value) {
+      userCorrection.value = result.suggestedPrompt;
+    }
+  } catch {
+    // AbortError or other — ignore.
+  } finally {
+    if (suggestController === controller) {
+      suggestController = null;
+    }
+    isSuggesting.value = false;
+  }
 }
 
 function selectCategory(value: CorrectionCategory) {
   category.value = value;
-  const tmpl = categories.find((c) => c.value === value)?.template ?? "";
-  if (tmpl && !userCorrection.value.trim()) {
-    userCorrection.value = tmpl;
-  }
+  void requestSuggestion(value);
 }
 
 const canSubmitForm = computed(

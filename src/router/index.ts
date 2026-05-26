@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
 import Tabs from "@/views/Tabs.vue"
-import { useAuth } from '@common';
+import { useAuth } from '@common/composables/useAuth';
 import Login from "@common/components/Login.vue";
 
 const authGuard = async () => {

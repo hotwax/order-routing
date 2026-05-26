@@ -30,8 +30,8 @@
       </div>
 
       <ion-row>
-        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in (testRoutingInfo.currentOrder.groups as Record<string, any>)" :key="shipGroupSeqId as string" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
-          {{ (index as number) + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
+        <ion-chip v-for="(shipGroup, shipGroupSeqId, index) in testRoutingInfo.currentOrder.groups" :key="shipGroupSeqId" @click="updateCurrentShipGroupId(shipGroupSeqId, shipGroup)" :outline="testRoutingInfo.currentShipGroupId !== shipGroupSeqId">
+          {{ index + 1 }}: {{ shipGroup[0].facilityName || shipGroup[0].facilityId }}
         </ion-chip>
       </ion-row>
 

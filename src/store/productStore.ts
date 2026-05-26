@@ -189,7 +189,7 @@ export const productStore = defineStore('productStore', {
           url: "/oms/shippingGateways/carrierShipmentMethods",
           method: "GET",
           params: {
-            partyId: carrierIds,
+            partyId: carrierPartyIds,
             partyId_op: "in",
             deliveryDays_op: "not-empty",
             roleTypeId: "CARRIER",

@@ -7,10 +7,10 @@
       </div>
       <div v-else-if="!sim.baseline">{{ translate("Loading group…") }}</div>
       <template v-else>
-        <!-- Once a run exists, let the user move freely between the editor and the
-             (possibly still-running) simulation. Both panes stay mounted so switching is
-             instant and the editor keeps its state while the run continues in the background. -->
-        <ion-segment v-if="sim.isRunning || sim.results" :value="sim.view" @ionChange="sim.view = String($event.detail.value)" class="sim-viewbar">
+        <!-- Toggle is always available so the user can move freely between the editor and the
+             (possibly still-running, or not-yet-started) simulation. Both panes stay mounted so
+             switching is instant and the editor keeps its state while a run continues in the background. -->
+        <ion-segment :value="sim.view" @ionChange="sim.view = String($event.detail.value)" class="sim-viewbar">
           <ion-segment-button value="editor">
             <ion-label>{{ translate("Editor") }}</ion-label>
           </ion-segment-button>
@@ -24,7 +24,10 @@
           <simulation-canvas />
           <variation-rail />
         </div>
-        <simulation-results v-show="sim.view === 'results'" />
+        <div v-show="sim.view === 'results' && !sim.isRunning && !sim.results" class="ion-padding sim-empty">
+          {{ translate("No simulation has run yet. Edit variations and press Submit.") }}
+        </div>
+        <simulation-results v-show="sim.view === 'results' && (sim.isRunning || sim.results)" />
       </template>
     </ion-content>
   </ion-page>
@@ -57,4 +60,5 @@ onMounted(reload);
 <style scoped>
 .sim-editor { display: flex; gap: var(--spacer-base); }
 .sim-viewbar { max-width: 360px; margin: var(--spacer-sm) auto; }
+.sim-empty { color: var(--ion-color-medium); }
 </style>

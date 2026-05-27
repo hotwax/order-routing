@@ -19,7 +19,6 @@
 
 <script setup lang="ts">
 import { onMounted } from "vue";
-import { useRoute } from "vue-router";
 import { translate } from "@common";
 import { IonButton, IonContent, IonPage } from "@ionic/vue";
 import { simulationStore } from "@/store/simulationStore";
@@ -27,10 +26,17 @@ import SimulationCanvas from "@/components/simulation/SimulationCanvas.vue";
 import VariationRail from "@/components/simulation/VariationRail.vue";
 import SimulationResults from "@/components/simulation/SimulationResults.vue";
 
+// Route params arrive as props (route registered with `props: true`), matching the
+// convention used by BrokeringRoute.vue et al. useRoute() is not reliable here.
+const props = defineProps({
+  routingGroupId: {
+    type: String,
+    required: true
+  }
+});
 const sim = simulationStore();
-const route = useRoute();
 
-function reload() { sim.loadGroup(String(route.params.routingGroupId)); }
+function reload() { sim.loadGroup(String(props.routingGroupId)); }
 
 onMounted(reload);
 </script>

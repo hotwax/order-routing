@@ -33,8 +33,8 @@ export const simulationStore = defineStore("simulation", {
         const ors = orderRoutingStore();
         // On a fresh deep-link the groups[] list is empty. fetchCurrentRoutingGroup looks the
         // group up there, and when it's missing the downstream schedule fetch throws on an
-        // undefined currentGroup — leaving the screen stuck on "Loading group…". Loading the
-        // list first mirrors the picker entry path and keeps currentGroup defined.
+        // undefined currentGroup. Loading the list first mirrors the picker entry path and
+        // keeps currentGroup defined.
         if (!ors.getRoutingGroups?.length) {
           await ors.fetchOrderRoutingGroups();
         }

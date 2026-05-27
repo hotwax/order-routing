@@ -56,7 +56,8 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: "simulate/:routingGroupId",
-        component: () => import("@/views/Simulation.vue")
+        component: () => import("@/views/Simulation.vue"),
+        props: true
       },
     ],
     beforeEnter: authGuard

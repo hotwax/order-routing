@@ -7,11 +7,24 @@
       </div>
       <div v-else-if="!sim.baseline">{{ translate("Loading group…") }}</div>
       <template v-else>
-        <simulation-results v-if="sim.results || sim.isRunning" />
-        <div v-else class="sim-editor">
+        <!-- Once a run exists, let the user move freely between the editor and the
+             (possibly still-running) simulation. Both panes stay mounted so switching is
+             instant and the editor keeps its state while the run continues in the background. -->
+        <ion-segment v-if="sim.isRunning || sim.results" :value="sim.view" @ionChange="sim.view = String($event.detail.value)" class="sim-viewbar">
+          <ion-segment-button value="editor">
+            <ion-label>{{ translate("Editor") }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="results">
+            <ion-label>{{ sim.isRunning ? translate("Simulation") : translate("Results") }}</ion-label>
+            <ion-spinner v-if="sim.isRunning" name="dots" />
+          </ion-segment-button>
+        </ion-segment>
+
+        <div v-show="sim.view === 'editor'" class="sim-editor">
           <simulation-canvas />
           <variation-rail />
         </div>
+        <simulation-results v-show="sim.view === 'results'" />
       </template>
     </ion-content>
   </ion-page>
@@ -20,7 +33,7 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { translate } from "@common";
-import { IonButton, IonContent, IonPage } from "@ionic/vue";
+import { IonButton, IonContent, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSpinner } from "@ionic/vue";
 import { simulationStore } from "@/store/simulationStore";
 import SimulationCanvas from "@/components/simulation/SimulationCanvas.vue";
 import VariationRail from "@/components/simulation/VariationRail.vue";
@@ -43,4 +56,5 @@ onMounted(reload);
 
 <style scoped>
 .sim-editor { display: flex; gap: var(--spacer-base); }
+.sim-viewbar { max-width: 360px; margin: var(--spacer-sm) auto; }
 </style>

@@ -20,6 +20,9 @@ export const simulationStore = defineStore("simulation", {
     results: null as { baseline: any; variants: any[]; partial: boolean } | null,
     isRunning: false,
     loadError: null as string | null,
+    // Which pane is shown. User-controlled so the editor and the (possibly still-running)
+    // simulation can be switched between freely — the run continues in the background.
+    view: "editor" as "editor" | "results",
   }),
   getters: {
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
@@ -100,6 +103,7 @@ export const simulationStore = defineStore("simulation", {
 
       this.isRunning = true;
       this.results = null;
+      this.view = "results"; // surface progress on submit; user can switch back to the editor anytime
       const setPhase = (id: string, phase: VariationRunState["phase"], error?: string) => {
         const rs = this.runStates.find((r) => r.variationId === id);
         if (rs) { rs.phase = phase; if (error) rs.error = error; }

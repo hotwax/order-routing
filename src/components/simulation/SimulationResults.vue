@@ -2,7 +2,7 @@
   <div class="ion-padding">
     <simulation-progress v-if="sim.isRunning" />
 
-    <ion-button fill="clear" @click="sim.results = null"><ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}</ion-button>
+    <ion-button fill="clear" @click="sim.view = 'editor'"><ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}</ion-button>
 
     <ion-card v-if="sim.results">
       <ion-card-header><ion-card-title>{{ translate("Comparison") }}</ion-card-title></ion-card-header>

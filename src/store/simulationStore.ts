@@ -113,7 +113,7 @@ export const simulationStore = defineStore("simulation", {
       };
 
       const batches = chunkVariants(live.map((b) => b.variant), 5);
-      const idBatches = chunkVariants(live.map((b) => b.variation.id) as any, 5) as unknown as string[][];
+      const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
       this.batchProgress = batches.map((_, i) => ({
         batchIndex: i, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
         ordersInScope: 0, ordersProcessed: 0, brokered: 0, queued: 0, events: [],
@@ -149,8 +149,11 @@ export const simulationStore = defineStore("simulation", {
         }
       }));
 
-      this.results = mergeVariationResults(batchResults);
-      this.isRunning = false;
+      try {
+        this.results = mergeVariationResults(batchResults);
+      } finally {
+        this.isRunning = false;
+      }
     },
   },
 });

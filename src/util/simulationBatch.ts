@@ -1,8 +1,6 @@
-import { SimVariant } from "../types/simulation";
-
-export function chunkVariants(variants: SimVariant[], size = 5): SimVariant[][] {
-  const batches: SimVariant[][] = [];
-  for (let i = 0; i < variants.length; i += size) batches.push(variants.slice(i, i + size));
+export function chunkVariants<T>(items: T[], size = 5): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
   return batches;
 }
 

@@ -23,4 +23,10 @@ const ev = (seq: number): OrderEvent => ({ seq, orderId: `O${seq}`, facilityId: 
   assert.deepStrictEqual(mergeEvents([ev(1)], [], 50).map((e) => e.seq), [1], "no incoming keeps existing");
 }
 
+// exactly at cap → keep all
+{
+  const out = mergeEvents([ev(1), ev(2)], [ev(3)], 3);
+  assert.deepStrictEqual(out.map((e) => e.seq), [1, 2, 3], "exact-cap keeps all");
+}
+
 console.log("progressBuffer tests passed");

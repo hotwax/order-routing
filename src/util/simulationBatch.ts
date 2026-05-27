@@ -15,7 +15,9 @@ export function mergeVariationResults(results: (any | null)[]): { baseline: any;
   let partial = false;
   for (const r of results) {
     if (!r || !r.variation) { partial = true; continue; }
-    if (baseline === null) baseline = r.variation.baseline ?? null;
+    // The baseline run is exposed as `groupRun` in the backend's variation envelope (same shape
+    // as each variant's groupRun); older/alternate shapes used `baseline`. Accept either.
+    if (baseline === null) baseline = r.variation.groupRun ?? r.variation.baseline ?? null;
     if (r.variation.partial) partial = true;
     for (const v of r.variation.variants ?? []) variants.push(v);
   }

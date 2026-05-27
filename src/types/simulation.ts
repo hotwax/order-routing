@@ -45,6 +45,7 @@ export type RoutingConfigDelta =
   | { op: "REMOVE_RULE"; routingRuleId: string }
   | { op: "SET_RULE_ACTION"; routingRuleId: string; actionTypeEnumId: string; actionValue: string }
   | { op: "SET_RULE_INV_COND"; routingRuleId: string; fieldName: string; fieldValue: unknown }
+  | { op: "SET_RULE_ASSIGNMENT"; routingRuleId: string; assignmentEnumId: string }
   | { op: "SET_ROUTING_FILTER"; orderRoutingId: string; fieldName: string; fieldValue: unknown }
   | { op: "SET_ROUTING_SEQUENCE_NUM"; orderRoutingId: string; sequenceNum: number }
   | { op: "SET_RULE_SEQUENCE_NUM"; routingRuleId: string; sequenceNum: number };

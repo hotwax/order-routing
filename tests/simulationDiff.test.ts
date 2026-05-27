@@ -107,4 +107,57 @@ const baseRouting = () => ({
   assert.strictEqual(isNoOp(v), true, "empty overrides + empty deltas is a no-op");
 }
 
+// --- filter diff: multiple changes + removals ---
+
+// multiple routing filters changed → one SET_ROUTING_FILTER per change
+{
+  const baseline = { routings: [baseRouting()] };
+  const snap = { routings: [baseRouting()] };
+  snap.routings[0].orderFilters = [
+    { fieldName: "salesChannelEnumId", fieldValue: "POS" },
+    { fieldName: "shipmentMethodTypeId", fieldValue: "STANDARD" }, // added
+  ];
+  const deltas = diffRoutings(baseline, snap);
+  assert.deepStrictEqual(deltas, [
+    { op: "SET_ROUTING_FILTER", orderRoutingId: "R1", fieldName: "salesChannelEnumId", fieldValue: "POS" },
+    { op: "SET_ROUTING_FILTER", orderRoutingId: "R1", fieldName: "shipmentMethodTypeId", fieldValue: "STANDARD" },
+  ], "every changed/added routing filter emits a delta");
+}
+
+// removed routing filter → SET_ROUTING_FILTER with fieldValue null ("clear this field")
+{
+  const baseline = { routings: [baseRouting()] };
+  const snap = { routings: [baseRouting()] };
+  snap.routings[0].orderFilters = []; // removed the salesChannelEnumId filter
+  assert.deepStrictEqual(diffRoutings(baseline, snap), [
+    { op: "SET_ROUTING_FILTER", orderRoutingId: "R1", fieldName: "salesChannelEnumId", fieldValue: null },
+  ], "removed routing filter clears via null");
+}
+
+// removed inventory condition → SET_RULE_INV_COND with fieldValue null
+{
+  const baseline = { routings: [baseRouting()] };
+  const snap = { routings: [baseRouting()] };
+  snap.routings[0].rules[0].inventoryFilters = [];
+  assert.deepStrictEqual(diffRoutings(baseline, snap), [
+    { op: "SET_RULE_INV_COND", routingRuleId: "RULE1", fieldName: "atp", fieldValue: null },
+  ], "removed inventory condition clears via null");
+}
+
+// --- per-rule assignmentEnumId ---
+{
+  const baseline = { routings: [baseRouting()] };
+  const snap = { routings: [baseRouting()] };
+  snap.routings[0].rules[0].assignmentEnumId = "ORA_MULTI";
+  assert.deepStrictEqual(diffRoutings(baseline, snap), [
+    { op: "SET_RULE_ASSIGNMENT", routingRuleId: "RULE1", assignmentEnumId: "ORA_MULTI" },
+  ], "changed per-rule assignmentEnumId emits SET_RULE_ASSIGNMENT");
+}
+{
+  // unchanged assignment → no delta (baseRouting has no assignmentEnumId on either side)
+  const baseline = { routings: [baseRouting()] };
+  const snap = { routings: [baseRouting()] };
+  assert.deepStrictEqual(diffRoutings(baseline, snap), [], "unchanged assignment emits nothing");
+}
+
 console.log("all tests passed");

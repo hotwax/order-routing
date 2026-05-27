@@ -22,19 +22,32 @@ function byId<T extends Record<string, any>>(arr: T[] | undefined, idKey: string
   return m;
 }
 
-function firstFilterChange(
+// Compare two filter/condition collections (matched by fieldName) and return EVERY change:
+// a changed or added filter yields its new value; a filter present in baseline but gone from
+// the snapshot yields fieldValue: null — the backend treats a null fieldValue as "clear this
+// field" (see stripNullish in runBrokeringGroupSimulation.ts).
+function filterChanges(
   baseFilters: any[] | undefined,
   snapFilters: any[] | undefined,
-): { fieldName: string; fieldValue: unknown } | null {
+): { fieldName: string; fieldValue: unknown }[] {
   const b = baseFilters ?? [];
   const s = snapFilters ?? [];
+  const changes: { fieldName: string; fieldValue: unknown }[] = [];
+
+  // changed or added
   for (const sf of s) {
     const bf = b.find((x) => x.fieldName === sf.fieldName);
     if (!bf || !valueEquals(bf.fieldValue, sf.fieldValue)) {
-      return { fieldName: sf.fieldName, fieldValue: sf.fieldValue };
+      changes.push({ fieldName: sf.fieldName, fieldValue: sf.fieldValue });
     }
   }
-  return null;
+  // removed (in baseline, absent from snapshot) → clear via null
+  for (const bf of b) {
+    if (!s.some((sf) => sf.fieldName === bf.fieldName)) {
+      changes.push({ fieldName: bf.fieldName, fieldValue: null });
+    }
+  }
+  return changes;
 }
 
 /** Diff the routing/rule hierarchy. Routings and rules are matched by id; new rules (no
@@ -50,9 +63,8 @@ export function diffRoutings(baseline: any, snapshot: any): RoutingConfigDelta[]
       if (baseRouting.sequenceNum !== snapRouting.sequenceNum) {
         deltas.push({ op: "SET_ROUTING_SEQUENCE_NUM", orderRoutingId: snapRouting.orderRoutingId, sequenceNum: snapRouting.sequenceNum });
       }
-      const filterChange = firstFilterChange(baseRouting.orderFilters, snapRouting.orderFilters);
-      if (filterChange) {
-        deltas.push({ op: "SET_ROUTING_FILTER", orderRoutingId: snapRouting.orderRoutingId, ...filterChange });
+      for (const ch of filterChanges(baseRouting.orderFilters, snapRouting.orderFilters)) {
+        deltas.push({ op: "SET_ROUTING_FILTER", orderRoutingId: snapRouting.orderRoutingId, ...ch });
       }
     }
 
@@ -76,9 +88,12 @@ export function diffRoutings(baseline: any, snapshot: any): RoutingConfigDelta[]
       if (snapAction && (!baseAction || baseAction.actionTypeEnumId !== snapAction.actionTypeEnumId || baseAction.actionValue !== snapAction.actionValue)) {
         deltas.push({ op: "SET_RULE_ACTION", routingRuleId: snapRule.routingRuleId, actionTypeEnumId: snapAction.actionTypeEnumId, actionValue: snapAction.actionValue });
       }
-      const invChange = firstFilterChange(baseRule.inventoryFilters, snapRule.inventoryFilters);
-      if (invChange) {
-        deltas.push({ op: "SET_RULE_INV_COND", routingRuleId: snapRule.routingRuleId, ...invChange });
+      // per-rule allocation toggle (ORA_SINGLE / ORA_MULTI)
+      if (snapRule.assignmentEnumId && baseRule.assignmentEnumId !== snapRule.assignmentEnumId) {
+        deltas.push({ op: "SET_RULE_ASSIGNMENT", routingRuleId: snapRule.routingRuleId, assignmentEnumId: snapRule.assignmentEnumId });
+      }
+      for (const ch of filterChanges(baseRule.inventoryFilters, snapRule.inventoryFilters)) {
+        deltas.push({ op: "SET_RULE_INV_COND", routingRuleId: snapRule.routingRuleId, ...ch });
       }
     }
 

@@ -1,4 +1,4 @@
-import { JobStatusResponse, SimVariant } from "../types/simulation";
+import { GroupRunProgress, JobStatusResponse, SimVariant } from "../types/simulation";
 
 export interface JobOutcome {
   done: boolean;
@@ -26,9 +26,8 @@ export function interpretJobStatus(resp: JobStatusResponse): JobOutcome {
   }
 }
 
-// Verified: each round runs ~10–12 min on the current source DB; a 5-variant batch can approach
-// an hour. Poll every 15s (backend guidance: 10–20s, don't hammer) and cap generously at 90 min.
-const POLL_INTERVAL_MS = 15_000;
+// Live progress feed streams per-order events as deltas, so a tight 2.5s cadence stays cheap.
+const POLL_INTERVAL_MS = 2_500;
 const MAX_POLL_DURATION_MS = 90 * 60_000;
 
 export interface SubmitBatchArgs {
@@ -53,23 +52,32 @@ export async function submitBatch({ routingGroupId, variants, sampleCap }: Submi
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Poll a job to completion. Resolves with { groupRun?, variation? } on success; throws on failure/timeout.
- *  `onPhase` is called with the raw status string after each poll so the UI can show progress. */
+/** Poll a job to completion with a sinceSeq cursor for the live progress feed.
+ *  Resolves with { groupRun?, variation? } on success; throws on failure/timeout.
+ *  `onPhase` gets the raw status each poll; `onProgress` gets the `progress` object each poll
+ *  that carries one (running ticks and the terminal flush). */
 export async function pollJob(
   routingGroupId: string,
   jobId: string,
   onPhase?: (status: string) => void,
+  onProgress?: (progress: GroupRunProgress) => void,
 ): Promise<{ groupRun?: any; variation?: any }> {
   const { api, commonUtil } = await import("@common");
   const deadline = Date.now() + MAX_POLL_DURATION_MS;
+  let sinceSeq = 0;
   while (Date.now() < deadline) {
     const resp: any = await api({
       url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
       method: "GET",
+      params: { sinceSeq },
     });
     if (commonUtil.hasError(resp)) throw new Error(`Polling failed: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
     const status = resp.data as JobStatusResponse;
     onPhase?.(status.status);
+    if (status.progress) {
+      onProgress?.(status.progress);
+      if (typeof status.progress.nextSeq === "number") sinceSeq = status.progress.nextSeq;
+    }
     const outcome = interpretJobStatus(status); // same module — call directly
     if (outcome.done) {
       if (outcome.error) throw new Error(outcome.error);

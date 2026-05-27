@@ -23,6 +23,16 @@ export const simulationStore = defineStore("simulation", {
   }),
   getters: {
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
+    // The variation the working copy was loaded from (null = editing a fresh draft off baseline).
+    activeVariation: (s) => s.variations.find((v) => v.id === s.activeVariationId) || null,
+    // True when the working copy differs from its source (the loaded variation, or baseline).
+    // Reads flushed working state, so it refreshes when the canvas flushes (routing switch / save).
+    isDirty: (s) => {
+      const source = s.activeVariationId
+        ? s.variations.find((v) => v.id === s.activeVariationId)?.group
+        : s.baseline;
+      return JSON.stringify(s.working ?? {}) !== JSON.stringify(source ?? {});
+    },
   },
   actions: {
     async loadGroup(routingGroupId: string) {
@@ -58,6 +68,11 @@ export const simulationStore = defineStore("simulation", {
       const variation: Variation = { id: uuidv4(), label: label || `Variation ${this.variations.length + 1}`, group: deepClone(this.working) };
       this.variations.push(variation);
       this.activeVariationId = variation.id;
+    },
+    // Overwrite an existing variation's snapshot with the current working copy.
+    updateVariation(id: string) {
+      const v = this.variations.find((x) => x.id === id);
+      if (v) v.group = deepClone(this.working);
     },
     loadVariation(id: string) {
       const v = this.variations.find((x) => x.id === id);

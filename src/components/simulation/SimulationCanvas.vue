@@ -8,11 +8,24 @@
             <ion-card-title>{{ groupName }}</ion-card-title>
             <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
           </ion-card-header>
-          <div class="ion-padding">
-            <ion-button color="primary" size="small" @click="saveAsVariation()">
-              <ion-icon slot="start" :icon="saveOutline" />
-              {{ translate("Save as variation") }}
-            </ion-button>
+          <div class="ion-padding variation-editing">
+            <ion-chip :color="sim.activeVariationId ? 'primary' : 'medium'" :outline="true">
+              <ion-label>
+                <template v-if="sim.activeVariationId">{{ translate("Editing:") }} {{ sim.activeVariation?.label }}</template>
+                <template v-else>{{ translate("New variation (from Baseline)") }}</template>
+                <template v-if="sim.isDirty"> — {{ translate("unsaved changes") }}</template>
+              </ion-label>
+            </ion-chip>
+            <div>
+              <ion-button v-if="sim.activeVariationId" color="primary" size="small" @click="updateActiveVariation()">
+                <ion-icon slot="start" :icon="saveOutline" />
+                {{ translate("Update") }} {{ sim.activeVariation?.label }}
+              </ion-button>
+              <ion-button :fill="sim.activeVariationId ? 'outline' : 'solid'" color="primary" size="small" @click="saveAsNewVariation()">
+                <ion-icon slot="start" :icon="addCircleOutline" />
+                {{ translate("Save as new variation") }}
+              </ion-button>
+            </div>
           </div>
         </div>
         <div>
@@ -430,11 +443,6 @@
         </section>
       </div>
     </div>
-    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-      <ion-fab-button :title="translate('Save as variation')" @click="saveAsVariation">
-        <ion-icon :icon="saveOutline" />
-      </ion-fab-button>
-    </ion-fab>
   </div>
 
   <!-- Empty State -->
@@ -477,8 +485,6 @@ import {
   IonSelect,
   IonSelectOption,
   IonToggle,
-  IonFab,
-  IonFabButton,
   modalController,
   alertController
 } from '@ionic/vue';
@@ -561,17 +567,23 @@ function ruleKey(rule: any) {
   return rule?.routingRuleId || rule?._tempId || "";
 }
 
-async function saveAsVariation() {
+// Flush every pending editor edit into the working copy before snapshotting it.
+function flushWorking() {
+  syncActiveRuleDraft();
+  syncWorkingFromLocalState();
+}
+
+// Save the current working copy as a brand-new variation (prompts for a name).
+async function saveAsNewVariation() {
   const alert = await alertController.create({
-    header: translate("Save as variation"),
+    header: translate("Save as new variation"),
     inputs: [{ name: "label", placeholder: translate("Variation name") }],
     buttons: [
       { text: translate("Cancel"), role: "cancel" },
       {
         text: translate("Save"),
         handler: (data) => {
-          syncActiveRuleDraft();
-          syncWorkingFromLocalState();
+          flushWorking();
           sim.saveAsVariation(data?.label);
           commonUtil.showToast(translate("Variation saved"));
         }
@@ -579,6 +591,14 @@ async function saveAsVariation() {
     ]
   });
   await alert.present();
+}
+
+// Overwrite the variation currently being edited with the latest working copy.
+function updateActiveVariation() {
+  if (!sim.activeVariationId) return;
+  flushWorking();
+  sim.updateVariation(sim.activeVariationId);
+  commonUtil.showToast(translate("Variation updated"));
 }
 
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
@@ -940,6 +960,9 @@ function buildActionMap(actions: any[] | undefined) {
 
 const selectRouting = (routing: any) => {
   syncActiveRuleDraft();
+  // Flush the routing we're leaving back into the working copy before switching, so edits
+  // across multiple routings all persist into the variation snapshot (not just the last one).
+  syncWorkingFromLocalState();
   activeRoutingId.value = routing.orderRoutingId;
   activeRouting.value = routing;
   initialActiveRouting.value = JSON.parse(JSON.stringify(routing));

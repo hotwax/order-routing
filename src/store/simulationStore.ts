@@ -19,21 +19,40 @@ export const simulationStore = defineStore("simulation", {
     runStates: [] as VariationRunState[],
     results: null as { baseline: any; variants: any[]; partial: boolean } | null,
     isRunning: false,
+    loadError: null as string | null,
   }),
   getters: {
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
   },
   actions: {
     async loadGroup(routingGroupId: string) {
-      await orderRoutingStore().fetchCurrentRoutingGroup(routingGroupId);
-      const group = orderRoutingStore().getCurrentRoutingGroup;
-      this.routingGroupId = routingGroupId;
-      this.baseline = deepClone(group);
-      this.working = deepClone(group);
-      this.variations = [];
-      this.activeVariationId = "";
-      this.results = null;
-      this.runStates = [];
+      this.loadError = null;
+      this.baseline = null;
+      this.working = null;
+      try {
+        const ors = orderRoutingStore();
+        // On a fresh deep-link the groups[] list is empty. fetchCurrentRoutingGroup looks the
+        // group up there, and when it's missing the downstream schedule fetch throws on an
+        // undefined currentGroup — leaving the screen stuck on "Loading group…". Loading the
+        // list first mirrors the picker entry path and keeps currentGroup defined.
+        if (!ors.getRoutingGroups?.length) {
+          await ors.fetchOrderRoutingGroups();
+        }
+        await ors.fetchCurrentRoutingGroup(routingGroupId);
+        const group = ors.getCurrentRoutingGroup;
+        if (!group?.routingGroupId) {
+          throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
+        }
+        this.routingGroupId = routingGroupId;
+        this.baseline = deepClone(group);
+        this.working = deepClone(group);
+        this.variations = [];
+        this.activeVariationId = "";
+        this.results = null;
+        this.runStates = [];
+      } catch (e: any) {
+        this.loadError = e?.message ?? "Failed to load routing group.";
+      }
     },
     saveAsVariation(label: string) {
       const variation: Variation = { id: uuidv4(), label: label || `Variation ${this.variations.length + 1}`, group: deepClone(this.working) };

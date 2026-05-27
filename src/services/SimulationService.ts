@@ -26,8 +26,10 @@ export function interpretJobStatus(resp: JobStatusResponse): JobOutcome {
   }
 }
 
-const POLL_INTERVAL_MS = 7_000;
-const MAX_POLL_DURATION_MS = 30 * 60_000; // group runs are slow; generous cap
+// Verified: each round runs ~10–12 min on the current source DB; a 5-variant batch can approach
+// an hour. Poll every 15s (backend guidance: 10–20s, don't hammer) and cap generously at 90 min.
+const POLL_INTERVAL_MS = 15_000;
+const MAX_POLL_DURATION_MS = 90 * 60_000;
 
 export interface SubmitBatchArgs {
   routingGroupId: string;

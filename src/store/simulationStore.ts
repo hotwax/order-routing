@@ -1,5 +1,5 @@
 // src/store/simulationStore.ts
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { v4 as uuidv4 } from "uuid";
 import { orderRoutingStore } from "./orderRoutingStore";
 import { buildVariant, isNoOp } from "../util/simulationDiff";
@@ -129,3 +129,8 @@ export const simulationStore = defineStore("simulation", {
     },
   },
 });
+
+// Hot-reload the store definition (new getters/actions) without a full page refresh during dev.
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(simulationStore, import.meta.hot));
+}

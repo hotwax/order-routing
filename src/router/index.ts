@@ -49,7 +49,15 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "circuit",
         component: () => import("@/views/Circuit.vue")
-      }
+      },
+      {
+        path: "simulate",
+        component: () => import("@/views/SimulationHome.vue")
+      },
+      {
+        path: "simulate/:routingGroupId",
+        component: () => import("@/views/Simulation.vue")
+      },
     ],
     beforeEnter: authGuard
   },

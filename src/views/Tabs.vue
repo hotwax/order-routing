@@ -13,6 +13,11 @@
           <ion-label>{{ translate("Circuit") }}</ion-label>
         </ion-tab-button>
 
+        <ion-tab-button tab="simulate" href="/tabs/simulate">
+          <ion-icon :icon="flaskOutline" />
+          <ion-label>{{ translate("Simulate") }}</ion-label>
+        </ion-tab-button>
+
         <ion-tab-button tab="more" href="/tabs/settings">
           <ion-icon :icon="settingsOutline" />
           <ion-label>{{ translate("Settings") }}</ion-label>
@@ -25,12 +30,14 @@
 <script setup lang="ts">
 import { translate } from "@common";
 import { IonIcon, IonLabel, IonPage, IonRouterOutlet, IonTabBar, IonTabButton, IonTabs } from "@ionic/vue";
-import { settingsOutline, shuffleOutline, terminalOutline } from "ionicons/icons";
+import { flaskOutline, settingsOutline, shuffleOutline, terminalOutline } from "ionicons/icons";
 import router from "@/router";
 
 function showFooter() {
-  if (['/tabs/settings', '/tabs/brokering', '/tabs/circuit'].includes(router.currentRoute.value.path)) return true
-  return false
+  const p = router.currentRoute.value.path;
+  if (['/tabs/settings', '/tabs/brokering', '/tabs/circuit'].includes(p)) return true;
+  if (p.startsWith('/tabs/simulate')) return true;
+  return false;
 }
 </script>
 

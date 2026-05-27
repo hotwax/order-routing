@@ -17,6 +17,7 @@
             <tr><td>{{ translate("Attempted") }}</td><td>{{ sim.results.baseline?.attemptedItemCount ?? '—' }}</td><td v-for="v in sim.results.variants" :key="v.label">{{ v.groupRun?.attemptedItemCount ?? '—' }}</td></tr>
           </tbody>
         </table>
+        <p v-if="sim.results.simulationRan === false" class="warn">{{ translate("The simulator did not run — no numbers to report.") }}</p>
         <p v-if="sim.results.partial" class="warn">{{ translate("Some variations did not complete — results are partial.") }}</p>
       </ion-card-content>
     </ion-card>
@@ -25,10 +26,15 @@
       <ion-accordion v-for="v in sim.results.variants" :key="v.label" :value="v.label">
         <ion-item slot="header"><ion-label>{{ v.label }} {{ v.failed ? '⚠︎' : '' }}</ion-label></ion-item>
         <div slot="content" class="ion-padding">
+          <p v-if="v.failed" class="warn">{{ translate("This variation failed:") }} {{ v.failureReason || translate("unknown error") }}</p>
           <h4>{{ translate("Orders that changed outcome") }}</h4>
           <ion-list>
-            <ion-item v-for="(t, i) in (v.diff?.finalReasonTransitions ?? [])" :key="i">
-              <ion-label>{{ t.orderId }}: {{ t.from }} → {{ t.to }}</ion-label>
+            <!-- finalReasonTransitions is a map: "orderId-shipGroupSeqId" → "FROM → TO" -->
+            <ion-item v-for="(transition, key) in (v.diff?.finalReasonTransitions ?? {})" :key="key">
+              <ion-label class="ion-text-wrap">{{ key }}: {{ transition }}</ion-label>
+            </ion-item>
+            <ion-item v-if="!v.diff || !Object.keys(v.diff.finalReasonTransitions ?? {}).length" lines="none">
+              <ion-label color="medium">{{ translate("No outcome changes.") }}</ion-label>
             </ion-item>
           </ion-list>
           <h4>{{ translate("Per-routing delta") }}</h4>

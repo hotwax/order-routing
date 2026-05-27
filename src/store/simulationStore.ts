@@ -17,7 +17,7 @@ export const simulationStore = defineStore("simulation", {
     variations: [] as Variation[],
     activeVariationId: "" as string,
     runStates: [] as VariationRunState[],
-    results: null as { baseline: any; variants: any[]; partial: boolean } | null,
+    results: null as { baseline: any; variants: any[]; partial: boolean; simulationRan?: boolean } | null,
     isRunning: false,
     loadError: null as string | null,
     // Which pane is shown. User-controlled so the editor and the (possibly still-running)

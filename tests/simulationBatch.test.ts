@@ -30,4 +30,17 @@ import { chunkVariants, mergeVariationResults } from "../src/util/simulationBatc
   assert.deepStrictEqual(merged.baseline, { brokeredItemCount: 500 }, "baseline read from variation.groupRun");
 }
 
+// verified backend shape: baseline counts nested under variation.baseline.groupRun
+{
+  const r = { variation: {
+    baseline: { label: "Baseline (live config)", groupRun: { brokeredItemCount: 6, attemptedItemCount: 120, queuedItemCount: 128 }, diff: null },
+    variants: [{ label: "100 miles", groupRun: { brokeredItemCount: 6 }, diff: {} }],
+    partial: false, simulationRan: true,
+  } };
+  const merged = mergeVariationResults([r]);
+  assert.deepStrictEqual(merged.baseline, { brokeredItemCount: 6, attemptedItemCount: 120, queuedItemCount: 128 }, "baseline read from variation.baseline.groupRun");
+  assert.strictEqual(merged.simulationRan, true);
+  assert.strictEqual(merged.variants[0].label, "100 miles");
+}
+
 console.log("simulationBatch tests passed");

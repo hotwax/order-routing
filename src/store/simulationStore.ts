@@ -5,7 +5,8 @@ import { orderRoutingStore } from "./orderRoutingStore";
 import { buildVariant, isNoOp } from "../util/simulationDiff";
 import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
 import { submitBatch, pollJob } from "../services/SimulationService";
-import { Variation, VariationRunState } from "../types/simulation";
+import { mergeEvents } from "../util/progressBuffer";
+import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
 
@@ -17,6 +18,7 @@ export const simulationStore = defineStore("simulation", {
     variations: [] as Variation[],
     activeVariationId: "" as string,
     runStates: [] as VariationRunState[],
+    batchProgress: [] as BatchProgress[],
     results: null as { baseline: any; variants: any[]; partial: boolean; simulationRan?: boolean } | null,
     isRunning: false,
     loadError: null as string | null,
@@ -63,6 +65,7 @@ export const simulationStore = defineStore("simulation", {
         this.activeVariationId = "";
         this.results = null;
         this.runStates = [];
+        this.batchProgress = [];
       } catch (e: any) {
         this.loadError = e?.message ?? "Failed to load routing group.";
       }
@@ -111,15 +114,33 @@ export const simulationStore = defineStore("simulation", {
 
       const batches = chunkVariants(live.map((b) => b.variant), 5);
       const idBatches = chunkVariants(live.map((b) => b.variation.id) as any, 5) as unknown as string[][];
+      this.batchProgress = batches.map((_, i) => ({
+        batchIndex: i, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
+        ordersInScope: 0, ordersProcessed: 0, brokered: 0, queued: 0, events: [],
+      }));
 
       const batchResults = await Promise.all(batches.map(async (variants, i) => {
         const ids = idBatches[i];
         ids.forEach((id) => setPhase(id, "submitted"));
         try {
           const jobId = await submitBatch({ routingGroupId: this.routingGroupId, variants });
-          const result = await pollJob(this.routingGroupId, jobId, (status) => {
-            if (status === "running") ids.forEach((id) => setPhase(id, "running"));
-          });
+          const result = await pollJob(
+            this.routingGroupId,
+            jobId,
+            (status) => { if (status === "running") ids.forEach((id) => setPhase(id, "running")); },
+            (progress) => {
+              const bp = this.batchProgress[i];
+              if (!bp) return;
+              bp.phaseLabel = progress.phaseLabel;
+              bp.phaseIndex = progress.phaseIndex;
+              bp.phaseCount = progress.phaseCount;
+              bp.ordersInScope = progress.ordersInScope;
+              bp.ordersProcessed = progress.ordersProcessed;
+              bp.brokered = progress.brokered;
+              bp.queued = progress.queued;
+              bp.events = mergeEvents(bp.events, progress.events ?? [], 50);
+            },
+          );
           ids.forEach((id) => setPhase(id, "done"));
           return result;
         } catch (err: any) {

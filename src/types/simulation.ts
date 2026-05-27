@@ -76,6 +76,46 @@ export interface JobStatusResponse {
   groupRun?: any;        // parsed Map when no variants were sent
   variation?: any;       // parsed Map when variants were sent
   error?: string;
+  progress?: GroupRunProgress;   // present on running/complete/failed; absent on not_found
+}
+
+/** A single per-order event from the live progress feed. */
+export interface OrderEvent {
+  seq: number;
+  phase?: string;
+  phaseIndex?: number;
+  orderId: string;
+  shipGroupSeqId?: string;
+  orderItemSeqId?: string;
+  facilityId: string | null;   // null = unfilled
+  finalReason: string;
+}
+
+/** The `progress` object returned on each poll while running (and on the terminal flush). */
+export interface GroupRunProgress {
+  phase: string;
+  phaseLabel: string;
+  phaseIndex: number;
+  phaseCount: number;
+  ordersInScope: number;
+  ordersProcessed: number;
+  brokered: number;
+  queued: number;
+  events: OrderEvent[];
+  nextSeq: number;
+}
+
+/** Per-batch live state held in the store (index-aligned with the submit batches). */
+export interface BatchProgress {
+  batchIndex: number;
+  phaseLabel: string;
+  phaseIndex: number;
+  phaseCount: number;
+  ordersInScope: number;
+  ordersProcessed: number;
+  brokered: number;
+  queued: number;
+  events: OrderEvent[];   // rolling, capped at 50
 }
 
 /** Per-variation run state shown in the progress panel. */

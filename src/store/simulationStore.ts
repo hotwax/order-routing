@@ -7,8 +7,14 @@ import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
 import { submitBatch, pollJob } from "../services/SimulationService";
 import { mergeEvents } from "../util/progressBuffer";
 import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
+import * as SimulationJobStore from "../services/SimulationJobStore";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
+
+const zeroedBatch = (batchIndex: number): BatchProgress => ({
+  batchIndex, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
+  ordersInScope: 0, ordersProcessed: 0, brokered: 0, queued: 0, events: [],
+});
 
 export const simulationStore = defineStore("simulation", {
   state: () => ({
@@ -96,6 +102,48 @@ export const simulationStore = defineStore("simulation", {
       this.variations = this.variations.filter((x) => x.id !== id);
       if (this.activeVariationId === id) this.resetWorkingToBaseline();
     },
+    // Update the phase (+ optional error) of every runStates entry whose id is in `ids`.
+    setVariationPhase(ids: string[], phase: VariationRunState["phase"], error?: string) {
+      ids.forEach((id) => {
+        const rs = this.runStates.find((r) => r.variationId === id);
+        if (rs) { rs.phase = phase; if (error) rs.error = error; }
+      });
+    },
+
+    // Poll one already-submitted batch job to completion, streaming progress into batchProgress
+    // and updating runStates. Removes the persisted record on terminal. Returns the poll result
+    // ({ groupRun?|variation? }) or null on failure. Used by both submit() and resumeInFlight().
+    async runBatch(args: { batchIndex: number; ids: string[]; jobId: string }): Promise<any | null> {
+      const { batchIndex, ids, jobId } = args;
+      this.setVariationPhase(ids, "running");
+      try {
+        const result = await pollJob(
+          this.routingGroupId,
+          jobId,
+          (status) => { if (status === "running") this.setVariationPhase(ids, "running"); },
+          (progress) => {
+            const bp = this.batchProgress[batchIndex];
+            if (!bp) return;
+            bp.phaseLabel = progress.phaseLabel;
+            bp.phaseIndex = progress.phaseIndex;
+            bp.phaseCount = progress.phaseCount;
+            bp.ordersInScope = progress.ordersInScope;
+            bp.ordersProcessed = progress.ordersProcessed;
+            bp.brokered = progress.brokered;
+            bp.queued = progress.queued;
+            bp.events = mergeEvents(bp.events, progress.events ?? [], 50);
+          },
+        );
+        this.setVariationPhase(ids, "done");
+        SimulationJobStore.removeJob(this.routingGroupId, jobId);
+        return result;
+      } catch (err: any) {
+        this.setVariationPhase(ids, "failed", err?.message ?? "Batch failed.");
+        SimulationJobStore.removeJob(this.routingGroupId, jobId);
+        return null;
+      }
+    },
+
     async submit() {
       const built = this.variations.map((v) => ({ variation: v, variant: buildVariant(v.label, this.baseline, v.group) }));
       const live = built.filter((b) => !isNoOp(b.variant));
@@ -106,54 +154,62 @@ export const simulationStore = defineStore("simulation", {
 
       this.isRunning = true;
       this.results = null;
-      this.view = "results"; // surface progress on submit; user can switch back to the editor anytime
-      const setPhase = (id: string, phase: VariationRunState["phase"], error?: string) => {
-        const rs = this.runStates.find((r) => r.variationId === id);
-        if (rs) { rs.phase = phase; if (error) rs.error = error; }
-      };
+      this.view = "results";
 
       const batches = chunkVariants(live.map((b) => b.variant), 5);
       const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
-      this.batchProgress = batches.map((_, i) => ({
-        batchIndex: i, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
-        ordersInScope: 0, ordersProcessed: 0, brokered: 0, queued: 0, events: [],
-      }));
+      this.batchProgress = batches.map((_, i) => zeroedBatch(i));
 
-      const batchResults = await Promise.all(batches.map(async (variants, i) => {
+      // Submit every batch first (instant responses) so we have all jobIds to persist up-front.
+      SimulationJobStore.clearJobs(this.routingGroupId);
+      const submitted = await Promise.all(batches.map(async (variants, i) => {
         const ids = idBatches[i];
-        ids.forEach((id) => setPhase(id, "submitted"));
+        this.setVariationPhase(ids, "submitted");
         try {
           const jobId = await submitBatch({ routingGroupId: this.routingGroupId, variants });
-          const result = await pollJob(
-            this.routingGroupId,
-            jobId,
-            (status) => { if (status === "running") ids.forEach((id) => setPhase(id, "running")); },
-            (progress) => {
-              const bp = this.batchProgress[i];
-              if (!bp) return;
-              bp.phaseLabel = progress.phaseLabel;
-              bp.phaseIndex = progress.phaseIndex;
-              bp.phaseCount = progress.phaseCount;
-              bp.ordersInScope = progress.ordersInScope;
-              bp.ordersProcessed = progress.ordersProcessed;
-              bp.brokered = progress.brokered;
-              bp.queued = progress.queued;
-              bp.events = mergeEvents(bp.events, progress.events ?? [], 50);
-            },
-          );
-          ids.forEach((id) => setPhase(id, "done"));
-          return result;
+          return { batchIndex: i, ids, jobId, variantLabels: variants.map((v) => v.label) };
         } catch (err: any) {
-          ids.forEach((id) => setPhase(id, "failed", err?.message ?? "Batch failed."));
-          return null;
+          this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
+          return { batchIndex: i, ids, jobId: null as string | null, variantLabels: variants.map((v) => v.label) };
         }
       }));
 
-      try {
-        this.results = mergeVariationResults(batchResults);
-      } finally {
-        this.isRunning = false;
-      }
+      const okJobs = submitted.filter((s) => s.jobId) as Array<{ batchIndex: number; ids: string[]; jobId: string; variantLabels: string[] }>;
+      SimulationJobStore.recordJobs(this.routingGroupId, okJobs.map((s) => ({
+        jobId: s.jobId, batchIndex: s.batchIndex, batchCount: batches.length,
+        variantLabels: s.variantLabels, submittedAt: Date.now(),
+      })));
+
+      const batchResults = await Promise.all(okJobs.map((s) => this.runBatch({ batchIndex: s.batchIndex, ids: s.ids, jobId: s.jobId })));
+      try { this.results = mergeVariationResults(batchResults); } finally { this.isRunning = false; }
+    },
+
+    // On reopening a group's Simulate screen, re-attach to any persisted in-flight jobs and resume
+    // polling — rebuilding the live panels + runStates summary and merging results on completion.
+    async resumeInFlight(routingGroupId: string) {
+      const jobs = SimulationJobStore.getJobs(routingGroupId);
+      if (!jobs.length) return;
+
+      this.routingGroupId = routingGroupId;
+      this.isRunning = true;
+      this.results = null;
+      this.view = "results";
+
+      const batchCount = jobs[0].batchCount || jobs.length;
+      this.batchProgress = Array.from({ length: batchCount }, (_, i) => zeroedBatch(i));
+      this.runStates = [];
+
+      const toRun = jobs.map((j) => {
+        const ids = j.variantLabels.map((label, n) => {
+          const id = `${j.batchIndex}:${n}`;
+          this.runStates.push({ variationId: id, label, phase: "running" as const });
+          return id;
+        });
+        return { batchIndex: j.batchIndex, ids, jobId: j.jobId };
+      });
+
+      const batchResults = await Promise.all(toRun.map((x) => this.runBatch(x)));
+      try { this.results = mergeVariationResults(batchResults); } finally { this.isRunning = false; }
     },
   },
 });

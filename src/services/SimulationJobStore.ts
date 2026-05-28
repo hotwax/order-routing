@@ -73,7 +73,12 @@ export function getJobs(routingGroupId: string, now: number = Date.now(), storag
 
 export function removeJob(routingGroupId: string, jobId: string, storage: StorageLike | null = defaultStorage()): void {
   if (!storage) return;
-  const raw = storage.getItem(keyFor(routingGroupId));
+  let raw: string | null;
+  try {
+    raw = storage.getItem(keyFor(routingGroupId));
+  } catch {
+    return;
+  }
   if (!raw) return;
   let list: SimJobRecord[];
   try {

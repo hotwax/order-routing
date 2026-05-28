@@ -155,33 +155,36 @@ export const simulationStore = defineStore("simulation", {
       this.isRunning = true;
       this.results = null;
       this.view = "results";
+      try {
+        const batches = chunkVariants(live.map((b) => b.variant), 5);
+        const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
+        this.batchProgress = batches.map((_, i) => zeroedBatch(i));
 
-      const batches = chunkVariants(live.map((b) => b.variant), 5);
-      const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
-      this.batchProgress = batches.map((_, i) => zeroedBatch(i));
+        // Submit every batch first (instant responses) so we have all jobIds to persist up-front.
+        SimulationJobStore.clearJobs(this.routingGroupId);
+        const submitted = await Promise.all(batches.map(async (variants, i) => {
+          const ids = idBatches[i];
+          this.setVariationPhase(ids, "submitted");
+          try {
+            const jobId = await submitBatch({ routingGroupId: this.routingGroupId, variants });
+            return { batchIndex: i, ids, jobId, variantLabels: variants.map((v) => v.label) };
+          } catch (err: any) {
+            this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
+            return { batchIndex: i, ids, jobId: null as string | null, variantLabels: variants.map((v) => v.label) };
+          }
+        }));
 
-      // Submit every batch first (instant responses) so we have all jobIds to persist up-front.
-      SimulationJobStore.clearJobs(this.routingGroupId);
-      const submitted = await Promise.all(batches.map(async (variants, i) => {
-        const ids = idBatches[i];
-        this.setVariationPhase(ids, "submitted");
-        try {
-          const jobId = await submitBatch({ routingGroupId: this.routingGroupId, variants });
-          return { batchIndex: i, ids, jobId, variantLabels: variants.map((v) => v.label) };
-        } catch (err: any) {
-          this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
-          return { batchIndex: i, ids, jobId: null as string | null, variantLabels: variants.map((v) => v.label) };
-        }
-      }));
+        const okJobs = submitted.filter((s) => s.jobId) as Array<{ batchIndex: number; ids: string[]; jobId: string; variantLabels: string[] }>;
+        SimulationJobStore.recordJobs(this.routingGroupId, okJobs.map((s) => ({
+          jobId: s.jobId, batchIndex: s.batchIndex, batchCount: batches.length,
+          variantLabels: s.variantLabels, submittedAt: Date.now(),
+        })));
 
-      const okJobs = submitted.filter((s) => s.jobId) as Array<{ batchIndex: number; ids: string[]; jobId: string; variantLabels: string[] }>;
-      SimulationJobStore.recordJobs(this.routingGroupId, okJobs.map((s) => ({
-        jobId: s.jobId, batchIndex: s.batchIndex, batchCount: batches.length,
-        variantLabels: s.variantLabels, submittedAt: Date.now(),
-      })));
-
-      const batchResults = await Promise.all(okJobs.map((s) => this.runBatch({ batchIndex: s.batchIndex, ids: s.ids, jobId: s.jobId })));
-      try { this.results = mergeVariationResults(batchResults); } finally { this.isRunning = false; }
+        const batchResults = await Promise.all(okJobs.map((s) => this.runBatch({ batchIndex: s.batchIndex, ids: s.ids, jobId: s.jobId })));
+        this.results = mergeVariationResults(batchResults);
+      } finally {
+        this.isRunning = false;
+      }
     },
 
     // On reopening a group's Simulate screen, re-attach to any persisted in-flight jobs and resume
@@ -195,13 +198,16 @@ export const simulationStore = defineStore("simulation", {
       this.results = null;
       this.view = "results";
 
-      const batchCount = jobs[0].batchCount || jobs.length;
+      // Use the max recorded batchCount (records may have been partially removed after some batches
+      // completed before the refresh). 0/missing values are safely ignored by Math.max with seed 0.
+      const batchCount = Math.max(0, ...jobs.map((j) => j.batchCount ?? 0));
       this.batchProgress = Array.from({ length: batchCount }, (_, i) => zeroedBatch(i));
       this.runStates = [];
 
       const toRun = jobs.map((j) => {
+        // jobId-keyed synthetic ids guarantee uniqueness across batches.
         const ids = j.variantLabels.map((label, n) => {
-          const id = `${j.batchIndex}:${n}`;
+          const id = `${j.jobId}:${n}`;
           this.runStates.push({ variationId: id, label, phase: "running" as const });
           return id;
         });

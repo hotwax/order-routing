@@ -46,4 +46,17 @@ const NOW = 1_000_000_000_000;
   assert.deepStrictEqual(getJobs("G1", NOW, s), [], "clearJobs empties");
 }
 
+// removeJob/getJobs/recordJobs: a throwing storage is a graceful no-op (no propagation)
+{
+  const throwing: StorageLike = {
+    getItem: () => { throw new Error("SecurityError"); },
+    setItem: () => { throw new Error("SecurityError"); },
+    removeItem: () => { throw new Error("SecurityError"); },
+  };
+  assert.doesNotThrow(() => removeJob("G1", "j1", throwing), "removeJob swallows storage errors");
+  assert.doesNotThrow(() => clearJobs("G1", throwing), "clearJobs swallows storage errors");
+  assert.deepStrictEqual(getJobs("G1", NOW, throwing), [], "getJobs returns [] on storage errors");
+  assert.doesNotThrow(() => recordJobs("G1", [rec("j1", NOW)], throwing), "recordJobs swallows storage errors");
+}
+
 console.log("simulationJobStore tests passed");

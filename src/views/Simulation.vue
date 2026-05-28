@@ -52,7 +52,10 @@ const props = defineProps({
 });
 const sim = simulationStore();
 
-function reload() { sim.loadGroup(String(props.routingGroupId)); }
+async function reload() {
+  await sim.loadGroup(String(props.routingGroupId));
+  await sim.resumeInFlight(String(props.routingGroupId));
+}
 
 onMounted(reload);
 </script>

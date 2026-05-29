@@ -3,6 +3,7 @@ import { RouteRecordRaw } from "vue-router";
 import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
 import {
+  businessOutline,
   cloudUploadOutline,
   globeOutline,
   pulseOutline,
@@ -20,7 +21,7 @@ declare module "vue-router" {
     title?: string;
     icon?: string;
     menuIndex?: number;
-    section?: "sourcing" | "routing";
+    section?: "sourcing" | "routing" | "foundations";
     childRoutes?: string[];
   }
 }
@@ -186,6 +187,20 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import("@/views/BrokeringQuery.vue"),
     beforeEnter: authGuard,
     props: true
+  },
+
+  // -------------------- Foundations --------------------
+  {
+    path: "/facility-groups",
+    name: "Facility groups",
+    component: () => import("@/views/FacilityGroups.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Facility groups",
+      icon: businessOutline,
+      section: "foundations",
+      menuIndex: 15
+    }
   },
 
   // -------------------- Settings & auth --------------------

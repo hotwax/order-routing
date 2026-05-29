@@ -78,29 +78,22 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       }
     },
     async fetchGroupTypes() {
-      if (this.groupTypes.length) return;
-      const fallback = [
+      // Moqui does not expose a generic facility-group-types list endpoint, so we
+      // ship the well-known types used by the app and merge in any custom types
+      // discovered on already-fetched groups.
+      const known = [
         { facilityGroupTypeId: "FACILITY_GROUP", description: "Generic" },
         { facilityGroupTypeId: "CHANNEL_FAC_GROUP", description: "Inventory channel" },
         { facilityGroupTypeId: "PICKUP", description: "Store pickup" },
         { facilityGroupTypeId: "SHIPPING", description: "Shipping" },
         { facilityGroupTypeId: "WAREHOUSE", description: "Warehouse" }
       ];
-      try {
-        const resp = await api({
-          url: "admin/facilityGroupTypes",
-          method: "GET",
-          params: { pageSize: 100 },
-          cache: true
-        }) as any;
-        if (resp && !commonUtil.hasError(resp) && resp.data?.length) {
-          this.groupTypes = resp.data;
-          return;
-        }
-      } catch (err) {
-        // Endpoint may not exist on older OMS instances — fall through to defaults.
-      }
-      this.groupTypes = fallback;
+      const seen = new Set(known.map((t) => t.facilityGroupTypeId));
+      const fromGroups = this.groups
+        .map((g: any) => g.facilityGroupTypeId)
+        .filter((id: string | undefined): id is string => !!id && !seen.has(id))
+        .map((id: string) => ({ facilityGroupTypeId: id, description: id }));
+      this.groupTypes = [...known, ...fromGroups];
     },
     async createGroup(payload: any) {
       const product = useAtpProductStore();

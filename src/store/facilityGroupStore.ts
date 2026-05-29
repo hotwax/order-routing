@@ -8,6 +8,20 @@ export interface FacilityGroupState {
   groupTypes: any[];
 }
 
+// Optional, friendlier labels for type IDs that are well-known across HotWax apps.
+// Anything else falls through to its raw ID.
+const TYPE_LABELS: Record<string, string> = {
+  FACILITY_GROUP: "Generic",
+  CHANNEL_FAC_GROUP: "Inventory channel",
+  PICKUP: "Store pickup",
+  SHIPPING: "Shipping",
+  WAREHOUSE: "Warehouse",
+  FULFILLMENT: "Fulfillment",
+  AUTO_CANCEL_CONFIG: "Auto cancel",
+  SHOPIFY_GROUP_FAC: "Shopify group",
+  SHIPPING_LABEL: "Shipping label"
+};
+
 export const useFacilityGroupStore = defineStore("facilityGroup", {
   state: (): FacilityGroupState => ({
     groups: [],
@@ -21,33 +35,16 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
   },
   actions: {
     async fetchGroups() {
-      const product = useAtpProductStore();
-      // Lazily fetch product stores if none are loaded yet — the page can be opened
-      // directly without going through ATP screens first.
-      if (!product.currentProductStore?.productStoreId) {
-        try {
-          await product.fetchUserProductStores();
-          const stores = product.getProductStores;
-          if (stores && stores.length) {
-            product.setCurrentProductStore(stores[0]);
-          }
-        } catch (err) {
-          logger.error("Failed to fetch product stores for facility groups", err);
-        }
-      }
-      const productStoreId = product.currentProductStore?.productStoreId;
-      if (!productStoreId) {
-        this.groups = [];
-        return;
-      }
+      // System-wide list of facility groups — not product-store-scoped, so the
+      // result matches what the facilities app surfaces.
       try {
         const resp = await api({
-          url: `admin/productStores/${productStoreId}/facilityGroups`,
+          url: "/oms/facilityGroups",
           method: "GET",
-          params: { productStoreId, pageSize: 200 }
+          params: { pageSize: 200 }
         }) as any;
         if (!commonUtil.hasError(resp)) {
-          this.groups = resp.data || [];
+          this.groups = (resp.data || []) as any[];
         } else {
           throw resp.data;
         }
@@ -55,15 +52,17 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
         logger.error("Failed to fetch facility groups", err);
         this.groups = [];
       }
-      // Fetch facility counts in parallel for each group
+      // Refresh derived type list from the live group data.
+      this.deriveGroupTypes();
+      // Fetch members for each group in parallel for counts/preview.
       await Promise.allSettled(this.groups.map((g: any) => this.fetchGroupFacilities(g.facilityGroupId)));
     },
     async fetchGroupFacilities(facilityGroupId: string) {
       try {
         const resp = await api({
-          url: `admin/facilityGroups/${facilityGroupId}/facilities`,
+          url: "/oms/groupFacilities",
           method: "GET",
-          params: { facilityGroupId, pageSize: 200 }
+          params: { facilityGroupId, pageSize: 500 }
         }) as any;
         if (!commonUtil.hasError(resp)) {
           const data = (resp.data || []).filter((f: any) =>
@@ -77,23 +76,24 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
         logger.error("Failed to fetch group facilities", err);
       }
     },
+    deriveGroupTypes() {
+      // Build the type list from whatever types are actually in use on the loaded
+      // groups, then merge in any well-known IDs that aren't present yet so users
+      // can still create groups of those types.
+      const seen = new Map<string, { facilityGroupTypeId: string; description: string }>();
+      for (const g of this.groups) {
+        const id: string | undefined = g.facilityGroupTypeId;
+        if (!id || seen.has(id)) continue;
+        seen.set(id, { facilityGroupTypeId: id, description: TYPE_LABELS[id] || id });
+      }
+      for (const id of Object.keys(TYPE_LABELS)) {
+        if (!seen.has(id)) seen.set(id, { facilityGroupTypeId: id, description: TYPE_LABELS[id] });
+      }
+      this.groupTypes = [...seen.values()].sort((a, b) => a.description.localeCompare(b.description));
+    },
     async fetchGroupTypes() {
-      // Moqui does not expose a generic facility-group-types list endpoint, so we
-      // ship the well-known types used by the app and merge in any custom types
-      // discovered on already-fetched groups.
-      const known = [
-        { facilityGroupTypeId: "FACILITY_GROUP", description: "Generic" },
-        { facilityGroupTypeId: "CHANNEL_FAC_GROUP", description: "Inventory channel" },
-        { facilityGroupTypeId: "PICKUP", description: "Store pickup" },
-        { facilityGroupTypeId: "SHIPPING", description: "Shipping" },
-        { facilityGroupTypeId: "WAREHOUSE", description: "Warehouse" }
-      ];
-      const seen = new Set(known.map((t) => t.facilityGroupTypeId));
-      const fromGroups = this.groups
-        .map((g: any) => g.facilityGroupTypeId)
-        .filter((id: string | undefined): id is string => !!id && !seen.has(id))
-        .map((id: string) => ({ facilityGroupTypeId: id, description: id }));
-      this.groupTypes = [...known, ...fromGroups];
+      // Kept for API compatibility — types are derived from the loaded groups.
+      this.deriveGroupTypes();
     },
     async createGroup(payload: any) {
       const product = useAtpProductStore();
@@ -104,7 +104,8 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
         data: payload
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
-      // Associate to current product store so it appears in subsequent fetches
+      // Optionally associate to the current product store so the group also shows
+      // up in product-store-scoped views (e.g. inventory channels).
       if (productStoreId && resp?.data?.facilityGroupId) {
         try {
           await api({
@@ -125,13 +126,11 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
         params: payload
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
-      // Patch local copy
       const idx = this.groups.findIndex((g: any) => g.facilityGroupId === payload.facilityGroupId);
       if (idx >= 0) this.groups[idx] = { ...this.groups[idx], ...payload };
       return resp.data;
     },
     async archiveGroup(facilityGroupId: string) {
-      // The OMS treats thruDate < now as archived. Set it to now.
       const thruDate = Date.now();
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}`,
@@ -141,6 +140,7 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (commonUtil.hasError(resp)) throw resp.data;
       this.groups = this.groups.filter((g: any) => g.facilityGroupId !== facilityGroupId);
       delete this.facilitiesByGroup[facilityGroupId];
+      this.deriveGroupTypes();
     },
     async addFacility(facilityGroupId: string, facilityId: string) {
       const resp = await api({
@@ -152,7 +152,6 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       await this.fetchGroupFacilities(facilityGroupId);
     },
     async removeFacility(facilityGroupId: string, facilityId: string) {
-      // The same association endpoint with a thruDate < now de-associates
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",

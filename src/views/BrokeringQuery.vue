@@ -69,7 +69,7 @@
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['PROD_CATEGORY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   {{ translate("Product Category") }}
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
@@ -79,7 +79,7 @@
                   <ion-label>{{ translate("Product Category") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
@@ -212,8 +212,8 @@
               </ion-button>
             </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
-              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in (orderRoutingSortOptions as Record<string, any>)" :key="code as string">
-                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
+              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
+                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -300,7 +300,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -309,7 +309,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in (getFacilityGroupsForBrokering() as Record<string, any>)" :key="facilityGroupId as string" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -371,8 +371,8 @@
                       </ion-button>
                     </p>
                     <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-                      <ion-item v-for="(sort, code) in (inventoryRuleSortOptions as Record<string, any>)" :key="code as string">
-                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
+                      <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
+                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
                         <ion-reorder />
                       </ion-item>
                     </ion-reorder-group>
@@ -1742,6 +1742,28 @@ async function updateUserTestSession() {
 </script>
 
 <style scoped>
+ion-content > main, #inventory-rules {
+  display: grid;
+  grid-template-columns: minmax(375px, 25%) 1fr;
+  height: 100%;
+  container-type: inline-size;
+}
+
+/* The right-hand column of #inventory-rules holds the rule-info / filters / actions cards.
+   Make each direct child its own inline-size container so the cards collapse independently
+   when the column gets narrow (e.g. side menu open on a laptop). */
+#inventory-rules > :not(#inventory-sequence) {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.rule-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--spacer-xs);
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1752,17 +1774,40 @@ async function updateUserTestSession() {
   max-width: 50%;
 }
 
-.rule-info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: start;
-  gap: var(--spacer-xs)
+/* Collapse the two-column card grids to a single column when their container is narrow.
+   600px chosen so two ~280px cards plus gap can comfortably sit side-by-side above it. */
+@container (max-width: 600px) {
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
 }
 
-ion-content > main, #inventory-rules {
-  display: grid;
-  grid-template-columns: minmax(375px, 25%) 1fr;
-  height: 100%;
+/* Viewport fallback for browsers without container query support, and for the parent
+   #inventory-rules grid itself (which can't size against its own container). */
+@media (max-width: 991px) {
+  ion-content > main,
+  #inventory-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
+
+  .menu {
+    border-right: none;
+    border-bottom: 1px solid var(--ion-color-medium);
+  }
 }
 
 .menu {

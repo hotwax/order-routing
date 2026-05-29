@@ -28,7 +28,6 @@ import { logger, translate } from '@common';
 import { copyOutline, flashOutline, stopCircleOutline, timeOutline } from 'ionicons/icons'
 import { computed } from "vue";
 import JobHistoryModal from "@/components/JobHistoryModal.vue"
-import { Clipboard } from '@capacitor/clipboard';
 import { commonUtil } from "@common";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { DateTime } from 'luxon';
@@ -64,11 +63,7 @@ async function copyJobInformation() {
 
   const jobDetails = `jobId: ${job.jobId}, jobName: ${job.enumName}, jobDescription: ${job.description} ${job.runtimeData ? (", runtimeData: " + JSON.stringify(job.runtimeData)) : ""}`;
 
-  await Clipboard.write({
-    string: jobDetails
-  }).then(() => {
-    commonUtil.showToast(translate("Copied to clipboard"));
-  })
+  commonUtil.copyToClipboard(jobDetails, "Copied to clipboard");
 
   closePopover();
 }

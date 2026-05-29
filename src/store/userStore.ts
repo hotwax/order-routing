@@ -6,6 +6,9 @@ import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 import { productStore as useProduct } from './product'
 import { productStore } from './productStore'
+import { useAtpProductStore } from './atpProductStore'
+import { useRuleStore } from './rule'
+import { useChannelStore } from './channel'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -145,6 +148,17 @@ export const useUserStore = defineStore('user', {
         await this.fetchPermissions()
         await productStore().fetchEComStores()
         await this.fetchAvailableTimeZones()
+        // ATP (sourcing rules) initialisation
+        try {
+          const atp = useAtpProductStore()
+          await atp.fetchUserProductStores()
+          const stores = atp.getProductStores
+          if (stores && stores.length) {
+            atp.setCurrentProductStore(stores[0])
+          }
+        } catch (atpErr) {
+          logger.error('ATP postLogin failed', atpErr)
+        }
       } catch(error: any) {
         return Promise.reject(new Error(error));
       }
@@ -155,6 +169,9 @@ export const useUserStore = defineStore('user', {
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
       productStore().clearProductStoreState()
+      useAtpProductStore().$reset()
+      useRuleStore().$reset()
+      useChannelStore().$reset()
 
       this.$reset();
     },

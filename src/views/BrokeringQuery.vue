@@ -1742,6 +1742,28 @@ async function updateUserTestSession() {
 </script>
 
 <style scoped>
+ion-content > main, #inventory-rules {
+  display: grid;
+  grid-template-columns: minmax(375px, 25%) 1fr;
+  height: 100%;
+  container-type: inline-size;
+}
+
+/* The right-hand column of #inventory-rules holds the rule-info / filters / actions cards.
+   Make each direct child its own inline-size container so the cards collapse independently
+   when the column gets narrow (e.g. side menu open on a laptop). */
+#inventory-rules > :not(#inventory-sequence) {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.rule-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--spacer-xs);
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1752,17 +1774,40 @@ async function updateUserTestSession() {
   max-width: 50%;
 }
 
-.rule-info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: start;
-  gap: var(--spacer-xs)
+/* Collapse the two-column card grids to a single column when their container is narrow.
+   600px chosen so two ~280px cards plus gap can comfortably sit side-by-side above it. */
+@container (max-width: 600px) {
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
 }
 
-ion-content > main, #inventory-rules {
-  display: grid;
-  grid-template-columns: minmax(375px, 25%) 1fr;
-  height: 100%;
+/* Viewport fallback for browsers without container query support, and for the parent
+   #inventory-rules grid itself (which can't size against its own container). */
+@media (max-width: 991px) {
+  ion-content > main,
+  #inventory-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
+
+  .menu {
+    border-right: none;
+    border-bottom: 1px solid var(--ion-color-medium);
+  }
 }
 
 .menu {

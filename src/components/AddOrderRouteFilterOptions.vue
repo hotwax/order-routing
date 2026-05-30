@@ -70,6 +70,13 @@ const props = defineProps({
     type: String
   }
 })
+const orderTagFilterOption = {
+  enumId: "OIP_ORDER_TAGS",
+  enumTypeId: "ORD_FILTER_PRM_TYPE",
+  enumCode: "orderTags",
+  sequenceNum: 50,
+  description: "Order tags"
+}
 let routingFilters = ref({}) as any
 let areFiltersUpdated = ref(false)
 let segmentSelected = ref("included")
@@ -80,8 +87,9 @@ onMounted(() => {
 
 function getOptions() {
   if(props.conditionTypeEnumId === "ENTCT_FILTER") {
-    const excludeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
-    const includeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
+    const options = [ ...Object.values(enums.value[props.parentEnumId]), orderTagFilterOption ]
+    const excludeOptions = options.filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
+    const includeOptions = options.filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
     return segmentSelected.value === "excluded" ? excludeOptions : includeOptions
   }
 

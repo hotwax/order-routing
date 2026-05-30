@@ -30,7 +30,7 @@ const doReorder = (event: CustomEvent, rules: any) => {
 
 const generateRuleActions = (ruleId: string, actionTypeEnumId: string, actionValue: any, isConditionExists: boolean, ruleActions: any) => {
   if (isConditionExists) {
-    const ruleAction = ruleActions.find((action: any) => action.actionTypeEnumId === actionTypeEnumId)
+    const ruleAction = ruleActions?.find((action: any) => action.actionTypeEnumId === actionTypeEnumId)
     if (ruleAction) {
       if (actionTypeEnumId === "ATP_THRESHOLD" || actionTypeEnumId === "ATP_SAFETY_STOCK") {
         ruleAction.fieldValue = actionValue ? actionValue : 0;
@@ -62,6 +62,7 @@ const generateRuleActions = (ruleId: string, actionTypeEnumId: string, actionVal
 
 const generateRuleConditions = (ruleId: string, conditionTypeEnumId: string, appliedFilters: any, selectedFac: any, areAllSelected: boolean, appliedFiltersOperator?: any) => {
   const conditions = [];
+  selectedFac = selectedFac || {};
 
   if (areAllSelected) {
     conditions.push({
@@ -80,7 +81,7 @@ const generateRuleConditions = (ruleId: string, conditionTypeEnumId: string, app
       "fieldValue": selectedFac.length ? selectedFac.join(",") : ""
     })
   } else {
-    const includedFacilityGroupIds = selectedFac.included.map((group: any) => group.facilityGroupId)
+    const includedFacilityGroupIds = (selectedFac.included || []).map((group: any) => group.facilityGroupId)
     if (includedFacilityGroupIds.length) {
       conditions.push({
         "ruleId": ruleId,
@@ -91,7 +92,7 @@ const generateRuleConditions = (ruleId: string, conditionTypeEnumId: string, app
       })
     }
 
-    const excludedFacilityGroupIds = selectedFac.excluded.map((group: any) => group.facilityGroupId)
+    const excludedFacilityGroupIds = (selectedFac.excluded || []).map((group: any) => group.facilityGroupId)
     if (excludedFacilityGroupIds.length) {
       conditions.push({
         "ruleId": ruleId,
@@ -121,6 +122,41 @@ const generateRuleConditions = (ruleId: string, conditionTypeEnumId: string, app
   return conditions;
 }
 
+const getAppliedProductFilterState = (ruleConditions: any[] = [], appliedFilters: any, appliedFiltersOperator: any) => {
+  const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters));
+  const currentAppliedFiltersOperator = JSON.parse(JSON.stringify(appliedFiltersOperator));
+
+  ruleConditions.map((condition: any) => {
+    if(condition.conditionTypeEnumId === "ENTCT_ATP_FILTER") {
+      const filterType = condition.operator === "contains" ? "included" : "excluded";
+      currentAppliedFilters[filterType][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : [];
+      currentAppliedFiltersOperator[filterType][condition.fieldName] = condition.joinOperator || "";
+    }
+  })
+
+  return {
+    appliedFilters: currentAppliedFilters,
+    appliedFiltersOperator: currentAppliedFiltersOperator
+  }
+}
+
+const prepareRuleConditionsUpdate = (currentRuleConditions: any[] = [], updatedRuleConditions: any[] = []) => {
+  const currentConditions = JSON.parse(JSON.stringify(currentRuleConditions));
+  const updatedConditions = JSON.parse(JSON.stringify(updatedRuleConditions));
+
+  updatedConditions.map((updatedCondition: any) => {
+    const current = currentConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
+    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
+  })
+
+  const conditionsToRemove = currentConditions.filter((condition: any) => !updatedConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+
+  return {
+    updatedRuleConditions: updatedConditions,
+    conditionsToRemove
+  }
+}
+
 const hasJobDataError = (job: any) => {
   let warning = '';
   let message = '';
@@ -146,5 +182,7 @@ export const ruleUtil = {
   findRulesDiff,
   generateRuleActions,
   generateRuleConditions,
+  getAppliedProductFilterState,
+  prepareRuleConditionsUpdate,
   hasJobDataError
 }

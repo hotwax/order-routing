@@ -106,7 +106,7 @@ async function updateFacility(maximumOrderLimit: number | string) {
 
 function isPickupAllowed(group: any) {
   const facilities = pickupGroupFacilities.value[group.facilityGroupId]
-  return facilities.find((facility: any) => facility.facilityId === props.facility.facilityId);
+  return facilities?.find((facility: any) => facility.facilityId === props.facility.facilityId);
 }
 
 async function updatePickupAllowed(event: Event, group: any) {
@@ -116,7 +116,7 @@ async function updatePickupAllowed(event: Event, group: any) {
   const isPickupActive = isPickupAllowed(group);
 
   if(isPickupActive) {
-    const facilities = pickupGroupFacilities.value[group.facilityGroupId]
+    const facilities = pickupGroupFacilities.value[group.facilityGroupId] || []
     payload = facilities.find((facility: any) => facility.facilityId === props.facility.facilityId)
     payload = {
       ...payload,
@@ -135,8 +135,9 @@ async function updatePickupAllowed(event: Event, group: any) {
     if(resp && !commonUtil.hasError(resp)) {
       const facilitiesByPickupGroup = JSON.parse(JSON.stringify(pickupGroupFacilities.value));
       if(isPickupActive) {
-        facilitiesByPickupGroup[group.facilityGroupId] = facilitiesByPickupGroup[group.facilityGroupId].filter((record: any) => record.facilityId !== props.facility.facilityId);
+        facilitiesByPickupGroup[group.facilityGroupId] = (facilitiesByPickupGroup[group.facilityGroupId] || []).filter((record: any) => record.facilityId !== props.facility.facilityId);
       } else {
+        facilitiesByPickupGroup[group.facilityGroupId] = facilitiesByPickupGroup[group.facilityGroupId] || [];
         facilitiesByPickupGroup[group.facilityGroupId].push(payload)
       }
       productStore.updatePickupGroupFacilities(facilitiesByPickupGroup);

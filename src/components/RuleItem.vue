@@ -21,15 +21,15 @@
           <ion-item lines="full" v-else-if="selectedPage.path === '/safety-stock'">
             <ion-icon slot="start" :icon="pulseOutline"/>
             <ion-label class="ion-text-wrap">{{ translate(selectedPage.name) }}</ion-label>
-            <ion-chip slot="end" outline @click="editSafetyStock()">{{ rule.ruleActions?.length ? rule.ruleActions[0].fieldValue : '-' }}</ion-chip>
+            <ion-chip slot="end" outline @click="editSafetyStock()">{{ rule.ruleActions?.length ? rule.ruleActions[0]?.fieldValue : '-' }}</ion-chip>
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/store-pickup'">
             <ion-icon slot="start" :icon="storefrontOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y' ? true : false" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/shipping'">
             <ion-icon slot="start" :icon="sendOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y' ? true : false" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
 
           <template v-if="selectedPage.path === '/threshold' || selectedSegment === 'RG_PICKUP_CHANNEL' || selectedSegment === 'RG_SHIPPING_CHANNEL'">
@@ -158,7 +158,7 @@ async function editThreshold() {
       name: "threshold",
       placeholder: translate("Threshold"),
       type: "number",
-      value: props.rule.ruleActions?.length ? props.rule.ruleActions[0].fieldValue : 0,
+      value: props.rule.ruleActions?.[0]?.fieldValue ?? 0,
       min: 0,
       attributes: {
         // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
@@ -174,12 +174,12 @@ async function editThreshold() {
     {
       text: translate('Update'),
       handler: async(data) => {
-        if(!data.threshold || data.threshold < 0) {
+        if((data.threshold === "" || data.threshold === undefined || data.threshold === null) || data.threshold < 0) {
           commonUtil.showToast(translate("Threshold should be greater than or equal to 0."));
           return false;
         }
 
-        if(data.threshold === props.rule.ruleActions[0].fieldValue) return;
+        if(data.threshold === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 
@@ -188,7 +188,7 @@ async function editThreshold() {
         if(!rule.ruleActions?.length) {
           rule.ruleActions = [{
             "ruleId": props.rule.ruleId,
-            "actionTypeEnumId": "ATP_SAFETY_STOCK",
+            "actionTypeEnumId": "ATP_THRESHOLD",
             "fieldName": "facility-safety-stock",
             "fieldValue": data.threshold
           }]
@@ -220,7 +220,7 @@ async function editSafetyStock() {
       name: "safetyStock",
       placeholder: translate("Safety stock"),
       type: "number",
-      value: props.rule.ruleActions?.length ? props.rule.ruleActions[0].fieldValue : 0,
+      value: props.rule.ruleActions?.[0]?.fieldValue ?? 0,
       min: 0,
       attributes: {
         // Added check to not allow mainly .(period) and other special characters to be entered in the alert input
@@ -236,12 +236,12 @@ async function editSafetyStock() {
     {
       text: translate('Update'),
       handler: async (data: any) => {
-        if(!data.safetyStock || data.safetyStock < 0) {
+        if((data.safetyStock === "" || data.safetyStock === undefined || data.safetyStock === null) || data.safetyStock < 0) {
           commonUtil.showToast(translate("Safety stock should be greater than or equal to 0."));
           return false;
         }
 
-        if(data.safetyStock === props.rule.ruleActions[0].fieldValue) return;
+        if(data.safetyStock === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 
@@ -276,7 +276,7 @@ async function editSafetyStock() {
 }
 
 function getRuleConditionOperator(conditionTypeEnumId: string, fieldName?: string, operator? : string) {
-  if(fieldName && operator) {
+  if(fieldName && operator && props.rule.ruleConditions) {
     const condition = props.rule.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === conditionTypeEnumId && condition.fieldName === fieldName && condition.operator === operator)
     return condition?.joinOperator || "";
   }
@@ -353,7 +353,7 @@ function isRuleConditionAvailable(conditionTypeEnumId: string, fieldName?: strin
 }
 
 function areProductFiltersSelected() {
-  return props.rule.ruleConditions.some((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FILTER" && condition.fieldValue);
+  return props.rule.ruleConditions?.some((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FILTER" && condition.fieldValue);
 }
 
 async function updateRulePickup(event: any) {
@@ -363,9 +363,18 @@ async function updateRulePickup(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_PICKUP") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    const action = rule.ruleActions?.find((ruleAction: any) => ruleAction.actionTypeEnumId === "ATP_ALLOW_PICKUP")
+    if(action) {
+      action.fieldValue = isChecked ? "Y" : "N"
+    } else {
+      rule.ruleActions = rule.ruleActions || [];
+      rule.ruleActions.push({
+        "ruleId": props.rule.ruleId,
+        "actionTypeEnumId": "ATP_ALLOW_PICKUP",
+        "fieldName": "allow-pickup",
+        "fieldValue": isChecked ? "Y" : "N"
+      })
+    }
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule pickup updated successfully."))
@@ -385,9 +394,18 @@ async function updateRuleShipping(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_BROKERING") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    const action = rule.ruleActions?.find((ruleAction: any) => ruleAction.actionTypeEnumId === "ATP_ALLOW_BROKERING")
+    if(action) {
+      action.fieldValue = isChecked ? "Y" : "N"
+    } else {
+      rule.ruleActions = rule.ruleActions || [];
+      rule.ruleActions.push({
+        "ruleId": props.rule.ruleId,
+        "actionTypeEnumId": "ATP_ALLOW_BROKERING",
+        "fieldName": "allow-brokering",
+        "fieldValue": isChecked ? "Y" : "N"
+      })
+    }
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule shipping updated successfully."))

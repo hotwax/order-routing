@@ -225,7 +225,7 @@ async function setProductStore(event: SelectCustomEvent) {
     if (createUpdateRoutes.some((route) => path.includes(route))) {
       const alert = await alertController.create({
         header: translate("Leave page"),
-        message: translate("Any page made on this page will be lost. You will not be able to reverse this action."),
+        message: translate("Any changes made on this page will be lost. You will not be able to reverse this action."),
         buttons: [
           {
             text: translate("No"),

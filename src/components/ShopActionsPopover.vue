@@ -150,11 +150,14 @@ async function runServiceNow(job: any) {
     'systemJobEnumId': job.systemJobEnumId
   } as any
 
-  Object.keys(job.runtimeData).map((key: any) => {
-    if(key !== "productStoreId" && key !== "shopifyConfigId" && key !== "shopId") {
-      payload[key] = job.runtimeData[key];
-    }
-  })
+  const runtimeData = job.runtimeData || {};
+  if(Object.keys(runtimeData).length) {
+    Object.keys(runtimeData).map((key: any) => {
+      if(key !== "productStoreId" && key !== "shopifyConfigId" && key !== "shopId") {
+        payload[key] = runtimeData[key];
+      }
+    })
+  }
 
   // checking if the runtimeData has productStoreId, and if present then adding it on root level
   job?.runtimeData?.productStoreId?.length >= 0 && (payload['productStoreId'] = job.status === "SERVICE_PENDING" ? job.productStoreId : currentProductStore.value.productStoreId)
@@ -189,6 +192,6 @@ async function runServiceNow(job: any) {
 }
 
 function isRuntimePassed() {
-  return props.job.runTime <= DateTime.now().toMillis()
+  return props.job.runTime ? props.job.runTime <= DateTime.now().toMillis() : false
 }
 </script>

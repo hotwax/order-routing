@@ -92,9 +92,13 @@ export const useAtpProductStore = defineStore('atpProductStore', {
   actions: {
     setCurrentProductStore(productStore: any) {
       if (!productStore) {
-        productStore = this.productStores.find((store: any) => store.productStoreId === productStore.productStoreId);
+        this.currentProductStore = this.productStores.length ? this.productStores[0] : {};
+        return;
       }
-      this.currentProductStore = productStore;
+
+      this.currentProductStore = productStore.productStoreId
+        ? this.productStores.find((store: any) => store.productStoreId === productStore.productStoreId) || productStore
+        : productStore;
     },
     async fetchUserProductStores() {
       try {
@@ -315,7 +319,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             noConditionFind: 'Y',
             limit: 1000,
             offset,
-            searchfield: "tags",
+            searchfield: params.searchfield,
             term: params.queryString || "",
             q: params.queryString || ""
           }

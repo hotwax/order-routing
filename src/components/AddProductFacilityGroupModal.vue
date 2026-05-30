@@ -68,7 +68,7 @@ const productStore = useAtpProductStore();
 const facilityGroups = computed(() => productStore.getFacilityGroups)
 
 onMounted(() => {
-  selectedGroups.value = JSON.parse(JSON.stringify(props.selectedFacilityGroups[props.type]))
+  selectedGroups.value = props.selectedFacilityGroups?.[props.type] ? JSON.parse(JSON.stringify(props.selectedFacilityGroups[props.type])) : []
 })
 
 function closeModal() {
@@ -91,7 +91,7 @@ function updateSelectedGroups(selectedGroup: any) {
 
 function isAlreadyApplied(value: string) {
   const type = props.type === 'included' ? 'excluded' : 'included'
-  return props.selectedFacilityGroups[type].some((group: any) => group.facilityGroupId === value)
+  return props.selectedFacilityGroups?.[type]?.some((group: any) => group.facilityGroupId === value)
 }
 
 function saveFacilityGroups() {

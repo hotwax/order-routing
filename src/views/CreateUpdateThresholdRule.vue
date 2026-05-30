@@ -111,28 +111,17 @@ onIonViewDidEnter(async () => {
         currentRule.value = resp.data[0];
 
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.threshold = currentRule.value.ruleActions[0]?.fieldValue ? currentRule.value.ruleActions[0].fieldValue : ''
+        const ruleConditions = currentRule.value.ruleConditions || [];
 
-        const facilityCondition = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
+        formData.value.threshold = currentRule.value.ruleActions?.[0]?.fieldValue ?? ''
+
+        const facilityCondition = ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
         if(facilityCondition?.fieldValue === "ALL") formData.value.areAllChannelsSelected = true
         else formData.value.selectedConfigFacilites = facilityCondition?.fieldValue ? facilityCondition.fieldValue?.split(",") : [];
 
-        const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters.value))
-        const currentAppliedFiltersOperator = JSON.parse(JSON.stringify(appliedFiltersOperator.value))
-        currentRule.value.ruleConditions.map((condition: any) => {
-          if(condition.conditionTypeEnumId === "ENTCT_ATP_FILTER") {
-            if(condition.operator === "contains") {
-              currentAppliedFilters["included"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
-              currentAppliedFiltersOperator["included"][condition.fieldName] = condition.joinOperator || ""
-            } else {
-              currentAppliedFilters["excluded"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
-              currentAppliedFiltersOperator["excluded"][condition.fieldName] = condition.joinOperator || ""
-            }
-          }
-        })
-
-        await productStore.updateAppliedFilters(currentAppliedFilters)
-        await productStore.updateAppliedFiltersOperator(currentAppliedFiltersOperator)
+        const productFilterState = ruleUtil.getAppliedProductFilterState(ruleConditions, appliedFilters.value, appliedFiltersOperator.value)
+        await productStore.updateAppliedFilters(productFilterState.appliedFilters)
+        await productStore.updateAppliedFiltersOperator(productFilterState.appliedFiltersOperator)
       } else {
         throw resp.data
       }
@@ -204,6 +193,7 @@ async function createThresholdRule() {
     commonUtil.showToast(translate("Rule created successfully."))
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push("/threshold");
   } catch(err: any) {
     logger.error(err);
@@ -215,14 +205,9 @@ async function createThresholdRule() {
 async function updateRule() {
   if(!isRuleValid()) return;
 
-  const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value);
-  updatedRuleConditions.map((updatedCondition: any) => {
-    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
-    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
-  })
-
-  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+  const currentRuleConditions = currentRule.value.ruleConditions || [];
+  const generatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value);
+  const { updatedRuleConditions, conditionsToRemove } = ruleUtil.prepareRuleConditionsUpdate(currentRuleConditions, generatedRuleConditions);
 
   try {
     await ruleStore.updateRuleApi({
@@ -239,6 +224,7 @@ async function updateRule() {
 
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push("/threshold");
   } catch(err: any) {
     logger.error(err);
@@ -246,7 +232,7 @@ async function updateRule() {
 }
 
 function isRuleValid() {
-  if(!formData.value.ruleName.trim() || !formData.value.threshold) {
+  if(!formData.value.ruleName.trim() || formData.value.threshold === "" || formData.value.threshold === undefined || formData.value.threshold === null) {
     commonUtil.showToast(translate("Please fill in all the required fields."))
     return false;
   }

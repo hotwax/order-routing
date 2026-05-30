@@ -128,6 +128,7 @@ const props = defineProps(["ruleId"]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
 const appliedFilters = computed(() => productStore.getAppliedFilters)
+const appliedFiltersOperator = computed(() => productStore.getAppliedFiltersOperator)
 const rules = computed(() => ruleStore.getRules);
 const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
@@ -157,37 +158,31 @@ onIonViewDidEnter(async () => {
       if(!commonUtil.hasError(resp)) {
         currentRule.value = resp.data[0];
 
+        const ruleConditions = currentRule.value.ruleConditions || [];
+
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+        formData.value.isPickupAllowed = currentRule.value.ruleActions?.[0]?.fieldValue === "Y";
 
         if(selectedSegment.value === "RG_PICKUP_FACILITY") {
-          const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")
+          const includedGroups = ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")
           if(includedGroups?.fieldValue === "ALL") formData.value.areAllSelected = true
           else {
             const includedGroupIds = includedGroups?.fieldValue ? includedGroups.fieldValue.split(",") : []
             formData.value.selectedFacilityGroups.included = facilityGroups.value.filter((group: any) => includedGroupIds.includes(group.facilityGroupId));
 
-            const excludedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "not-in")
+            const excludedGroups = ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "not-in")
             const excludedGroupIds = excludedGroups?.fieldValue ? excludedGroups.fieldValue.split(",") : []
             formData.value.selectedFacilityGroups.excluded = facilityGroups.value.filter((group: any) => excludedGroupIds.includes(group.facilityGroupId));
           }
         } else if(selectedSegment.value === "RG_PICKUP_CHANNEL") {
-          const facilityCondition = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
+          const facilityCondition = ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
           if(facilityCondition?.fieldValue === "ALL") formData.value.areAllSelected = true
           else formData.value.selectedConfigFacilites = facilityCondition?.fieldValue ? facilityCondition.fieldValue.split(",") : [];
         }
         
-        const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters.value))
-        currentRule.value.ruleConditions.map((condition: any) => {
-          if(condition.conditionTypeEnumId === "ENTCT_ATP_FILTER") {
-            if(condition.operator === "contains") {
-              currentAppliedFilters["included"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
-            } else {
-              currentAppliedFilters["excluded"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
-            }
-          }
-        })
-        await productStore.updateAppliedFilters(currentAppliedFilters)
+        const productFilterState = ruleUtil.getAppliedProductFilterState(ruleConditions, appliedFilters.value, appliedFiltersOperator.value)
+        await productStore.updateAppliedFilters(productFilterState.appliedFilters)
+        await productStore.updateAppliedFiltersOperator(productFilterState.appliedFiltersOperator)
       } else {
         throw resp.data
       }
@@ -209,6 +204,7 @@ onIonViewWillLeave(() => {
     selectedConfigFacilites: []
   }
   productStore.clearAppliedFilters()
+  productStore.clearAppliedFiltersOperator()
   emitter.off("productStoreOrConfigChanged", redirectLink);
 })
 
@@ -272,13 +268,14 @@ async function createRule() {
     const rule = await ruleStore.createRule(params)
     await ruleStore.updateRuleApi({
       ...params,
-      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected),
+      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value),
       "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_PICKUP", formData.value.isPickupAllowed, false, [])
     }, rule.ruleId);
 
     commonUtil.showToast(translate("Rule created successfully."))
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push("/store-pickup");
   } catch(err: any) {
     logger.error(err);
@@ -290,15 +287,9 @@ async function createRule() {
 async function updateRule() {
   if(!isRuleValid()) return;
 
-  const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
-
-  updatedRuleConditions.map((updatedCondition: any) => {
-    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
-    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
-  })
-
-  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+  const currentRuleConditions = currentRule.value.ruleConditions || [];
+  const generatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value);
+  const { updatedRuleConditions, conditionsToRemove } = ruleUtil.prepareRuleConditionsUpdate(currentRuleConditions, generatedRuleConditions);
 
   try {
     await ruleStore.updateRuleApi({
@@ -315,6 +306,7 @@ async function updateRule() {
 
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push('/store-pickup');
   } catch(err: any) {
     logger.error(err);

@@ -114,7 +114,7 @@
 
                 <ion-item lines="full">
                   <ion-icon slot="start" :icon="albumsOutline"/>
-                  <ion-select :label="translate('Inventory channel')" v-model="job.runtimeData.facilityGroupId" :disabled="job.statusId === 'SERVICE_PENDING'" :placeholder="translate('Select')" interface="popover">
+                  <ion-select :label="translate('Inventory channel')" v-model="job.runtimeData.facilityGroupId" :disabled="job.statusId === 'SERVICE_PENDING'" :placeholder="translate('Select')" interface="popover" v-if="job.runtimeData">
                     <ion-select-option v-for="channel in inventoryChannels" :key="channel.facilityGroupId" :value="channel.facilityGroupId">{{ channel.facilityGroupName ? channel.facilityGroupName : channel.facilityGroupId }}</ion-select-option>
                   </ion-select>
                 </ion-item>
@@ -438,11 +438,14 @@ async function scheduleService(job: any) {
     'systemJobEnumId': job.systemJobEnumId
   } as any
 
-  Object.keys(job.runtimeData).map((key: any) => {
-    if(key !== "productStoreId" && key !== "shopifyConfigId" && key !== "shopId") {
-      payload[key] = job.runtimeData[key];
-    }
-  })
+  const runtimeData = job.runtimeData || {};
+  if(Object.keys(runtimeData).length) {
+    Object.keys(runtimeData).map((key: any) => {
+      if(key !== "productStoreId" && key !== "shopifyConfigId" && key !== "shopId") {
+        payload[key] = runtimeData[key];
+      }
+    })
+  }
 
   const jobRunTimeDataKeys = job?.runtimeData ? Object.keys(job?.runtimeData) : [];
   if (jobRunTimeDataKeys.includes('shopifyConfigId') || jobRunTimeDataKeys.includes('shopId')) {
@@ -476,7 +479,7 @@ async function updateJob(job: any) {
   const payload = {
     'jobId': job.jobId,
     'systemJobEnumId': job.systemJobEnumId,
-    'recurrenceTimeZone': userStore.current.userTimeZone,
+    'recurrenceTimeZone': userStore.current.timeZone,
     'tempExprId': job.jobStatus,
     'statusId': "SERVICE_PENDING",
     'runTimeEpoch': '',  // when updating a job clearning the epoch time, as job honors epoch time as runTime and the new job created also uses epoch time as runTime

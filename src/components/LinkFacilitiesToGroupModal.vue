@@ -61,7 +61,7 @@ const facilities = ref([]) as any;
 
 onMounted(() => {
   fetchFacilities()
-  selectedFacilityValues.value = JSON.parse(JSON.stringify(props.selectedFacilities));
+  selectedFacilityValues.value = props.selectedFacilities ? JSON.parse(JSON.stringify(props.selectedFacilities)) : [];
 })
 
 function closeModal() {
@@ -111,20 +111,23 @@ function updateSelectedFacilities(id: string) {
   if(isFacilitySelected(id)) {
     selectedFacilityValues.value = selectedFacilityValues.value.filter((facility: any) => facility.facilityId !== id)
   } else {
-    selectedFacilityValues.value.push(facilities.value.find((facility: any) => facility.facilityId == id))
+    const facility = facilities.value.find((facility: any) => facility.facilityId == id)
+    if(facility) selectedFacilityValues.value.push(facility)
   }
 }
 
 function areFacilitiesUpdated() {
-  if(props.selectedFacilities.length !== selectedFacilityValues.value.length) return true;
+  const selectedFacilities = props.selectedFacilities || [];
+  if(selectedFacilities.length !== selectedFacilityValues.value.length) return true;
 
-  return selectedFacilityValues.value.some((selectedFacility: any) => !props.selectedFacilities.find((facility: any) => facility.facilityId === selectedFacility.facilityId))
+  return selectedFacilityValues.value.some((selectedFacility: any) => !selectedFacilities.find((facility: any) => facility.facilityId === selectedFacility.facilityId))
 }
 
 async function saveFacilities() {
   emitter.emit("presentLoader");
-  const facilitiesToAdd = selectedFacilityValues.value.filter((selectedFacility: any) => !props.selectedFacilities.some((facility: any) => facility.facilityId === selectedFacility.facilityId))
-  const facilitiesToRemove = props.selectedFacilities.filter((facility: any) => !selectedFacilityValues.value.some((selectedFacility: any) => facility.facilityId === selectedFacility.facilityId))
+  const selectedFacilities = props.selectedFacilities || [];
+  const facilitiesToAdd = selectedFacilityValues.value.filter((selectedFacility: any) => !selectedFacilities.some((facility: any) => facility.facilityId === selectedFacility.facilityId))
+  const facilitiesToRemove = selectedFacilities.filter((facility: any) => !selectedFacilityValues.value.some((selectedFacility: any) => facility.facilityId === selectedFacility.facilityId))
 
   const removeResponses = await Promise.allSettled(facilitiesToRemove
     .map(async (facility: any) => await channelStore.updateFacilityAssociationWithGroup({

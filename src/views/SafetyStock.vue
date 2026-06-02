@@ -8,7 +8,7 @@
     </ion-header>
 
     <ion-content>
-      <main v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
+      <main class="atp-main" v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
         <ScheduleRuleItem v-if="rules.length" />
         <ArchivedRuleItem v-if="archivedRules?.length" />
 

@@ -16,7 +16,7 @@ const props = defineProps({
   }
 });
 
-const resourceUrl = ref(import.meta.env.VITE_VUE_APP_RESOURCE_URL || "");
+const resourceUrl = ref(import.meta.env.VITE_RESOURCE_URL || "");
 const imageUrl = ref("");
 
 const checkIfImageExists = (src: string) => {

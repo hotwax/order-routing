@@ -39,7 +39,7 @@ const app = createApp(App)
     mode: "md"
   })
   .use(logger, {
-    level: import.meta.env.VITE_VUE_APP_DEFAULT_LOG_LEVEL
+    level: import.meta.env.VITE_DEFAULT_LOG_LEVEL
   })
   .use(router)
   .use(i18n)

@@ -495,9 +495,9 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
-const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
 
 const currentRoutingGroup: any = computed(() => orderRoutingStore().getCurrentRoutingGroup)
 const currentRouting = computed(() => orderRoutingStore().getCurrentOrderRouting)
@@ -1568,7 +1568,7 @@ async function save() {
     const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
     const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
 
-    const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
+    const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC
     Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
       if(filterSortDesc.includes(option.fieldName)) {
         option.fieldName += " desc"

@@ -61,7 +61,7 @@ const props = defineProps({
 })
 
 let expression = ref(props.cronExpression)
-const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSIONS as string)
+const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS as string)
 const userProfile = computed(() => useUserStore().getUserProfile)
 
 const isExpressionValid = computed(() => {

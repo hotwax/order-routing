@@ -92,7 +92,7 @@
               <p>{{ log.inventoryItemId }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ log.datetimeReceived }}</p>
+              <p>{{ log.effectiveDate }}</p>
             </ion-label>
             <ion-label>
               <p>{{ log.facilityId }}</p>
@@ -101,7 +101,7 @@
               <p>{{ log.locationSeqId }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ log.comments || "-" }}</p>
+              <p>{{ log.description || "-" }}</p>
             </ion-label>
             <ion-label>
               <p>{{ log.quantityOnHandTotal }}</p>

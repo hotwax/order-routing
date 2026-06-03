@@ -27,11 +27,9 @@ export function useProductFacility() {
         url: "oms/productFacility",
         method: "GET",
         params: payload
-      }) as { data: ProductFacility[] }
-  
-      await productStore().fetchProducts(resp.data.map((productFac: any) => productFac.productId))
-  
-      productFacility.value = resp.data
+      }) as any
+
+      productFacility.value = resp.data?.products
   
     } catch(err) {
       logger.error("Failed to fetch product facility records", err)
@@ -54,9 +52,12 @@ export function useProductFacility() {
   async function fetchInventoryLogs(params: { productId: string, facilityId: string, pageSize: any }) {
     try {
       const resp = await api({
-        url: "oms/inventoryLogs",
+        url: "oms/inventoryItem/detail",
         method: "GET",
-        params
+        params: {
+          ...params,
+          orderBy: "effectiveDate desc"
+        }
       })
 
       inventoryLogs.value = resp.data

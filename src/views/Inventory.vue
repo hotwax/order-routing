@@ -38,40 +38,51 @@
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
               <ion-label>
-                <h2 data-testid="assigned-detail-product-primary-id">{{ getProductName(productById(product.productId)) }}</h2>
-                <p data-testid="assigned-detail-product-secondary-id">{{ getProductSku(productById(product.productId)) }}</p>
+                <h2 data-testid="assigned-detail-product-primary-id">{{ product.parentProductName }}</h2>
+                <p data-testid="assigned-detail-product-secondary-id">{{ product.productId }}</p>
               </ion-label>
             </ion-item>
-            <div>
-              <ion-label>
-                {{ product.computedLastInventoryCount }}
-                <p>{{ translate("ATP") }}</p>
-              </ion-label>
-            </div>
-            <div>
-              <ion-label>
-                {{ product.lastInventoryCount }}
-                <p>{{ translate("QOH") }}</p>
-              </ion-label>
-            </div>
-            <div>
-              <ion-label>
-                {{ product.minimumStock || "-" }}
-                <p>{{ translate("Minimum Stock") }}</p>
-              </ion-label>
-            </div>
-            <div>
-              <ion-label>
-                {{ product.allowPickup || "-" }}
-                <p>{{ translate("Allow Pickup") }}</p>
-              </ion-label>
-            </div>
-            <div>
-              <ion-label>
-                {{ product.allowBrokering || "-" }}
-                <p>{{ translate("Allow Brokering") }}</p>
-              </ion-label>
-            </div>
+            <template v-if="product.inventoryConfig">
+              <div>
+                <ion-label>
+                  {{ product.inventoryConfig.computedLastInventoryCount }}
+                  <p>{{ translate("ATP") }}</p>
+                </ion-label>
+              </div>
+              <div>
+                <ion-label>
+                  {{ product.inventoryConfig.lastInventoryCount }}
+                  <p>{{ translate("QOH") }}</p>
+                </ion-label>
+              </div>
+              <div>
+                <ion-label>
+                  {{ product.inventoryConfig.minimumStock || "-" }}
+                  <p>{{ translate("Minimum Stock") }}</p>
+                </ion-label>
+              </div>
+              <div>
+                <ion-label>
+                  {{ product.inventoryConfig.allowPickup || "-" }}
+                  <p>{{ translate("Allow Pickup") }}</p>
+                </ion-label>
+              </div>
+              <div>
+                <ion-label>
+                  {{ product.inventoryConfig.allowBrokering || "-" }}
+                  <p>{{ translate("Allow Brokering") }}</p>
+                </ion-label>
+              </div>
+            </template>
+            <template v-else>
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+              <ion-button fill="clear" size="small">
+                {{ "Add Config" }}
+              </ion-button>
+            </template>
           </div>
         </template>
       </ion-list>
@@ -122,7 +133,6 @@ const allSelected = computed(() => products.value.every((product: any) => produc
 onIonViewDidEnter(async () => {
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  await fetchProductFacility();
   selectedFacility.value = productStoreFacilities.value?.[0]?.facilityId
 })
 
@@ -139,7 +149,7 @@ async function fetchProductFacility() {
   } as Record<string, string | number>
 
   if(searchQuery.value.trim()) {
-    params["productId"] = searchQuery.value.trim();
+    params["keyword"] = searchQuery.value.trim();
   }
 
   if(selectedFacility.value) {
@@ -153,14 +163,6 @@ async function updateSearchQuery(event: CustomEvent<{ value?: string | null }>) 
   searchQuery.value = event.detail.value || ''
   pageIndex.value = 0
   await fetchProductFacility()
-}
-
-function getProductName(product: Product) {
-  return product.internalName || product.productName || product.parentProductName || product.productId
-}
-
-function getProductSku(product: Product) {
-  return product.goodIdentifications?.find((identification) => ['SKU', 'SHOPIFY_PROD_SKU'].includes(identification.type))?.value || product.productId
 }
 
 async function goToPreviousPage() {

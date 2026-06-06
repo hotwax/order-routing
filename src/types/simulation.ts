@@ -127,3 +127,78 @@ export interface VariationRunState {
   phase: RunPhase;
   error?: string;
 }
+
+// ─── Outcome metrics (frozen contract, identical to the backend spec §3) ──────
+// Rides along on every groupRun-shaped object: results.baseline.outcomes and
+// results.variants[i].groupRun.outcomes. Every family carries an `available`
+// flag; the dashboard renders each panel conditionally on it.
+
+export interface OutcomeAvailability {
+  cost: boolean;
+  sla: boolean;
+  inventory: boolean;
+  classification: boolean;
+}
+
+export interface OutcomeUnfillable {
+  itemCount: number;
+  orderCount: number;
+  rate: number; // 0..1
+}
+
+export interface OutcomeSla {
+  available: boolean;
+  compliantItemCount: number;
+  measuredItemCount: number;
+  complianceRate: number; // 0..1
+  avgPromisedDays: number;
+  avgEstimatedTransitDays: number;
+}
+
+export interface OutcomeExpedited {
+  groundItems: number;
+  airItems: number;
+  groundCost: number;
+  airCost: number;
+}
+
+export interface OutcomeCost {
+  available: boolean;
+  currency: string;
+  totalShippingCost: number;
+  avgCostPerItem: number;
+  expedited: OutcomeExpedited;
+}
+
+export interface OutcomeStoreAtZero {
+  facilityId: string;
+  facilityName: string;
+  productIds: string[];
+}
+
+export interface OutcomeInventory {
+  available: boolean;
+  newSeasonStoresAtZero: number;
+  newSeasonStoresAtZeroList: OutcomeStoreAtZero[];
+}
+
+export interface OutcomeFulfillmentMix {
+  byFacilityType: Record<string, number>;
+  clearanceFromStore: number;
+  newSeasonFromDC: number;
+}
+
+export interface OutcomeClassification {
+  available: boolean;
+  fulfillmentMix: OutcomeFulfillmentMix | null;
+}
+
+export interface SimulationOutcomes {
+  available: OutcomeAvailability;
+  fillRate: number; // 0..1, goal 1.0
+  unfillable: OutcomeUnfillable;
+  sla: OutcomeSla;
+  cost: OutcomeCost;
+  inventory: OutcomeInventory;
+  classification: OutcomeClassification;
+}

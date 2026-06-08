@@ -12,7 +12,7 @@
       <!-- points -->
       <g v-for="p in points" :key="p.label">
         <circle class="point" :class="{ baseline: p.isBaseline }" :cx="p.x" :cy="p.y" r="5">
-          <title>{{ p.label }}: {{ pct(p.sla) }}, {{ money(p.cost) }}</title>
+          <title>{{ p.label }}: {{ pct(p.sla) }}, {{ money(p) }}</title>
         </circle>
         <text :x="p.x + 8" :y="p.y + 4" class="point-label">{{ p.label }}</text>
       </g>
@@ -30,7 +30,7 @@ const props = defineProps<{ rows: OutcomeRow[] }>();
 
 const PLOT = { left: 40, right: 310, top: 10, bottom: 200 };
 
-interface Pt { label: string; isBaseline: boolean; cost: number; sla: number; x: number; y: number }
+interface Pt { label: string; isBaseline: boolean; cost: number; currency: string; sla: number; x: number; y: number }
 
 const points = computed<Pt[]>(() => {
   const usable = props.rows.filter((r) => r.outcomes?.cost?.available && r.outcomes?.sla?.available);
@@ -47,12 +47,12 @@ const points = computed<Pt[]>(() => {
     // lower cost -> left (smaller x); higher SLA -> top (smaller y)
     const x = PLOT.left + ((cost - minC) / spanC) * (PLOT.right - PLOT.left);
     const y = PLOT.bottom - ((sla - minS) / spanS) * (PLOT.bottom - PLOT.top);
-    return { label: r.isBaseline ? translate("Baseline") : r.label, isBaseline: r.isBaseline, cost, sla, x, y };
+    return { label: r.isBaseline ? translate("Baseline") : r.label, isBaseline: r.isBaseline, cost, currency: r.outcomes!.cost.currency, sla, x, y };
   });
 });
 
 function pct(v: number) { return formatPercent(v); }
-function money(v: number) { return formatMoney(v, "USD"); }
+function money(p: Pt) { return formatMoney(p.cost, p.currency); }
 </script>
 
 <style scoped>

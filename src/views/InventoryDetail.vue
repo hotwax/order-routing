@@ -31,9 +31,10 @@
           </ion-item>
         </section>
 
+        <div class="config-column">
         <section class="panel config-panel">
           <ion-item>
-            <ion-label>{{ translate("Inventory Configuration") }}</ion-label>
+            <ion-label>{{ translate("Configuration") }}</ion-label>
             <ion-button slot="end" fill="clear" @click="openConfigEditModal">
               {{ translate("Edit") }}
             </ion-button>
@@ -54,6 +55,15 @@
             <ion-label>{{ translate("Days to Ship") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
           </ion-item>
+        </section>
+
+        <section class="panel config-panel">
+          <ion-item>
+            <ion-label>{{ translate("Inventory") }}</ion-label>
+            <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
+              {{ translate("Edit") }}
+            </ion-button>
+          </ion-item>
           <ion-item>
             <ion-label>{{ translate("QOH") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.lastInventoryCount ?? "-" }}</ion-label>
@@ -63,73 +73,72 @@
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.computedLastInventoryCount ?? "-" }}</ion-label>
           </ion-item>
         </section>
+        </div>
       </div>
       <section class="ion-margin panel logs-panel">
-        <ion-list>
-          <ion-item class="line-item">
-            <ion-label>
-              <p>{{ "Id" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "Date Time Received" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "Facility Id" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "Location Seq Id" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "Comments" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "ATP diff" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "QOH Diff" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "ATP Total" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ "QOH Total" }}</p>
-            </ion-label>
-          </ion-item>
+        <div class="list-item">
+          <ion-label>
+            <p>{{ "Id" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "Date Time Received" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "Facility Id" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "Location Seq Id" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "Comments" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "ATP diff" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "QOH Diff" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "ATP Total" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ "QOH Total" }}</p>
+          </ion-label>
+        </div>
 
-          <ion-item class="line-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
-            <ion-label>
-              <p>{{ log.inventoryItemId }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.effectiveDate }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.facilityId }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.locationSeqId }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.description || "-" }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.availableToPromiseDiff }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ log.quantityOnHandDiff }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
-            </ion-label>
-            <ion-label>
-              <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
-            </ion-label>
-          </ion-item>
+        <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
+          <ion-label>
+            <p>{{ log.inventoryItemId }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ formatDateTime(log.effectiveDate) }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ log.facilityId }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ log.locationSeqId }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ log.description || "-" }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ log.availableToPromiseDiff }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ log.quantityOnHandDiff }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+          </ion-label>
+          <ion-label>
+            <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
+          </ion-label>
+        </div>
 
-          <p v-if="!inventoryLogs.length" class="empty-state">
-            {{ "No inventory logs found" }}
-          </p>
-        </ion-list>
+        <p v-if="!inventoryLogs.length" class="empty-state">
+          {{ "No inventory logs found" }}
+        </p>
       </section>
     </ion-content>
   </ion-page>
@@ -157,10 +166,20 @@ import {
   onIonViewDidEnter
 } from '@ionic/vue';
 import { translate } from '@common';
+import { DateTime } from 'luxon';
 import { useProductFacility } from '@/composables/useProductFacility';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
+import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+
+function formatDateTime(value: any): string {
+  if (!value) return '-';
+  const dt = typeof value === 'number'
+    ? DateTime.fromMillis(value)
+    : DateTime.fromISO(String(value));
+  return dt.isValid ? dt.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: 'h12' }) : String(value);
+}
 
 const route = router.currentRoute.value;
 const isLoading = ref(false);
@@ -212,6 +231,19 @@ async function fetchInventoryLogs() {
   });
 }
 
+async function openInventoryEditModal() {
+  const modal = await modalController.create({
+    component: ProductInventoryEdit,
+    componentProps: {
+      selectedFacility: selectedFacilityId.value,
+      selectedProducts: [{ productId: productId.value, inventoryItemId: inventoryConfig.value?.inventoryConfig?.inventoryItemId }]
+    }
+  });
+  await modal.present();
+  await modal.onDidDismiss();
+  await fetchInventoryConfig();
+}
+
 async function openConfigEditModal() {
   const modal = await modalController.create({
     component: ProductFacilityConfigEditModal,
@@ -243,6 +275,12 @@ ion-content {
 .product-panel,
 .config-panel {
   height: fit-content;
+}
+
+.config-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacer-base, 16px);
 }
 
 @media (max-width: 768px) {
@@ -333,6 +371,25 @@ ion-note[slot="end"] {
 ion-badge {
   min-width: 48px;
   text-align: center;
+}
+
+.list-item {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  --columns-desktop: 9;
+  --col-calc: var(--columns-desktop);
+  --implicit-columns: calc(var(--col-calc) - 1);
+  grid-template-columns: repeat(var(--implicit-columns), 1fr) max-content;
+  border-bottom: 1px solid var(--ion-color-medium);
+}
+
+@media (min-width: 991px) {
+  .list-item {
+    --col-calc: var(--columns-desktop);
+    padding-block: var(--spacer-sm);
+    padding-inline-end: var(--spacer-sm);
+  }
 }
 
 @media (max-width: 576px) {

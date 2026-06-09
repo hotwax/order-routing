@@ -133,6 +133,7 @@ const allSelected = computed(() => products.value.every((product: any) => produc
 onIonViewDidEnter(async () => {
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
+  await fetchProductFacility();
   selectedFacility.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value?.[0]?.facilityId
 })
 
@@ -146,6 +147,7 @@ function selectAllProducts(checked: boolean) {
 }
 
 async function fetchProductFacility() {
+  isLoading.value = true
   const params = {
     pageSize: PAGE_SIZE,
     pageIndex: pageIndex.value
@@ -159,7 +161,8 @@ async function fetchProductFacility() {
     params["facilityId"] = selectedFacility.value;
   }
 
-  await useProductFacility().fetchProductFacility(params);
+  total.value = await useProductFacility().fetchProductFacility(params);
+  isLoading.value = false
 }
 
 async function updateSearchQuery(event: CustomEvent<{ value?: string | null }>) {

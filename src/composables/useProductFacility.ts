@@ -1,4 +1,3 @@
-import { productStore } from "@/store/product"
 import { api, logger } from "@common"
 import { Ref, ref } from "vue"
 
@@ -20,7 +19,7 @@ const inventoryLogs: Ref<any[]> = ref([])
 
 export function useProductFacility() {
   
-  async function fetchProductFacility(payload: any) {
+  async function fetchProductFacility(payload: any): Promise<number> {
     try {
       const resp = await api({
         url: "oms/productFacilities/search",
@@ -29,9 +28,10 @@ export function useProductFacility() {
       }) as any
 
       productFacility.value = resp.data?.products
-  
+      return resp.data?.totalCount ?? 0
     } catch(err) {
       logger.error("Failed to fetch product facility records", err)
+      return 0
     }
   }
 

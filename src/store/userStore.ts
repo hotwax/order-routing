@@ -196,10 +196,6 @@ export const useUserStore = defineStore('user', {
         commonUtil.showToast(translate("Time zone updated successfully"));
       }
     },
-    async getAvailableTimeZones() {
-      await this.fetchAvailableTimeZones()
-      return this.timeZones
-    },
     async fetchAvailableTimeZones() {
       if (this.timeZones.length) return;
       try {

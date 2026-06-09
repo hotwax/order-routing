@@ -163,7 +163,7 @@ const closeModal = () => {
 
 onBeforeMount(async () => {
   isLoading.value = true;
-  await userStore.getAvailableTimeZones();
+  await userStore.fetchAvailableTimeZones();
 
   if(userProfile.value && userProfile.value.timeZone) {
     timeZoneId.value = userProfile.value.timeZone

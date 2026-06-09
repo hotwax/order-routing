@@ -147,6 +147,7 @@ import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { isFeatureEnabled } from "@/util/featureFlags";
 import router from "@/router";
 
 const userStore = useUserStore();
@@ -167,6 +168,7 @@ const menuItems = computed(() => {
         !route.meta.permissionId ||
         (userStore as any).hasPermission(route.meta.permissionId as string)
     )
+    .filter((route) => !route.meta.featureFlag || isFeatureEnabled(route.meta.featureFlag as string))
     .sort((a, b) => (a.meta!.menuIndex as number) - (b.meta!.menuIndex as number))
     .map((route) => ({
       title: route.meta!.title as string,

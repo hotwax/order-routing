@@ -1,5 +1,15 @@
 import { GroupRunProgress, JobStatusResponse, SimVariant } from "../types/simulation";
 
+/** Base URL for the brokering simulation / Sim-routing API. These endpoints live on a dedicated
+ *  instance (UAT: asb-sim-uat.hotwax.io), separate from the OMS/Maarg the rest of the app talks to.
+ *  This is the ONE place the host + component prefix are configured, so promoting UAT -> prod is a
+ *  config change, not a code change. The value INCLUDES the `/rest/s1/order-routing` prefix; per-call
+ *  paths are relative to it. Auth is unchanged — api() attaches the same credentials as other
+ *  order-routing admin calls. Env is injectable for headless testing (import.meta.env is the default). */
+export function simApiBaseUrl(env: Record<string, any> = import.meta.env): string {
+  return ((env && env.VITE_SIM_API_BASE_URL) || "https://asb-sim-uat.hotwax.io/rest/s1/order-routing").trim();
+}
+
 export interface JobOutcome {
   done: boolean;
   result?: { groupRun?: any; variation?: any };
@@ -40,8 +50,9 @@ export interface SubmitBatchArgs {
 export async function submitBatch({ routingGroupId, variants, sampleCap }: SubmitBatchArgs): Promise<string> {
   const { api, commonUtil } = await import("@common");
   const resp: any = await api({
-    url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
+    url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
     method: "POST",
+    baseURL: simApiBaseUrl(),
     data: { variants, ...(sampleCap != null ? { sampleCap } : {}) },
   });
   if (commonUtil.hasError(resp) || !resp.data?.jobId) {
@@ -67,8 +78,9 @@ export async function pollJob(
   let sinceSeq = 0;
   while (Date.now() < deadline) {
     const resp: any = await api({
-      url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
+      url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
       method: "GET",
+      baseURL: simApiBaseUrl(),
       params: { sinceSeq },
     });
     if (commonUtil.hasError(resp)) throw new Error(`Polling failed: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);

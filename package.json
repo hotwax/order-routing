@@ -1,6 +1,6 @@
 {
-  "name": "order-routing-rules",
-  "version": "1.10.0",
+  "name": "order-routing",
+  "version": "2.0.0",
   "private": true,
   "description": "Order Routing Rules + Available to Promise (Sourcing) — unified app",
   "scripts": {

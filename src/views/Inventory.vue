@@ -133,10 +133,13 @@ const allSelected = computed(() => products.value.every((product: any) => produc
 onIonViewDidEnter(async () => {
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  selectedFacility.value = productStoreFacilities.value?.[0]?.facilityId
+  selectedFacility.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value?.[0]?.facilityId
 })
 
-watch(selectedFacility, fetchProductFacility)
+watch(selectedFacility, (facilityId) => {
+  productStore().setSelectedInventoryFacilityId(facilityId)
+  fetchProductFacility()
+})
 
 function selectAllProducts(checked: boolean) {
   products.value.map((product: any) => product.isChecked = checked)
@@ -180,7 +183,6 @@ async function goToNextPage() {
 }
 
 function viewInventoryDetail(productId: string) {
-  console.log('productId', productId)
   router.push(`/inventory/${productId}`)
 }
 

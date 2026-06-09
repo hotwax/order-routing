@@ -182,7 +182,7 @@ const productSubtitle = computed(() =>
 );
 
 onIonViewDidEnter(async () => {
-  selectedFacilityId.value = productStoreFacilities.value[0]?.facilityId || '';
+  selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
   isLoading.value = true;
   await productInfoStore().fetchProducts([productId.value]);
   isLoading.value = false;
@@ -201,7 +201,6 @@ async function fetchInventoryConfig() {
     keyword: productId.value,
     facilityId: selectedFacilityId.value
   });
-  console.log('dkfd', JSON.parse(JSON.stringify(productFacility.value?.[0]?.inventoryConfig)))
   inventoryConfig.value = productFacility.value?.[0] ?? null;
 }
 

@@ -12,7 +12,8 @@ export const productStore = defineStore('productStore', {
       shippingMethods: {} as any,
       facilityGroups: {} as any,
       carriers: {} as any,
-      productStoreFacilities: [] as any // TODO: Storing productStore facilities separately to be used on inventory pages
+      productStoreFacilities: [] as any, // TODO: Storing productStore facilities separately to be used on inventory pages
+      selectedInventoryFacilityId: '' as string
     }
   },
   getters: {
@@ -236,6 +237,9 @@ export const productStore = defineStore('productStore', {
       this.shippingMethods = {};
       this.facilityGroups = {};
       this.carriers = {};
+    },
+    setSelectedInventoryFacilityId(facilityId: string) {
+      this.selectedInventoryFacilityId = facilityId;
     },
     async fetchProductStoreFacilities() {
       try {

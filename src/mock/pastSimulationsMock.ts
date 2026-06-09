@@ -14,7 +14,7 @@ const HEADERS = [
 ];
 
 export async function mockPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
-  let rows = HEADERS.filter((h) => h.productStoreId === f.productStoreId);
+  let rows = [...HEADERS];   // dev mock ignores productStoreId so fixtures show under any current store
   if (f.routingGroupId) rows = rows.filter((h) => h.routingGroupId === f.routingGroupId);
   if (f.statusId) rows = rows.filter((h) => h.statusId === f.statusId);
   if (f.runType) rows = rows.filter((h) => h.runType === f.runType);

@@ -59,6 +59,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import("@/views/Simulation.vue"),
         props: true
       },
+      {
+        path: "simulate/history/:simulationId",
+        name: "PastSimulationDetail",
+        component: () => import("@/views/PastSimulationDetail.vue"),
+        props: true
+      },
     ],
     beforeEnter: authGuard
   },

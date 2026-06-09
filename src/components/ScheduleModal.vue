@@ -49,7 +49,7 @@
 import { logger, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timerOutline } from "ionicons/icons";
-import { computed, defineProps, ref } from "vue";
+import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { commonUtil } from "@common";
 

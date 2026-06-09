@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, defineProps } from "vue";
+import { ref, onMounted, onUpdated } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
 import { logger } from "@common";
 import defaultImageUrl from "@/assets/images/defaultImage.png";

@@ -17,7 +17,7 @@
         <p>{{ group.facilityGroupId }}</p>
       </ion-label>
     </ion-list-header>
-    <ion-searchbar v-model="queryString" @keyup.enter="fetchFacilities()" debounce="300" @ionInput="fetchFacilities()" />
+    <ion-searchbar v-model="queryString" @keyup.enter="fetchFacilities()" :debounce="300" @ionInput="fetchFacilities()" />
 
     <div class="empty-state" v-if="isLoading">
       <ion-item lines="none">
@@ -69,7 +69,7 @@ import {
 } from "@ionic/vue";
 import { closeOutline, saveOutline } from "ionicons/icons";
 import { api, commonUtil, emitter, logger, translate } from "@common";
-import { computed, defineProps, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 

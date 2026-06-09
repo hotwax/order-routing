@@ -36,7 +36,7 @@
 import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
-import { computed, defineProps } from "vue";
+import { computed } from "vue";
 import { warningOutline } from "ionicons/icons"
 import { productStore } from "@/store/productStore";
 

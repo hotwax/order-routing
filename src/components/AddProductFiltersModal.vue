@@ -96,7 +96,7 @@ onMounted(async() => {
   await productStore.fetchProductFilters({ facetToSelect: props.facetToSelect, searchfield: props.searchfield })
   facetOptions.value = productStore.getFacetOptions(props.searchfield);
   filteredOptions.value = JSON.parse(JSON.stringify(facetOptions.value))
-  selectedValues.value = JSON.parse(JSON.stringify(appliedFilters.value[props.type][props.searchfield]))
+  selectedValues.value = JSON.parse(JSON.stringify((appliedFilters.value as any)[props.type][props.searchfield]))
   isLoading.value = false;
 })
 
@@ -123,7 +123,7 @@ function updateSelectedValues(value: string) {
 
 function isAlreadyApplied(value: string) {
   const type = props.type === 'included' ? 'excluded' : 'included'
-  return appliedFilters.value[type][props.searchfield].includes(value)
+  return (appliedFilters.value as any)[type][props.searchfield].includes(value)
 }
 
 async function saveFilters() {

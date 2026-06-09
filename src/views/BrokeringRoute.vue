@@ -246,7 +246,7 @@ const props = defineProps({
   }
 })
 
-let routingsForReorder = ref([])
+let routingsForReorder = ref<any[]>([])
 let description = ref("")
 let isDescUpdating = ref(false)
 let hasUnsavedChanges = ref(false)

@@ -39,6 +39,9 @@ export const useUserStore = defineStore('user', {
     getPwaState(state) {
       return state.pwaState;
     },
+    getCurrentTimeZone(state): any {
+      return state.current?.timeZone
+    },
     hasPermission: (state: any) => (permissionId: string): boolean => {
       const permissions = state.permissions;
 
@@ -192,6 +195,9 @@ export const useUserStore = defineStore('user', {
         }
         commonUtil.showToast(translate("Time zone updated successfully"));
       }
+    },
+    async getAvailableTimeZones() {
+      return this.fetchAvailableTimeZones()
     },
     async fetchAvailableTimeZones() {
       if (this.timeZones.length) return;

@@ -12,7 +12,7 @@
       <ion-button
         v-if="sim.lastSimulationId"
         size="small" fill="outline"
-        @click="router.push(`/tabs/simulate/history/${sim.lastSimulationId}`)"
+        @click="router.push(`/simulate/history/${sim.lastSimulationId}`)"
       >
         {{ translate("View saved result") }}
       </ion-button>

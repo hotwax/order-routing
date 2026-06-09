@@ -53,7 +53,7 @@ function reload() {
   sim.loadList({ productStoreId: productStoreId.value, statusId: statusId.value || undefined, pageIndex: 0, pageSize: 25 });
 }
 function onFilter(_key: string, value: string) { statusId.value = value; reload(); }
-function open(id: string) { router.push(`/tabs/simulate/history/${id}`); }
+function open(id: string) { router.push(`/simulate/history/${id}`); }
 
 onMounted(reload);
 </script>

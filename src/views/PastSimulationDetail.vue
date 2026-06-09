@@ -3,7 +3,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-buttons slot="start"><ion-back-button default-href="/tabs/simulate" /></ion-buttons>
+        <ion-buttons slot="start"><ion-back-button default-href="/simulate" /></ion-buttons>
         <ion-title>{{ translate("Saved simulation") }}</ion-title>
       </ion-toolbar>
     </ion-header>

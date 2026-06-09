@@ -39,6 +39,9 @@ export const useUserStore = defineStore('user', {
     getPwaState(state) {
       return state.pwaState;
     },
+    getCurrentTimeZone(state): string | undefined {
+      return state.current?.timeZone
+    },
     hasPermission: (state: any) => (permissionId: string): boolean => {
       const permissions = state.permissions;
 

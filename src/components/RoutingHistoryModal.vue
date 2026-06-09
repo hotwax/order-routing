@@ -43,7 +43,7 @@ import { productStore } from "@/store/productStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { checkmarkDoneOutline, closeOutline, warningOutline } from "ionicons/icons";
-import { computed, defineProps } from "vue";
+import { computed } from "vue";
 import { commonUtil } from "@common";
 
 defineProps({

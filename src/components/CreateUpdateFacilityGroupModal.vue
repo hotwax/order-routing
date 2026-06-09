@@ -87,7 +87,7 @@ import {
 } from "@ionic/vue";
 import { checkmarkDone, closeOutline, saveOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
-import { computed, defineProps, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 
 const props = defineProps<{

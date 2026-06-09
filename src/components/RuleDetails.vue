@@ -135,7 +135,7 @@ import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
 import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"
-import { computed, defineProps, ref } from "vue"
+import { computed, ref } from "vue"
 
 const props = defineProps({
   group: {

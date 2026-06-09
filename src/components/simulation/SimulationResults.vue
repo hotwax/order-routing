@@ -9,6 +9,13 @@
     <template v-if="sim.results">
       <p v-if="sim.results.simulationRan === false" class="warn">{{ translate("The simulator did not run — no numbers to report.") }}</p>
       <p v-if="sim.results.partial" class="warn">{{ translate("Some variations did not complete — results are partial.") }}</p>
+      <ion-button
+        v-if="sim.lastSimulationId"
+        size="small" fill="outline"
+        @click="router.push(`/tabs/simulate/history/${sim.lastSimulationId}`)"
+      >
+        {{ translate("View saved result") }}
+      </ion-button>
 
       <!-- ①②③ headline -->
       <ion-card>
@@ -58,6 +65,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { translate } from "@common";
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon } from "@ionic/vue";
 import { arrowBackOutline } from "ionicons/icons";
@@ -73,6 +81,7 @@ import CompositeScorePanel from "./CompositeScorePanel.vue";
 import AdvancedDetails from "./AdvancedDetails.vue";
 
 const sim = simulationStore();
+const router = useRouter();
 
 const rows = computed(() => toRows(sim.results));
 const hasClassification = computed(() => rows.value.some((r) => r.outcomes?.classification?.available));

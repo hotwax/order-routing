@@ -31,6 +31,8 @@ export const simulationStore = defineStore("simulation", {
     // Which pane is shown. User-controlled so the editor and the (possibly still-running)
     // simulation can be switched between freely — the run continues in the background.
     view: "editor" as "editor" | "results",
+    // The persisted simulationId of the most recently completed run (backend R3), for deep-linking.
+    lastSimulationId: null as string | null,
   }),
   getters: {
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
@@ -70,6 +72,7 @@ export const simulationStore = defineStore("simulation", {
         this.variations = [];
         this.activeVariationId = "";
         this.results = null;
+        this.lastSimulationId = null;
         this.runStates = [];
         this.batchProgress = [];
       } catch (e: any) {
@@ -134,6 +137,8 @@ export const simulationStore = defineStore("simulation", {
             bp.events = mergeEvents(bp.events, progress.events ?? [], 50);
           },
         );
+        const sid = (result as any)?.simulationId ?? (result as any)?.variation?.simulationId ?? (result as any)?.groupRun?.simulationId;
+        if (sid && !this.lastSimulationId) this.lastSimulationId = String(sid);
         this.setVariationPhase(ids, "done");
         SimulationJobStore.removeJob(this.routingGroupId, jobId);
         return result;

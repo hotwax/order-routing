@@ -14,7 +14,7 @@ export async function requestBrokeringRunsListInquiry(
   manifest: PageCapabilityManifest,
   conversationHistory: DraftConversationMessage[] = []
 ): Promise<BrokeringRunsListInquiryResult> {
-  const mastraUrl = (import.meta.env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const mastraUrl = (import.meta.env.VITE_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
   // The order-routing/facility-changes endpoint lives on Moqui (Maarg), not OFBiz/OMS,
   // so the assistant tool needs the Maarg base URL.
   const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();

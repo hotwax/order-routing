@@ -289,7 +289,7 @@ export function createDraftTargetBindings(bindings: DraftTargetBinding[]): Draft
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
   const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
-  const mastraUrl = (env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const mastraUrl = (env.VITE_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
   const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();
   const authToken = cookieHelper().get("token");
   let response: Response;

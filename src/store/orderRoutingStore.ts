@@ -319,7 +319,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
           if (routing.rules?.length) {
             routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
               if (rule.inventoryFilters?.length) {
-                const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
+                const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC || ""
                 rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
                   if (filterSortDesc.includes(filter.fieldName)) {
                     filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")

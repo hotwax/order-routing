@@ -119,11 +119,11 @@ const isLoadingContext = ref(false);
 const cachedManifest = ref<PageCapabilityManifest | null>(null);
 const brokeringRunCount = ref(0);
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ENUMS as string || "{}");
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_FILTER_ENUMS as string || "{}");
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_SORT_ENUMS as string || "{}");
-const actionEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ACTION_ENUMS as string || "{}");
-const cronExpressions = JSON.parse(import.meta.env.VITE_VUE_APP_CRON_EXPRESSIONS as string || "{}");
+const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || "{}");
+const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || "{}");
+const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || "{}");
+const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || "{}");
+const cronExpressions = JSON.parse(import.meta.env.VITE_CRON_EXPRESSIONS as string || "{}");
 
 const canSend = computed(() => Boolean(prompt.value.trim()) && !isSending.value && !isLoadingContext.value);
 

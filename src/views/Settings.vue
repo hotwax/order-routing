@@ -166,7 +166,7 @@ import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper } from "@common";
-import { useAuth } from "@common";
+import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
 const userStore = useUserStore()
@@ -233,7 +233,7 @@ function unloadModel() {
 }
 
 function goToLaunchpad() {
-  window.location.href = `${import.meta.env.VITE_VUE_APP_LOGIN_URL}`
+  window.location.href = `${import.meta.env.VITE_LOGIN_URL}`
 }
 </script>
 

@@ -146,7 +146,7 @@ function selectSearchBarText(event: any) {
 }
 
 async function setUserTimeZone() {
-  return Object.assign(useUserStore(), { timeZone: timeZoneId.value }).setUserTimeZone({
+  return useUserStore().setUserTimeZone({
     "tzId": timeZoneId.value
   }).then(() => {
     closeModal()

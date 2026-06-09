@@ -43,6 +43,6 @@ const tab = ref<"new" | "past">("new");
 onMounted(async () => { await routingStore.fetchOrderRoutingGroups(); });
 
 function openGroup(routingGroupId: string) {
-  router.push(`/tabs/simulate/${routingGroupId}`);
+  router.push(`/simulate/${routingGroupId}`);
 }
 </script>

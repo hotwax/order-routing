@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUpdated, defineProps } from "vue";
+import { ref, onMounted, onUpdated } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
 import { logger } from "@common";
 import defaultImageUrl from "@/assets/images/defaultImage.png";
@@ -16,7 +16,7 @@ const props = defineProps({
   }
 });
 
-const resourceUrl = ref(import.meta.env.VITE_VUE_APP_RESOURCE_URL || "");
+const resourceUrl = ref(import.meta.env.VITE_RESOURCE_URL || "");
 const imageUrl = ref("");
 
 const checkIfImageExists = (src: string) => {

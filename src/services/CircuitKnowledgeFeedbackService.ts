@@ -99,7 +99,7 @@ const ENDPOINT_SUGGEST = "/knowledge-feedback/suggest-prompt";
 
 function resolveMastraUrl(): string {
   const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
-  const raw = env.VITE_VUE_APP_MASTRA_URL || "http://localhost:4111";
+  const raw = env.VITE_MASTRA_URL || "http://localhost:4111";
   return raw.replace(/\/$/, "");
 }
 

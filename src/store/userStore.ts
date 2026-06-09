@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia'
 import { Settings, DateTime } from "luxon"
-import { logger, api, commonUtil, translate } from '@common'
-import { useAuth } from '@common'
+import { logger, api, commonUtil, translate, cookieHelper } from '@common'
+import { useAuth } from '@common/composables/useAuth'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 import { productStore as useProduct } from './product'
 import { productStore } from './productStore'
+import { useAtpProductStore } from './atpProductStore'
+import { useRuleStore } from './rule'
+import { useChannelStore } from './channel'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -36,6 +39,9 @@ export const useUserStore = defineStore('user', {
     getPwaState(state) {
       return state.pwaState;
     },
+    getCurrentTimeZone(state): string | undefined {
+      return state.current?.timeZone
+    },
     hasPermission: (state: any) => (permissionId: string): boolean => {
       const permissions = state.permissions;
 
@@ -62,7 +68,7 @@ export const useUserStore = defineStore('user', {
       this.oms = oms
     },
     async fetchPermissions() {
-      const permissionId = import.meta.env.VITE_VUE_APP_PERMISSION_ID;
+      const permissionId = import.meta.env.VITE_PERMISSION_ID;
       const serverPermissions = [] as any;
 
       // TODO Make it configurable from the environment variables.
@@ -141,10 +147,21 @@ export const useUserStore = defineStore('user', {
     async postLogin() {
       try {
         await this.fetchUserProfile()
-        await this.setOms(commonUtil.getOmsURL())
+        await this.setOms(cookieHelper().get("oms"))
         await this.fetchPermissions()
         await productStore().fetchEComStores()
         await this.fetchAvailableTimeZones()
+        // ATP (sourcing rules) initialisation
+        try {
+          const atp = useAtpProductStore()
+          await atp.fetchUserProductStores()
+          const stores = atp.getProductStores
+          if (stores && stores.length) {
+            atp.setCurrentProductStore(stores[0])
+          }
+        } catch (atpErr) {
+          logger.error('ATP postLogin failed', atpErr)
+        }
       } catch(error: any) {
         return Promise.reject(new Error(error));
       }
@@ -155,6 +172,9 @@ export const useUserStore = defineStore('user', {
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
       productStore().clearProductStoreState()
+      useAtpProductStore().$reset()
+      useRuleStore().$reset()
+      useChannelStore().$reset()
 
       this.$reset();
     },

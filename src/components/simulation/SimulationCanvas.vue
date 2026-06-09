@@ -541,9 +541,9 @@ const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
 const initialRulesInformation = ref({}) as any;
-const actionEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ACTION_ENUMS as string || '{}');
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_FILTER_ENUMS as string || '{}');
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_SORT_ENUMS as string || '{}');
+const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || '{}');
+const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || '{}');
+const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || '{}');
 
 const groupName = ref("");
 const isReordering = ref(false);
@@ -551,7 +551,7 @@ const isReordering = ref(false);
 // but the draft-assist binding layer and several edit handlers reference it.
 const hasUnsavedChanges = ref(false);
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ENUMS as string || '{}');
+const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || '{}');
 
 const facilities = computed(() => product.getVirtualFacilities);
 const enums = computed(() => utilStore.getEnums);

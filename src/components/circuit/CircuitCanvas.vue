@@ -638,9 +638,9 @@ const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
 const initialRulesInformation = ref({}) as any;
-const actionEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ACTION_ENUMS as string || '{}');
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_FILTER_ENUMS as string || '{}');
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_SORT_ENUMS as string || '{}');
+const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || '{}');
+const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || '{}');
+const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || '{}');
 
 const groupName = ref("");
 const isGroupNameUpdating = ref(false);
@@ -649,7 +649,7 @@ const isReordering = ref(false);
 const job = ref({}) as any;
 const groupHistory = ref([]) as any;
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_VUE_APP_RULE_ENUMS as string || '{}');
+const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || '{}');
 
 const facilities = computed(() => product.getVirtualFacilities);
 const enums = computed(() => utilStore.getEnums);
@@ -1841,7 +1841,7 @@ function isLocalRuleId(ruleId: string) {
 
 function buildRulesInformationDiff() {
   const currentRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
-  const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC as string || ""
+  const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC as string || ""
 
   return Object.keys(currentRulesInformation).map((ruleId: string) => {
     const previousRuleInformation = initialRulesInformation.value[ruleId] || {}

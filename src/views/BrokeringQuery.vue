@@ -25,7 +25,7 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             {{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}
           </ion-button>
-          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+          <ion-button class="ion-margin-start" color="medium" fill="outline" size="small" @click="enableRoutingTest()" :disabled="routingStatus !== 'ROUTING_ACTIVE' || hasUnsavedChanges || testRoutingInfo.isRuleTestEnabled" v-if="!useUserStore().hasPermission('ROUTING_TEST_DRIVE_VIEW')">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate(testRoutingInfo.isRoutingTestEnabled ? "Exit test mode" : "Test") }}
           </ion-button>
@@ -69,7 +69,7 @@
                   <ion-icon v-show="isFilterUnmatched(ruleEnums['PROD_CATEGORY']?.code)" color="danger" :icon="closeCircleOutline" slot="start"/>
                   {{ translate("Product Category") }}
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
@@ -79,7 +79,7 @@
                   <ion-label>{{ translate("Product Category") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                 </div>
-                <ion-select-option v-for="(category, productCategoryId) in (catalogCategories as Record<string, any>)" :key="productCategoryId as string" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
@@ -212,8 +212,8 @@
               </ion-button>
             </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
-              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in (orderRoutingSortOptions as Record<string, any>)" :key="code as string">
-                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
+              <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
+                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -300,7 +300,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(String(facilityGroupId), 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -309,7 +309,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId as string, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(String(facilityGroupId), 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -371,8 +371,8 @@
                       </ion-button>
                     </p>
                     <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-                      <ion-item v-for="(sort, code) in (inventoryRuleSortOptions as Record<string, any>)" :key="code as string">
-                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
+                      <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
+                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
                         <ion-reorder />
                       </ion-item>
                     </ion-reorder-group>
@@ -495,18 +495,18 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
-const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
 
 const currentRoutingGroup: any = computed(() => orderRoutingStore().getCurrentRoutingGroup)
 const currentRouting = computed(() => orderRoutingStore().getCurrentOrderRouting)
 const routingRules = computed(() => orderRoutingStore().getRulesInformation)
 const facilities = computed(() => productStore().getVirtualFacilities)
-const catalogCategories = computed(() => useUtilStore().getCatalogCategories)
+const catalogCategories = computed((): any => useUtilStore().getCatalogCategories)
 const enums = computed(() => useUtilStore().getEnums)
 const shippingMethods = computed(() => productStore().getShippingMethods)
-const facilityGroups = computed(() => productStore().getFacilityGroups)
+const facilityGroups = computed((): any => productStore().getFacilityGroups)
 const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
 const currentRuleId = computed(() => orderRoutingStore().getCurrentRuleId)
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
@@ -526,11 +526,7 @@ let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any
 let rulesInformation = ref({}) as any
-const hasUnsavedChanges = computed({
-  get: () => orderRoutingStore().hasUnsavedChanges,
-  set: (value: boolean) => orderRoutingStore().setHasUnsavedChanges(value)
-})
-const brokeringFacilityGroups = computed(() => productStore().getBrokeringFacilityGroups)
+let hasUnsavedChanges = ref(false)
 let isRuleNameUpdating = ref(false)
 let routingStatus = ref("")
 let routeName = ref("")
@@ -544,22 +540,14 @@ const measurementRef = ref()
 const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
-  // emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
+  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
+  orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId)
 
-  // Facility groups and shipping methods are product-store scoped, so load the
-  // route group before fetching those reference lists.
+  // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.
   if(currentRoutingGroup.value.routingGroupId !== router.currentRoute.value.params.routingGroupId) {
-    await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId as string)
+    await orderRoutingStore().fetchCurrentRoutingGroup( router.currentRoute.value.params.routingGroupId)
   }
-
-  await Promise.all([
-    orderRoutingStore().fetchCurrentOrderRouting(props.orderRoutingId),
-    useUtilStore().fetchCategories(),
-    productStore().fetchRoutingReferenceData({
-      productStoreId: currentRoutingGroup.value.productStoreId
-    })
-  ])
-  orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId as string)
 
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
@@ -575,7 +563,7 @@ onIonViewWillEnter(async () => {
   routeName.value = currentRouting.value["routingName"] ? currentRouting.value["routingName"] : ""
 
   routingStatus.value = currentRouting.value.statusId
-  // emitter.emit("dismissLoader")
+  emitter.emit("dismissLoader")
 })
 
 // TODO: Need to revisit this, route entries are empty on router hooks
@@ -587,7 +575,9 @@ onBeforeRouteLeave(async (to) => {
   }
 
   if(!hasUnsavedChanges.value) {
-
+    // clearning the selected ruleId whenever user tries to leave the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
+    orderRoutingStore().updateRoutingRuleId( "")
+    orderRoutingStore().clearRules()
     await updateUserTestSession();
     return;
   }
@@ -616,7 +606,10 @@ onBeforeRouteLeave(async (to) => {
     return false;
   }
 
-  await orderRoutingStore().clearCurrentRoutingAndRule()
+  // clearning the selected ruleId whenever user leaves the page, we need to clear this id, as if user opens some other routing then the id will not be found which will result in an empty state scenario
+  orderRoutingStore().updateRoutingRuleId( "")
+  orderRoutingStore().clearRules()
+
   await updateUserTestSession();
   return;
 })
@@ -709,6 +702,15 @@ function getRuleIndex() {
   return `${+currentRuleIndex + 1}/${total}`
 }
 
+function getFacilityGroupsForBrokering(): any {
+  return Object.values(facilityGroups.value)?.reduce((facilityGroups: any, group: any) => {
+    if(group.facilityGroupTypeId === "BROKERING_GROUP") {
+      facilityGroups[group.facilityGroupId] = group
+    }
+    return facilityGroups
+  }, {})
+}
+
 function initializeOrderRoutingOptions() {
   const orderRouteFilters = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["orderFilters"]))).reduce((filters: any, filter: any) => {
     if(filters[filter.conditionTypeEnumId]) {
@@ -726,30 +728,9 @@ function initializeOrderRoutingOptions() {
 }
 
 async function initializeInventoryRule(rule: any) {
-  let inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
+  const inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
 
-  if (Array.isArray(inventoryRuleFilters)) {
-    inventoryRuleFilters = inventoryRuleFilters.reduce((filters: any, filter: any) => {
-      if (filters[filter.conditionTypeEnumId]) {
-        filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-      } else {
-        filters[filter.conditionTypeEnumId] = {
-          [filter.fieldName]: filter
-        }
-      }
-      return filters
-    }, {})
-  }
-
-  let inventoryRuleActionsData = rule["actions"] || {}
-  if (Array.isArray(inventoryRuleActionsData)) {
-    inventoryRuleActionsData = inventoryRuleActionsData.reduce((actions: any, action: any) => {
-      actions[action.actionTypeEnumId] = action
-      return actions
-    }, {})
-  }
-
-  inventoryRuleActions.value = inventoryRuleActionsData
+  inventoryRuleActions.value = rule["actions"] || {}
   inventoryRuleFilterOptions.value = inventoryRuleFilters["ENTCT_FILTER"] ? inventoryRuleFilters["ENTCT_FILTER"] : {}
   inventoryRuleSortOptions.value = inventoryRuleFilters["ENTCT_SORT_BY"] ? inventoryRuleFilters["ENTCT_SORT_BY"] : {}
 
@@ -769,7 +750,7 @@ async function editRouteName() {
 async function updateRouteName() {
   if(routeName.value.trim() && routeName.value.trim() !== currentRouting.value.routingName.trim()) {
 
-    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
     const payload = {
       orderRoutingId: props.orderRoutingId,
@@ -784,12 +765,12 @@ async function updateRouteName() {
     }
 
     if(orderRoutingId) {
-      commonUtil.showToast(translate("Route Name updated"))
+      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, routingName: routeName.value })
     } else {
       routeName.value = currentRouting.value.routingName.trim()
     }
 
-    // emitter.emit("dismissLoader")
+    emitter.emit("dismissLoader")
   }
 
   isRouteNameUpdating.value = false
@@ -1266,10 +1247,9 @@ async function updateRuleName(routingRuleId: string) {
   })
 
   if(isUpdateRequired) {
-    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
-    let ruleId = ''
-    ruleId = await orderRoutingStore().updateRule( {
+    let ruleId = await orderRoutingStore().updateRule( {
       routingRuleId,
       orderRoutingId: props.orderRoutingId,
       ruleName: selectedRoutingRule.value.ruleName.trim()
@@ -1281,14 +1261,14 @@ async function updateRuleName(routingRuleId: string) {
       commonUtil.showToast(translate("Failed to update rule information"))
     }
 
-    // emitter.emit("dismissLoader")
+    emitter.emit("dismissLoader")
   }
 
   isRuleNameUpdating.value = false
 }
 
 async function cloneRule() {
-  // emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
   try {
     const resp = await orderRoutingStore().cloneRule({
@@ -1297,7 +1277,7 @@ async function cloneRule() {
       newRuleName: `${selectedRoutingRule.value.ruleName} copy`
     })
 
-    if(commonUtil.hasError(resp) || !resp.data.routingRuleId) {
+    if(commonUtil.hasError(resp) || !resp.data.newRoutingRuleId) {
       throw resp.data
     }
 
@@ -1307,7 +1287,7 @@ async function cloneRule() {
     commonUtil.showToast(translate("Failed to clone rule"))
   }
 
-  // emitter.emit("dismissLoader")
+  emitter.emit("dismissLoader")
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -1509,162 +1489,158 @@ function doReorder(event: CustomEvent) {
 
 async function save() {
   emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
-  try {
-    const orderRouting = {
-      orderRoutingId: props.orderRoutingId,
-      routingGroupId: currentRouting.value.routingGroupId
-    } as any
+  const orderRouting = {
+    orderRoutingId: props.orderRoutingId,
+    routingGroupId: currentRouting.value.routingGroupId
+  } as any
 
-    // Check if the status of currentRouting is changed, if yes then update the status for routing
-    if(currentRouting.value.statusId !== routingStatus.value) {
-      orderRouting["statusId"] = routingStatus.value
+  // Check if the status of currentRouting is changed, if yes then update the status for routing
+  if(currentRouting.value.statusId !== routingStatus.value) {
+    orderRouting["statusId"] = routingStatus.value
+  }
+
+  // Find diff for inventory rules
+  if(currentRouting.value["rules"]) {
+    let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
+    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
+  
+    if(diffSeq.length) {
+      orderRouting["rules"] = diffSeq
     }
+  }
+  // Inventory rules diff calculated
 
-    // Find diff for inventory rules
-    if(currentRouting.value["rules"]) {
-      let diffSeq = findRulesDiff(currentRouting.value["rules"], inventoryRules.value)
-      diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
-    
-      if(diffSeq.length) {
-        orderRouting["rules"] = diffSeq
+  // Find order filters diff
+  const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
+    if(filters[filter.conditionTypeEnumId]) {
+      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+    } else {
+      filters[filter.conditionTypeEnumId] = {
+        [filter.fieldName]: filter
       }
     }
-    // Inventory rules diff calculated
+    return filters
+  }, {}) : {}
 
-    // Find order filters diff
-    const initialOrderFilters = currentRouting.value["orderFilters"]?.length ? currentRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-      if(filters[filter.conditionTypeEnumId]) {
-        filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-      } else {
-        filters[filter.conditionTypeEnumId] = {
-          [filter.fieldName]: filter
-        }
+  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
+  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
+
+  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    if(key.includes("_excluded")) {
+      value["fieldName"] = value["fieldName"].split("_")[0]
+    }
+  })
+
+  const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
+  const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
+  // Diff found for removing and updating filters
+
+  if(filtersToRemove?.length) {
+    await orderRoutingStore().deleteRoutingFilters( { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
+
+    // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
+    // if(isSuccess) {
+    //   await useOrderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+    // }
+  }
+
+  if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
+    orderRouting["orderFilters"] = filtersToUpdate
+    const orderRoutingId = await orderRoutingStore().updateRouting( orderRouting)
+
+    if(orderRoutingId) {
+      await orderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
+    }
+  }
+
+  const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
+
+  // Whenever we will be having a feature to delete a rule then this logic needs updation
+  const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
+    const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
+    const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
+    const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
+
+    const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC
+    Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
+      if(filterSortDesc.includes(option.fieldName)) {
+        option.fieldName += " desc"
       }
-      return filters
-    }, {}) : {}
+    })
 
-    const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
-    const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
+    const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
+    const updatedRuleFilterOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
+    const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
+
+    const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
+    const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
+    const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
 
     // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-    Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
+    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
       if(key.includes("_excluded")) {
         value["fieldName"] = value["fieldName"].split("_")[0]
       }
     })
 
-    Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
+    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
       if(key.includes("_excluded")) {
         value["fieldName"] = value["fieldName"].split("_")[0]
       }
     })
 
-    const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
-    const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
-    // Diff found for removing and updating filters
+    return {
+      routingRuleId: ruleId,
+      orderRoutingId: props.orderRoutingId,
+      filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
+      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
+      actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
+      actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
+    }
+  })
 
-    if(filtersToRemove?.length) {
-      await orderRoutingStore().deleteRoutingFilters( { filters: filtersToRemove, orderRoutingId: props.orderRoutingId })
-
-      // TODO: check when to update the filters in state, currently not updating and fetching the records again, as when creating new filter we get conditionSeqId from response, but we can't add it in the state
-      // if(isSuccess) {
-      //   await useOrderRoutingStore().setCurrentOrderRouting( { ...currentRouting.value, orderFilters: Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value }) })
-      // }
+  for(const key in rulesDiff) {
+    const rule = rulesDiff[key]
+    
+    if(rule.filtersToRemove?.length) {
+      await orderRoutingStore().deleteRuleConditions( { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
     }
 
-    if(filtersToUpdate?.length || orderRouting["rules"]?.length || orderRouting.statusId) {
-      orderRouting["orderFilters"] = filtersToUpdate
-      await orderRoutingStore().updateRouting( orderRouting)
+    if(rule.actionsToRemove?.length) {
+      await orderRoutingStore().deleteRuleActions( { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
     }
 
-    const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
-
-    // Whenever we will be having a feature to delete a rule then this logic needs updation
-    const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
-      const previousRuleSortOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-      const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
-      const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
-
-      const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
-      Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
-        if(filterSortDesc.includes(option.fieldName)) {
-          option.fieldName += " desc"
-        }
+    if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
+      await orderRoutingStore().updateRule( {
+        routingRuleId: rule.routingRuleId,
+        orderRoutingId: rule.orderRoutingId,
+        inventoryFilters: rule.filtersToUpdate,
+        actions: rule.actionsToUpdate
       })
-
-      const previousRuleFilterOptions = initialInventoryRulesInformation[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? initialInventoryRulesInformation[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-      const updatedRuleFilterOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_FILTER"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_FILTER"] : {}
-      const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-      const previousRuleActionOptions = initialInventoryRulesInformation[ruleId]["actions"] ? initialInventoryRulesInformation[ruleId]["actions"] : {}
-      const updatedRuleActionOptions = rulesInformation.value[ruleId]["actions"] ? rulesInformation.value[ruleId]["actions"] : {}
-      const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
-
-      // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
-      Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-        if(key.includes("_excluded")) {
-          value["fieldName"] = value["fieldName"].split("_")[0]
-        }
-      })
-
-      Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-        if(key.includes("_excluded")) {
-          value["fieldName"] = value["fieldName"].split("_")[0]
-        }
-      })
-
-      return {
-        routingRuleId: ruleId,
-        orderRoutingId: props.orderRoutingId,
-        filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
-        filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
-        actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
-        actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
-      }
-    })
-
-    for(const key in rulesDiff) {
-      const rule = rulesDiff[key]
-      
-      if(rule.filtersToRemove?.length) {
-        await orderRoutingStore().deleteRuleConditions( { routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
-      }
-
-      if(rule.actionsToRemove?.length) {
-        await orderRoutingStore().deleteRuleActions( { routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
-      }
-
-      if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
-        await orderRoutingStore().updateRule( {
-          routingRuleId: rule.routingRuleId,
-          orderRoutingId: rule.orderRoutingId,
-          inventoryFilters: rule.filtersToUpdate,
-          actions: rule.actionsToUpdate
-        })
-      }
     }
-
-    await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
-    if(currentRouting.value["orderFilters"]?.length) {
-      initializeOrderRoutingOptions()
-    }
-
-    // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
-    if(currentRouting.value["rules"]?.length) {
-      inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-      // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
-      // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
-      await fetchRuleInformation(currentRuleId.value, true);
-    }
-
-    await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value);
-
-    hasUnsavedChanges.value = false
-    router.push("/tabs/brokering");
-  } catch (err) {
-    logger.error(err)
-    commonUtil.showToast(translate("Failed to update inventory rules and filters"))
   }
+
+  await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
+  if(currentRouting.value["orderFilters"]?.length) {
+    initializeOrderRoutingOptions()
+  }
+
+  // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
+  if(currentRouting.value["rules"]?.length) {
+    inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
+    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
+    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
+    await fetchRuleInformation(currentRuleId.value, true);
+  }
+
+  hasUnsavedChanges.value = false
   emitter.emit("dismissLoader")
 }
 
@@ -1766,6 +1742,28 @@ async function updateUserTestSession() {
 </script>
 
 <style scoped>
+ion-content > main, #inventory-rules {
+  display: grid;
+  grid-template-columns: minmax(375px, 25%) 1fr;
+  height: 100%;
+  container-type: inline-size;
+}
+
+/* The right-hand column of #inventory-rules holds the rule-info / filters / actions cards.
+   Make each direct child its own inline-size container so the cards collapse independently
+   when the column gets narrow (e.g. side menu open on a laptop). */
+#inventory-rules > :not(#inventory-sequence) {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.rule-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--spacer-xs);
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1776,17 +1774,40 @@ async function updateUserTestSession() {
   max-width: 50%;
 }
 
-.rule-info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: start;
-  gap: var(--spacer-xs)
+/* Collapse the two-column card grids to a single column when their container is narrow.
+   600px chosen so two ~280px cards plus gap can comfortably sit side-by-side above it. */
+@container (max-width: 600px) {
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
 }
 
-ion-content > main, #inventory-rules {
-  display: grid;
-  grid-template-columns: minmax(375px, 25%) 1fr;
-  height: 100%;
+/* Viewport fallback for browsers without container query support, and for the parent
+   #inventory-rules grid itself (which can't size against its own container). */
+@media (max-width: 991px) {
+  ion-content > main,
+  #inventory-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
+
+  .menu {
+    border-right: none;
+    border-bottom: 1px solid var(--ion-color-medium);
+  }
 }
 
 .menu {

@@ -197,7 +197,8 @@ export const useUserStore = defineStore('user', {
       }
     },
     async getAvailableTimeZones() {
-      return this.fetchAvailableTimeZones()
+      await this.fetchAvailableTimeZones()
+      return this.timeZones
     },
     async fetchAvailableTimeZones() {
       if (this.timeZones.length) return;

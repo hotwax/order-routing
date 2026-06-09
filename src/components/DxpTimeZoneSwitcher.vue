@@ -125,7 +125,9 @@ const userStore = useUserStore();
 
 const userProfile: any = computed(() => userStore.getUserProfile)
 const timeZones = computed(() => userStore.getTimeZones)
-const currentTimeZoneId = computed(() => userStore.getCurrentTimeZone)
+// getCurrentTimeZone is string | undefined; fall back to "" so getCurrentTime (which
+// requires a string) keeps its prior behaviour — setZone("") resolves to the default zone.
+const currentTimeZoneId = computed(() => userStore.getCurrentTimeZone ?? '')
 
 const isLoading = ref(true);
 const timeZoneModal = ref();

@@ -59,7 +59,7 @@ async function updateOrderLimitType(orderLimitType: string) {
 async function showOrderLimitAlert(header: string, message: string, showInput: boolean) {
   const alert = await alertController.create({
     header: translate(header),
-    message: translate(message, {space: '</br></br>'}),
+    message: translate(message, {space: '<br/><br/>'}),
     inputs: showInput ? [{
       name: "setLimit",
       placeholder: translate("Order fulfillment capacity"),

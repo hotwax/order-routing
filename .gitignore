@@ -28,6 +28,7 @@ npm-debug.log*
 .mastra-debug/
 /coverage
 /dist
+/dev-dist
 /node_modules
 /platforms
 /plugins

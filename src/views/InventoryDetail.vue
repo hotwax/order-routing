@@ -32,13 +32,15 @@
         </section>
 
         <div class="config-column">
-        <section class="panel config-panel">
-          <ion-item>
-            <ion-label>{{ translate("Configuration") }}</ion-label>
-            <ion-button slot="end" fill="clear" @click="openConfigEditModal">
+        <ion-card>
+          <div class="card-header">
+            <ion-card-header>
+              <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
+            </ion-card-header>
+            <ion-button fill="clear" @click="openConfigEditModal">
               {{ translate("Edit") }}
             </ion-button>
-          </ion-item>
+          </div>
           <ion-item>
             <ion-label>{{ translate("Allow Brokering") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
@@ -55,15 +57,17 @@
             <ion-label>{{ translate("Days to Ship") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
           </ion-item>
-        </section>
+        </ion-card>
 
-        <section class="panel config-panel">
-          <ion-item>
-            <ion-label>{{ translate("Inventory") }}</ion-label>
+        <ion-card>
+          <div class="card-header">
+            <ion-card-header>
+              <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
+            </ion-card-header>
             <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
               {{ translate("Edit") }}
             </ion-button>
-          </ion-item>
+          </div>
           <ion-item>
             <ion-label>{{ translate("QOH") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.lastInventoryCount ?? "-" }}</ion-label>
@@ -72,7 +76,7 @@
             <ion-label>{{ translate("ATP") }}</ion-label>
             <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.computedLastInventoryCount ?? "-" }}</ion-label>
           </ion-item>
-        </section>
+        </ion-card>
         </div>
       </div>
       <section class="ion-margin panel logs-panel">
@@ -151,11 +155,13 @@ import {
   IonBackButton,
   IonButton,
   IonButtons,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
   IonContent,
   IonHeader,
   IonItem,
   IonLabel,
-  IonList,
   IonPage,
   IonSelect,
   IonSelectOption,
@@ -283,12 +289,6 @@ ion-content {
   gap: var(--spacer-base, 16px);
 }
 
-@media (max-width: 768px) {
-  .detail-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 .detail-grid {
   max-width: 1280px;
   padding: var(--spacer-base, 16px);
@@ -299,11 +299,8 @@ ion-content {
 }
 
 .panel {
-  width: 100%;
   border: 1px solid var(--ion-color-step-150, #d7d8da);
   border-radius: 8px;
-  background: var(--ion-item-background, var(--ion-background-color));
-  overflow: hidden;
 }
 
 .product-image {
@@ -384,11 +381,22 @@ ion-badge {
   border-bottom: 1px solid var(--ion-color-medium);
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 991px) {
   .list-item {
     --col-calc: var(--columns-desktop);
     padding-block: var(--spacer-sm);
-    padding-inline-end: var(--spacer-sm);
+    padding-inline: var(--spacer-sm);
   }
 }
 

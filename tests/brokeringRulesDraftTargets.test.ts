@@ -1,10 +1,19 @@
 import assert from "assert";
+import { it, vi } from "vitest";
+// @common's barrel eagerly imports .vue components, which node can't load. The src under test
+// reaches @common only via DraftAssistantService; mock its small surface so this runs under vitest.
+vi.mock("@common", () => ({
+  commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
+  cookieHelper: () => ({ get: () => "" }),
+}));
 import { applyDraftOperations } from "../src/services/DraftAssistantService";
 import type { DraftOperation } from "../src/services/DraftAssistantService";
 import {
   buildBrokeringRulesBindings,
   buildBrokeringRulesManifest
 } from "../src/draftTargets/BrokeringRulesDraftTargets";
+
+it("brokering rules draft targets", async () => {
 
 const ruleEnums = {
   QUEUE: { id: "OIP_QUEUE", code: "facilityId" },
@@ -626,3 +635,5 @@ const queueFacilities = {
 }
 
 console.log("Brokering rules draft target tests passed");
+
+});

@@ -10,6 +10,10 @@ vi.mock("@common", () => ({
   commonUtil: { formatCurrency: (a: number, c: string) => `${c === "USD" ? "$" : ""}${Number(a).toFixed(2)}` },
 }));
 
+// SimulationResults calls useRouter() for the "View saved result" deep-link; provide a stub so the
+// component mounts without a real router (the link only renders when lastSimulationId is set).
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: () => {} }) }));
+
 // Stub child panels + Ionic so the container test stays focused on composition.
 const childStubs = {
   SimulationProgress: { template: "<div class='progress-stub' />" },

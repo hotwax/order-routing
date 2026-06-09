@@ -1,4 +1,12 @@
 import assert from "assert";
+import { it, vi } from "vitest";
+// @common's barrel eagerly imports .vue components (Login.vue, ImageModal.vue via imagePreview),
+// which node can't load. Mock the (tiny) surface DraftAssistantService actually uses so this runs
+// under vitest. fetch is stubbed inline per-call by the tests below.
+vi.mock("@common", () => ({
+  commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
+  cookieHelper: () => ({ get: () => "" }),
+}));
 import {
   applyDraftProposal,
   convertBrokeringRouteDraftToOperations,
@@ -16,6 +24,8 @@ import type {
   DraftProposal,
   PageCapabilityManifest
 } from "../src/services/DraftAssistantService";
+
+it("draft assistant service validation", async () => {
 
 const manifest: PageCapabilityManifest = {
   pageId: "test.page",
@@ -993,3 +1003,5 @@ function validate(operations: DraftOperation[]) {
 }
 
 console.log("Draft assistant service validation tests passed");
+
+});

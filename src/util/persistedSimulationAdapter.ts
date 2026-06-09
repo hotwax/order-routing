@@ -15,7 +15,7 @@ function counts(v: any): { brokeredItemCount: number; attemptedItemCount: number
     brokeredItemCount: num(v?.brokeredItemCount),
     attemptedItemCount: num(v?.attemptedItemCount),
     queuedItemCount: num(v?.queuedItemCount),
-    outcomes: v?.outcomes ?? null,
+    outcomes: null,   // Phase 1: persisted runs carry no outcomes; rich panels degrade until R2 adds it
   };
 }
 

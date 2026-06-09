@@ -72,4 +72,11 @@ import { persistedSimulationAdapter } from "../src/util/persistedSimulationAdapt
   assert.deepStrictEqual(empty.variants, [], "unknown id → no variants");
 }
 
+// Phase 1: any incoming `outcomes` is intentionally dropped (rich panels degrade until backend adds it to R2).
+{
+  const raw = { simulation: { runType: "SINGLE", statusId: "COMPLETE", partial: "N", simulationRan: "Y" },
+    variants: [{ variantSeqId: 0, isBaseline: "Y", failed: "N", brokeredItemCount: 1, attemptedItemCount: 1, queuedItemCount: 0, outcomes: { leak: true } }] };
+  assert.strictEqual(persistedSimulationAdapter(raw).baseline.outcomes, null, "outcomes is always null in Phase 1");
+}
+
 console.log("persistedSimulationAdapter tests passed");

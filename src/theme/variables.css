@@ -306,6 +306,13 @@ ion-input.name {
   align-items: center !important;
 }
 
+@media (min-width: 700px) {
+  main {
+    max-width:375px;
+    margin: auto
+  }
+}
+
 @media (min-width: 991px) {
   .find {
     grid: "search  main" min-content

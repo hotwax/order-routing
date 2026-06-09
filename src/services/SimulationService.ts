@@ -99,3 +99,62 @@ export async function pollJob(
   }
   throw new Error("Simulation timed out. Please re-run this batch.");
 }
+
+// ---- Past simulations (read-only: backend request R1/R2) -------------------------------------
+
+export interface PastSimulationsFilters {
+  productStoreId: string;
+  routingGroupId?: string;
+  statusId?: string;        // RUNNING | COMPLETE | FAILED
+  runType?: string;         // SINGLE | VARIATION
+  fromDate?: string;
+  thruDate?: string;
+  pageIndex: number;
+  pageSize: number;
+}
+
+/** Pure: build the GET url + params for the list endpoint (R1). Newest-first. */
+export function pastSimulationsQuery(f: PastSimulationsFilters): { url: string; params: Record<string, any> } {
+  const params: Record<string, any> = { productStoreId: f.productStoreId };
+  if (f.routingGroupId) params.routingGroupId = f.routingGroupId;
+  if (f.statusId) params.statusId = f.statusId;
+  if (f.runType) params.runType = f.runType;
+  if (f.fromDate) params.fromDate = f.fromDate;
+  if (f.thruDate) params.thruDate = f.thruDate;
+  params.orderByField = "-createdDate";
+  params.pageIndex = f.pageIndex;
+  params.pageSize = f.pageSize;
+  return { url: "brokeringSimulations", params };
+}
+
+/** Pure: true when the query carries any filter beyond productStoreId+paging (so the cache is bypassed). */
+export function isFilteredQuery(f: PastSimulationsFilters): boolean {
+  return Boolean(f.routingGroupId || f.statusId || f.runType || f.fromDate || f.thruDate);
+}
+
+// Flip to true (or wire VITE_SIM_USE_MOCK) until backend R1/R2 are live in your environment.
+function useMock(env: Record<string, any> = import.meta.env): boolean {
+  return (env && String(env.VITE_SIM_USE_MOCK)) === "true";
+}
+
+/** List persisted simulations (R1). Returns { headers, total }. */
+export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
+  if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
+  const { api, commonUtil } = await import("@common");
+  const { url, params } = pastSimulationsQuery(f);
+  const resp: any = await api({ url, method: "GET", baseURL: simApiBaseUrl(), params });
+  if (commonUtil.hasError(resp)) throw new Error(`Failed to load past simulations: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
+  // Confirmed contract: { simulationList: [...headers], totalCount }.
+  const headers = resp.data?.simulationList ?? (Array.isArray(resp.data) ? resp.data : []);
+  const total = Number(resp.data?.totalCount ?? headers.length);
+  return { headers, total };
+}
+
+/** Fetch one persisted simulation with its variants (R2). Returns the raw response for the adapter. */
+export async function fetchPastSimulation(simulationId: string): Promise<any> {
+  if (useMock()) { const { mockPastSimulation } = await import("../mock/pastSimulationsMock"); return mockPastSimulation(simulationId); }
+  const { api, commonUtil } = await import("@common");
+  const resp: any = await api({ url: `brokeringSimulations/${simulationId}`, method: "GET", baseURL: simApiBaseUrl() });
+  if (commonUtil.hasError(resp)) throw new Error(`Failed to load simulation ${simulationId}: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
+  return resp.data;
+}

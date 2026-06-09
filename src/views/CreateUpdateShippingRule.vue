@@ -1,0 +1,362 @@
+<template>
+  <ion-page>
+    <ion-header :translucent="true">
+      <ion-toolbar>
+        <ion-back-button slot="start" default-href="/shipping" />
+        <ion-title>{{ ruleId ? translate("Edit shipping rule") : translate("New shipping rule") }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    
+    <ion-content>
+      <section>
+        <div class="rule-config">
+          <ion-card>
+            <ion-card-header>
+              <ion-card-title>{{ "Rule Configuration" }}</ion-card-title>
+            </ion-card-header>
+
+            <div class="rule-inputs ion-padding">
+              <ion-item>
+                <ion-input v-model="formData.ruleName">
+                  <div slot="label">{{ translate("Name") }} <ion-text color="danger">*</ion-text></div>
+                </ion-input>
+              </ion-item>
+              <ion-item>
+                <ion-icon slot="start" :icon="storefrontOutline"/>
+                <ion-toggle v-model="formData.isBrokeringAllowed">{{ translate("Shipping") }}</ion-toggle>
+              </ion-item>
+            </div>
+          </ion-card>
+        </div>
+      </section>
+
+      <div class="section-header">
+        <h1 v-if="selectedSegment === 'RG_SHIPPING_FACILITY'">{{ translate("Facilities") }} <ion-text color="danger">*</ion-text></h1>
+        <h1 v-else-if="selectedSegment === 'RG_SHIPPING_CHANNEL'">{{ translate("Channels") }} <ion-text color="danger">*</ion-text></h1>
+      </div>
+
+      <section>
+        <ion-item lines="none">
+          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_SHIPPING_FACILITY" ? translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
+        </ion-item>
+      </section>
+
+      <template v-if="selectedSegment === 'RG_SHIPPING_FACILITY'">
+        <section v-if="facilityGroups.length">
+          <ion-card :disabled="formData.areAllSelected">
+            <ion-item lines="none">
+              <ion-label>{{ translate("Included") }} <ion-text color="danger">*</ion-text></ion-label>
+              <ion-button fill="clear" @click="openProductFacilityGroupModal('included')">
+                {{ translate("Add") }}
+                <ion-icon :icon="addCircleOutline" slot="end" />
+              </ion-button>
+            </ion-item>
+            <ion-card-content>
+              <ion-chip outline v-for="group in formData.selectedFacilityGroups['included']" :key="group.facilityGroupId">
+                {{ group.facilityGroupName ? group.facilityGroupName : group.facilityGroupId }}
+                <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'included')" />
+              </ion-chip>
+            </ion-card-content>
+          </ion-card>
+  
+          <ion-card :disabled="formData.areAllSelected">
+            <ion-item lines="none"> 
+              <ion-label>{{ translate("Excluded") }}</ion-label>
+              <ion-button fill="clear" @click="openProductFacilityGroupModal('excluded')">
+                {{ translate("Add") }}
+                <ion-icon :icon="addCircleOutline" slot="end" />
+              </ion-button>
+            </ion-item>
+            <ion-card-content>
+              <ion-chip outline v-for="group in formData.selectedFacilityGroups['excluded']" :key="group.facilityGroupId">
+                {{ group.facilityGroupName ? group.facilityGroupName : group.facilityGroupId }}
+                <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'excluded')" />
+              </ion-chip>
+            </ion-card-content>
+          </ion-card>
+        </section>
+        <div v-else class="empty-state">
+          <ion-note>{{ translate("No facility group found for selected product store. Either change the product store or associate facility groups with the product store.") }}</ion-note>
+        </div>
+      </template>
+
+      <template v-else>
+        <section v-if="configFacilities.length">
+          <ion-card v-for="facility in configFacilities" :key="facility.facilityId" @click="toggleFacilitySelection(facility.facilityId)" button :disabled="formData.areAllSelected">
+            <ion-card-header>
+              <div>
+                <ion-card-title>{{ facility.facilityName ? facility.facilityName : facility.facilityId }}</ion-card-title>
+                <ion-card-subtitle>{{ facility.facilityId }}</ion-card-subtitle>
+              </div>
+              <ion-checkbox :checked="isFacilitySelected(facility.facilityId)" />
+            </ion-card-header>
+          </ion-card>
+        </section>
+        <div v-else class="empty-state">
+          <ion-note>{{ translate("No channel found for selected product store. Either change the product store or associate channels with the product store.") }}</ion-note>
+        </div>
+      </template>
+
+      <ProductFilters />
+    </ion-content>
+
+    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab-button :disabled="selectedSegment === 'RG_SHIPPING_FACILITY' ? !facilityGroups.length : !configFacilities.length" @click="currentRule.ruleId ? updateRule() : createRule()">
+        <ion-icon :icon="saveOutline" />
+      </ion-fab-button>
+    </ion-fab>
+  </ion-page>
+</template>
+
+<script setup lang="ts">
+import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
+import { computed, ref } from 'vue';
+import { addCircleOutline, closeCircle, saveOutline, storefrontOutline } from 'ionicons/icons'
+import { commonUtil, emitter, logger, translate } from "@common";
+import ProductFilters from '@/components/ProductFilters.vue';
+import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupModal.vue';
+import { useUserStore } from '@/store/userStore';
+import { useAtpProductStore } from '@/store/atpProductStore';
+import { useRuleStore } from '@/store/rule';
+import { ruleUtil } from '@/utils/ruleUtil';
+import router from '@/router';
+
+const userStore = useUserStore();
+const productStore = useAtpProductStore();
+const ruleStore = useRuleStore();
+
+const props = defineProps(["ruleId"]);
+const currentRule = ref({}) as any;
+
+const configFacilities = computed(() => productStore.getConfigFacilities)
+const appliedFilters = computed(() => productStore.getAppliedFilters)
+const rules = computed(() => ruleStore.getRules);
+const total = computed(() => ruleStore.getTotalRulesCount)
+const currentProductStore = computed(() => productStore.getCurrentProductStore)
+const selectedSegment = computed(() => productStore.getSelectedSegment)
+const facilityGroups = computed(() => productStore.getFacilityGroups)
+
+const formData = ref({
+  ruleName: '',
+  isBrokeringAllowed: false,
+  selectedFacilityGroups: {
+    included: [],
+    excluded: []
+  },
+  selectedConfigFacilites: [],
+  areAllSelected: false
+}) as any;
+
+onIonViewDidEnter(async () => {
+  emitter.on("productStoreOrConfigChanged", redirectLink);
+  emitter.emit("presentLoader");
+  await Promise.allSettled([productStore.fetchFacilityGroups(), productStore.fetchConfigFacilities()]);
+  if(props.ruleId) {
+    try {
+      const resp = await ruleStore.fetchRulesDirect({ ruleId: props.ruleId }) as any;
+
+      if(!commonUtil.hasError(resp)) {
+        currentRule.value = resp.data[0];
+
+        formData.value.ruleName = currentRule.value.ruleName;
+        formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+
+        if(selectedSegment.value === "RG_SHIPPING_FACILITY") {
+          const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")
+          if(includedGroups?.fieldValue === "ALL") formData.value.areAllSelected = true
+          else {
+            const includedGroupIds = includedGroups?.fieldValue ? includedGroups.fieldValue.split(",") : []
+            formData.value.selectedFacilityGroups.included = facilityGroups.value.filter((group: any) => includedGroupIds.includes(group.facilityGroupId));
+
+            const excludedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "not-in")
+            const excludedGroupIds = excludedGroups?.fieldValue ? excludedGroups.fieldValue.split(",") : []
+            formData.value.selectedFacilityGroups.excluded = facilityGroups.value.filter((group: any) => excludedGroupIds.includes(group.facilityGroupId));
+          }
+        } else if(selectedSegment.value === "RG_SHIPPING_CHANNEL") {
+          const facilityCondition = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
+          if(facilityCondition?.fieldValue === "ALL") formData.value.areAllSelected = true
+          else formData.value.selectedConfigFacilites = facilityCondition?.fieldValue ?  facilityCondition.fieldValue.split(",") : [];
+        }
+
+        const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters.value))
+        currentRule.value.ruleConditions.map((condition: any) => {
+          if(condition.conditionTypeEnumId === "ENTCT_ATP_FILTER") {
+            if(condition.operator === "contains") {
+              currentAppliedFilters["included"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
+            } else {
+              currentAppliedFilters["excluded"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
+            }
+          }
+        })
+        await productStore.updateAppliedFilters(currentAppliedFilters)
+      } else {
+        throw resp.data
+      }
+    } catch(err: any) {
+      logger.error(err);
+    }
+  }
+  emitter.emit("dismissLoader");
+})
+
+onIonViewWillLeave(() => {
+  formData.value = {
+    ruleName: '',
+    isBrokeringAllowed: false,
+    selectedFacilityGroups: {
+      included: [],
+      excluded: []
+    },
+    selectedConfigFacilites: []
+  }
+  productStore.clearAppliedFilters()
+  emitter.off("productStoreOrConfigChanged", redirectLink);
+})
+
+async function redirectLink() {
+  router.push("/shipping")
+}
+
+async function openProductFacilityGroupModal(type: string) {
+  const modal = await modalController.create({
+    component: AddProductFacilityGroupModal,
+    componentProps: {
+      type,
+      selectedFacilityGroups: formData.value.selectedFacilityGroups
+    }
+  })
+
+  modal.onDidDismiss().then((result: any) => {
+    if(result.data?.selectedGroups) {
+      formData.value.selectedFacilityGroups[type] = result.data.selectedGroups
+    }
+  })
+
+  modal.present()
+}
+
+function toggleFacilitySelection(facilityId: any) {
+  if(isFacilitySelected(facilityId)) {
+    formData.value.selectedConfigFacilites = formData.value.selectedConfigFacilites.filter((currentFacilityId: string) => currentFacilityId !== facilityId)
+  } else {
+    formData.value.selectedConfigFacilites.push(facilityId)
+  }
+}
+
+function isFacilitySelected(facilityId: any) {
+  return formData.value.selectedConfigFacilites.includes(facilityId)
+}
+
+async function createRule() {
+  if(!isRuleValid()) return;
+
+  emitter.emit("presentLoader");
+
+  let ruleGroup = await ruleStore.fetchRuleGroup({ groupTypeEnumId: selectedSegment.value });
+
+  try {
+    if(!ruleGroup.ruleGroupId) {
+      ruleGroup = await ruleStore.createRuleGroup({
+        "groupTypeEnumId": selectedSegment.value,
+        "productStoreId": currentProductStore.value.productStoreId,
+        "statusId": "ATP_RG_ACTIVE"
+      })
+    }
+
+    const params = {
+      "ruleGroupId": ruleGroup.ruleGroupId,
+      "ruleName": formData.value.ruleName,
+      "statusId": "ATP_RULE_ACTIVE",
+      "sequenceNum": total.value ? rules.value[total.value-1].sequenceNum + 1 : 1
+    }
+
+    const rule = await ruleStore.createRule(params)
+    await ruleStore.updateRuleApi({
+      ...params,
+      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected),
+      "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_BROKERING", formData.value.isBrokeringAllowed, false, [])
+    }, rule.ruleId);
+
+    commonUtil.showToast(translate("Rule created successfully."))
+    ruleStore.clearRuleState()
+    productStore.clearAppliedFilters()
+    router.push("/shipping");
+  } catch(err: any) {
+    logger.error(err);
+    commonUtil.showToast(translate("Failed to create rule."))
+  }
+  emitter.emit("dismissLoader");
+}
+
+async function updateRule() {
+  if(!isRuleValid()) return;
+
+  const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
+  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
+
+  updatedRuleConditions.map((updatedCondition: any) => {
+    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
+    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
+  })
+
+  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+
+  try {
+    await ruleStore.updateRuleApi({
+      ...currentRule.value,
+      "ruleName": formData.value.ruleName,
+      "ruleConditions": updatedRuleConditions,
+      "ruleActions": ruleUtil.generateRuleActions(props.ruleId, "ATP_ALLOW_BROKERING", formData.value.isBrokeringAllowed, true, currentRule.value.ruleActions)
+    }, props.ruleId);
+    commonUtil.showToast(translate("Rule updated successfully."))
+
+    const removeResponses = await Promise.allSettled(conditionsToRemove.map(async (condition: any) => await ruleStore.deleteCondition({ ...condition, ruleId: props.ruleId})));
+    const hasFailedResponse = removeResponses.some((response: any) => response.status === 'rejected');
+    if(hasFailedResponse) logger.error("Failed to delete some rule conditions.")
+
+    ruleStore.clearRuleState()
+    productStore.clearAppliedFilters()
+    router.push('/shipping');
+  } catch(err: any) {
+    logger.error(err);
+  }
+}
+
+function isRuleValid() {
+  if(!formData.value.ruleName.trim()) {
+    commonUtil.showToast(translate("Please fill in all the required fields."))
+    return false;
+  }
+
+  if(selectedSegment.value === 'RG_SHIPPING_FACILITY' && !formData.value.areAllSelected && !formData.value.selectedFacilityGroups.included.length) {
+    commonUtil.showToast(translate("Please include atleast one facility."))
+    return false;
+  } else if(selectedSegment.value === 'RG_SHIPPING_CHANNEL' && !formData.value.areAllSelected && !formData.value.selectedConfigFacilites.length) {
+    commonUtil.showToast(translate("Please select atleast one channel."))
+    return false;
+  }
+
+  return true;
+}
+
+function removeFacilityGroups(facilityGroupId: any, type: string) {
+  formData.value.selectedFacilityGroups[type] = formData.value.selectedFacilityGroups[type].filter((group: any) => group.facilityGroupId !== facilityGroupId)
+}
+</script>
+
+<style scoped>
+ion-card-header {
+  display: flex;
+  flex-direction: row ;
+  justify-content: space-between;
+  align-items: center;
+}
+
+ion-card-header > ion-checkbox {
+  flex-shrink: 0;
+}
+
+.empty-state {
+  align-items: start;
+}
+</style>

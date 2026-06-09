@@ -391,7 +391,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async fetchInventoryRuleInformation(routingRuleId: string) {
       const rulesInformation = JSON.parse(JSON.stringify(this.rules))
-      const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
+      const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC || ""
       try {
         const resp = await api({
           url: `order-routing/rules/${routingRuleId}`,

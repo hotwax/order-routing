@@ -213,7 +213,7 @@
             </p>
             <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="isTestEnabled">
               <ion-item :disabled="isTestEnabled" v-for="(sort, code) in orderRoutingSortOptions" :key="code">
-                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code) || code }}</ion-label>
+                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
                 <ion-reorder />
               </ion-item>
             </ion-reorder-group>
@@ -300,7 +300,7 @@
                     </p>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
                       <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(String(facilityGroupId), 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
@@ -309,7 +309,7 @@
                           <ion-label>{{ translate("Group") }}</ion-label>
                           <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
                         </div>
-                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
+                        <ion-select-option v-for="(facilityGroup, facilityGroupId) in getFacilityGroupsForBrokering()" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(String(facilityGroupId), 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
                       </ion-select>
                     </ion-item>
                     <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
@@ -372,7 +372,7 @@
                     </p>
                     <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
                       <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code) || code }}</ion-label>
+                        <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
                         <ion-reorder />
                       </ion-item>
                     </ion-reorder-group>
@@ -495,18 +495,18 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
-const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
 
 const currentRoutingGroup: any = computed(() => orderRoutingStore().getCurrentRoutingGroup)
 const currentRouting = computed(() => orderRoutingStore().getCurrentOrderRouting)
 const routingRules = computed(() => orderRoutingStore().getRulesInformation)
 const facilities = computed(() => productStore().getVirtualFacilities)
-const catalogCategories = computed(() => useUtilStore().getCatalogCategories)
+const catalogCategories = computed((): any => useUtilStore().getCatalogCategories)
 const enums = computed(() => useUtilStore().getEnums)
 const shippingMethods = computed(() => productStore().getShippingMethods)
-const facilityGroups = computed(() => productStore().getFacilityGroups)
+const facilityGroups = computed((): any => productStore().getFacilityGroups)
 const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
 const currentRuleId = computed(() => orderRoutingStore().getCurrentRuleId)
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
@@ -702,7 +702,7 @@ function getRuleIndex() {
   return `${+currentRuleIndex + 1}/${total}`
 }
 
-function getFacilityGroupsForBrokering() {
+function getFacilityGroupsForBrokering(): any {
   return Object.values(facilityGroups.value)?.reduce((facilityGroups: any, group: any) => {
     if(group.facilityGroupTypeId === "BROKERING_GROUP") {
       facilityGroups[group.facilityGroupId] = group
@@ -1568,7 +1568,7 @@ async function save() {
     const updatedRuleSortOptions = rulesInformation.value[ruleId]["inventoryFilters"]?.["ENTCT_SORT_BY"] ? rulesInformation.value[ruleId]["inventoryFilters"]["ENTCT_SORT_BY"] : {}
     const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
 
-    const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC
+    const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC
     Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
       if(filterSortDesc.includes(option.fieldName)) {
         option.fieldName += " desc"
@@ -1742,6 +1742,28 @@ async function updateUserTestSession() {
 </script>
 
 <style scoped>
+ion-content > main, #inventory-rules {
+  display: grid;
+  grid-template-columns: minmax(375px, 25%) 1fr;
+  height: 100%;
+  container-type: inline-size;
+}
+
+/* The right-hand column of #inventory-rules holds the rule-info / filters / actions cards.
+   Make each direct child its own inline-size container so the cards collapse independently
+   when the column gets narrow (e.g. side menu open on a laptop). */
+#inventory-rules > :not(#inventory-sequence) {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.rule-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--spacer-xs);
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1752,17 +1774,40 @@ async function updateUserTestSession() {
   max-width: 50%;
 }
 
-.rule-info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: start;
-  gap: var(--spacer-xs)
+/* Collapse the two-column card grids to a single column when their container is narrow.
+   600px chosen so two ~280px cards plus gap can comfortably sit side-by-side above it. */
+@container (max-width: 600px) {
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
 }
 
-ion-content > main, #inventory-rules {
-  display: grid;
-  grid-template-columns: minmax(375px, 25%) 1fr;
-  height: 100%;
+/* Viewport fallback for browsers without container query support, and for the parent
+   #inventory-rules grid itself (which can't size against its own container). */
+@media (max-width: 991px) {
+  ion-content > main,
+  #inventory-rules {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-info,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    max-width: 100%;
+  }
+
+  .menu {
+    border-right: none;
+    border-bottom: 1px solid var(--ion-color-medium);
+  }
 }
 
 .menu {

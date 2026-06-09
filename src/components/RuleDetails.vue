@@ -135,7 +135,7 @@ import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
 import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"
-import { computed, defineProps, ref } from "vue"
+import { computed, ref } from "vue"
 
 const props = defineProps({
   group: {
@@ -148,8 +148,8 @@ const props = defineProps({
   }
 })
 
-const actionEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_FILTER_ENUMS as string)
+const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
+const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

@@ -1,0 +1,530 @@
+<template>
+  <ion-page>
+    <ion-header :translucent="true">
+      <ion-toolbar>
+        <ion-menu-button slot="start" />
+        <ion-title slot="start">{{ translate("Inventory channels") }}</ion-title>
+
+        <ion-segment :value="selectedSegment" @ionChange="updateSegment($event)" slot="end">
+          <ion-segment-button value="channels">
+            <ion-label>{{ translate("Channels") }}</ion-label>
+          </ion-segment-button>
+          <!-- Todo: add functionality to the Publish segment -->
+          <ion-segment-button value="publish">
+            <ion-label>{{ translate("Publish") }}</ion-label>
+          </ion-segment-button>
+        </ion-segment>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <main class="atp-main">
+        <section v-if="selectedSegment === 'channels'">
+          <template v-if="inventoryChannels.length">
+            <ion-card v-for="channel in inventoryChannels" :key="channel.facilityGroupId">
+              <ion-card-header>
+                <div>
+                  <ion-card-subtitle class="overline">{{ channel.facilityGroupId }}</ion-card-subtitle>
+                  <ion-card-title>{{ channel.facilityGroupName }}</ion-card-title>
+                  <ion-card-subtitle v-if="channel.description" v-html="channel.description.replace(/(?:\n|\n)/g, '<br />')"></ion-card-subtitle>
+                </div>
+              </ion-card-header>
+  
+              <ion-item lines="full">
+                <ion-icon slot="start" :icon="globeOutline"/>
+                <ion-label>
+                  {{ channel.selectedConfigFacility?.facilityName }}
+                  <p>{{ channel.selectedConfigFacility?.facilityId }}</p>
+                </ion-label>
+                <ion-button size="default" slot="end" fill="clear" color="medium" @click="openLinkThresholdFacilitiesToGroupModal(channel)">
+                  <ion-icon :icon="optionsOutline" slot="icon-only" />
+                </ion-button>
+              </ion-item>
+  
+              <ion-list>
+                <ion-item-divider color="light">
+                  <ion-label>{{ translate("Facilities") }}</ion-label>
+                  <ion-button size="default" slot="end" fill="clear" color="medium" @click="openLinkFacilitiesToGroupModal(channel)">
+                    <ion-icon :icon="optionsOutline" slot="icon-only" />
+                  </ion-button>
+                </ion-item-divider>
+  
+                <ion-item>
+                  <ion-icon slot="start" :icon="storefrontOutline"/>
+                  <ion-label>{{ translate("retail facilities", { count: getFacilityCount(channel, "STORE") })}}</ion-label>
+                </ion-item>
+  
+                <ion-item lines="full">
+                  <ion-icon slot="start" :icon="businessOutline"/>
+                  <ion-label>{{ translate("warehouse", { count: getFacilityCount(channel, "WAREHOUSE") })}}</ion-label>
+                </ion-item>
+    
+                <div class="actions">
+                  <ion-button fill="clear" @click="openEditGroupModal(channel)">{{ translate("Edit group") }}</ion-button>
+                  <!-- Functionality is not defined for this button hence commented it for now. -->
+                  <!-- <ion-button color="medium" fill="clear" slot="end">
+                    <ion-icon :icon="ellipsisVerticalOutline" slot="icon-only"/>
+                  </ion-button> -->
+                </div>
+              </ion-list>
+            </ion-card>
+          </template>
+
+          <div class="empty-state" v-else>
+            <p>{{ translate("No inventory channel found.") }}</p>
+          </div>
+        </section>
+ 
+        <section v-else-if="selectedSegment === 'publish'">
+          <template v-if="shopifyJobs.length">
+            <ion-card v-for="job in shopifyJobs" :key="job.shopId">
+              <ion-card-header>
+                <div>
+                  <ion-card-subtitle class="overline">{{ job.shopifyConfigId }}</ion-card-subtitle>
+                  <ion-card-title>{{ job.name ? job.name : job.shopifyConfigId }}</ion-card-title>
+                </div>
+                <ion-badge v-if="job.statusId === 'SERVICE_PENDING'" color="dark">{{ translate("running") }} {{ commonUtil.getRelativeTime(job.runTime) }}</ion-badge>
+              </ion-card-header>
+
+              <ion-list>
+                <ion-item lines="full">
+                  <ion-icon slot="start" :icon="timeOutline"/>
+                  <ion-select :label="translate('Run time')" :placeholder="translate('Select')" interface="popover" :value="job.runTimeValue" @ionChange="updateRunTime($event, job)">
+                    <ion-select-option v-for="runTime in jobRuntimeOptions" :key="runTime.value" :value="runTime.value">{{ runTime.label }}</ion-select-option>
+                  </ion-select>
+
+                  <ion-modal class="date-time-modal" :is-open="isDateTimeModalOpen" @didDismiss="() => isDateTimeModalOpen = false">
+                    <ion-content :force-overscroll="false">
+                      <ion-datetime          
+                        show-default-buttons
+                        hour-cycle="h23"
+                        :value="job.runTimeValue ? (isCustomRunTime(job.runTimeValue) ? DateTime.fromMillis(job.runTimeValue).toISO() : DateTime.fromMillis(DateTime.now().toMillis() + job.runTimeValue).toISO()) : DateTime.now().toISO()"
+                        @ionChange="updateCustomTime($event, job)"
+                      />
+                    </ion-content>
+                  </ion-modal>
+                </ion-item>
+
+                <ion-item lines="full">
+                  <ion-icon slot="start" :icon="timerOutline"/>
+                  <ion-select :label="translate('Frequency')" :value="getJobStatus(job)" :placeholder="translate('Select')" interface="popover" @ionDismiss="updateFrequency($event, job)">
+                    <ion-select-option v-for="freq in jobFrequencyOptions" :key="freq.id" :value="freq.id">{{ freq.description }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+
+                <ion-item lines="full">
+                  <ion-icon slot="start" :icon="albumsOutline"/>
+                  <ion-select :label="translate('Inventory channel')" v-model="job.runtimeData.facilityGroupId" :disabled="job.statusId === 'SERVICE_PENDING'" :placeholder="translate('Select')" interface="popover">
+                    <ion-select-option v-for="channel in inventoryChannels" :key="channel.facilityGroupId" :value="channel.facilityGroupId">{{ channel.facilityGroupName ? channel.facilityGroupName : channel.facilityGroupId }}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+
+                <div class="actions">
+                  <ion-button fill="clear" @click="saveChanges(job)">{{ translate("Save changes") }}</ion-button>
+                  <ion-button color="medium" fill="clear" slot="end" @click="openShopActionsPopover($event, job)">
+                    <ion-icon :icon="ellipsisVerticalOutline" slot="icon-only"/>
+                  </ion-button>
+                </div>
+              </ion-list>
+            </ion-card>
+          </template>
+
+          <div class="empty-state" v-else>
+            <p>{{ translate("No job found.") }}</p>
+          </div>
+        </section>
+      </main>
+    </ion-content>
+
+    <ion-fab v-if="selectedSegment === 'channels'" vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab-button @click="openCreateGroupModal()">
+        <ion-icon :icon="addOutline" />
+      </ion-fab-button>
+    </ion-fab>
+  </ion-page>
+</template>
+
+<script setup lang="ts">
+import { IonBadge, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonDatetime, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonMenuButton, IonModal, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave, alertController, popoverController } from '@ionic/vue';
+import { computed, ref } from 'vue';
+import { addOutline, albumsOutline, businessOutline, ellipsisVerticalOutline, globeOutline, optionsOutline, storefrontOutline, timeOutline, timerOutline } from 'ionicons/icons';
+import { emitter, logger, translate } from '@common';
+import ShopActionsPopover from '@/components/ShopActionsPopover.vue'
+import CreateGroupModal from '@/components/CreateGroupModal.vue'
+import LinkFacilitiesToGroupModal from '@/components/LinkFacilitiesToGroupModal.vue'
+import LinkThresholdFacilitiesToGroupModal from '@/components/LinkThresholdFacilitiesToGroupModal.vue'
+import { useUserStore } from '@/store/userStore';
+import { useAtpProductStore } from '@/store/atpProductStore';
+import { useChannelStore } from '@/store/channel';
+import EditGroupModal from '@/components/EditGroupModal.vue';
+import { DateTime } from 'luxon';
+import CustomFrequencyModal from "@/components/CustomFrequencyModal.vue";
+import { ruleUtil } from "@/utils/ruleUtil";
+import { commonUtil } from "@common";
+
+const userStore = useUserStore();
+const productStore = useAtpProductStore();
+const channelStore = useChannelStore();
+
+const inventoryChannels = computed(() => channelStore.getInventoryChannels)
+const selectedSegment = computed(() => productStore.getSelectedSegment)
+const shopifyJobs = computed(() => channelStore.getJobs)
+const getTemporalExpr = computed(() => channelStore.getTemporalExpr)
+
+const isDateTimeModalOpen = ref(false);
+const allowedFrequencies = ref([
+  {
+    "id": "HOURLY",
+    "description": "Hourly"
+  }, {
+    "id": "EVERY_6_HOUR",
+    "description": "Every 6 hours"
+  }, {
+    "id": "EVERYDAY",
+    "description": "Every day"
+  }, {
+    "id": "CUSTOM",
+    "description": "Custom"
+  }
+])
+const allowedRunTimes = ref([
+  {
+    "value": 0,
+    "label": "Now"
+  }, {
+    "value": 300000,
+    "label": "In 5 minutes"
+  }, {
+    "value": 900000,
+    "label": "In 15 minutes"
+  }, {
+    "value": 3600000,
+    "label": "In an hour"
+  }, {
+    "value": 86400000,
+    "label": "Tomorrow"
+  }, {
+    "value": "CUSTOM",
+    "label": "Custom"
+  }
+]);
+const jobFrequencyOptions = ref([]) as any;
+const jobRuntimeOptions = ref([]) as any;
+
+onIonViewDidEnter(async() => {
+  fetchInventoryChannels()
+  emitter.on("productStoreOrConfigChanged", fetchInventoryChannels);
+})
+
+onIonViewWillLeave(() => {
+  emitter.off("productStoreOrConfigChanged", fetchInventoryChannels);
+})
+
+async function fetchInventoryChannels() {
+  emitter.emit("presentLoader");
+  if(!selectedSegment.value || (selectedSegment.value !== 'channels' && selectedSegment.value !== 'publish')) productStore.updateSelectedSegment("channels");
+  await Promise.allSettled([channelStore.fetchInventoryChannels(), productStore.fetchConfigFacilities()]);
+  if(selectedSegment.value === "publish") {
+    await Promise.allSettled([channelStore.fetchJobs(), channelStore.findTemporalExpression()]);
+    generateFrequencyOptions();
+    generateRuntimeOptions();
+  }
+  emitter.emit("dismissLoader");
+}
+
+async function openShopActionsPopover(event: Event, job: any) {
+  const popover = await popoverController.create({
+    component: ShopActionsPopover,
+    componentProps: { job },
+    showBackdrop: false,
+    event
+  });
+
+  return popover.present();
+}
+
+async function openEditGroupModal(group: any) {
+  const modal = await modalController.create({
+    component: EditGroupModal,
+    componentProps: { group }
+  })
+
+  modal.present()
+}
+
+async function openCreateGroupModal() {
+  const popover = await modalController.create({
+    component: CreateGroupModal
+  });
+
+  return popover.present();
+}
+
+async function openLinkFacilitiesToGroupModal(group: any) {
+  const popover = await modalController.create({
+    component: LinkFacilitiesToGroupModal,
+    componentProps: { group, selectedFacilities: group.selectedFacilities }
+  });
+
+  return popover.present();
+}
+
+async function openLinkThresholdFacilitiesToGroupModal(group: any) {
+  const popover = await modalController.create({
+    component: LinkThresholdFacilitiesToGroupModal,
+    componentProps: { group, selectedConfigFacilityId: group.selectedConfigFacility }
+  });
+
+  return popover.present();
+}
+
+function getFacilityCount(channel: any, facilityTypeId: string) {
+  if(!channel.selectedFacilities?.length) return 0;
+
+  if(facilityTypeId === 'STORE') {
+    return channel.selectedFacilities.filter((facility: any) => facility.facilityTypeId === "RETAIL_STORE" || facility.facilityTypeId === "OUTLET_STORE").length;
+  } else {
+    return channel.selectedFacilities.filter((facility: any) => facility.facilityTypeId === "WAREHOUSE" || facility.facilityTypeId === "OUTLET_WAREHOUSE").length;
+  }
+}
+
+async function updateSegment(event: any) {
+  await productStore.updateSelectedSegment(event.detail.value);
+  if(selectedSegment.value === "publish") {
+    await channelStore.fetchJobs();
+    await channelStore.findTemporalExpression()
+    generateFrequencyOptions()
+    generateRuntimeOptions();
+  }
+}
+
+function isCustomRunTime(value: number) {
+  return !allowedRunTimes.value.some((runTime: any) => runTime.value === value)
+}
+
+function getJobStatus(job: any) {
+  return job.statusId === "SERVICE_DRAFT" ? job.statusId : job.tempExprId;
+}
+
+function updateFrequency(event: any, job: any) {
+  let selectedFrequency = event.target.value
+  if(selectedFrequency === "CUSTOM") {
+    setCustomFrequency(job);
+    return;
+  }
+
+  job.tempExprId = selectedFrequency
+}
+
+async function setCustomFrequency(currentJob: any) {
+  const customFrequencyModal = await modalController.create({
+    component: CustomFrequencyModal,
+  });
+
+  await customFrequencyModal.present();
+
+  await customFrequencyModal.onDidDismiss().then((result) => {
+    if(result.data?.frequencyId) {
+      currentJob.tempExprId = result.data.frequencyId
+    }
+    generateFrequencyOptions()
+  });
+}
+
+function generateFrequencyOptions() {
+  const frequencyOptions = JSON.parse(JSON.stringify(allowedFrequencies.value));
+
+  shopifyJobs.value.map((job: any) => {
+    const option = frequencyOptions.find((option: any) => option.id === job.tempExprId)
+    if(!option) {
+      const tempExpression = (getTemporalExpr.value as any)(job.tempExprId)
+      if(tempExpression) frequencyOptions.push({ id: tempExpression.tempExprId, description: tempExpression.description });
+    }
+  })
+  jobFrequencyOptions.value = frequencyOptions
+}
+
+function generateRuntimeOptions() {
+  const runTimeOptions = JSON.parse(JSON.stringify(allowedRunTimes.value));
+
+  shopifyJobs.value.map((job: any) => {
+    if(job.statusId === "SERVICE_PENDING") {
+      const selectedTime = runTimeOptions.find((option: any) => option.value === job.runTimeValue);
+        runTimeOptions.push({ label: commonUtil.getDateAndTime(job.runTimeValue), value: job.runTimeValue })
+    }
+  })
+  jobRuntimeOptions.value = runTimeOptions
+}
+
+function updateRunTime(event: CustomEvent, currentJob: any) {
+  const value = event.detail.value
+  if (value != 'CUSTOM') {
+    currentJob.runTimeValue = value
+    generateRuntimeOptions()
+  } else {
+    isDateTimeModalOpen.value = true
+  }
+}
+
+function updateCustomTime(event: CustomEvent, currentJob: any) {
+  const currTime = DateTime.now().toMillis();
+  const setTime = commonUtil.handleDateTimeInput(event.detail.value);
+  if(setTime > currTime) {
+    currentJob.runTimeValue = setTime
+    generateRuntimeOptions()
+  } else {
+    commonUtil.showToast(translate("Provide a future date and time"))
+  }
+}
+
+async function saveChanges(job: any) {
+  const alert = await alertController
+    .create({
+      header: translate("Save changes"),
+      message: translate("Are you sure you want to save these changes?"),
+      buttons: [{
+        text: translate("Cancel"),
+        role: "cancel"
+      }, {
+        text: translate("Save"),
+        handler: async() => {
+          if(isCustomRunTime(job.runTimeValue) && isRuntimePassed(job)) {
+            commonUtil.showToast(translate("Job runtime has passed. Please refresh to get the latest job data in order to perform any action."))
+            return;
+          }
+
+          // return if job has missing data or error
+          if(ruleUtil.hasJobDataError(job)) return;
+
+          job['jobStatus'] = job.tempExprId !== 'SERVICE_DRAFT' ? job.tempExprId : 'HOURLY';
+
+          // Handling the case for 'Now'. Sending the now value will fail the API as by the time
+          // the job is ran, the given 'now' time would have passed. Hence, passing empty 'run time'
+          job.runTime = job.runTimeValue != 0 ? (!isCustomRunTime(job.runTimeValue) ? DateTime.now().toMillis() + job.runTimeValue : job.runTimeValue) : ''
+
+          if (job?.statusId === 'SERVICE_DRAFT') {
+            await scheduleService(job)
+          } else if (job?.statusId === 'SERVICE_PENDING') {
+            await updateJob(job);
+            await channelStore.updateJob(job);
+          }
+        }
+      }]
+    });
+  return alert.present();
+}
+
+async function scheduleService(job: any) {
+  let resp;
+
+  const payload = {
+    'JOB_NAME': job.jobName,
+    'SERVICE_NAME': job.serviceName,
+    'SERVICE_COUNT': '0',
+    'SERVICE_TEMP_EXPR': job.jobStatus,
+    'SERVICE_RUN_AS_SYSTEM':'Y',
+    'jobFields': {
+      'productStoreId': productStore.currentProductStore.productStoreId,
+      'systemJobEnumId': job.systemJobEnumId,
+      'tempExprId': job.jobStatus, // Need to remove this as we are passing frequency in SERVICE_TEMP_EXPR, currently kept it for backward compatibility
+      'maxRecurrenceCount': '-1',
+      'parentJobId': job.parentJobId,
+      'runAsUser': 'system', //default system, but empty in run now.  TODO Need to remove this as we are using SERVICE_RUN_AS_SYSTEM, currently kept it for backward compatibility
+      'recurrenceTimeZone': userStore.current.timeZone,
+      'createdByUserLogin': userStore.current.username,
+      'lastModifiedByUserLogin': userStore.current.username,
+    },
+    'statusId': "SERVICE_PENDING",
+    'systemJobEnumId': job.systemJobEnumId
+  } as any
+
+  Object.keys(job.runtimeData).map((key: any) => {
+    if(key !== "productStoreId" && key !== "shopifyConfigId" && key !== "shopId") {
+      payload[key] = job.runtimeData[key];
+    }
+  })
+
+  const jobRunTimeDataKeys = job?.runtimeData ? Object.keys(job?.runtimeData) : [];
+  if (jobRunTimeDataKeys.includes('shopifyConfigId') || jobRunTimeDataKeys.includes('shopId')) {
+    jobRunTimeDataKeys.includes('shopifyConfigId') && (payload['shopifyConfigId'] = job.shopifyConfigId);
+    jobRunTimeDataKeys.includes('shopId') && (payload['shopId'] = job.shopId);
+    payload['jobFields']['shopId'] = job.shopId;
+  }
+
+  // checking if the runtimeData has productStoreId, and if present then adding it on root level
+  job?.runtimeData?.productStoreId?.length >= 0 && (payload['productStoreId'] = job.productStoreId)
+  job?.priority && (payload['SERVICE_PRIORITY'] = job.priority.toString())
+  job?.runTime && (payload['SERVICE_TIME'] = job.runTime.toString())
+
+  try {
+    resp = await channelStore.scheduleJob({ ...payload }) as any;
+    if (resp && resp.status == 200 && !commonUtil.hasError(resp)) {
+      commonUtil.showToast(translate("Service has been scheduled."));
+      await channelStore.fetchJobs();
+      generateFrequencyOptions();
+      generateRuntimeOptions();
+    } else {
+      throw resp.data;
+    }
+  } catch (err) {
+    commonUtil.showToast(translate("Failed to schedule service."))
+    logger.error(err)
+  }
+}
+
+async function updateJob(job: any) {
+  const payload = {
+    'jobId': job.jobId,
+    'systemJobEnumId': job.systemJobEnumId,
+    'recurrenceTimeZone': userStore.current.userTimeZone,
+    'tempExprId': job.jobStatus,
+    'statusId': "SERVICE_PENDING",
+    'runTimeEpoch': '',  // when updating a job clearning the epoch time, as job honors epoch time as runTime and the new job created also uses epoch time as runTime
+    'lastModifiedByUserLogin': userStore.current.username
+  } as any
+
+  job?.runTime && (payload['runTime'] = job.runTime)
+  job?.jobName && (payload['jobName'] = job.jobName)
+
+  try {
+    const resp = await channelStore.updateJobApi(payload) as any;
+    if (resp && !commonUtil.hasError(resp)) {
+      commonUtil.showToast(translate("Service has been scheduled."))
+      await channelStore.fetchJobs();
+      generateFrequencyOptions();
+      generateRuntimeOptions();
+    } else {
+      throw resp.data;
+    }
+  } catch(error: any) {
+    commonUtil.showToast(translate("Failed to schedule service."))
+    logger.error(error)
+  }
+}
+
+function isRuntimePassed(currentJob: any) {
+  return currentJob.runTimeValue && currentJob.runTimeValue <= DateTime.now().toMillis()
+}
+
+
+</script>
+
+<style scoped>
+ion-card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+ion-modal.date-time-modal {
+  --width: 290px;
+  --height: 440px;
+  --border-radius: 8px;
+}
+</style>

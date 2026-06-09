@@ -27,7 +27,6 @@
 import { translate, commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
-import { defineProps } from "vue";
 
 defineProps({
   groupHistory: {

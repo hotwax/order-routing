@@ -6,62 +6,65 @@
           <ion-back-button default-href="/inventory" />
         </ion-buttons>
         <ion-title>{{ translate("Inventory Detail") }}</ion-title>
+        <ion-select slot="end" v-model="selectedFacilityId" aria-label="Facility" placeholder="Select Facility" interface="popover">
+          <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
+        </ion-select>
       </ion-toolbar>
     </ion-header>
 
     <ion-content>
-      <ion-item>
-        <ion-select v-model="selectedFacilityId" :label="translate('Facility')" interface="popover">
-          <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
-        </ion-select>
-      </ion-item>
+      <div class="detail-layout">
+        <section class="product-panel">
+          <ion-item lines="none">
+            <div class="product-image" slot="start">
+              <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="productName" />
+              <ion-skeleton-text v-else-if="isLoading" animated />
+            </div>
+            <div class="product-title">
+              <ion-skeleton-text v-if="isLoading" animated style="width: 40%; height: 10px;" />
+              <p v-else>{{ product.productId }}</p>
+              <ion-skeleton-text v-if="isLoading" animated style="width: 60%; height: 20px;" />
+              <h1 v-else>{{ productName }}</h1>
+              <ion-skeleton-text v-if="isLoading" animated style="width: 40%; height: 14px; margin-top: 4px;" />
+              <p v-else>{{ productSubtitle }}</p>
+            </div>
+          </ion-item>
+        </section>
 
-      <section>
-        <ion-item>
-          <ion-label>
-            <h1>{{ productName }}</h1>
-            <p>{{ productSubtitle }}</p>
-          </ion-label>
-        </ion-item>
-      </section>
-
-      <section>
-        <ion-item>
-          <ion-label>{{ "Inventory Configuration" }}</ion-label>
-          <ion-button slot="end" fill="clear">
-            {{ "Edit" }}
-          </ion-button>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "AllowBrokering" }}</ion-label>
-          <ion-label slot="end">{{ "Y" }}</ion-label>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "Allow Pickup" }}</ion-label>
-          <ion-label slot="end">{{ "Y" }}</ion-label>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "Threshold" }}</ion-label>
-          <ion-label slot="end">{{ 0 }}</ion-label>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "Safety Stock" }}</ion-label>
-          <ion-label slot="end">{{ 0 }}</ion-label>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "QOH" }}</ion-label>
-          <ion-label slot="end">{{ 0 }}</ion-label>
-        </ion-item>
-        <ion-item>
-          <ion-label>{{ "ATP" }}</ion-label>
-          <ion-label slot="end">{{ 0 }}</ion-label>
-        </ion-item>
-      </section>
+        <section class="panel config-panel">
+          <ion-item>
+            <ion-label>{{ translate("Inventory Configuration") }}</ion-label>
+            <ion-button slot="end" fill="clear" @click="openConfigEditModal">
+              {{ translate("Edit") }}
+            </ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("Allow Brokering") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("Allow Pickup") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("Safety stock") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("Days to Ship") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("QOH") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.lastInventoryCount ?? "-" }}</ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-label>{{ translate("ATP") }}</ion-label>
+            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.computedLastInventoryCount ?? "-" }}</ion-label>
+          </ion-item>
+        </section>
+      </div>
       <section class="ion-margin panel logs-panel">
-        <div class="section-title">
-          <h2>{{ translate("Inventory Logs") }}</h2>
-        </div>
-
         <ion-list>
           <ion-item class="line-item">
             <ion-label>
@@ -80,10 +83,16 @@
               <p>{{ "Comments" }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ "Quantity On Hand" }}</p>
+              <p>{{ "ATP diff" }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ "Available To Promise" }}</p>
+              <p>{{ "QOH Diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP Total" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Total" }}</p>
             </ion-label>
           </ion-item>
 
@@ -104,10 +113,16 @@
               <p>{{ log.description || "-" }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ log.quantityOnHandTotal }}</p>
+              <p>{{ log.availableToPromiseDiff }}</p>
             </ion-label>
             <ion-label>
-              <p>{{ log.availableToPromiseTotal }}</p>
+              <p>{{ log.quantityOnHandDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
             </ion-label>
           </ion-item>
 
@@ -125,6 +140,7 @@ import { computed, ref, watch } from 'vue';
 import router from '../router';
 import {
   IonBackButton,
+  IonButton,
   IonButtons,
   IonContent,
   IonHeader,
@@ -132,14 +148,19 @@ import {
   IonLabel,
   IonList,
   IonPage,
+  IonSelect,
+  IonSelectOption,
+  IonSkeletonText,
   IonTitle,
   IonToolbar,
+  modalController,
   onIonViewDidEnter
 } from '@ionic/vue';
 import { translate } from '@common';
 import { useProductFacility } from '@/composables/useProductFacility';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
+import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 
 const route = router.currentRoute.value;
 const isLoading = ref(false);
@@ -150,20 +171,39 @@ const selectedFacilityId = ref("");
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
 
 const { inventoryLogs } = useProductFacility();
+const inventoryConfig = ref<any>({});
 
-const productName = computed(() => {
-  if (isLoading.value) return translate('Loading product');
-  return product.value?.internalName || product.value?.productName || product.value?.parentProductName || translate('Product not found');
-});
+const productName = computed(() =>
+  product.value?.internalName || product.value?.productName || product.value?.parentProductName || ''
+);
 
-const productSubtitle = computed(() => product.value?.productName || product.value?.parentProductName || product.value?.title || '-');
+const productSubtitle = computed(() =>
+  product.value?.parentProductName || product.value?.productName || product.value?.title || ''
+);
 
 onIonViewDidEnter(async () => {
-  selectedFacilityId.value = productStoreFacilities.value[0].facilityId
+  selectedFacilityId.value = productStoreFacilities.value[0]?.facilityId || '';
+  isLoading.value = true;
+  await productInfoStore().fetchProducts([productId.value]);
+  isLoading.value = false;
+  await fetchInventoryConfig();
   await fetchInventoryLogs();
 });
 
-watch(selectedFacilityId, fetchInventoryLogs)
+watch(selectedFacilityId, async () => {
+  await fetchInventoryConfig();
+  await fetchInventoryLogs();
+});
+
+async function fetchInventoryConfig() {
+  const { fetchProductFacility, productFacility } = useProductFacility();
+  await fetchProductFacility({
+    keyword: productId.value,
+    facilityId: selectedFacilityId.value
+  });
+  console.log('dkfd', JSON.parse(JSON.stringify(productFacility.value?.[0]?.inventoryConfig)))
+  inventoryConfig.value = productFacility.value?.[0] ?? null;
+}
 
 async function fetchInventoryLogs() {
   await useProductFacility().fetchInventoryLogs({
@@ -172,11 +212,44 @@ async function fetchInventoryLogs() {
     pageSize: 250
   });
 }
+
+async function openConfigEditModal() {
+  const modal = await modalController.create({
+    component: ProductFacilityConfigEditModal,
+    componentProps: {
+      selectedFacility: selectedFacilityId.value,
+      selectedProducts: [{ productId: productId.value }]
+    }
+  });
+  await modal.present();
+  await modal.onDidDismiss();
+  await fetchInventoryConfig();
+}
 </script>
 
 <style scoped>
 ion-content {
   --padding-bottom: 80px;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacer-base, 16px);
+  padding: var(--spacer-base, 16px);
+  max-width: 1280px;
+  align-items: start;
+}
+
+.product-panel,
+.config-panel {
+  height: fit-content;
+}
+
+@media (max-width: 768px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 .detail-grid {
@@ -194,14 +267,6 @@ ion-content {
   border-radius: 8px;
   background: var(--ion-item-background, var(--ion-background-color));
   overflow: hidden;
-}
-
-.panel-header {
-  display: flex;
-  gap: var(--spacer-base, 16px);
-  align-items: center;
-  padding: var(--spacer-base, 16px);
-  border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
 }
 
 .product-image {
@@ -272,10 +337,6 @@ ion-badge {
 }
 
 @media (max-width: 576px) {
-  .panel-header {
-    align-items: flex-start;
-  }
-
   .product-image {
     flex-basis: 72px;
     width: 72px;

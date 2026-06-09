@@ -25,7 +25,7 @@
         </ion-select>
       </ion-item>
       <ion-item>
-        <ion-input v-model="minimumStock" label="Threshold"></ion-input>
+        <ion-input v-model="minimumStock" label="Safety stock"></ion-input>
       </ion-item>
       <ion-item>
         <ion-input v-model="daysToShip" label="Days to Ship"></ion-input>
@@ -83,7 +83,7 @@ async function updateConfig() {
     // TODO: define a multi service for this
     for(const productId of selectedProductIds) {
       await api({
-        url: "oms/productFacility",
+        url: "oms/productFacilities",
         method: "POST",
         data: {
           ...params,

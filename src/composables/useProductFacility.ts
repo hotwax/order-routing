@@ -21,10 +21,9 @@ const inventoryLogs: Ref<any[]> = ref([])
 export function useProductFacility() {
   
   async function fetchProductFacility(payload: any) {
-    console.log("payload", payload)
     try {
       const resp = await api({
-        url: "oms/productFacility",
+        url: "oms/productFacilities/search",
         method: "GET",
         params: payload
       }) as any
@@ -40,7 +39,7 @@ export function useProductFacility() {
     console.log("payload", payload)
     try {
       await api({
-        url: "oms/productFacility",
+        url: "oms/productFacilities",
         method: "POST",
         data: payload
       })
@@ -56,7 +55,7 @@ export function useProductFacility() {
         method: "GET",
         params: {
           ...params,
-          orderBy: "effectiveDate desc"
+          orderByField: "effectiveDate desc"
         }
       })
 

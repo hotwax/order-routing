@@ -79,7 +79,7 @@
               <div></div>
               <div></div>
               <div></div>
-              <ion-button fill="clear" size="small">
+              <ion-button fill="clear" size="small" @click.stop="openProductFacilityConfigModal([product])">
                 {{ "Add Config" }}
               </ion-button>
             </template>
@@ -180,6 +180,7 @@ async function goToNextPage() {
 }
 
 function viewInventoryDetail(productId: string) {
+  console.log('productId', productId)
   router.push(`/inventory/${productId}`)
 }
 
@@ -195,12 +196,12 @@ async function openBulkInventoryEditModal() {
   await bulkInventoryEditModal.present()
 }
 
-async function openProductFacilityConfigModal() {
+async function openProductFacilityConfigModal(selectedProducts?: any[]) {
   const productFacilityConfigEditModal = await modalController.create({
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: products.value.filter((product: any) => product.isChecked)
+      selectedProducts: selectedProducts ?? products.value.filter((product: any) => product.isChecked)
     }
   })
 

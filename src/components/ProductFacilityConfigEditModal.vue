@@ -91,7 +91,7 @@ async function updateConfig() {
         }
       })
     }
-    closeModal();
+    modalController.dismiss({ updated: true });
     commonUtil.showToast(translate("Inventory config update for selected products"))
   } catch(err) {
     logger.error("Failed to update inventory config for product facilities");

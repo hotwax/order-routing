@@ -33,7 +33,7 @@
           </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
             <ion-item>
-              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = true"></ion-checkbox>
+              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = $event.detail.checked"></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
@@ -86,9 +86,7 @@
           </div>
         </template>
       </ion-list>
-
     </ion-content>
-    <!-- TODO: on selecting a product and then unselecting the footer is still visible and check/uncheck on bulk checkbox has corner case issues -->
     <ion-footer v-if="isAnyProductSelected">
       <ion-toolbar class="footer-actions">
         <ion-buttons>
@@ -105,7 +103,6 @@ import { computed, ref, watch } from 'vue';
 import router from '../router';
 import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, modalController } from '@ionic/vue';
 import { DxpShopifyImg, translate } from '@common';
-import type { Product } from '@/services/commonDatabase';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
@@ -198,6 +195,10 @@ async function openBulkInventoryEditModal() {
     }
   })
 
+  bulkInventoryEditModal.onDidDismiss().then((data) => {
+    data.data.updated && fetchProductFacility();
+  })
+
   await bulkInventoryEditModal.present()
 }
 
@@ -208,6 +209,10 @@ async function openProductFacilityConfigModal(selectedProducts?: any[]) {
       selectedFacility: selectedFacility.value,
       selectedProducts: selectedProducts ?? products.value.filter((product: any) => product.isChecked)
     }
+  })
+
+  productFacilityConfigEditModal.onDidDismiss().then((data) => {
+    data.data.updated && fetchProductFacility();
   })
 
   await productFacilityConfigEditModal.present()

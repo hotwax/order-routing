@@ -23,6 +23,8 @@ export interface CircuitState {
   };
   activeContext: any | null;
   lastPrompt: any[] | null;
+  // Whether the Circuit model-installer card is shown on /settings. Persisted; default shown.
+  circuitEnabled: boolean;
 }
 
 export const useCircuitStore = defineStore('circuit', {
@@ -43,7 +45,8 @@ export const useCircuitStore = defineStore('circuit', {
       maxStorageBufferBindingSize: '0 MB'
     },
     activeContext: null,
-    lastPrompt: null
+    lastPrompt: null,
+    circuitEnabled: true
   }),
   getters: {
     getThreads: (state) => state.threads,
@@ -388,6 +391,9 @@ export const useCircuitStore = defineStore('circuit', {
     },
     setActiveContext(payload: any) {
       this.activeContext = payload;
+    },
+    setCircuitEnabled(payload: boolean) {
+      this.circuitEnabled = payload;
     }
   },
   persist: true

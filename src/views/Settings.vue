@@ -108,12 +108,12 @@
             {{ translate("Show or hide the Circuit local-model card on this page.") }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-toggle :checked="circuitStore.circuitEnabled" @ionChange="toggleCircuit($event)">
+            <ion-toggle :checked="circuitEnabled" @ionChange="toggleCircuit($event)">
               {{ translate("Show Circuit") }}
             </ion-toggle>
           </ion-item>
         </ion-card>
-        <ion-card v-if="circuitStore.circuitEnabled">
+        <ion-card v-if="circuitEnabled">
           <ion-card-header>
             <ion-card-title>Circuit</ion-card-title>
             <ion-card-subtitle>{{ modelInfo.size }}</ion-card-subtitle>
@@ -192,6 +192,7 @@ const oms = computed(() => cookieHelper().get("oms"));
 const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
 const modelInfo = computed(() => circuitStore.modelInfo)
 const gpuInfo = computed(() => circuitStore.gpuInfo)
+const circuitEnabled = computed(() => circuitStore.circuitEnabled)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone

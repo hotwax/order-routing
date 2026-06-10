@@ -102,6 +102,19 @@
         </ion-card>
         <ion-card>
           <ion-card-header>
+            <ion-card-title>{{ translate("Preferences") }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            {{ translate("Show or hide the Circuit local-model card on this page.") }}
+          </ion-card-content>
+          <ion-item lines="none">
+            <ion-toggle :checked="circuitStore.circuitEnabled" @ionChange="toggleCircuit($event)">
+              {{ translate("Show Circuit") }}
+            </ion-toggle>
+          </ion-item>
+        </ion-card>
+        <ion-card v-if="circuitStore.circuitEnabled">
+          <ion-card-header>
             <ion-card-title>Circuit</ion-card-title>
             <ion-card-subtitle>{{ modelInfo.size }}</ion-card-subtitle>
           </ion-card-header>
@@ -157,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { useCircuitStore } from "@/store/circuit";
@@ -202,7 +215,7 @@ const props = defineProps({
 })
 
 onMounted(() => {
-  circuitStore.checkWebGPUSupport();
+  if (circuitStore.circuitEnabled) circuitStore.checkWebGPUSupport();
 })
 
 function setEComStore(event: CustomEvent) {
@@ -230,6 +243,13 @@ function installModel() {
 
 function unloadModel() {
   circuitStore.unloadLLM();
+}
+
+function toggleCircuit(event: CustomEvent) {
+  const enabled = !!event.detail.checked;
+  circuitStore.setCircuitEnabled(enabled);
+  // When re-enabling in-session, run the WebGPU probe that onMounted skipped while hidden.
+  if (enabled) circuitStore.checkWebGPUSupport();
 }
 
 function goToLaunchpad() {

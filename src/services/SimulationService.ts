@@ -39,7 +39,15 @@ export function simApiBaseUrl(env: Record<string, any> = import.meta.env): strin
  *  UAT -> prod is config, not code. Auth is unchanged — simApi() attaches api_key (two-instance) or
  *  the OMS Bearer (single-instance). Env is injectable for headless testing. */
 export function simRoutingApiBaseUrl(env: Record<string, any> = import.meta.env): string {
-  return ((env && env.VITE_SIM_ROUTING_API_BASE_URL) || "https://asb-sim-uat.hotwax.io/rest/s1/sim-routing").trim();
+  const explicit = ((env && env.VITE_SIM_ROUTING_API_BASE_URL) || "").trim();
+  if (explicit) return explicit;
+  // No explicit override: derive from the host the working sim calls already use, so no extra env is
+  // needed and the api_key host stays aligned. Two-instance (VITE_SIM_URL set): the sim Moqui root +
+  // sim-routing. Single-instance: swap the brokering base's trailing component (order-routing /
+  // ai-routing) for sim-routing — same host, different prefix.
+  const moqui = simBaseURL(env);
+  if (moqui) return moqui.replace(/\/+$/, "") + "/sim-routing";
+  return simApiBaseUrl(env).replace(/\/[^/]+\/?$/, "/sim-routing");
 }
 
 /** Bare REST root the simulation page pulls its routing groups and OMS reference data (omsenums,

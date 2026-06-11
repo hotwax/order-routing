@@ -557,5 +557,10 @@
   "No variations yet. Create one to start a what-if.": "No variations yet. Create one to start a what-if.",
   "Name (optional)": "Name (optional)",
   "Create": "Create",
-  "Variations can't be deleted yet, so they accumulate.": "Variations can't be deleted yet, so they accumulate."
+  "Variations can't be deleted yet, so they accumulate.": "Variations can't be deleted yet, so they accumulate.",
+  "Parent group": "Parent group",
+  "which orders": "which orders",
+  "Rules": "Rules",
+  "how it brokers": "how it brokers",
+  "Inventory conditions": "Inventory conditions"
 }

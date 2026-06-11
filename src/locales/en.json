@@ -573,5 +573,12 @@
   "Queued": "Queued",
   "Not run in this variation": "Not run in this variation",
   "0 eligible — filter matched nothing": "0 eligible — filter matched nothing",
-  "Eligible but nothing brokered — no available inventory": "Eligible but nothing brokered — no available inventory"
+  "Eligible but nothing brokered — no available inventory": "Eligible but nothing brokered — no available inventory",
+  "Running…": "Running…",
+  "Run comparison": "Run comparison",
+  "Re-run parent": "Re-run parent",
+  "Simulating variation": "Simulating variation",
+  "this can take 25–150s": "this can take 25–150s",
+  "Running parent group": "Running parent group",
+  "Parent run unavailable — showing variation results only.": "Parent run unavailable — showing variation results only."
 }

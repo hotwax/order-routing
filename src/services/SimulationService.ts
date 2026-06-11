@@ -192,6 +192,20 @@ export async function pollJob(
   throw new Error("Simulation timed out. Please re-run this batch.");
 }
 
+/** Run the parent group's live config (no variants) via the existing job endpoint, returning its
+ *  GroupRunResult. Reuses submitBatch (empty variants -> baseline groupRun) + pollJob for live
+ *  progress. `onProgress` receives each progress tick for the parent-side progress bar. */
+export async function runParentLiveConfig(
+  parentRoutingGroupId: string,
+  sampleCap: number | undefined,
+  onProgress?: (progress: GroupRunProgress) => void,
+): Promise<any> {
+  const jobId = await submitBatch({ routingGroupId: parentRoutingGroupId, variants: [], sampleCap });
+  const result = await pollJob(parentRoutingGroupId, jobId, undefined, onProgress);
+
+  return (result as any).groupRun ?? (result as any).variation ?? result;
+}
+
 // ---- Past simulations (read-only: backend request R1/R2) -------------------------------------
 
 export interface PastSimulationsFilters {

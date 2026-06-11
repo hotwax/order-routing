@@ -211,12 +211,6 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
-    path: "/simulate/:routingGroupId",
-    component: () => import("@/views/Simulation.vue"),
-    beforeEnter: simulateGuard,
-    props: true
-  },
-  {
     path: "/simulate/variation/:variationGroupId",
     name: "VariationEditor",
     component: () => import("@/views/VariationEditor.vue"),
@@ -268,10 +262,6 @@ const routes: Array<RouteRecordRaw> = [
   { path: "/tabs/brokering", redirect: "/brokering" },
   { path: "/tabs/settings", redirect: "/settings" },
   { path: "/tabs/simulate", redirect: "/simulate" },
-  {
-    path: "/tabs/simulate/:routingGroupId",
-    redirect: (to) => `/simulate/${to.params.routingGroupId}`
-  },
   {
     path: "/tabs/brokering/:routingGroupId/routes",
     redirect: (to) => `/brokering/${to.params.routingGroupId}/routes`

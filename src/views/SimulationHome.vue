@@ -29,13 +29,12 @@
 import { computed, onMounted, ref } from "vue";
 import { translate } from "@common";
 import { IonButton, IonContent, IonHeader, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonSegment, IonSegmentButton, IonTitle, IonToolbar } from "@ionic/vue";
-import { simulationStore } from "@/store/simulationStore";
+import { variationStore } from "@/store/variationStore";
 import PastSimulationsList from "@/components/simulation/PastSimulationsList.vue";
 import VariationList from "@/components/simulation/VariationList.vue";
 
-// Groups come from the simulation backend via the simulation store — isolated from the OMS group state.
-// (Only the group list is read here; the variation flow itself uses variationStore.)
-const simStore = simulationStore();
+// Groups come from the simulation backend via the variation store — isolated from the OMS group state.
+const simStore = variationStore();
 const groups = computed(() => simStore.getSimGroups);
 const tab = ref<"new" | "past">("new");
 const selectedGroup = ref<any | null>(null);

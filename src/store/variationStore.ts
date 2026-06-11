@@ -17,6 +17,8 @@ const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? null));
 
 export const variationStore = defineStore("variation", {
   state: () => ({
+    // Routing-group list for the picker, pulled from the sim instance (formerly in simulationStore).
+    simGroups: [] as any[],
     parentRoutingGroupId: "" as string,
     variations: [] as VariationListItem[],
     listLoading: false,
@@ -33,6 +35,7 @@ export const variationStore = defineStore("variation", {
     parentProgress: null as any,
   }),
   getters: {
+    getSimGroups: (s) => s.simGroups,
     routingNameById: (s): Record<string, string> => (s.tree ? buildRoutingNameMap(s.tree) : {}),
     // Routings sorted by sequence for the editor.
     sortedRoutings: (s): VariationRouting[] => (s.tree ? sortBySequence(s.tree.routings) : []),
@@ -52,6 +55,18 @@ export const variationStore = defineStore("variation", {
   actions: {
     resolveProductStoreId(prefer?: string): string {
       return simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
+    },
+    // Routing-group list for the picker, pulled from the sim instance. Errors leave the list empty so
+    // a sim outage can't reject (mirrors the retired simulationStore.fetchSimGroups).
+    async fetchSimGroups() {
+      try {
+        const { fetchRoutingGroupsList } = await import("../services/RoutingGroupService");
+        const { simApi, simApiName, simMoquiUrl } = await import("../services/SimulationService");
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simApi, simMoquiUrl(), simApiName());
+      } catch (err) {
+        logger.error(err);
+        this.simGroups = [];
+      }
     },
     async fetchVariations(parentRoutingGroupId: string) {
       this.parentRoutingGroupId = parentRoutingGroupId;

@@ -551,5 +551,11 @@
   "value": "value",
   "variants": "variants",
   "virtual, ": "virtual, ",
-  "warehouse": "{count} warehouse"
+  "warehouse": "{count} warehouse",
+  "Variations of": "Variations of",
+  "New variation": "New variation",
+  "No variations yet. Create one to start a what-if.": "No variations yet. Create one to start a what-if.",
+  "Name (optional)": "Name (optional)",
+  "Create": "Create",
+  "Variations can't be deleted yet, so they accumulate.": "Variations can't be deleted yet, so they accumulate."
 }

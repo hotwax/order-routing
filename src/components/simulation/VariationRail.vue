@@ -19,16 +19,17 @@
     </ion-item>
 
     <div class="ion-padding">
-      <ion-button expand="block" :disabled="!sim.canSubmit" @click="sim.submit()">
-        {{ translate("Submit") }} ({{ sim.variations.length }})
+      <ion-button expand="block" :disabled="!sim.activeVariationId || sim.isRunningVariationRun" @click="sim.runActiveVariation()">
+        {{ sim.isRunningVariationRun ? translate("Running…") : translate("Run variation") }}
       </ion-button>
+      <ion-note class="rail-note">{{ translate("Saved variations persist on the server.") }}</ion-note>
     </div>
   </ion-card>
 </template>
 
 <script setup lang="ts">
 import { translate } from "@common";
-import { alertController, IonButton, IonCard, IonIcon, IonItem, IonLabel, IonListHeader } from "@ionic/vue";
+import { alertController, IonButton, IonCard, IonIcon, IonItem, IonLabel, IonListHeader, IonNote } from "@ionic/vue";
 import { pencilOutline, refreshOutline, trashOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 
@@ -49,4 +50,5 @@ async function rename(id: string, current: string) {
 
 <style scoped>
 .variation-rail { min-width: 280px; }
+.rail-note { display: block; font-size: 0.75rem; color: var(--ion-color-medium); margin-top: var(--spacer-sm); }
 </style>

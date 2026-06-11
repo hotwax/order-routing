@@ -1,12 +1,18 @@
 // src/store/simulationStore.ts
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { v4 as uuidv4 } from "uuid";
-import { orderRoutingStore } from "./orderRoutingStore";
-import { buildVariant, isNoOp } from "../util/simulationDiff";
+import { logger } from "@common";
+import { productStore } from "./productStore";
+import { buildVariant, isNoOp, applyProductStoreId } from "../util/simulationDiff";
 import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
-import { submitBatch, pollJob } from "../services/SimulationService";
+import { submitBatch, pollJob, runParentLiveConfig, simApi, simApiName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
+import { fetchRoutingGroupsList, fetchRoutingGroupDetail } from "../services/RoutingGroupService";
+import { listVariations, createVariation, getVariation, replaceVariationConfig, runVariation } from "../services/VariationService";
+import { toConfigPayload, fromVariationRoutings } from "../util/variationConfigAdapter";
+import { joinRoutingResults } from "../util/routingResultJoin";
+import { buildRoutingNameMap } from "../util/variationTree";
 import { mergeEvents } from "../util/progressBuffer";
 import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
+import { CompareRow, GroupRunResult } from "../types/variation";
 import * as SimulationJobStore from "../services/SimulationJobStore";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
@@ -19,6 +25,9 @@ const zeroedBatch = (batchIndex: number): BatchProgress => ({
 export const simulationStore = defineStore("simulation", {
   state: () => ({
     routingGroupId: "" as string,
+    // The routing-group list for the picker, fetched from the simulation backend via simApi — kept
+    // here, not in the shared orderRoutingStore, so the simulate tab never reads/writes OMS group state.
+    simGroups: [] as any[],
     baseline: null as any,
     working: null as any,
     variations: [] as Variation[],
@@ -33,8 +42,15 @@ export const simulationStore = defineStore("simulation", {
     view: "editor" as "editor" | "results",
     // The persisted simulationId of the most recently completed run (backend R3), for deep-linking.
     lastSimulationId: null as string | null,
+    // ---- H2 variation run + parent compare (persist-on-save flow) ----
+    variationRunResult: null as GroupRunResult | null,
+    parentRunByGroupId: {} as Record<string, GroupRunResult>, // session cache, keyed by parent group id
+    parentRunProgress: null as any,
+    isRunningVariationRun: false,
+    runCompareError: null as string | null,
   }),
   getters: {
+    getSimGroups: (s) => s.simGroups,
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
     // The variation the working copy was loaded from (null = editing a fresh draft off baseline).
     activeVariation: (s) => s.variations.find((v) => v.id === s.activeVariationId) || null,
@@ -46,23 +62,50 @@ export const simulationStore = defineStore("simulation", {
         : s.baseline;
       return JSON.stringify(s.working ?? {}) !== JSON.stringify(source ?? {});
     },
+    // Per-routing parent-vs-variation comparison rows for the active H2 variation run.
+    variationCompareRows(s): CompareRow[] {
+      const parent = s.parentRunByGroupId[s.routingGroupId];
+      if (!s.variationRunResult || !parent) return [];
+      // Names: parent routings (100008 -> name) + the active variation's working tree (VM…_100008 -> name).
+      const names = { ...buildRoutingNameMap({ routings: s.baseline?.routings ?? [] }), ...buildRoutingNameMap({ routings: s.working?.routings ?? [] }) };
+      return joinRoutingResults({
+        variationGroupId: s.variationRunResult.routingGroupId,
+        parentResults: parent.routingResults ?? [],
+        variationResults: s.variationRunResult.routingResults ?? [],
+        routingNameById: names,
+      });
+    },
   },
   actions: {
+    // THE product-store resolution for the simulate tab — every sim call site (group list, past list,
+    // submit) funnels through here so the precedence lives in one place (and the planned store
+    // selector replaces one function, not three hand-rolled chains). Precedence: the configured sim
+    // store (VITE_SIM_PRODUCT_STORE_ID) > a caller-supplied contextual store (e.g. the loaded
+    // group's) > the OMS currentEComStore (single-instance behaviour).
+    resolveProductStoreId(prefer?: string): string {
+      return simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
+    },
+    // Routing-group list for the picker, pulled from the sim instance via simApi. Errors are logged
+    // and leave the list empty — callers (onMounted, loadGroup) must not blow up on a sim outage.
+    async fetchSimGroups() {
+      try {
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simApi, simMoquiUrl(), simApiName());
+      } catch (err) {
+        logger.error(err);
+        this.simGroups = [];
+      }
+    },
     async loadGroup(routingGroupId: string) {
       this.loadError = null;
       this.baseline = null;
       this.working = null;
       try {
-        const ors = orderRoutingStore();
-        // On a fresh deep-link the groups[] list is empty. fetchCurrentRoutingGroup looks the
-        // group up there, and when it's missing the downstream schedule fetch throws on an
-        // undefined currentGroup. Loading the list first mirrors the picker entry path and
-        // keeps currentGroup defined.
-        if (!ors.getRoutingGroups?.length) {
-          await ors.fetchOrderRoutingGroups();
+        // On a fresh deep-link the list is empty; load it first so fetchRoutingGroupDetail has the
+        // group metadata to fall back on. All reads go through simApi to the simulation backend.
+        if (!this.simGroups?.length) {
+          await this.fetchSimGroups();
         }
-        await ors.fetchCurrentRoutingGroup(routingGroupId);
-        const group = ors.getCurrentRoutingGroup;
+        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simApi, simMoquiUrl(), simApiName());
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }
@@ -75,23 +118,94 @@ export const simulationStore = defineStore("simulation", {
         this.lastSimulationId = null;
         this.runStates = [];
         this.batchProgress = [];
+        this.variationRunResult = null;
+        this.runCompareError = null;
+        await this.fetchServerVariations(routingGroupId);
       } catch (e: any) {
         this.loadError = e?.message ?? "Failed to load routing group.";
       }
     },
-    saveAsVariation(label: string) {
-      const variation: Variation = { id: uuidv4(), label: label || `Variation ${this.variations.length + 1}`, group: deepClone(this.working) };
-      this.variations.push(variation);
-      this.activeVariationId = variation.id;
+    // Load the server-persisted (H2) variations for the parent group into the rail. group=null until a
+    // variation is opened (lazy). Errors leave the existing list intact.
+    async fetchServerVariations(parentRoutingGroupId: string) {
+      try {
+        const list = await listVariations(parentRoutingGroupId);
+        this.variations = list.map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
+      } catch (err) {
+        logger.error(err);
+      }
     },
-    // Overwrite an existing variation's snapshot with the current working copy.
-    updateVariation(id: string) {
-      const v = this.variations.find((x) => x.id === id);
-      if (v) v.group = deepClone(this.working);
+    // Persist the current working copy as a NEW H2 variation: clone the parent, then PUT the whole
+    // edited tree (lossless whole-tree replace). Cache the canonical returned tree as the group.
+    async saveAsVariation(label: string) {
+      try {
+        const vid = await createVariation(this.routingGroupId, label);
+        const tree = await replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
+        const group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: vid };
+        this.variations.push({ id: vid, label: label || tree?.variationName || vid, group, serverVid: vid });
+        this.activeVariationId = vid;
+        this.working = deepClone(group);
+      } catch (err: any) {
+        logger.error(err);
+        this.loadError = err?.message ?? "Failed to save variation.";
+      }
     },
-    loadVariation(id: string) {
+    // Overwrite an existing H2 variation with the current working copy (PUT /config, lossless).
+    async updateVariation(id: string) {
       const v = this.variations.find((x) => x.id === id);
-      if (v) { this.working = deepClone(v.group); this.activeVariationId = id; }
+      if (!v?.serverVid) return;
+      try {
+        const tree = await replaceVariationConfig(v.serverVid, toConfigPayload(this.working?.routings ?? []));
+        v.group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
+        this.working = deepClone(v.group);
+      } catch (err: any) {
+        logger.error(err);
+        this.loadError = err?.message ?? "Failed to update variation.";
+      }
+    },
+    // Open a variation in the canvas: use the cached tree or fetch it from H2 (lazy).
+    async loadVariation(id: string) {
+      const v = this.variations.find((x) => x.id === id);
+      if (!v) return;
+      this.activeVariationId = id;
+      try {
+        if (!v.group && v.serverVid) {
+          const tree = await getVariation(v.serverVid);
+          v.group = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
+        }
+        if (v.group) this.working = deepClone(v.group);
+      } catch (err: any) {
+        logger.error(err);
+        this.loadError = err?.message ?? "Failed to load variation.";
+      }
+    },
+    // Run the active H2 variation (synchronous, slow) and the parent live-config (cached) for compare.
+    async runActiveVariation(sampleCap = 500) {
+      const v = this.activeVariationId ? this.variations.find((x) => x.id === this.activeVariationId) : null;
+      if (!v?.serverVid) { this.runCompareError = "Save the variation before running it."; this.view = "results"; return; }
+      this.runCompareError = null;
+      this.variationRunResult = null;
+      this.isRunningVariationRun = true;
+      this.view = "results";
+      const parentId = this.routingGroupId;
+      const needParent = !this.parentRunByGroupId[parentId];
+      try {
+        const [vr] = await Promise.all([
+          runVariation(v.serverVid, sampleCap),
+          needParent
+            ? runParentLiveConfig(parentId, sampleCap, (p) => { this.parentRunProgress = p; })
+              .then((gr) => { this.parentRunByGroupId[parentId] = gr; })
+              .catch((e) => { logger.error(e); })
+            : Promise.resolve(),
+        ]);
+        this.variationRunResult = vr;
+        const sid = (vr as any)?.simulationId;
+        if (sid) this.lastSimulationId = String(sid);
+      } catch (e: any) {
+        this.runCompareError = e?.message ?? "Variation run failed.";
+      } finally {
+        this.isRunningVariationRun = false;
+      }
     },
     resetWorkingToBaseline() {
       this.working = deepClone(this.baseline);
@@ -161,7 +275,10 @@ export const simulationStore = defineStore("simulation", {
       this.results = null;
       this.view = "results";
       try {
-        const batches = chunkVariants(live.map((b) => b.variant), 5);
+        // Scope every variant to the sim product store (contextual fallback: the loaded group's own
+        // store) so the backend simulates against the right store's data.
+        const productStoreId = this.resolveProductStoreId(this.baseline?.productStoreId);
+        const batches = chunkVariants(applyProductStoreId(live.map((b) => b.variant), productStoreId), 5);
         const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
         this.batchProgress = batches.map((_, i) => zeroedBatch(i));
 

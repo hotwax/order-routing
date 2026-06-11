@@ -15,8 +15,8 @@
             <ion-label>{{ translate("Editor") }}</ion-label>
           </ion-segment-button>
           <ion-segment-button value="results">
-            <ion-label>{{ sim.isRunning ? translate("Simulation") : translate("Results") }}</ion-label>
-            <ion-spinner v-if="sim.isRunning" name="dots" />
+            <ion-label>{{ (sim.isRunning || sim.isRunningVariationRun) ? translate("Simulation") : translate("Results") }}</ion-label>
+            <ion-spinner v-if="sim.isRunning || sim.isRunningVariationRun" name="dots" />
           </ion-segment-button>
         </ion-segment>
 
@@ -24,10 +24,10 @@
           <simulation-canvas />
           <variation-rail />
         </div>
-        <div v-show="sim.view === 'results' && !sim.isRunning && !sim.results" class="ion-padding sim-empty">
-          {{ translate("No simulation has run yet. Edit variations and press Submit.") }}
+        <div v-show="sim.view === 'results' && !sim.isRunning && !sim.results && !sim.isRunningVariationRun && !sim.variationRunResult" class="ion-padding sim-empty">
+          {{ translate("No simulation has run yet. Save a variation and run it.") }}
         </div>
-        <simulation-results v-show="sim.view === 'results' && (sim.isRunning || sim.results)" />
+        <simulation-results v-show="sim.view === 'results' && (sim.isRunning || sim.results || sim.isRunningVariationRun || sim.variationRunResult)" />
       </template>
     </ion-content>
   </ion-page>

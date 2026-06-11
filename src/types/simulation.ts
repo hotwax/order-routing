@@ -5,6 +5,9 @@
 /** The flat parameter/data override vocabulary accepted inside variants[].parameterOverrides.
  *  Mirrors simulationConfigSchema in circuit/src/mastra/tools/runBrokeringGroupSimulation.ts. */
 export interface SimulationConfig {
+  /** Product store the simulation runs against. Injected per-variant at submit time (not diffed vs
+   *  baseline) so the backend scopes orders/inventory to the right store. */
+  productStoreId?: string;
   distance?: number;
   brokeringSafetyStock?: number;
   weekOfSupplyFilterEnabled?: boolean;
@@ -61,11 +64,14 @@ export interface SimVariant extends VariantPayload {
   label: string;
 }
 
-/** A user-saved variation: a full snapshot plus UI metadata. `group` is a deep clone of currentGroup. */
+/** A user-saved variation: a full snapshot plus UI metadata. `group` is a deep clone of currentGroup.
+ *  When server-backed (H2 persist-on-save), `serverVid` is the sim-routing variationGroupId and `group`
+ *  may be null until lazily fetched. */
 export interface Variation {
-  id: string;            // client uuid
+  id: string;            // client uuid, or the serverVid when server-backed
   label: string;         // user-editable
-  group: any;            // full snapshot of the group hierarchy
+  group: any;            // full snapshot of the group hierarchy (canvas shape), or null if not yet loaded
+  serverVid?: string;    // sim-routing variationGroupId when persisted to H2
 }
 
 export type JobStatus = "running" | "complete" | "failed" | "not_found";

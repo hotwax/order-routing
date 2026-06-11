@@ -6,7 +6,34 @@
       <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}
     </ion-button>
 
-    <template v-if="sim.results">
+    <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare. -->
+    <template v-if="sim.variationRunResult || sim.isRunningVariationRun">
+      <div v-if="sim.isRunningVariationRun" class="vrun-progress">
+        <ion-label>{{ translate("Simulating variation") }} — {{ translate("this can take 25–150s") }}</ion-label>
+        <ion-progress-bar type="indeterminate" />
+      </div>
+      <ion-note v-if="sim.runCompareError" color="danger">{{ sim.runCompareError }}</ion-note>
+
+      <ion-list v-if="sim.variationRunResult">
+        <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
+        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)">
+          <ion-label>
+            <h3>{{ row.routingName }}</h3>
+            <div class="cmp">
+              <span class="metric"><span class="lbl">{{ translate("Eligible") }}</span><span class="val">{{ n(row.parent?.eligibleEntryCount) }} → <strong>{{ n(row.variation?.eligibleEntryCount) }}</strong></span></span>
+              <span class="metric"><span class="lbl">{{ translate("Brokered") }}</span><span class="val">{{ n(row.parent?.brokeredItemCount) }} → {{ n(row.variation?.brokeredItemCount) }}</span></span>
+              <span class="metric"><span class="lbl">{{ translate("Queued") }}</span><span class="val">{{ n(row.parent?.queuedItemCount) }} → {{ n(row.variation?.queuedItemCount) }}</span></span>
+            </div>
+            <p v-if="compareSignal(row)" :class="row.variation && row.variation.eligibleEntryCount === 0 ? 'sig-warn' : 'sig-info'">{{ compareSignal(row) }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-note v-if="!sim.parentRunByGroupId[sim.routingGroupId]" color="medium" class="ion-padding-horizontal">
+          {{ translate("Parent run unavailable — showing variation results only.") }}
+        </ion-note>
+      </ion-list>
+    </template>
+
+    <template v-else-if="sim.results">
       <p v-if="sim.results.simulationRan === false" class="warn">{{ translate("The simulator did not run — no numbers to report.") }}</p>
       <p v-if="sim.results.partial" class="warn">{{ translate("Some variations did not complete — results are partial.") }}</p>
       <ion-button
@@ -67,7 +94,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { translate } from "@common";
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon } from "@ionic/vue";
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonProgressBar } from "@ionic/vue";
 import { arrowBackOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import { toRows } from "@/util/outcomes";
@@ -88,8 +115,24 @@ const hasClassification = computed(() => rows.value.some((r) => r.outcomes?.clas
 
 const winnerLabel = ref<string | undefined>(undefined);
 function onWinner(label: string | undefined) { winnerLabel.value = label; }
+
+// H2 variation compare helpers.
+const n = (v: number | undefined) => (v == null ? "—" : String(v));
+function compareSignal(row: any): string {
+  const v = row.variation;
+  if (!v) return translate("Not run in this variation");
+  if (v.eligibleEntryCount === 0) return translate("0 eligible — filter matched nothing");
+  if (v.brokeredItemCount === 0) return translate("Eligible but nothing brokered — no available inventory");
+  return "";
+}
 </script>
 
 <style scoped>
 .warn { color: var(--ion-color-warning-shade); }
+.vrun-progress { margin: var(--spacer-sm) 0; }
+.cmp { display: flex; gap: var(--spacer-base); flex-wrap: wrap; }
+.metric { display: flex; flex-direction: column; }
+.lbl { font-size: 0.75rem; color: var(--ion-color-medium); }
+.sig-warn { color: var(--ion-color-warning); }
+.sig-info { color: var(--ion-color-medium); }
 </style>

@@ -2,11 +2,18 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { logger } from "@common";
 import { productStore } from "./productStore";
-import { listVariations, createVariation, getVariation } from "../services/VariationService";
+import {
+  listVariations, createVariation, getVariation,
+  setRouting, upsertFilter, deleteFilter, setRule,
+  upsertInventoryCondition, deleteInventoryCondition, upsertAction, deleteAction,
+  type VariationConditionInput, type VariationActionInput,
+} from "../services/VariationService";
 import { simProductStoreId } from "../services/SimulationService";
 import { joinRoutingResults } from "../util/routingResultJoin";
 import { buildRoutingNameMap, sortBySequence } from "../util/variationTree";
-import type { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationTree } from "../types/variation";
+import type { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationRule, VariationTree } from "../types/variation";
+
+const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? null));
 
 export const variationStore = defineStore("variation", {
   state: () => ({
@@ -81,7 +88,95 @@ export const variationStore = defineStore("variation", {
         this.loadError = e?.message ?? "Failed to load variation.";
       }
     },
-    // --- edit actions (Task 8) and run actions (Task 9) inserted below ---
+    _findRouting(rid: string): VariationRouting | undefined {
+      return this.tree?.routings.find((r) => r.orderRoutingId === rid);
+    },
+    _findRule(rid: string, ruleId: string): VariationRule | undefined {
+      return this._findRouting(rid)?.rules.find((x) => x.routingRuleId === ruleId);
+    },
+    // Optimistic write: mutate local tree, persist; on failure revert to the pre-edit snapshot.
+    async _withSave(key: string, optimistic: () => void, persist: () => Promise<any>) {
+      if (!this.tree?.variationGroupId) return;
+      this.saving = { ...this.saving, [key]: "saving" };
+      const snapshot = deepClone(this.tree);
+      try {
+        optimistic();
+        await persist();
+        const next = { ...this.saving }; delete next[key]; this.saving = next;
+      } catch (err: any) {
+        logger.error(err);
+        this.tree = snapshot; // revert
+        this.saving = { ...this.saving, [key]: "error" };
+      }
+    },
+
+    setRoutingStatus(rid: string, statusId: string) {
+      return this._withSave(`routing:${rid}`,
+        () => { const r = this._findRouting(rid); if (r) r.statusId = statusId; },
+        () => setRouting(this.tree!.variationGroupId, rid, { statusId }));
+    },
+    reorderRoutings(orderedIds: string[]) {
+      const vid = this.tree!.variationGroupId;
+      orderedIds.forEach((rid, i) => {
+        const r = this._findRouting(rid); if (r) r.sequenceNum = i;
+        void setRouting(vid, rid, { sequenceNum: i }).catch((e) => logger.error(e));
+      });
+    },
+    upsertFilter(rid: string, cond: VariationConditionInput) {
+      return this._withSave(`filter:${rid}:${cond.conditionSeqId}`,
+        () => {
+          const r = this._findRouting(rid); if (!r) return;
+          const existing = r.filters.find((f) => f.conditionSeqId === cond.conditionSeqId);
+          if (existing) Object.assign(existing, cond); else r.filters.push({ ...cond });
+        },
+        () => upsertFilter(this.tree!.variationGroupId, rid, cond));
+    },
+    removeFilter(rid: string, seqId: string) {
+      return this._withSave(`filter:${rid}:${seqId}`,
+        () => { const r = this._findRouting(rid); if (r) r.filters = r.filters.filter((f) => f.conditionSeqId !== seqId); },
+        () => deleteFilter(this.tree!.variationGroupId, rid, seqId));
+    },
+    setRuleStatus(rid: string, ruleId: string, statusId: string) {
+      return this._withSave(`rule:${ruleId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.statusId = statusId; },
+        () => setRule(this.tree!.variationGroupId, rid, ruleId, { statusId }));
+    },
+    reorderRules(rid: string, orderedRuleIds: string[]) {
+      const vid = this.tree!.variationGroupId;
+      orderedRuleIds.forEach((ruleId, i) => {
+        const rl = this._findRule(rid, ruleId); if (rl) rl.sequenceNum = i;
+        void setRule(vid, rid, ruleId, { sequenceNum: i }).catch((e) => logger.error(e));
+      });
+    },
+    upsertInventoryCondition(rid: string, ruleId: string, cond: VariationConditionInput) {
+      return this._withSave(`invcond:${ruleId}:${cond.conditionSeqId}`,
+        () => {
+          const rl = this._findRule(rid, ruleId); if (!rl) return;
+          const ex = rl.inventoryConditions.find((c) => c.conditionSeqId === cond.conditionSeqId);
+          if (ex) Object.assign(ex, cond); else rl.inventoryConditions.push({ ...cond });
+        },
+        () => upsertInventoryCondition(this.tree!.variationGroupId, rid, ruleId, cond));
+    },
+    removeInventoryCondition(rid: string, ruleId: string, seqId: string) {
+      return this._withSave(`invcond:${ruleId}:${seqId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.inventoryConditions = rl.inventoryConditions.filter((c) => c.conditionSeqId !== seqId); },
+        () => deleteInventoryCondition(this.tree!.variationGroupId, rid, ruleId, seqId));
+    },
+    upsertAction(rid: string, ruleId: string, action: VariationActionInput) {
+      return this._withSave(`action:${ruleId}:${action.actionSeqId}`,
+        () => {
+          const rl = this._findRule(rid, ruleId); if (!rl) return;
+          const ex = rl.actions.find((a) => a.actionSeqId === action.actionSeqId);
+          if (ex) Object.assign(ex, action); else rl.actions.push({ ...action });
+        },
+        () => upsertAction(this.tree!.variationGroupId, rid, ruleId, action));
+    },
+    removeAction(rid: string, ruleId: string, seqId: string) {
+      return this._withSave(`action:${ruleId}:${seqId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.actions = rl.actions.filter((a) => a.actionSeqId !== seqId); },
+        () => deleteAction(this.tree!.variationGroupId, rid, ruleId, seqId));
+    },
+    // --- run actions (Task 9) inserted below ---
   },
 });
 

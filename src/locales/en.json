@@ -580,5 +580,9 @@
   "Simulating variation": "Simulating variation",
   "this can take 25–150s": "this can take 25–150s",
   "Running parent group": "Running parent group",
-  "Parent run unavailable — showing variation results only.": "Parent run unavailable — showing variation results only."
+  "Parent run unavailable — showing variation results only.": "Parent run unavailable — showing variation results only.",
+  "Variation": "Variation",
+  "Loading variation…": "Loading variation…",
+  "Retry": "Retry",
+  "Editor": "Editor"
 }

@@ -217,6 +217,13 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
   {
+    path: "/simulate/variation/:variationGroupId",
+    name: "VariationEditor",
+    component: () => import("@/views/VariationEditor.vue"),
+    beforeEnter: simulateGuard,
+    props: true
+  },
+  {
     path: "/simulate/history/:simulationId",
     name: "PastSimulationDetail",
     component: () => import("@/views/PastSimulationDetail.vue"),

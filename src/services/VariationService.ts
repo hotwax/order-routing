@@ -28,6 +28,8 @@ export const variationRequests = {
     ({ url: `routingGroups/${parentRoutingGroupId}/variations`, method: "POST",
       data: variationName ? { variationName } : {} }),
   getVariation: (vid: string) => ({ url: `variations/${vid}`, method: "GET" }),
+  replaceConfig: (vid: string, routings: any[]) =>
+    ({ url: `variations/${vid}/config`, method: "PUT", data: { routings } }),
   setRouting: (vid: string, rid: string, patch: { statusId?: string; sequenceNum?: number }) =>
     ({ url: `variations/${vid}/routings/${rid}`, method: "PUT", data: patch }),
   upsertFilter: (vid: string, rid: string, cond: VariationConditionInput) =>
@@ -79,6 +81,14 @@ export async function getVariation(vid: string): Promise<VariationTree> {
   if (!data?.variation?.variationGroupId) throw new Error(`Variation ${vid} could not be loaded.`);
 
   return data.variation;
+}
+
+/** Persist-on-save: replace the variation's whole config (lossless whole-tree). Returns the canonical
+ *  variation tree the backend re-inserted (adopt it as the new client state). */
+export async function replaceVariationConfig(vid: string, routings: any[]): Promise<VariationTree> {
+  const data = await call(variationRequests.replaceConfig(vid, routings));
+  // The endpoint returns the canonical tree (same shape as GET). Tolerate either {variation} or a bare tree.
+  return data?.variation ?? data;
 }
 
 export const setRouting = (vid: string, rid: string, patch: { statusId?: string; sequenceNum?: number }) =>

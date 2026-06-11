@@ -3,12 +3,12 @@ import { acceptHMRUpdate, defineStore } from "pinia";
 import { logger } from "@common";
 import { productStore } from "./productStore";
 import {
-  listVariations, createVariation, getVariation,
+  listVariations, createVariation, getVariation, runVariation,
   setRouting, upsertFilter, deleteFilter, setRule,
   upsertInventoryCondition, deleteInventoryCondition, upsertAction, deleteAction,
   type VariationConditionInput, type VariationActionInput,
 } from "../services/VariationService";
-import { simProductStoreId } from "../services/SimulationService";
+import { runParentLiveConfig, simProductStoreId } from "../services/SimulationService";
 import { joinRoutingResults } from "../util/routingResultJoin";
 import { buildRoutingNameMap, sortBySequence } from "../util/variationTree";
 import type { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationRule, VariationTree } from "../types/variation";
@@ -176,7 +176,48 @@ export const variationStore = defineStore("variation", {
         () => { const rl = this._findRule(rid, ruleId); if (rl) rl.actions = rl.actions.filter((a) => a.actionSeqId !== seqId); },
         () => deleteAction(this.tree!.variationGroupId, rid, ruleId, seqId));
     },
-    // --- run actions (Task 9) inserted below ---
+    async runComparison(sampleCap = 500) {
+      const tree = this.tree;
+      if (!tree) return;
+      this.runError = null;
+      this.variationResult = null;
+      this.isRunningVariation = true;
+      // Parent run only if not already cached for this parent (it's stable).
+      const needParent = !this.parentResultByParentId[tree.parentRoutingGroupId];
+      if (needParent) { this.isRunningParent = true; this.parentProgress = null; }
+      try {
+        const [variation] = await Promise.all([
+          runVariation(tree.variationGroupId, sampleCap).finally(() => { this.isRunningVariation = false; }),
+          needParent
+            ? runParentLiveConfig(tree.parentRoutingGroupId, sampleCap, (p) => { this.parentProgress = p; })
+                .then((gr) => { this.parentResultByParentId[tree.parentRoutingGroupId] = gr; })
+                .catch((e) => { logger.error(e); }) // parent failure -> variation-only view
+                .finally(() => { this.isRunningParent = false; })
+            : Promise.resolve(),
+        ]);
+        this.variationResult = variation;
+      } catch (e: any) {
+        this.runError = e?.message ?? "Simulation run failed.";
+      } finally {
+        this.isRunningVariation = false;
+        this.isRunningParent = false;
+      }
+    },
+    async rerunParent(sampleCap = 500) {
+      const tree = this.tree;
+      if (!tree) return;
+      delete this.parentResultByParentId[tree.parentRoutingGroupId];
+      this.isRunningParent = true;
+      this.parentProgress = null;
+      try {
+        const gr = await runParentLiveConfig(tree.parentRoutingGroupId, sampleCap, (p) => { this.parentProgress = p; });
+        this.parentResultByParentId[tree.parentRoutingGroupId] = gr;
+      } catch (e) {
+        logger.error(e);
+      } finally {
+        this.isRunningParent = false;
+      }
+    },
   },
 });
 

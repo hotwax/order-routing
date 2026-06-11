@@ -566,5 +566,12 @@
   "field": "field",
   "Add condition": "Add condition",
   "action type": "action type",
-  "Add action": "Add action"
+  "Add action": "Add action",
+  "Per-routing results": "Per-routing results",
+  "Eligible": "Eligible",
+  "Brokered": "Brokered",
+  "Queued": "Queued",
+  "Not run in this variation": "Not run in this variation",
+  "0 eligible — filter matched nothing": "0 eligible — filter matched nothing",
+  "Eligible but nothing brokered — no available inventory": "Eligible but nothing brokered — no available inventory"
 }

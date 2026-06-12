@@ -16,7 +16,7 @@
 
       <ion-list v-if="sim.variationRunResult">
         <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
-        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button :detail="true" @click="openRowDetail(row)">
+        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
           <ion-label>
             <h3>{{ row.routingName }}</h3>
             <div class="cmp">
@@ -120,7 +120,7 @@ function onWinner(label: string | undefined) { winnerLabel.value = label; }
 
 // H2 variation compare helpers.
 const n = (v: number | undefined) => (v == null ? "—" : String(v));
-function compareSignal(row: any): string {
+function compareSignal(row: CompareRow): string {
   const v = row.variation;
   if (!v) return translate("Not run in this variation");
   if (v.eligibleEntryCount === 0) return translate("0 eligible — filter matched nothing");

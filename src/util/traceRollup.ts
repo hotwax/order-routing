@@ -64,7 +64,9 @@ export interface QueuedItem {
 const itemKey = (t: { orderId: string; orderItemSeqId?: string }) => `${t.orderId}|${t.orderItemSeqId ?? ""}`;
 
 /** The variation side's queued order items, flagged newlyQueued when the parent did not queue the same item.
- *  Pass parentTraces=undefined when there is no parent baseline — nothing gets flagged then. */
+ *  Pass parentTraces=undefined when there is no parent baseline — nothing gets flagged then (an empty array
+ *  IS a baseline: everything queued is new). Items match by orderId + orderItemSeqId, so both sides must
+ *  come from the same payload shape — an omitted seqId on one side only would read as a different item. */
 export function queuedDiff(parentTraces: OrderTrace[] | undefined, variationTraces?: OrderTrace[]): QueuedItem[] {
   const hasParent = parentTraces != null;
   const parentQueued = new Set((parentTraces ?? []).filter((t) => t.finalReason === "QUEUED").map(itemKey));

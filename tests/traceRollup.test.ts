@@ -94,4 +94,22 @@ assert.deepStrictEqual(
   [{ orderId: "O9", orderItemSeqId: "00101", newlyQueued: false }],
 );
 
+// Facility present only in the parent still appears (union join), with a negative delta.
+assert.deepStrictEqual(
+  compareFacilities([trace("O8", "FULLY_BROKERED", [["WH_NYC", 2]])], []),
+  [{ facilityId: "WH_NYC", parentQty: 1, variationQty: 0, delta: -1 }],
+);
+
+// Queueing is keyed per order ITEM: same order, different item seq -> newly queued.
+assert.deepStrictEqual(
+  queuedDiff([trace("O1", "QUEUED", [], "00101")], [trace("O1", "QUEUED", [], "00102")]),
+  [{ orderId: "O1", orderItemSeqId: "00102", newlyQueued: true }],
+);
+
+// Empty parent array is a real baseline ("parent queued nothing"), unlike undefined -> flags apply.
+assert.deepStrictEqual(
+  queuedDiff([], [trace("O10", "QUEUED", [], "00101")]),
+  [{ orderId: "O10", orderItemSeqId: "00101", newlyQueued: true }],
+);
+
 console.log("traceRollup tests passed");

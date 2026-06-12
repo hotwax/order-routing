@@ -26,9 +26,12 @@ const workingRoutings = [
   },
 ];
 
+// toConfigPayload returns the bare routings ARRAY — the service layer (variationRequests.replaceConfig)
+// owns wrapping it as the { routings } request body. Returning an object here caused a double-wrap
+// ({ routings: { routings: [...] } }) that the backend 400'd on.
 const payload = toConfigPayload(workingRoutings);
-assert.deepStrictEqual(payload, {
-  routings: [
+assert.ok(Array.isArray(payload), "toConfigPayload must return an array, not a body object");
+assert.deepStrictEqual(payload, [
     {
       routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
       filters: [
@@ -48,8 +51,7 @@ assert.deepStrictEqual(payload, {
         },
       ],
     },
-  ],
-});
+]);
 
 // ---- Inbound: GET /variations tree -> canvas `working` shape -------------------------------------
 const variationRoutings = [
@@ -86,6 +88,6 @@ assert.strictEqual(canvas[0].rules[0].routingRuleId, "VM1_100524");
 
 // round-trip: fromVariationRoutings -> toConfigPayload strips the _excluded suffix back off
 const round = toConfigPayload(canvas);
-assert.strictEqual(round.routings[0].filters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
+assert.strictEqual(round[0].filters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
 
 console.log("variationConfigAdapter tests passed");

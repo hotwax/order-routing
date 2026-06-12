@@ -46,18 +46,18 @@ function ruleOut(r: any) {
   };
 }
 
-/** Map the canvas `working.routings` tree to the `{ routings: [...] }` body for PUT /config.
- *  Node ids are intentionally dropped — the backend ignores them and assigns fresh ones. */
-export function toConfigPayload(routings: any[]): { routings: any[] } {
-  return {
-    routings: (routings ?? []).map((rt: any) => ({
-      routingName: rt.routingName,
-      statusId: rt.statusId,
-      sequenceNum: rt.sequenceNum ?? 0,
-      filters: (rt.orderFilters ?? []).map(conditionOut),
-      rules: (rt.rules ?? []).map(ruleOut),
-    })),
-  };
+/** Map the canvas `working.routings` tree to the routings ARRAY for PUT /config. The service layer
+ *  (variationRequests.replaceConfig) wraps it as the `{ routings }` request body — returning the body
+ *  object here double-wrapped the payload ({ routings: { routings: [...] } }) and the backend 400'd
+ *  (its List param received a Map). Node ids are intentionally dropped — the backend assigns fresh ones. */
+export function toConfigPayload(routings: any[]): any[] {
+  return (routings ?? []).map((rt: any) => ({
+    routingName: rt.routingName,
+    statusId: rt.statusId,
+    sequenceNum: rt.sequenceNum ?? 0,
+    filters: (rt.orderFilters ?? []).map(conditionOut),
+    rules: (rt.rules ?? []).map(ruleOut),
+  }));
 }
 
 // ---- Inbound: variation tree (GET / config response) -> canvas shape ----------------------------

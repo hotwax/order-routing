@@ -1,14 +1,22 @@
 <template>
   <ion-page>
-    <ion-header>
+    <ion-header :translucent="true">
       <ion-toolbar>
         <ion-title>{{ translate("Brokering Runs") }}</ion-title>
-        
-        <ion-buttons slot="end" v-if="brokeringGroups.length">
-          <ion-button color="primary" @click="addNewRun">
-            {{ translate("New Run") }}
-            <ion-icon :icon="addOutline" />
+        <ion-buttons slot="end">
+          <ion-button :aria-label="translate('Open brokering runs assistant')" @click="openAssistant">
+            <ion-icon slot="icon-only" :icon="sparklesOutline" />
           </ion-button>
+        </ion-buttons>
+        <ion-buttons slot="end" v-if="userProfile?.stores?.length > 1">
+          <ion-item lines="none" class="store-selector">
+            <ion-label position="stacked">{{ translate("Product Store") }}</ion-label>
+            <ion-select :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)" interface="popover">
+              <ion-select-option v-for="store in userProfile.stores" :key="store.productStoreId" :value="store.productStoreId">
+                {{ store.storeName || store.productStoreId }}
+              </ion-select-option>
+            </ion-select>
+          </ion-item>
         </ion-buttons>
       </ion-toolbar>
     </ion-header>
@@ -83,15 +91,18 @@
         </main>
       </div>
     </ion-content>
+
+    <brokering-runs-assistant-modal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
+import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
 import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
-import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
+import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/icons"
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import router from "@/router";
@@ -111,9 +122,18 @@ const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS)
 
 let isLoading = ref(false)
 let brokeringGroups = ref([]) as any
+let selectedFilter = ref('all')
+const isAssistantOpen = ref(false)
+
+function openAssistant() {
+  isAssistantOpen.value = true
+}
+// Map: day (1-7) -> hour (0-23) -> { interval: Group[], single: Group[] }
+let weeklySchedule = ref<any>({})
 
 onIonViewWillEnter(async () => {
   isLoading.value = true
+  await orderRoutingStore().clearCurrentGroup();
   await orderRoutingStore().fetchOrderRoutingGroups();
   isLoading.value = false
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
@@ -143,11 +163,7 @@ async function addNewRun() {
   })
 
   newRunAlert.onDidDismiss().then(async (result: any) => {
-    // considering that if we have role, then its negative action and thus not need to create run
-    if(result.role) {
-      return;
-    }
-
+    if(result.role) return;
     if(result.data?.values?.runName.trim()) {
       await orderRoutingStore().createRoutingGroup(result.data.values.runName.trim())
       brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
@@ -157,7 +173,7 @@ async function addNewRun() {
   return newRunAlert.present();
 }
 
-async function setEComStore(event: CustomEvent) {
+async function setEComStore(event: any) {
   emitter.emit("presentLoader")
   if(ecomStores.value.length) {
       productStore().setEcomStore({
@@ -175,7 +191,6 @@ function getScheduleFrequency(brokeringGroupObj: any) {
 
   if (!description && brokeringGroupObj.cronExpression) {
     description = cronstrue.toString(brokeringGroupObj.cronExpression);
-    // Capitalize first letter if it starts with a lowercase letter
     if (/^[a-z]/.test(description)) {
       description = description.charAt(0).toUpperCase() + description.slice(1);
     }
@@ -187,38 +202,260 @@ function redirect(group: Group) {
   router.push(`brokering/${group.routingGroupId}/routes`)
 }
 
-async function groupActionsPopover(group: Group, ev: Event) {
-  const popover = await popoverController.create({
-    component: GroupActionsPopover,
-    showBackdrop: false,
-    event: ev,
-    componentProps: { group }
-  });
-
-  popover.onDidDismiss().then((result: any) => {
-    if(result.data?.routingGroups?.length) {
-      brokeringGroups.value = JSON.parse(JSON.stringify(result.data.routingGroups))
-    }
-  })
-
-  return popover.present()
-}
-
 </script>
 
 <style scoped>
-@media (min-width: 991px) {
-  main {
-    display: flex;
-    justify-content: center;
-    align-items: start;
-    gap: var(--spacer-2xl);
-    max-width: 990px;
-    margin: var(--spacer-base) auto 0;
-  }
+.main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
 
-  main > section {
-    max-width: 50ch;
+.run-list-container {
+  display: flex;
+  overflow-x: auto;
+  padding: 8px 16px;
+  gap: 16px;
+  background: var(--ion-background-color);
+  border-bottom: 1px solid var(--ion-color-step-150);
+  flex-shrink: 0;
+}
+
+.run-list-card {
+  min-width: 250px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.create-card {
+  min-width: 120px;
+  align-items: center;
+  color: var(--ion-color-medium);
+}
+
+.run-list-item {
+  width: 100%;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  background: var(--ion-background-color);
+  border-bottom: 1px solid var(--ion-color-step-150);
+  flex-shrink: 0;
+}
+
+.filter-group {
+  display: flex;
+  gap: 4px;
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.line-sample {
+  width: 2px;
+  height: 12px;
+  background: var(--ion-color-primary);
+  display: inline-block;
+}
+
+.dot.active { background: var(--ion-color-primary); }
+.dot.draft { background: var(--ion-color-medium); }
+
+.calendar-wrapper {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-grid {
+  display: flex;
+  flex-direction: column;
+  min-width: 800px;
+  height: 100%;
+}
+
+.grid-header {
+  display: flex;
+  background: var(--ion-color-light);
+  border-bottom: 1px solid var(--ion-color-step-200);
+}
+
+.time-column-header {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.day-column-header {
+  flex: 1;
+  padding: 8px 4px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+  border-left: 1px solid var(--ion-color-step-150);
+}
+
+.grid-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.hour-row {
+  display: flex;
+  flex: 1;
+  min-height: 20px;
+  border-bottom: 1px solid var(--ion-color-step-50);
+}
+
+.hour-label {
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-light);
+  font-size: 0.7rem;
+  font-weight: bold;
+  border-right: 1px solid var(--ion-color-step-200);
+}
+
+.day-cell {
+  flex: 1;
+  display: flex;
+  position: relative;
+  border-left: 1px solid var(--ion-color-step-100);
+  background: var(--ion-background-color);
+  padding: 1px;
+}
+
+.interval-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none; /* Let clicks pass through if needed, but lines themselves capture clicks */
+  z-index: 0;
+}
+
+.run-interval-line {
+  width: 4px;
+  height: 100%;
+  margin: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.run-interval-line.active {
+  background: var(--ion-color-primary);
+  opacity: 0.5;
+}
+
+.run-interval-line.draft {
+  background: var(--ion-color-medium);
+  opacity: 0.3;
+}
+
+.blocks-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  width: 100%;
+  z-index: 1;
+}
+
+.run-block {
+  flex: 1;
+  min-width: 40px;
+  height: 100%;
+  border-radius: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+.run-block:hover {
+  opacity: 0.8;
+}
+
+.run-block.active {
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+}
+
+.run-block.draft {
+  background: var(--ion-color-medium);
+  color: var(--ion-color-medium-contrast);
+}
+
+.run-name {
+  font-size: 0.65rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--ion-color-medium);
+}
+
+.store-selector {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  max-width: 200px;
+}
+
+.store-selector ion-select {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .calendar-wrapper {
+    overflow-x: auto;
   }
 }
 </style>

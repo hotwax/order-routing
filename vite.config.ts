@@ -18,9 +18,6 @@ export default defineConfig({
       registerType: "autoUpdate",
       selfDestroying: true,
       manifest: manifest as any,
-      devOptions: {
-        enabled: true
-      }
     })
   ],
   resolve: {

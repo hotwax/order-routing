@@ -28,7 +28,7 @@ assert.deepStrictEqual(
 
 // --- facilityRollup ---
 assert.deepStrictEqual(facilityRollup(undefined), []);
-assert.deepStrictEqual(facilityRollup([trace("O1", "NO_INVENTORY")]), []); // no assignments -> empty
+assert.deepStrictEqual(facilityRollup([trace("O1", "UNFILLABLE")]), []); // no assignments -> empty
 
 const rolled = facilityRollup([
   trace("O1", "FULLY_BROKERED", [["WH_NYC", 2]]),

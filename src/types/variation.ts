@@ -57,15 +57,18 @@ export interface VariationListItem {
   createdByUserId?: string;
 }
 
-/** Where an order item ultimately ended up after this routing ran. */
-export type FinalReason = "FULLY_BROKERED" | "PARTIALLY_BROKERED" | "QUEUED" | "NO_INVENTORY" | "ERROR";
+/** Where an order item ultimately ended up after this routing ran. Mirrors OrderTrace.FinalReason. */
+export type FinalReason = "FULLY_BROKERED" | "PARTIALLY_BROKERED" | "QUEUED" | "UNFILLABLE" | "ERROR";
+
+/** A single rule attempt's outcome. Mirrors RuleAttempt.Outcome in the sim-routing serializer. */
+export type RuleOutcome = "FULL_BROKER" | "PARTIAL_BROKER" | "QUEUED" | "NO_INVENTORY" | "ERROR" | "SKIPPED_BY_ACTION";
 
 /** One facility assignment produced by a rule. Mirrors OrderAssignment in the sim-routing serializer. */
 export interface OrderAssignment {
   orderId: string;
   orderItemSeqId: string;
   shipGroupSeqId: string;
-  facilityId: string;
+  facilityId: string | null; // null == backordered
   routedQty: number;
   itemQty: number;
 }
@@ -73,11 +76,11 @@ export interface OrderAssignment {
 /** One rule's attempt at routing an order. Mirrors RuleAttempt in the sim-routing serializer. */
 export interface RuleAttempt {
   routingRuleId: string;
-  sequenceNum: number;
+  sequenceNum?: number;
   durationMs?: number;
   suggestedFulfillmentLocations?: unknown;
   actionFilters?: unknown;
-  outcome: string;
+  outcome: RuleOutcome | string | null;
   runNextRule?: boolean;
   errorMessage?: string | null;
 }
@@ -87,7 +90,7 @@ export interface OrderTrace {
   orderId: string;
   shipGroupSeqId?: string;
   orderItemSeqId?: string;
-  finalReason: FinalReason | string;
+  finalReason: FinalReason | string | null;
   finalAssignments?: OrderAssignment[];
   ruleAttempts?: RuleAttempt[];
 }

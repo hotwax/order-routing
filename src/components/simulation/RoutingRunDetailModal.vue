@@ -75,7 +75,7 @@
           <ion-item v-for="t in visibleTraces" :key="traceKey(t)" button @click="toggle(traceKey(t))">
             <ion-label>
               <h3>{{ t.orderId }}<span v-if="t.orderItemSeqId"> · {{ t.orderItemSeqId }}</span></h3>
-              <p>{{ reasonLabel(t.finalReason ?? "UNKNOWN") }}</p>
+              <p>{{ reasonLabel(t.finalReason || "UNKNOWN") }}</p>
               <!-- Rule narrative lines are intentionally untranslated: diagnostic content that embeds
                    backend error messages; only UI chrome (labels above) goes through translate(). -->
               <template v-if="expanded.has(traceKey(t))">

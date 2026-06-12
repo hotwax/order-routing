@@ -24,12 +24,12 @@ export function facilityRollup(traces?: OrderTrace[]): FacilityRollupRow[] {
   const byFacility = new Map<string, FacilityRollupRow>();
   for (const t of traces ?? []) {
     for (const a of t.finalAssignments ?? []) {
-      if (!a.facilityId) continue;
+      if (!a.facilityId) continue; // null == backordered: excluded from per-facility rollup
       const row = byFacility.get(a.facilityId) || { facilityId: a.facilityId, itemCount: 0, totalRoutedQty: 0 };
       row.itemCount += 1;
       row.totalRoutedQty += a.routedQty ?? 0;
       byFacility.set(a.facilityId, row);
     }
   }
-  return [...byFacility.values()].sort((a, b) => b.itemCount - a.itemCount || a.facilityId.localeCompare(b.facilityId));
+  return [...byFacility.values()].sort((a, b) => b.itemCount - a.itemCount || a.facilityId.localeCompare(b.facilityId, "en"));
 }

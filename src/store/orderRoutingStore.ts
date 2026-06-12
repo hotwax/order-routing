@@ -3,6 +3,7 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
+import { fetchRoutingGroupDetail } from '@/services/RoutingGroupService'
 import { v4 as uuidv4, validate } from 'uuid';
 
 export const orderRoutingStore = defineStore('orderRouting', {
@@ -284,57 +285,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
         if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
           return;
         }
-        currentGroup = this.groups.find(group => group.routingGroupId === routingGroupId)
-        if (!currentGroup?.isNew) {
-          const resp = await api({
-            url: `order-routing/groups/${routingGroupId}/raw`,
-            method: "GET"
-          });
-          // /raw can come back 200 with an empty body or a non-object payload for groups
-          // that have no routings yet. Treat that as "valid group, no routings" rather
-          // than an error, so we don't poison currentGroup with a swallowed throw.
-          if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === 'object' && !Array.isArray(resp.data)) {
-            currentGroup = resp.data
-          } else if (currentGroup) {
-            currentGroup = { ...currentGroup, routings: [] }
-          } else {
-            throw resp?.data
-          }
-        }
+        // Fetch + normalize via the shared helper (OMS instance: api(), default Maarg baseURL).
+        currentGroup = await fetchRoutingGroupDetail(routingGroupId, this.groups, api)
       } catch(err) {
         logger.error(err);
-      }
-
-      // Normalize entire hierarchy
-      if(currentGroup?.routings?.length) {
-        currentGroup.routings = commonUtil.sortSequence(currentGroup.routings).map((routing: any) => {
-          if (routing.orderFilters?.length) {
-            routing.orderFilters = routing.orderFilters.map((filter: any) => {
-              if (filter.operator === "not-equals" || filter.operator === "not-in") {
-                filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
-              }
-              return filter;
-            })
-          }
-          if (routing.rules?.length) {
-            routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
-              if (rule.inventoryFilters?.length) {
-                const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC || ""
-                rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
-                  if (filterSortDesc.includes(filter.fieldName)) {
-                    filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
-                  }
-                  if (filter.operator === "not-equals") {
-                    filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
-                  }
-                  return filter;
-                })
-              }
-              return rule;
-            })
-          }
-          return routing;
-        })
       }
 
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })

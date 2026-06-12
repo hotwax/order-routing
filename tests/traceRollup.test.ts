@@ -1,6 +1,6 @@
 // tests/traceRollup.test.ts
 import assert from "node:assert";
-import { outcomeCounts, facilityRollup } from "../src/util/traceRollup";
+import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff } from "../src/util/traceRollup";
 import type { OrderTrace } from "../src/types/variation";
 
 const trace = (orderId: string, finalReason: string | null, assignments: Array<[string | null, number]> = [], orderItemSeqId = "00101"): OrderTrace => ({
@@ -60,6 +60,38 @@ assert.deepStrictEqual(
     { facilityId: "Z_LAST", itemCount: 2, totalRoutedQty: 2 },
     { facilityId: "A_FIRST_ALPHA", itemCount: 1, totalRoutedQty: 9 },
   ],
+);
+
+// --- compareFacilities ---
+assert.deepStrictEqual(compareFacilities(undefined, undefined), []);
+
+const cmp = compareFacilities(
+  [trace("O1", "FULLY_BROKERED", [["WH_NYC", 1]]), trace("O2", "FULLY_BROKERED", [["WH_NYC", 1]])],
+  [trace("O1", "FULLY_BROKERED", [["WH_NYC", 1]]), trace("O2", "FULLY_BROKERED", [["STORE_LA", 1]]), trace("O3", "FULLY_BROKERED", [["STORE_LA", 2]])],
+);
+// Sorted by variationQty desc; union of both sides; delta = variation - parent (itemCount based).
+assert.deepStrictEqual(cmp, [
+  { facilityId: "STORE_LA", parentQty: 0, variationQty: 2, delta: 2 },
+  { facilityId: "WH_NYC", parentQty: 2, variationQty: 1, delta: -1 },
+]);
+
+// --- queuedDiff ---
+assert.deepStrictEqual(queuedDiff(undefined, undefined), []);
+
+const queued = queuedDiff(
+  [trace("O1", "QUEUED", [], "00101"), trace("O2", "FULLY_BROKERED", [], "00101")],
+  [trace("O1", "QUEUED", [], "00101"), trace("O2", "QUEUED", [], "00101"), trace("O3", "FULLY_BROKERED", [], "00101")],
+);
+// O1 queued in both -> not new; O2 newly queued; O3 not queued at all.
+assert.deepStrictEqual(queued, [
+  { orderId: "O1", orderItemSeqId: "00101", newlyQueued: false },
+  { orderId: "O2", orderItemSeqId: "00101", newlyQueued: true },
+]);
+
+// No parent traces -> no baseline -> never flagged "newly queued" (avoids a false claim).
+assert.deepStrictEqual(
+  queuedDiff(undefined, [trace("O9", "QUEUED", [], "00101")]),
+  [{ orderId: "O9", orderItemSeqId: "00101", newlyQueued: false }],
 );
 
 console.log("traceRollup tests passed");

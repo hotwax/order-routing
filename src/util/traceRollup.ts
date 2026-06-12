@@ -33,3 +33,42 @@ export function facilityRollup(traces?: OrderTrace[]): FacilityRollupRow[] {
   }
   return [...byFacility.values()].sort((a, b) => b.itemCount - a.itemCount || a.facilityId.localeCompare(b.facilityId, "en"));
 }
+
+export interface FacilityCompareRow {
+  facilityId: string;
+  parentQty: number;     // itemCount in the parent run
+  variationQty: number;  // itemCount in the variation run
+  delta: number;         // variationQty - parentQty
+}
+
+/** Join both sides' facility rollups (itemCount). Sorted by variationQty desc, then parentQty desc, then id. */
+export function compareFacilities(parentTraces?: OrderTrace[], variationTraces?: OrderTrace[]): FacilityCompareRow[] {
+  const parent = new Map(facilityRollup(parentTraces).map((r) => [r.facilityId, r.itemCount]));
+  const variation = new Map(facilityRollup(variationTraces).map((r) => [r.facilityId, r.itemCount]));
+  const ids = new Set([...parent.keys(), ...variation.keys()]);
+  return [...ids]
+    .map((facilityId) => {
+      const parentQty = parent.get(facilityId) ?? 0;
+      const variationQty = variation.get(facilityId) ?? 0;
+      return { facilityId, parentQty, variationQty, delta: variationQty - parentQty };
+    })
+    .sort((a, b) => b.variationQty - a.variationQty || b.parentQty - a.parentQty || a.facilityId.localeCompare(b.facilityId, "en"));
+}
+
+export interface QueuedItem {
+  orderId: string;
+  orderItemSeqId?: string;
+  newlyQueued: boolean;
+}
+
+const itemKey = (t: { orderId: string; orderItemSeqId?: string }) => `${t.orderId}|${t.orderItemSeqId ?? ""}`;
+
+/** The variation side's queued order items, flagged newlyQueued when the parent did not queue the same item.
+ *  Pass parentTraces=undefined when there is no parent baseline — nothing gets flagged then. */
+export function queuedDiff(parentTraces: OrderTrace[] | undefined, variationTraces?: OrderTrace[]): QueuedItem[] {
+  const hasParent = parentTraces != null;
+  const parentQueued = new Set((parentTraces ?? []).filter((t) => t.finalReason === "QUEUED").map(itemKey));
+  return (variationTraces ?? [])
+    .filter((t) => t.finalReason === "QUEUED")
+    .map((t) => ({ orderId: t.orderId, orderItemSeqId: t.orderItemSeqId, newlyQueued: hasParent && !parentQueued.has(itemKey(t)) }));
+}

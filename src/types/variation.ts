@@ -57,6 +57,41 @@ export interface VariationListItem {
   createdByUserId?: string;
 }
 
+/** Where an order item ultimately ended up after this routing ran. */
+export type FinalReason = "FULLY_BROKERED" | "PARTIALLY_BROKERED" | "QUEUED" | "NO_INVENTORY" | "ERROR";
+
+/** One facility assignment produced by a rule. Mirrors OrderAssignment in the sim-routing serializer. */
+export interface OrderAssignment {
+  orderId: string;
+  orderItemSeqId: string;
+  shipGroupSeqId: string;
+  facilityId: string;
+  routedQty: number;
+  itemQty: number;
+}
+
+/** One rule's attempt at routing an order. Mirrors RuleAttempt in the sim-routing serializer. */
+export interface RuleAttempt {
+  routingRuleId: string;
+  sequenceNum: number;
+  durationMs?: number;
+  suggestedFulfillmentLocations?: unknown;
+  actionFilters?: unknown;
+  outcome: string;
+  runNextRule?: boolean;
+  errorMessage?: string | null;
+}
+
+/** Per-order trace from a group run. Fields are optional-tolerant: older payloads may omit them. */
+export interface OrderTrace {
+  orderId: string;
+  shipGroupSeqId?: string;
+  orderItemSeqId?: string;
+  finalReason: FinalReason | string;
+  finalAssignments?: OrderAssignment[];
+  ruleAttempts?: RuleAttempt[];
+}
+
 /** Per-routing result from a group run (variation run or parent live-config run). No routingName. */
 export interface RoutingRunResult {
   orderRoutingId: string;
@@ -65,7 +100,7 @@ export interface RoutingRunResult {
   attemptedItemCount: number;
   brokeredItemCount: number;
   queuedItemCount: number;
-  orderTraces?: any[];
+  orderTraces?: OrderTrace[];
 }
 
 export interface GroupRunResult {

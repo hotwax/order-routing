@@ -84,14 +84,14 @@ const queued = queuedDiff(
 );
 // O1 queued in both -> not new; O2 newly queued; O3 not queued at all.
 assert.deepStrictEqual(queued, [
-  { orderId: "O1", orderItemSeqId: "00101", newlyQueued: false },
-  { orderId: "O2", orderItemSeqId: "00101", newlyQueued: true },
+  { orderId: "O1", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: false },
+  { orderId: "O2", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: true },
 ]);
 
 // No parent traces -> no baseline -> never flagged "newly queued" (avoids a false claim).
 assert.deepStrictEqual(
   queuedDiff(undefined, [trace("O9", "QUEUED", [], "00101")]),
-  [{ orderId: "O9", orderItemSeqId: "00101", newlyQueued: false }],
+  [{ orderId: "O9", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: false }],
 );
 
 // Facility present only in the parent still appears (union join), with a negative delta.
@@ -103,13 +103,13 @@ assert.deepStrictEqual(
 // Queueing is keyed per order ITEM: same order, different item seq -> newly queued.
 assert.deepStrictEqual(
   queuedDiff([trace("O1", "QUEUED", [], "00101")], [trace("O1", "QUEUED", [], "00102")]),
-  [{ orderId: "O1", orderItemSeqId: "00102", newlyQueued: true }],
+  [{ orderId: "O1", shipGroupSeqId: "00001", orderItemSeqId: "00102", newlyQueued: true }],
 );
 
 // Empty parent array is a real baseline ("parent queued nothing"), unlike undefined -> flags apply.
 assert.deepStrictEqual(
   queuedDiff([], [trace("O10", "QUEUED", [], "00101")]),
-  [{ orderId: "O10", orderItemSeqId: "00101", newlyQueued: true }],
+  [{ orderId: "O10", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: true }],
 );
 
 // --- describeRuleAttempts ---
@@ -148,5 +148,13 @@ assert.deepStrictEqual(
   }),
   ["Rule 1: no available inventory — fell through", "Rule 2: fully brokered here"],
 );
+
+// Two ship groups of the same order item are distinct queued rows.
+const twoShipGroups = queuedDiff(undefined, [
+  { orderId: "O11", shipGroupSeqId: "00001", orderItemSeqId: "00101", finalReason: "QUEUED" },
+  { orderId: "O11", shipGroupSeqId: "00002", orderItemSeqId: "00101", finalReason: "QUEUED" },
+]);
+assert.strictEqual(twoShipGroups.length, 2);
+assert.notStrictEqual(twoShipGroups[0].shipGroupSeqId, twoShipGroups[1].shipGroupSeqId);
 
 console.log("traceRollup tests passed");

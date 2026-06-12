@@ -60,7 +60,7 @@
       <ion-card v-if="queuedItems.length">
         <ion-card-header><ion-card-title>{{ translate("Queued orders") }}</ion-card-title></ion-card-header>
         <ion-list>
-          <ion-item v-for="q in queuedItems" :key="q.orderId + (q.orderItemSeqId || '')" lines="none">
+          <ion-item v-for="q in queuedItems" :key="q.orderId + '|' + (q.shipGroupSeqId || '') + '|' + (q.orderItemSeqId || '')" lines="none">
             <ion-label>{{ q.orderId }}<span v-if="q.orderItemSeqId"> · {{ q.orderItemSeqId }}</span></ion-label>
             <ion-badge v-if="q.newlyQueued" slot="end" color="warning">{{ translate("newly queued") }}</ion-badge>
           </ion-item>
@@ -70,7 +70,7 @@
       <!-- Per-order outcomes: searchable, capped at 50 with load-more, rows expand to the rule narrative. -->
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Per-order outcomes") }}</ion-card-title></ion-card-header>
-        <ion-searchbar v-model="query" :placeholder="translate('Search by order ID')" />
+        <ion-searchbar v-model="query" :placeholder="translate('Search by order ID')" :debounce="300" />
         <ion-list>
           <ion-item v-for="t in visibleTraces" :key="traceKey(t)" button @click="toggle(traceKey(t))">
             <ion-label>
@@ -100,17 +100,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { translate } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonSearchbar, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import type { CompareRow, OrderTrace, RoutingRunResult } from "@/types/variation";
 import { compareFacilities, describeRuleAttempts, outcomeCounts, queuedDiff } from "@/util/traceRollup";
-import { useSimReferenceStore } from "@/store/simReferenceStore";
-
-const props = defineProps<{ row: CompareRow }>();
-const row = props.row;
-const refStore = useSimReferenceStore();
+// facilityNames is optional: the sim reference-data store that supplies names lives on the
+// pinia3-atp-integration branch. Until that lands, callers omit it and raw facility ids show.
+const props = defineProps<{ row: CompareRow; facilityNames?: Record<string, string> }>();
+const row = props.row; // static capture is intentional: modalController sets props once per instance
 
 const bothSides = computed(() => !!(row.parent && row.variation));
 // The side whose detail we show: variation when present (it's the focus), else parent.
@@ -127,7 +126,6 @@ function pair(field: "eligibleEntryCount" | "brokeredItemCount" | "queuedItemCou
 
 const parentOutcomes = computed(() => outcomeCounts(row.parent?.orderTraces));
 const variationOutcomes = computed(() => outcomeCounts(row.variation?.orderTraces));
-const outcomeReasons = computed(() => [...new Set([...Object.keys(parentOutcomes.value), ...Object.keys(variationOutcomes.value)])]);
 function outcomePair(reason: string): string {
   if (!bothSides.value) return String((row.variation ? variationOutcomes.value : parentOutcomes.value)[reason] ?? 0);
   return `${parentOutcomes.value[reason] ?? 0} → ${variationOutcomes.value[reason] ?? 0}`;
@@ -141,7 +139,16 @@ const REASON_LABELS: Record<string, string> = {
   ERROR: "Error",
   UNKNOWN: "Unknown",
 };
-const reasonLabel = (reason: string) => translate(REASON_LABELS[reason] ?? reason);
+const REASON_ORDER = Object.keys(REASON_LABELS);
+const outcomeReasons = computed(() => {
+  const reasons = new Set([...Object.keys(parentOutcomes.value), ...Object.keys(variationOutcomes.value)]);
+  return [...reasons].sort((a, b) => {
+    const ia = REASON_ORDER.indexOf(a);
+    const ib = REASON_ORDER.indexOf(b);
+    return (ia === -1 ? REASON_ORDER.length : ia) - (ib === -1 ? REASON_ORDER.length : ib) || a.localeCompare(b, "en");
+  });
+});
+const reasonLabel = (reason: string) => (Object.hasOwn(REASON_LABELS, reason) ? translate(REASON_LABELS[reason]) : reason);
 
 const facilityRows = computed(() => compareFacilities(row.parent?.orderTraces, row.variation?.orderTraces));
 // One-sided parent rows still list their queued items; no parent baseline -> no "newly queued" badges.
@@ -149,6 +156,7 @@ const queuedItems = computed(() => queuedDiff(row.variation ? row.parent?.orderT
 
 const query = ref("");
 const visibleCount = ref(50);
+watch(query, () => { visibleCount.value = 50; });
 const filteredTraces = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return detailTraces.value;
@@ -165,7 +173,7 @@ function toggle(key: string) {
 }
 
 function facilityName(facilityId: string): string {
-  return refStore.facilities[facilityId]?.facilityName || facilityId;
+  return props.facilityNames?.[facilityId] || facilityId;
 }
 function closeModal() {
   modalController.dismiss();

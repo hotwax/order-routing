@@ -57,22 +57,23 @@ export function compareFacilities(parentTraces?: OrderTrace[], variationTraces?:
 
 export interface QueuedItem {
   orderId: string;
+  shipGroupSeqId?: string;
   orderItemSeqId?: string;
   newlyQueued: boolean;
 }
 
-const itemKey = (t: { orderId: string; orderItemSeqId?: string }) => `${t.orderId}|${t.orderItemSeqId ?? ""}`;
+const itemKey = (t: { orderId: string; shipGroupSeqId?: string; orderItemSeqId?: string }) => `${t.orderId}|${t.shipGroupSeqId ?? ""}|${t.orderItemSeqId ?? ""}`;
 
 /** The variation side's queued order items, flagged newlyQueued when the parent did not queue the same item.
  *  Pass parentTraces=undefined when there is no parent baseline — nothing gets flagged then (an empty array
- *  IS a baseline: everything queued is new). Items match by orderId + orderItemSeqId, so both sides must
+ *  IS a baseline: everything queued is new). Items match by orderId + shipGroupSeqId + orderItemSeqId, so both sides must
  *  come from the same payload shape — an omitted seqId on one side only would read as a different item. */
 export function queuedDiff(parentTraces: OrderTrace[] | undefined, variationTraces?: OrderTrace[]): QueuedItem[] {
   const hasParent = parentTraces != null;
   const parentQueued = new Set((parentTraces ?? []).filter((t) => t.finalReason === "QUEUED").map(itemKey));
   return (variationTraces ?? [])
     .filter((t) => t.finalReason === "QUEUED")
-    .map((t) => ({ orderId: t.orderId, orderItemSeqId: t.orderItemSeqId, newlyQueued: hasParent && !parentQueued.has(itemKey(t)) }));
+    .map((t) => ({ orderId: t.orderId, shipGroupSeqId: t.shipGroupSeqId, orderItemSeqId: t.orderItemSeqId, newlyQueued: hasParent && !parentQueued.has(itemKey(t)) }));
 }
 
 const OUTCOME_TEXT: Record<string, string> = {

@@ -117,3 +117,14 @@ export function buildVariant(label: string, baseline: any, snapshot: any): SimVa
 export function isNoOp(variant: SimVariant): boolean {
   return Object.keys(variant.parameterOverrides).length === 0 && variant.routingDeltas.length === 0;
 }
+
+/** Merge a productStoreId into every variant's parameterOverrides for the submit body, so the backend
+ *  scopes each run to the right store. Applied AFTER isNoOp filtering (it's constant context, not a
+ *  change vs baseline). Pure: returns new variants, never mutates input; a blank id is a no-op. */
+export function applyProductStoreId(variants: SimVariant[], productStoreId: string): SimVariant[] {
+  if (!productStoreId) return variants;
+  return variants.map((v) => ({
+    ...v,
+    parameterOverrides: { ...v.parameterOverrides, productStoreId },
+  }));
+}

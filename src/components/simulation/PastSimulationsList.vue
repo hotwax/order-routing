@@ -41,13 +41,15 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { translate, commonUtil } from "@common";
 import { usePastSimulationStore } from "@/store/pastSimulationStore";
-import { productStore } from "@/store/productStore";
+import { simulationStore } from "@/store/simulationStore";
 
 const router = useRouter();
 const sim = usePastSimulationStore();
 const statusId = ref("");
 
-const productStoreId = computed<string>(() => productStore().getCurrentEComStore?.productStoreId ?? "");
+// Scope to the sim product store (where simulations are persisted), not the OMS demo placeholder.
+// One shared resolution (env > OMS fallback) so this can't drift from the submit/list paths.
+const productStoreId = computed<string>(() => simulationStore().resolveProductStoreId());
 
 function reload() {
   sim.loadList({ productStoreId: productStoreId.value, statusId: statusId.value || undefined, pageIndex: 0, pageSize: 25 });

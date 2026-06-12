@@ -136,4 +136,17 @@ assert.deepStrictEqual(lines, [
   "Rule ?: unknown outcome",       // null outcome and missing sequenceNum degrade gracefully
 ]);
 
+// Attempts narrate in sequenceNum order even when the payload is unordered.
+assert.deepStrictEqual(
+  describeRuleAttempts({
+    orderId: "O1",
+    finalReason: "FULLY_BROKERED",
+    ruleAttempts: [
+      { routingRuleId: "RR2", sequenceNum: 2, outcome: "FULL_BROKER" },
+      { routingRuleId: "RR1", sequenceNum: 1, outcome: "NO_INVENTORY" },
+    ],
+  }),
+  ["Rule 1: no available inventory — fell through", "Rule 2: fully brokered here"],
+);
+
 console.log("traceRollup tests passed");

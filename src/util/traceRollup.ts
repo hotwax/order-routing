@@ -79,7 +79,7 @@ const OUTCOME_TEXT: Record<string, string> = {
   FULL_BROKER: "fully brokered here",
   PARTIAL_BROKER: "partially brokered here",
   QUEUED: "queued",
-  ROUTED: "routed",
+  ROUTED: "routed",          // legacy payload outcomes (not in RuleOutcome union)
   ROUTED_TO_QUEUE: "moved to queue",
   NO_INVENTORY: "no available inventory — fell through",
   SKIPPED_BY_ACTION: "skipped by action filter",
@@ -88,11 +88,15 @@ const OUTCOME_TEXT: Record<string, string> = {
 
 /** Plain-English line per rule attempt, e.g. "Rule 2: fully brokered here".
  *  Unknown outcome enums are humanized (underscores -> spaces, lowercased) rather than dropped;
- *  a null outcome reads "unknown outcome". */
+ *  a null outcome reads "unknown outcome". Attempts are sorted by sequenceNum ascending (nullish last). */
 export function describeRuleAttempts(trace: OrderTrace): string[] {
-  return (trace.ruleAttempts ?? []).map((ra) => {
-    const text = OUTCOME_TEXT[ra.outcome ?? ""] ?? (ra.outcome || "unknown outcome").replace(/_/g, " ").toLowerCase();
-    const err = ra.errorMessage ? ` (${ra.errorMessage})` : "";
-    return `Rule ${ra.sequenceNum ?? "?"}: ${text}${err}`;
-  });
+  return [...(trace.ruleAttempts ?? [])]
+    .sort((a, b) => (a.sequenceNum ?? Infinity) - (b.sequenceNum ?? Infinity))
+    .map((ra) => {
+      const key = ra.outcome ?? "";
+      const text = (Object.hasOwn(OUTCOME_TEXT, key) ? OUTCOME_TEXT[key] : null)
+        ?? (ra.outcome || "unknown outcome").replace(/_/g, " ").toLowerCase();
+      const err = ra.errorMessage ? ` (${ra.errorMessage})` : "";
+      return `Rule ${ra.sequenceNum ?? "?"}: ${text}${err}`;
+    });
 }

@@ -16,7 +16,7 @@
 
       <ion-list v-if="sim.variationRunResult">
         <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
-        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)">
+        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button :detail="true" @click="openRowDetail(row)">
           <ion-label>
             <h3>{{ row.routingName }}</h3>
             <div class="cmp">
@@ -94,9 +94,10 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { translate } from "@common";
-import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonProgressBar } from "@ionic/vue";
+import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonProgressBar, modalController } from "@ionic/vue";
 import { arrowBackOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
+import type { CompareRow } from "@/types/variation";
 import { toRows } from "@/util/outcomes";
 import SimulationProgress from "./SimulationProgress.vue";
 import OutcomeHeadline from "./OutcomeHeadline.vue";
@@ -106,6 +107,7 @@ import StockoutPanel from "./StockoutPanel.vue";
 import FulfillmentMixPanel from "./FulfillmentMixPanel.vue";
 import CompositeScorePanel from "./CompositeScorePanel.vue";
 import AdvancedDetails from "./AdvancedDetails.vue";
+import RoutingRunDetailModal from "./RoutingRunDetailModal.vue";
 
 const sim = simulationStore();
 const router = useRouter();
@@ -124,6 +126,14 @@ function compareSignal(row: any): string {
   if (v.eligibleEntryCount === 0) return translate("0 eligible — filter matched nothing");
   if (v.brokeredItemCount === 0) return translate("Eligible but nothing brokered — no available inventory");
   return "";
+}
+
+async function openRowDetail(row: CompareRow) {
+  const modal = await modalController.create({
+    component: RoutingRunDetailModal,
+    componentProps: { row },
+  });
+  await modal.present();
 }
 </script>
 

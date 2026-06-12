@@ -1,6 +1,6 @@
 // tests/traceRollup.test.ts
 import assert from "node:assert";
-import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff } from "../src/util/traceRollup";
+import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff, describeRuleAttempts } from "../src/util/traceRollup";
 import type { OrderTrace } from "../src/types/variation";
 
 const trace = (orderId: string, finalReason: string | null, assignments: Array<[string | null, number]> = [], orderItemSeqId = "00101"): OrderTrace => ({
@@ -111,5 +111,29 @@ assert.deepStrictEqual(
   queuedDiff([], [trace("O10", "QUEUED", [], "00101")]),
   [{ orderId: "O10", orderItemSeqId: "00101", newlyQueued: true }],
 );
+
+// --- describeRuleAttempts ---
+assert.deepStrictEqual(describeRuleAttempts({ orderId: "O1", finalReason: "QUEUED" }), []);
+
+const lines = describeRuleAttempts({
+  orderId: "O1",
+  finalReason: "FULLY_BROKERED",
+  ruleAttempts: [
+    { routingRuleId: "RR1", sequenceNum: 1, outcome: "NO_INVENTORY" },
+    { routingRuleId: "RR2", sequenceNum: 2, outcome: "FULL_BROKER" },
+    { routingRuleId: "RR3", sequenceNum: 3, outcome: "SOME_NEW_OUTCOME" },
+    { routingRuleId: "RR4", sequenceNum: 4, outcome: "ERROR", errorMessage: "timeout" },
+    { routingRuleId: "RR5", sequenceNum: 5, outcome: "SKIPPED_BY_ACTION" },
+    { routingRuleId: "RR6", outcome: null },
+  ],
+});
+assert.deepStrictEqual(lines, [
+  "Rule 1: no available inventory — fell through",
+  "Rule 2: fully brokered here",
+  "Rule 3: some new outcome",      // unknown outcomes humanize instead of breaking
+  "Rule 4: errored (timeout)",
+  "Rule 5: skipped by action filter",
+  "Rule ?: unknown outcome",       // null outcome and missing sequenceNum degrade gracefully
+]);
 
 console.log("traceRollup tests passed");

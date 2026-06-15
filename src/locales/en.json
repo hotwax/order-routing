@@ -606,5 +606,8 @@
   "← Choose a different group": "← Choose a different group",
   "Run variation": "Run variation",
   "Saved variations persist on the server.": "Saved variations persist on the server.",
-  "No simulation has run yet. Save a variation and run it.": "No simulation has run yet. Save a variation and run it."
+  "No simulation has run yet. Save a variation and run it.": "No simulation has run yet. Save a variation and run it.",
+  "New simulation": "New simulation",
+  "Past simulations": "Past simulations",
+  "Choose a routing group to simulate": "Choose a routing group to simulate"
 }

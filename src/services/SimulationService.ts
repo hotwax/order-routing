@@ -16,10 +16,10 @@ export function simProductStoreId(env: Record<string, any> = import.meta.env): s
   return ((env && env.VITE_SIM_PRODUCT_STORE_ID) || "").trim();
 }
 
-/** REST root of the dedicated simulation Moqui (:8075), or "" when unset. Empty is the single-instance
- *  toggle: the simulation talks to the same Moqui as everything else and the shared OMS Bearer auth
- *  applies (UAT/prod). When set (local two-instance dev), the sim Moqui has its OWN api_key auth and
- *  sim calls must go through SimAuthService instead. Env is injectable for headless testing. */
+/** REST root of the dedicated simulation Moqui (e.g. http://localhost:8075/rest/s1/), or "" when
+ *  unset. When set, reference-data and routing-group calls go to that host; when blank, they fall
+ *  through to api()'s default OMS base. Auth is always the shared OMS Bearer token. Env is
+ *  injectable for headless testing. */
 export function simBaseURL(env: Record<string, any> = import.meta.env): string {
   return ((env && env.VITE_SIM_URL) || "").trim();
 }
@@ -50,64 +50,27 @@ export function simRoutingApiBaseUrl(env: Record<string, any> = import.meta.env)
   return simApiBaseUrl(env).replace(/\/[^/]+\/?$/, "/sim-routing");
 }
 
-/** Bare REST root the simulation page pulls its routing groups and OMS reference data (omsenums,
- *  facilities, facility groups, shipping methods) from. Two-instance mode: the sim Moqui root
- *  (VITE_SIM_URL, e.g. http://localhost:8075/rest/s1/). Single-instance mode (VITE_SIM_URL blank):
- *  returns "" so callers fall through to api()'s default OMS baseURL (getMaargURL) — same Moqui, same
- *  Bearer auth as the rest of the app. Keying off simBaseURL() keeps the host and the auth scheme in
- *  lockstep with simApi()'s mode switch: blank can never mean "OMS auth" but "sim host" at the same
- *  time. Env is injectable for headless testing (import.meta.env is the default). */
+/** REST root the simulation page uses for routing-group and reference-data calls. When VITE_SIM_URL
+ *  is set, points at the dedicated sim Moqui; blank means fall through to api()'s default OMS base.
+ *  Auth is always the OMS Bearer token. Env is injectable for headless testing. */
 export function simMoquiUrl(env: Record<string, any> = import.meta.env): string {
   return simBaseURL(env);
 }
 
-/** Pure: do two URLs share an origin (scheme + host + port)? Relative/empty bases never mismatch. */
-export function sameOrigin(a: string, b: string): boolean {
-  try {
-    return !a || !b || new URL(a).origin === new URL(b).origin;
-  } catch {
-    return true; // unparseable -> can't judge, don't warn
-  }
-}
-
-let warnedCrossHost = false;
-
-/** Issue a request to the simulation backend with the correct auth for the deployment. Two modes:
- *  - Two-instance (VITE_SIM_URL set): the sim Moqui has its OWN api_key auth, so go through the
- *    interceptor-free client() with an `api_key` header (from SimAuthService) and re-login once on a
- *    401/403. The shared OMS Bearer-token interceptor is deliberately bypassed — that token is not
- *    accepted on the sim instance. The caller's `baseURL` is preserved: jobs use simApiBaseUrl()
- *    (its component prefix, e.g. sim-routing, can differ from the data component) but it MUST be the
- *    same host as VITE_SIM_URL — the api_key is only valid there.
- *  - Single-instance (VITE_SIM_URL blank): same Moqui as everything else — use api() so the shared
- *    OMS Bearer-token interceptor authenticates, preserving the original UAT/prod behaviour. */
+/** Issue a request to the simulation backend with the OMS Bearer token.
+ *  Uses the interceptor-free client() rather than api() so that a 401 from the sim Moqui never
+ *  triggers the global logout interceptor (which would immediately redirect the user to /login).
+ *  The Bearer token is attached manually — same credential as the rest of the app. */
 export async function simApi(config: any): Promise<any> {
-  const { api, client, logger } = await import("@common");
-  if (!simBaseURL()) return api(config);
-
-  // Guard against the classic split-brain misconfig: VITE_SIM_URL switched to a new host but
-  // VITE_SIM_API_BASE_URL left pointing elsewhere — that host will reject this instance's api_key.
-  if (!warnedCrossHost && config?.baseURL && !sameOrigin(config.baseURL, simBaseURL())) {
-    warnedCrossHost = true;
-    logger.warn(`Sim request baseURL ${config.baseURL} is on a different host than VITE_SIM_URL (${simBaseURL()}); its api_key login will not be honored there. Align VITE_SIM_API_BASE_URL with VITE_SIM_URL.`);
-  }
-
-  const { getSimApiKey, clearSimSession } = await import("./SimAuthService");
-  const callWith = (key: string) =>
-    client({ ...config, headers: { ...(config.headers || {}), api_key: key } });
-
-  const key = await getSimApiKey();
-  try {
-    return await callWith(key);
-  } catch (e: any) {
-    const status = e?.response?.status;
-    if (status === 401 || status === 403) {
-      // Stale/expired sim session — drop it, log in again, and retry once.
-      clearSimSession();
-      return callWith(await getSimApiKey());
-    }
-    throw e;
-  }
+  const { client, commonUtil } = await import("@common");
+  const token = commonUtil.getToken();
+  return client({
+    ...config,
+    headers: {
+      ...(config.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
 }
 
 export interface JobOutcome {

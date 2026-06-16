@@ -36,3 +36,5 @@ npm-debug.log*
 .env.*
 !.env.example
 .agent
+# Vite PWA dev output
+/dev-dist

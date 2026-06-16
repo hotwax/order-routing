@@ -51,9 +51,24 @@
           </ion-card-header>
         </ion-card>
       </section>
-      <div v-else class="empty-state">
-        <ion-note>{{ translate("No channel found for selected product store. Either change the product store or associate channels with the product store.") }}</ion-note>
-      </div>
+      <EmptyState
+        v-else
+        variant="compact"
+        :icon="globeOutline"
+        :title="translate('No channels yet')"
+        :message="translate('This product store has no inventory channels. Create one to choose where this threshold applies.')"
+      >
+        <template #actions>
+          <ion-button @click="createChannel()">
+            {{ translate("Create channel") }}
+            <ion-icon slot="end" :icon="addOutline" />
+          </ion-button>
+          <ion-button fill="outline" @click="goToChannels()">
+            {{ translate("Manage channels") }}
+            <ion-icon slot="end" :icon="openOutline" />
+          </ion-button>
+        </template>
+      </EmptyState>
 
       <ProductFilters />
     </ion-content>
@@ -67,10 +82,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonPage, IonNote, IonText, IonTitle, IonToggle, IonToolbar, onIonViewWillLeave, onIonViewDidEnter } from '@ionic/vue';
-import { saveOutline } from 'ionicons/icons'
+import { IonBackButton, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonPage, IonNote, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewWillLeave, onIonViewDidEnter } from '@ionic/vue';
+import { addOutline, globeOutline, openOutline, saveOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import CreateGroupModal from '@/components/CreateGroupModal.vue';
 import { computed, ref } from 'vue';
 import { useUserStore } from '@/store/userStore';
 import { useAtpProductStore } from '@/store/atpProductStore';
@@ -156,6 +173,16 @@ onIonViewWillLeave(() => {
 
 async function redirectLink() {
   router.push("/threshold")
+}
+
+async function createChannel() {
+  const modal = await modalController.create({ component: CreateGroupModal });
+  modal.onDidDismiss().then(() => productStore.fetchConfigFacilities());
+  return modal.present();
+}
+
+function goToChannels() {
+  router.push("/inventory-channels");
 }
 
 function toggleFacilitySelection(facilityId: any) {
@@ -276,9 +303,5 @@ ion-card-header {
 
 ion-card-header > ion-checkbox {
   flex-shrink: 0;
-}
-
-.empty-state {
-  align-items: start;
 }
 </style>

@@ -74,9 +74,24 @@
           </ion-card-content>
         </ion-card>
       </section>
-      <div v-else class="empty-state">
-        <ion-note>{{ translate("No facility group found for selected product store. Either change the product store or associate facility groups with the product store.") }}</ion-note>
-      </div>
+      <EmptyState
+        v-else
+        variant="compact"
+        :icon="albumsOutline"
+        :title="translate('No facility groups yet')"
+        :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
+      >
+        <template #actions>
+          <ion-button @click="createFacilityGroup()">
+            {{ translate("Create facility group") }}
+            <ion-icon slot="end" :icon="addOutline" />
+          </ion-button>
+          <ion-button fill="outline" @click="linkExistingFacilityGroup()">
+            {{ translate("Use an existing group") }}
+            <ion-icon slot="end" :icon="linkOutline" />
+          </ion-button>
+        </template>
+      </EmptyState>
 
       <ProductFilters />
     </ion-content>
@@ -91,9 +106,12 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, closeCircle, saveOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, albumsOutline, closeCircle, linkOutline, saveOutline } from 'ionicons/icons'
 import { emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue';
+import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue';
 import { computed, ref } from 'vue';
 import { useUserStore } from '@/store/userStore';
 import { useAtpProductStore } from '@/store/atpProductStore';
@@ -188,6 +206,28 @@ onIonViewWillLeave(() => {
 
 async function redirectLink() {
   router.push("/safety-stock");
+}
+
+async function createFacilityGroup() {
+  const modal = await modalController.create({ component: CreateUpdateFacilityGroupModal });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.saved) productStore.fetchFacilityGroups();
+  });
+  modal.present();
+}
+
+async function linkExistingFacilityGroup() {
+  const modal = await modalController.create({
+    component: LinkExistingGroupModal,
+    componentProps: {
+      linkedGroupIds: facilityGroups.value.map((group: any) => group.facilityGroupId),
+      title: translate("Use an existing group")
+    }
+  });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.linked) productStore.fetchFacilityGroups();
+  });
+  modal.present();
 }
 
 async function openProductFacilityGroupModal(type: string) {
@@ -312,7 +352,4 @@ function removeFacilityGroups(facilityGroupId: any, type: string) {
 </script>
 
 <style scoped>
-.empty-state {
-  align-items: start;
-}
 </style>

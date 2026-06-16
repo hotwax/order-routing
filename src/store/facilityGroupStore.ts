@@ -119,6 +119,21 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       }
       return resp.data;
     },
+    async associateWithProductStore(facilityGroupId: string) {
+      // Link an already-existing group to the current product store. Backs the
+      // "use an existing group" empty-state action; mirrors the association call
+      // that createGroup() performs for freshly created groups.
+      const product = useAtpProductStore();
+      const productStoreId = product.currentProductStore?.productStoreId;
+      if (!productStoreId) throw new Error("No product store selected");
+      const resp = await api({
+        url: `admin/productStores/${productStoreId}/facilityGroups/${facilityGroupId}/association`,
+        method: "POST",
+        data: { productStoreId, facilityGroupId }
+      }) as any;
+      if (commonUtil.hasError(resp)) throw resp.data;
+      return resp.data;
+    },
     async updateGroup(payload: any) {
       const resp = await api({
         url: `admin/facilityGroups/${payload.facilityGroupId}`,

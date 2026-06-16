@@ -23,7 +23,7 @@ import type {
   DraftOperation,
   DraftProposal,
   PageCapabilityManifest
-} from "../src/services/DraftAssistantService";
+} from "../src/types/draft";
 
 it("draft assistant service validation", async () => {
 

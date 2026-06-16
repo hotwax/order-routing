@@ -2,7 +2,7 @@
 import assert from "node:assert";
 import {
   isPlaceholder, sortBySequence, stripVariationPrefix, buildRoutingNameMap, nextSeqId,
-} from "../src/util/variationTree";
+} from "../src/util/variationUtils";
 import type { VariationTree } from "../src/types/variation";
 
 // isPlaceholder: a condition with null operator AND null value is an unset placeholder.

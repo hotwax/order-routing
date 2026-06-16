@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { client, commonUtil, logger } from '@common'
-import { simApiName, simMoquiUrl } from '@/services/SimulationService'
+import { SimulationService } from '@/services/SimulationService'
 
 // Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
 // sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
@@ -46,8 +46,7 @@ export const useSimReferenceStore = defineStore('simReference', {
         return
       }
 
-      const prefix = simApiName()
-      const baseURL = simMoquiUrl()
+      const baseURL = SimulationService.simMoquiUrl()
       // Mirrors the old productStore guard: without a store there is nothing meaningful to scope the
       // store-level slices to, and interpolating a blank id would request /productStores/undefined/...
       if (!productStoreId) {
@@ -74,14 +73,14 @@ export const useSimReferenceStore = defineStore('simReference', {
       }
 
       const [facilities, shippingMethods, facilityGroups, salesChannels] = await Promise.all([
-        fetchMap(`${prefix}/facilities`, { pageSize: 500 }, "facilityId"),
+        fetchMap(`order-routing/facilities`, { pageSize: 500 }, "facilityId"),
         productStoreId
-          ? fetchMap(`${prefix}/productStores/${productStoreId}/shippingMethods`, { productStoreId, pageSize: 200 }, "shipmentMethodTypeId")
+          ? fetchMap(`order-routing/productStores/${productStoreId}/shippingMethods`, { productStoreId, pageSize: 200 }, "shipmentMethodTypeId")
           : Promise.resolve({}),
         productStoreId
-          ? fetchMap(`${prefix}/productStores/${productStoreId}/facilityGroups`, { productStoreId, pageSize: 200 }, "facilityGroupId")
+          ? fetchMap(`order-routing/productStores/${productStoreId}/facilityGroups`, { productStoreId, pageSize: 200 }, "facilityGroupId")
           : Promise.resolve({}),
-        fetchMap(`${prefix}/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
+        fetchMap(`order-routing/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
       ])
 
       this.facilities = facilities ?? {}

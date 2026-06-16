@@ -2,7 +2,7 @@
 // Backend R2 shape (confirmed): { simulation: {header}, variants: [...] }. JSON fields arrive
 // already PARSED (variant.diff is an object); the raw *Json strings are ignored.
 import assert from "assert";
-import { persistedSimulationAdapter } from "../src/util/persistedSimulationAdapter";
+import { persistedSimulationAdapter } from "../src/util/simulationResults";
 
 // VARIATION run: baseline + one variant; diff is a parsed object.
 {

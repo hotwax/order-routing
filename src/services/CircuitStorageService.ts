@@ -1,32 +1,7 @@
+import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
 
 const DB_NAME = 'CircuitDB';
 const DB_VERSION = 2;
-
-export interface ChatThread {
-  id: string;
-  name: string;
-  createdAt: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  threadId: string;
-  role: 'user' | 'circuit';
-  content: string;
-  createdAt: number;
-}
-
-export interface DraftFeedbackRecord {
-  id: string;
-  threadId: string;
-  type: 'approved' | 'revision_requested' | 'rejected';
-  userFeedback: string;
-  sourcePrompt: string;
-  proposalSummary: string;
-  operations: any[];
-  unansweredQuestions: string[];
-  createdAt: number;
-}
 
 let db: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;

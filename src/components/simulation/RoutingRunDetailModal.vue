@@ -105,7 +105,7 @@ import { translate } from "@common";
 import { IonBadge, IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonSearchbar, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
 import type { CompareRow, OrderTrace, RoutingRunResult } from "@/types/variation";
-import { compareFacilities, describeRuleAttempts, outcomeCounts, queuedDiff } from "@/util/traceRollup";
+import { compareFacilities, describeRuleAttempts, outcomeCounts, queuedDiff } from "@/util/simulationResults";
 // facilityNames is optional: the sim reference-data store that supplies names lives on the
 // pinia3-atp-integration branch. Until that lands, callers omit it and raw facility ids show.
 const props = defineProps<{ row: CompareRow; facilityNames?: Record<string, string> }>();

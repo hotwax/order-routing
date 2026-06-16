@@ -23,8 +23,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { translate } from "@common";
-import { formatPercent, formatMoney } from "@/util/outcomes";
-import type { OutcomeRow } from "@/util/outcomes";
+import { formatPercent, formatMoney } from "@/util/simulationResults";
+import type { OutcomeRow } from "@/util/simulationResults";
 
 const props = defineProps<{ rows: OutcomeRow[] }>();
 

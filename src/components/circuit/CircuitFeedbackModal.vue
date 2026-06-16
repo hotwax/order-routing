@@ -163,18 +163,8 @@ import {
 } from "@ionic/vue";
 import { computed, ref, watch } from "vue";
 import { translate } from "@common";
-import {
-  proposeKnowledgeFeedback,
-  refineKnowledgeFeedback,
-  approveKnowledgeFeedback,
-  suggestKnowledgeFeedbackPrompt,
-  type ApproveResult,
-  type CorrectionCategory,
-  type KnowledgeFeedbackContext,
-  type KnowledgeFeedbackMessage,
-  type ProposalPayload,
-  type ProposalResult
-} from "@/services/CircuitKnowledgeFeedbackService";
+import { CircuitKnowledgeFeedbackService } from "@/services/CircuitKnowledgeFeedbackService";
+import type { ApproveResult, CorrectionCategory, KnowledgeFeedbackContext, KnowledgeFeedbackMessage, ProposalPayload, ProposalResult } from "@/types/circuit";
 
 type Phase = "form" | "review" | "success" | "error";
 
@@ -256,7 +246,7 @@ async function requestSuggestion(cat: CorrectionCategory | null) {
   suggestController = controller;
   isSuggesting.value = true;
   try {
-    const result = await suggestKnowledgeFeedbackPrompt(
+    const result = await CircuitKnowledgeFeedbackService.suggestKnowledgeFeedbackPrompt(
       {
         messages: props.messages,
         correctionCategory: cat ?? undefined,
@@ -299,7 +289,7 @@ async function submitProposal() {
   if (!canSubmitForm.value) return;
   isSubmitting.value = true;
   errorResult.value = null;
-  const result = await proposeKnowledgeFeedback({
+  const result = await CircuitKnowledgeFeedbackService.proposeKnowledgeFeedback({
     messages: props.messages,
     userCorrection: userCorrection.value.trim(),
     correctionCategory: category.value ?? undefined,
@@ -321,7 +311,7 @@ async function submitRefine() {
   if (!canRefine.value || !proposal.value) return;
   isSubmitting.value = true;
   errorResult.value = null;
-  const result = await refineKnowledgeFeedback({
+  const result = await CircuitKnowledgeFeedbackService.refineKnowledgeFeedback({
     messages: props.messages,
     userCorrection: userCorrection.value.trim(),
     correctionCategory: category.value ?? undefined,
@@ -352,7 +342,7 @@ async function submitApprove() {
   if (!canApprove.value || !proposal.value) return;
   isSubmitting.value = true;
   errorResult.value = null;
-  const result = await approveKnowledgeFeedback({
+  const result = await CircuitKnowledgeFeedbackService.approveKnowledgeFeedback({
     proposal: {
       proposalId: proposal.value.proposalId,
       summary: proposal.value.summary,

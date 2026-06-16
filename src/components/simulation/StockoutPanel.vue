@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonItem, IonLabel } from "@ionic/vue";
-import type { OutcomeRow } from "@/util/outcomes";
+import type { OutcomeRow } from "@/util/simulationResults";
 
 defineProps<{ rows: OutcomeRow[] }>();
 </script>

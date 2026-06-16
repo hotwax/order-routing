@@ -2,18 +2,17 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { logger } from "@common";
 import { productStore } from "./productStore";
-import { buildVariant, isNoOp, applyProductStoreId } from "../util/simulationDiff";
-import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
-import { submitBatch, pollJob, runParentLiveConfig, simRequest, simRequestName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
-import { fetchRoutingGroupsList, fetchRoutingGroupDetail } from "../services/RoutingGroupService";
-import { listVariations, createVariation, getVariation, replaceVariationConfig, runVariation } from "../services/VariationService";
-import { toConfigPayload, fromVariationRoutings } from "../util/variationConfigAdapter";
-import { joinRoutingResults } from "../util/routingResultJoin";
-import { buildRoutingNameMap } from "../util/variationTree";
-import { mergeEvents } from "../util/progressBuffer";
+import { buildVariant, isNoOp, applyProductStoreId, chunkVariants, mergeVariationResults } from "../util/simulationCompute";
+import { SimulationService } from "../services/SimulationService";
+import { RoutingGroupService } from "../services/RoutingGroupService";
+import { VariationService } from "../services/VariationService";
+import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, sortBySequence } from "../util/variationUtils";
+import { joinRoutingResults } from "../util/simulationResults";
+import { mergeEvents } from "../util/simulationCompute";
 import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
-import { CompareRow, GroupRunResult } from "../types/variation";
-import * as SimulationJobStore from "../services/SimulationJobStore";
+import { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationRule, VariationTree } from "../types/variation";
+import type { VariationConditionInput, VariationActionInput } from "../types/variation";
+import { SimulationStorage } from "../services/simulationStorage";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
 
@@ -24,6 +23,7 @@ const zeroedBatch = (batchIndex: number): BatchProgress => ({
 
 export const simulationStore = defineStore("simulation", {
   state: () => ({
+    // ---- Simulate-tab (canvas + batch submission) ----
     routingGroupId: "" as string,
     // The routing-group list for the picker, fetched from the simulation backend via simRequest — kept
     // here, not in the shared orderRoutingStore, so the simulate tab never reads/writes OMS group state.
@@ -48,25 +48,39 @@ export const simulationStore = defineStore("simulation", {
     parentRunProgress: null as any,
     isRunningVariationRun: false,
     runCompareError: null as string | null,
+
+    // ---- Variation Editor (optimistic-write, per-node save) ----
+    parentRoutingGroupId: "" as string,
+    // Flat server list for the variation picker.
+    variationList: [] as VariationListItem[],
+    listLoading: false,
+    tree: null as VariationTree | null,
+    // Per-node saving status keyed by a stable node key (routingId / routingId:ruleId / ...:seqId).
+    saving: {} as Record<string, "saving" | "error">,
+    isRunningVariation: false,
+    isRunningParent: false,
+    variationResult: null as GroupRunResult | null,
+    parentResultByParentId: {} as Record<string, GroupRunResult>, // session cache, keyed by parent id
+    runError: null as string | null,
+    parentProgress: null as any,
   }),
   getters: {
+    // ---- Simulate-tab getters ----
     getSimGroups: (s) => s.simGroups,
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
     // The variation the working copy was loaded from (null = editing a fresh draft off baseline).
     activeVariation: (s) => s.variations.find((v) => v.id === s.activeVariationId) || null,
     // True when the working copy differs from its source (the loaded variation, or baseline).
-    // Reads flushed working state, so it refreshes when the canvas flushes (routing switch / save).
     isDirty: (s) => {
       const source = s.activeVariationId
         ? s.variations.find((v) => v.id === s.activeVariationId)?.group
         : s.baseline;
       return JSON.stringify(s.working ?? {}) !== JSON.stringify(source ?? {});
     },
-    // Per-routing parent-vs-variation comparison rows for the active H2 variation run.
+    // Per-routing parent-vs-variation comparison rows for the active H2 variation run (canvas flow).
     variationCompareRows(s): CompareRow[] {
       const parent = s.parentRunByGroupId[s.routingGroupId];
       if (!s.variationRunResult || !parent) return [];
-      // Names: parent routings (100008 -> name) + the active variation's working tree (VM…_100008 -> name).
       const names = { ...buildRoutingNameMap({ routings: s.baseline?.routings ?? [] }), ...buildRoutingNameMap({ routings: s.working?.routings ?? [] }) };
       return joinRoutingResults({
         variationGroupId: s.variationRunResult.routingGroupId,
@@ -75,37 +89,50 @@ export const simulationStore = defineStore("simulation", {
         routingNameById: names,
       });
     },
+
+    // ---- Variation Editor getters ----
+    routingNameById: (s): Record<string, string> => (s.tree ? buildRoutingNameMap(s.tree) : {}),
+    // Routings sorted by sequence for the editor.
+    sortedRoutings: (s): VariationRouting[] => (s.tree ? sortBySequence(s.tree.routings) : []),
+    compareRows(s): CompareRow[] {
+      const parent = s.parentResultByParentId[s.parentRoutingGroupId];
+      if (!s.variationResult || !parent) return [];
+      return joinRoutingResults({
+        variationGroupId: s.variationResult.routingGroupId,
+        parentResults: parent.routingResults,
+        variationResults: s.variationResult.routingResults,
+        routingNameById: this.routingNameById,
+      });
+    },
   },
   actions: {
     // THE product-store resolution for the simulate tab — every sim call site (group list, past list,
-    // submit) funnels through here so the precedence lives in one place (and the planned store
-    // selector replaces one function, not three hand-rolled chains). Precedence: the configured sim
-    // store (VITE_SIM_PRODUCT_STORE_ID) > a caller-supplied contextual store (e.g. the loaded
-    // group's) > the OMS currentEComStore (single-instance behaviour).
+    // submit) funnels through here so the precedence lives in one place.
+    // Precedence: the configured sim store (VITE_SIM_PRODUCT_STORE_ID) > caller-supplied > OMS currentEComStore.
     resolveProductStoreId(prefer?: string): string {
-      return simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
+      return SimulationService.simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
     },
     // Routing-group list for the picker, pulled from the sim instance via simRequest. Errors are logged
-    // and leave the list empty — callers (onMounted, loadGroup) must not blow up on a sim outage.
+    // and leave the list empty — callers must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simRequest, simMoquiUrl(), simRequestName());
+        this.simGroups = await RoutingGroupService.fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simRequest, SimulationService.simMoquiUrl());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
       }
     },
+
+    // ---- Simulate-tab actions ----
     async loadGroup(routingGroupId: string) {
       this.loadError = null;
       this.baseline = null;
       this.working = null;
       try {
-        // On a fresh deep-link the list is empty; load it first so fetchRoutingGroupDetail has the
-        // group metadata to fall back on. All reads go through simRequest to the simulation backend.
         if (!this.simGroups?.length) {
           await this.fetchSimGroups();
         }
-        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simRequest, simMoquiUrl(), simRequestName());
+        const group = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.simGroups, SimulationService.simRequest, SimulationService.simMoquiUrl());
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }
@@ -125,22 +152,20 @@ export const simulationStore = defineStore("simulation", {
         this.loadError = e?.message ?? "Failed to load routing group.";
       }
     },
-    // Load the server-persisted (H2) variations for the parent group into the rail. group=null until a
-    // variation is opened (lazy). Errors leave the existing list intact.
+    // Load the server-persisted (H2) variations for the parent group into the rail.
     async fetchServerVariations(parentRoutingGroupId: string) {
       try {
-        const list = await listVariations(parentRoutingGroupId);
+        const list = await VariationService.listVariations(parentRoutingGroupId);
         this.variations = list.map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
       } catch (err) {
         logger.error(err);
       }
     },
-    // Persist the current working copy as a NEW H2 variation: clone the parent, then PUT the whole
-    // edited tree (lossless whole-tree replace). Cache the canonical returned tree as the group.
+    // Persist the current working copy as a NEW H2 variation.
     async saveAsVariation(label: string) {
       try {
-        const vid = await createVariation(this.routingGroupId, label);
-        const tree = await replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
+        const vid = await VariationService.createVariation(this.routingGroupId, label);
+        const tree = await VariationService.replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
         const group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: vid };
         this.variations.push({ id: vid, label: label || tree?.variationName || vid, group, serverVid: vid });
         this.activeVariationId = vid;
@@ -150,12 +175,12 @@ export const simulationStore = defineStore("simulation", {
         this.loadError = err?.message ?? "Failed to save variation.";
       }
     },
-    // Overwrite an existing H2 variation with the current working copy (PUT /config, lossless).
+    // Overwrite an existing H2 variation with the current working copy.
     async updateVariation(id: string) {
       const v = this.variations.find((x) => x.id === id);
       if (!v?.serverVid) return;
       try {
-        const tree = await replaceVariationConfig(v.serverVid, toConfigPayload(this.working?.routings ?? []));
+        const tree = await VariationService.replaceVariationConfig(v.serverVid, toConfigPayload(this.working?.routings ?? []));
         v.group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         this.working = deepClone(v.group);
       } catch (err: any) {
@@ -170,7 +195,7 @@ export const simulationStore = defineStore("simulation", {
       this.activeVariationId = id;
       try {
         if (!v.group && v.serverVid) {
-          const tree = await getVariation(v.serverVid);
+          const tree = await VariationService.getVariation(v.serverVid);
           v.group = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         }
         if (v.group) this.working = deepClone(v.group);
@@ -179,7 +204,7 @@ export const simulationStore = defineStore("simulation", {
         this.loadError = err?.message ?? "Failed to load variation.";
       }
     },
-    // Run the active H2 variation (synchronous, slow) and the parent live-config (cached) for compare.
+    // Run the active H2 variation (synchronous) and the parent live-config (cached) for compare.
     async runActiveVariation(sampleCap = 500) {
       const v = this.activeVariationId ? this.variations.find((x) => x.id === this.activeVariationId) : null;
       if (!v?.serverVid) { this.runCompareError = "Save the variation before running it."; this.view = "results"; return; }
@@ -191,9 +216,9 @@ export const simulationStore = defineStore("simulation", {
       const needParent = !this.parentRunByGroupId[parentId];
       try {
         const [vr] = await Promise.all([
-          runVariation(v.serverVid, sampleCap),
+          VariationService.runVariation(v.serverVid, sampleCap),
           needParent
-            ? runParentLiveConfig(parentId, sampleCap, (p) => { this.parentRunProgress = p; })
+            ? SimulationService.runParentLiveConfig(parentId, sampleCap, (p) => { this.parentRunProgress = p; })
               .then((gr) => { this.parentRunByGroupId[parentId] = gr; })
               .catch((e) => { logger.error(e); })
             : Promise.resolve(),
@@ -227,14 +252,12 @@ export const simulationStore = defineStore("simulation", {
       });
     },
 
-    // Poll one already-submitted batch job to completion, streaming progress into batchProgress
-    // and updating runStates. Removes the persisted record on terminal. Returns the poll result
-    // ({ groupRun?|variation? }) or null on failure. Used by both submit() and resumeInFlight().
+    // Poll one already-submitted batch job to completion, streaming progress into batchProgress.
     async runBatch(args: { batchIndex: number; ids: string[]; jobId: string }): Promise<any | null> {
       const { batchIndex, ids, jobId } = args;
       this.setVariationPhase(ids, "running");
       try {
-        const result = await pollJob(
+        const result = await SimulationService.pollJob(
           this.routingGroupId,
           jobId,
           (status) => { if (status === "running") this.setVariationPhase(ids, "running"); },
@@ -254,11 +277,11 @@ export const simulationStore = defineStore("simulation", {
         const sid = (result as any)?.simulationId ?? (result as any)?.variation?.simulationId ?? (result as any)?.groupRun?.simulationId;
         if (sid && !this.lastSimulationId) this.lastSimulationId = String(sid);
         this.setVariationPhase(ids, "done");
-        SimulationJobStore.removeJob(this.routingGroupId, jobId);
+        SimulationStorage.removeJob(this.routingGroupId, jobId);
         return result;
       } catch (err: any) {
         this.setVariationPhase(ids, "failed", err?.message ?? "Batch failed.");
-        SimulationJobStore.removeJob(this.routingGroupId, jobId);
+        SimulationStorage.removeJob(this.routingGroupId, jobId);
         return null;
       }
     },
@@ -275,20 +298,17 @@ export const simulationStore = defineStore("simulation", {
       this.results = null;
       this.view = "results";
       try {
-        // Scope every variant to the sim product store (contextual fallback: the loaded group's own
-        // store) so the backend simulates against the right store's data.
         const productStoreId = this.resolveProductStoreId(this.baseline?.productStoreId);
         const batches = chunkVariants(applyProductStoreId(live.map((b) => b.variant), productStoreId), 5);
         const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
         this.batchProgress = batches.map((_, i) => zeroedBatch(i));
 
-        // Submit every batch first (instant responses) so we have all jobIds to persist up-front.
-        SimulationJobStore.clearJobs(this.routingGroupId);
+        SimulationStorage.clearJobs(this.routingGroupId);
         const submitted = await Promise.all(batches.map(async (variants, i) => {
           const ids = idBatches[i];
           this.setVariationPhase(ids, "submitted");
           try {
-            const jobId = await submitBatch({ routingGroupId: this.routingGroupId, variants });
+            const jobId = await SimulationService.submitBatch({ routingGroupId: this.routingGroupId, variants });
             return { batchIndex: i, ids, jobId, variantLabels: variants.map((v) => v.label) };
           } catch (err: any) {
             this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
@@ -297,7 +317,7 @@ export const simulationStore = defineStore("simulation", {
         }));
 
         const okJobs = submitted.filter((s) => s.jobId) as Array<{ batchIndex: number; ids: string[]; jobId: string; variantLabels: string[] }>;
-        SimulationJobStore.recordJobs(this.routingGroupId, okJobs.map((s) => ({
+        SimulationStorage.recordJobs(this.routingGroupId, okJobs.map((s) => ({
           jobId: s.jobId, batchIndex: s.batchIndex, batchCount: batches.length,
           variantLabels: s.variantLabels, submittedAt: Date.now(),
         })));
@@ -309,10 +329,9 @@ export const simulationStore = defineStore("simulation", {
       }
     },
 
-    // On reopening a group's Simulate screen, re-attach to any persisted in-flight jobs and resume
-    // polling — rebuilding the live panels + runStates summary and merging results on completion.
+    // On reopening a group's Simulate screen, re-attach to any persisted in-flight jobs and resume polling.
     async resumeInFlight(routingGroupId: string) {
-      const jobs = SimulationJobStore.getJobs(routingGroupId);
+      const jobs = SimulationStorage.getJobs(routingGroupId);
       if (!jobs.length) return;
 
       this.routingGroupId = routingGroupId;
@@ -321,14 +340,11 @@ export const simulationStore = defineStore("simulation", {
       this.view = "results";
 
       try {
-        // Use the max recorded batchCount (records may have been partially removed after some batches
-        // completed before the refresh). 0/missing values are safely ignored by Math.max with seed 0.
         const batchCount = Math.max(0, ...jobs.map((j) => j.batchCount ?? 0));
         this.batchProgress = Array.from({ length: batchCount }, (_, i) => zeroedBatch(i));
         this.runStates = [];
 
         const toRun = jobs.map((j) => {
-          // jobId-keyed synthetic ids guarantee uniqueness across batches.
           const ids = j.variantLabels.map((label, n) => {
             const id = `${j.jobId}:${n}`;
             this.runStates.push({ variationId: id, label, phase: "running" as const });
@@ -341,6 +357,172 @@ export const simulationStore = defineStore("simulation", {
         this.results = mergeVariationResults(batchResults);
       } finally {
         this.isRunning = false;
+      }
+    },
+
+    // ---- Variation Editor actions ----
+    async fetchVariations(parentRoutingGroupId: string) {
+      this.parentRoutingGroupId = parentRoutingGroupId;
+      this.listLoading = true;
+      try {
+        this.variationList = await VariationService.listVariations(parentRoutingGroupId);
+      } catch (err) {
+        logger.error(err);
+        this.variationList = [];
+      } finally {
+        this.listLoading = false;
+      }
+    },
+    async createEditorVariation(parentRoutingGroupId: string, variationName?: string): Promise<string | null> {
+      try {
+        const vid = await VariationService.createVariation(parentRoutingGroupId, variationName);
+        await this.fetchVariations(parentRoutingGroupId);
+        return vid;
+      } catch (err: any) {
+        logger.error(err);
+        this.loadError = err?.message ?? "Failed to create variation.";
+        return null;
+      }
+    },
+    async openVariation(vid: string) {
+      this.loadError = null;
+      this.tree = null;
+      this.variationResult = null;
+      this.runError = null;
+      try {
+        this.tree = await VariationService.getVariation(vid);
+        this.parentRoutingGroupId = this.tree.parentRoutingGroupId;
+      } catch (e: any) {
+        this.loadError = e?.message ?? "Failed to load variation.";
+      }
+    },
+    _findRouting(rid: string): VariationRouting | undefined {
+      return this.tree?.routings.find((r: VariationRouting) => r.orderRoutingId === rid);
+    },
+    _findRule(rid: string, ruleId: string): VariationRule | undefined {
+      return this._findRouting(rid)?.rules.find((x: VariationRule) => x.routingRuleId === ruleId);
+    },
+    // Optimistic write: mutate local tree, persist; on failure revert to the pre-edit snapshot.
+    async _withSave(key: string, optimistic: () => void, persist: () => Promise<any>) {
+      if (!this.tree?.variationGroupId) return;
+      this.saving = { ...this.saving, [key]: "saving" };
+      const snapshot = deepClone(this.tree);
+      try {
+        optimistic();
+        await persist();
+        const next = { ...this.saving }; delete next[key]; this.saving = next;
+      } catch (err: any) {
+        logger.error(err);
+        this.tree = snapshot;
+        this.saving = { ...this.saving, [key]: "error" };
+      }
+    },
+
+    setRoutingStatus(rid: string, statusId: string) {
+      return this._withSave(`routing:${rid}`,
+        () => { const r = this._findRouting(rid); if (r) r.statusId = statusId; },
+        () => VariationService.setRouting(this.tree!.variationGroupId, rid, { statusId }));
+    },
+    reorderRoutings(orderedIds: string[]) {
+      const vid = this.tree!.variationGroupId;
+      orderedIds.forEach((rid, i) => {
+        const r = this._findRouting(rid); if (r) r.sequenceNum = i;
+        void VariationService.setRouting(vid, rid, { sequenceNum: i }).catch((e) => logger.error(e));
+      });
+    },
+    upsertFilter(rid: string, cond: VariationConditionInput) {
+      return this._withSave(`filter:${rid}:${cond.conditionSeqId}`,
+        () => {
+          const r = this._findRouting(rid); if (!r) return;
+          const existing = r.filters.find((f: any) => f.conditionSeqId === cond.conditionSeqId);
+          if (existing) Object.assign(existing, cond); else r.filters.push({ ...cond });
+        },
+        () => VariationService.upsertFilter(this.tree!.variationGroupId, rid, cond));
+    },
+    removeFilter(rid: string, seqId: string) {
+      return this._withSave(`filter:${rid}:${seqId}`,
+        () => { const r = this._findRouting(rid); if (r) r.filters = r.filters.filter((f: any) => f.conditionSeqId !== seqId); },
+        () => VariationService.deleteFilter(this.tree!.variationGroupId, rid, seqId));
+    },
+    setRuleStatus(rid: string, ruleId: string, statusId: string) {
+      return this._withSave(`rule:${ruleId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.statusId = statusId; },
+        () => VariationService.setRule(this.tree!.variationGroupId, rid, ruleId, { statusId }));
+    },
+    reorderRules(rid: string, orderedRuleIds: string[]) {
+      const vid = this.tree!.variationGroupId;
+      orderedRuleIds.forEach((ruleId, i) => {
+        const rl = this._findRule(rid, ruleId); if (rl) rl.sequenceNum = i;
+        void VariationService.setRule(vid, rid, ruleId, { sequenceNum: i }).catch((e) => logger.error(e));
+      });
+    },
+    upsertInventoryCondition(rid: string, ruleId: string, cond: VariationConditionInput) {
+      return this._withSave(`invcond:${ruleId}:${cond.conditionSeqId}`,
+        () => {
+          const rl = this._findRule(rid, ruleId); if (!rl) return;
+          const ex = rl.inventoryConditions.find((c: any) => c.conditionSeqId === cond.conditionSeqId);
+          if (ex) Object.assign(ex, cond); else rl.inventoryConditions.push({ ...cond });
+        },
+        () => VariationService.upsertInventoryCondition(this.tree!.variationGroupId, rid, ruleId, cond));
+    },
+    removeInventoryCondition(rid: string, ruleId: string, seqId: string) {
+      return this._withSave(`invcond:${ruleId}:${seqId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.inventoryConditions = rl.inventoryConditions.filter((c: any) => c.conditionSeqId !== seqId); },
+        () => VariationService.deleteInventoryCondition(this.tree!.variationGroupId, rid, ruleId, seqId));
+    },
+    upsertAction(rid: string, ruleId: string, action: VariationActionInput) {
+      return this._withSave(`action:${ruleId}:${action.actionSeqId}`,
+        () => {
+          const rl = this._findRule(rid, ruleId); if (!rl) return;
+          const ex = rl.actions.find((a: any) => a.actionSeqId === action.actionSeqId);
+          if (ex) Object.assign(ex, action); else rl.actions.push({ ...action });
+        },
+        () => VariationService.upsertAction(this.tree!.variationGroupId, rid, ruleId, action));
+    },
+    removeAction(rid: string, ruleId: string, seqId: string) {
+      return this._withSave(`action:${ruleId}:${seqId}`,
+        () => { const rl = this._findRule(rid, ruleId); if (rl) rl.actions = rl.actions.filter((a: any) => a.actionSeqId !== seqId); },
+        () => VariationService.deleteAction(this.tree!.variationGroupId, rid, ruleId, seqId));
+    },
+    async runComparison(sampleCap = 500) {
+      const tree = this.tree;
+      if (!tree) return;
+      this.runError = null;
+      this.variationResult = null;
+      this.isRunningVariation = true;
+      const needParent = !this.parentResultByParentId[tree.parentRoutingGroupId];
+      if (needParent) { this.isRunningParent = true; this.parentProgress = null; }
+      try {
+        const [variation] = await Promise.all([
+          VariationService.runVariation(tree.variationGroupId, sampleCap).finally(() => { this.isRunningVariation = false; }),
+          needParent
+            ? SimulationService.runParentLiveConfig(tree.parentRoutingGroupId, sampleCap, (p) => { this.parentProgress = p; })
+                .then((gr) => { this.parentResultByParentId[tree.parentRoutingGroupId] = gr; })
+                .catch((e) => { logger.error(e); })
+                .finally(() => { this.isRunningParent = false; })
+            : Promise.resolve(),
+        ]);
+        this.variationResult = variation;
+      } catch (e: any) {
+        this.runError = e?.message ?? "Simulation run failed.";
+      } finally {
+        this.isRunningVariation = false;
+        this.isRunningParent = false;
+      }
+    },
+    async rerunParent(sampleCap = 500) {
+      const tree = this.tree;
+      if (!tree) return;
+      delete this.parentResultByParentId[tree.parentRoutingGroupId];
+      this.isRunningParent = true;
+      this.parentProgress = null;
+      try {
+        const gr = await SimulationService.runParentLiveConfig(tree.parentRoutingGroupId, sampleCap, (p) => { this.parentProgress = p; });
+        this.parentResultByParentId[tree.parentRoutingGroupId] = gr;
+      } catch (e) {
+        logger.error(e);
+      } finally {
+        this.isRunningParent = false;
       }
     },
   },

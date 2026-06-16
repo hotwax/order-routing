@@ -1,6 +1,6 @@
 // tests/simulationHistoryCache.test.ts
 import assert from "assert";
-import * as Cache from "../src/services/SimulationHistoryCache";
+import * as Cache from "../src/services/simulationStorage";
 
 // In-memory StorageLike for headless testing.
 function mem(): Cache.StorageLike & { map: Map<string, string> } {

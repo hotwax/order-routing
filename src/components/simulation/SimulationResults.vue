@@ -98,7 +98,7 @@ import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIco
 import { arrowBackOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import type { CompareRow } from "@/types/variation";
-import { toRows } from "@/util/outcomes";
+import { toRows } from "@/util/simulationResults";
 import SimulationProgress from "./SimulationProgress.vue";
 import OutcomeHeadline from "./OutcomeHeadline.vue";
 import TradeoffChart from "./TradeoffChart.vue";

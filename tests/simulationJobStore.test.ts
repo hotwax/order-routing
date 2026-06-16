@@ -1,5 +1,5 @@
 import assert from "assert";
-import { recordJobs, getJobs, removeJob, clearJobs, SimJobRecord, StorageLike } from "../src/services/SimulationJobStore";
+import { recordJobs, getJobs, removeJob, clearJobs, SimJobRecord, StorageLike } from "../src/services/simulationStorage";
 
 function fakeStorage(): StorageLike & { map: Map<string, string> } {
   const map = new Map<string, string>();

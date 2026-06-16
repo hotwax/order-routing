@@ -1,6 +1,6 @@
 // tests/routingResultJoin.test.ts
 import assert from "node:assert";
-import { joinRoutingResults } from "../src/util/routingResultJoin";
+import { joinRoutingResults } from "../src/util/simulationResults";
 import type { RoutingRunResult } from "../src/types/variation";
 
 const r = (id: string, seq: number, elig: number): RoutingRunResult => ({

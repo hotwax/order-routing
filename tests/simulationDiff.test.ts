@@ -1,5 +1,5 @@
 import assert from "assert";
-import { diffParameters, diffRoutings, buildVariant, isNoOp } from "../src/util/simulationDiff";
+import { diffParameters, diffRoutings, buildVariant, isNoOp } from "../src/util/simulationCompute";
 
 // Test Task 2: Parameter diff
 {

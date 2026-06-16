@@ -1,19 +1,47 @@
-// src/util/variationConfigAdapter.ts
-// Pure bidirectional adapter between the canvas's OMS-normalized routing tree (orderFilters /
-// inventoryFilters, with exclusion filters carrying a `_excluded` fieldName suffix) and the
-// sim-routing variation `/config` shape (filters / inventoryConditions / actions). No runtime imports
-// beyond types — safe under `npx tsx`.
+// src/util/variationUtils.ts
+// Pure helpers for variation trees and the canvas <-> sim-routing API shape adapter.
+// Merges: variationTree.ts, variationConfigAdapter.ts
+
+import type { VariationCondition, VariationTree } from "../types/variation";
+
+// ─── variationTree ────────────────────────────────────────────────────────────
+
+export function isPlaceholder(c: Pick<VariationCondition, "operator" | "fieldValue">): boolean {
+  return (c.operator === null || c.operator === undefined || c.operator === "") &&
+         (c.fieldValue === null || c.fieldValue === undefined || c.fieldValue === "");
+}
+
+export function sortBySequence<T extends { sequenceNum: number }>(items: T[]): T[] {
+  return items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => (a.item.sequenceNum - b.item.sequenceNum) || (a.i - b.i))
+    .map(({ item }) => item);
+}
+
+export function stripVariationPrefix(variationGroupId: string, orderRoutingId: string): string {
+  const prefix = `${variationGroupId}_`;
+  return orderRoutingId.startsWith(prefix) ? orderRoutingId.slice(prefix.length) : orderRoutingId;
+}
+
+export function buildRoutingNameMap(tree: Pick<VariationTree, "routings">): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const r of tree.routings || []) { map[r.orderRoutingId] = r.routingName; }
+  return map;
+}
+
+export function nextSeqId(items: Array<Record<string, any>>, key: string): string {
+  const max = (items || []).reduce((m, it) => Math.max(m, parseInt(it[key], 10) || 0), 0);
+  return String(max + 1).padStart(2, "0");
+}
+
+// ─── variationConfigAdapter ───────────────────────────────────────────────────
 
 const isExclusion = (operator: string | null | undefined) => operator === "not-equals" || operator === "not-in";
 
-/** Strip the canvas's `_excluded` suffix so the payload carries the bare field name (the operator
- *  already encodes the exclusion). Mirrors the inbound rewrite in reverse. */
 function stripExcluded(fieldName: string | null): string | null {
   return typeof fieldName === "string" ? fieldName.replace(/_excluded$/, "") : fieldName;
 }
 
-/** Re-apply the canvas's `_excluded` suffix for exclusion operators (mirrors
- *  normalizeRoutingGroupHierarchy in RoutingGroupService). */
 function applyExcluded(fieldName: string | null, operator: string | null): string | null {
   if (typeof fieldName !== "string" || !isExclusion(operator)) return fieldName;
   return fieldName.replace(/_excluded$/, "") + "_excluded";
@@ -22,8 +50,6 @@ function applyExcluded(fieldName: string | null, operator: string | null): strin
 function bySeq<T extends { sequenceNum?: number }>(items: T[] | undefined): T[] {
   return (items ?? []).slice().sort((a, b) => (a.sequenceNum ?? 0) - (b.sequenceNum ?? 0));
 }
-
-// ---- Outbound: canvas tree -> PUT /config payload -----------------------------------------------
 
 function conditionOut(c: any) {
   return {
@@ -46,10 +72,6 @@ function ruleOut(r: any) {
   };
 }
 
-/** Map the canvas `working.routings` tree to the routings ARRAY for PUT /config. The service layer
- *  (variationRequests.replaceConfig) wraps it as the `{ routings }` request body — returning the body
- *  object here double-wrapped the payload ({ routings: { routings: [...] } }) and the backend 400'd
- *  (its List param received a Map). Node ids are intentionally dropped — the backend assigns fresh ones. */
 export function toConfigPayload(routings: any[]): any[] {
   return (routings ?? []).map((rt: any) => ({
     routingName: rt.routingName,
@@ -59,8 +81,6 @@ export function toConfigPayload(routings: any[]): any[] {
     rules: (rt.rules ?? []).map(ruleOut),
   }));
 }
-
-// ---- Inbound: variation tree (GET / config response) -> canvas shape ----------------------------
 
 function conditionIn(c: any) {
   return {
@@ -87,9 +107,6 @@ function ruleIn(r: any) {
   };
 }
 
-/** Map a variation's `routings` tree (from GET /variations or the /config response) into the
- *  canvas's `working`-tree shape: filters -> orderFilters, inventoryConditions -> inventoryFilters,
- *  with `_excluded` rewrite and sequence sorting. Mirrors normalizeRoutingGroupHierarchy. */
 export function fromVariationRoutings(routings: any[]): any[] {
   return bySeq((routings ?? []).map((rt: any) => ({
     orderRoutingId: rt.orderRoutingId,

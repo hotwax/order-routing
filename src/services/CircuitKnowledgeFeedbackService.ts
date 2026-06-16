@@ -1,107 +1,24 @@
-export type KnowledgeFeedbackMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
+import type {
+  ProposalPayload,
+  ProposalErrorStage,
+  ProposalResult,
+  ApproveErrorStage,
+  ApproveResult,
+  SuggestPromptErrorStage,
+  SuggestPromptRequest,
+  SuggestPromptResult,
+  ProposeRequest,
+  RefineRequest,
+  ApproveRequest,
+} from "@/types/circuit";
 
-export type KnowledgeFeedbackContext = {
-  routingGroupId?: string | null;
-  routingRuleId?: string | null;
-  activeContextLabel?: string;
-};
-
-export type CorrectionCategory =
-  | "wrong_recommendation"
-  | "missed_clarifying_question"
-  | "misnamed_entity"
-  | "should_have_used_tool"
-  | "other";
-
-export type EditOp =
-  | { op: "append"; path: string; value: unknown }
-  | { op: "set"; path: string; value: unknown }
-  | { op: "remove"; path: string }
-  | { op: "insertAt"; path: string; index: number; value: unknown };
-
-export type EditDescription = {
-  op: "append" | "set" | "remove" | "insertAt";
-  path: string;
-  text: string;
-};
-
-export type ProposalPayload = {
-  proposalId: string;
-  summary: string;
-  rationale: string;
-  edits: EditOp[];
-  editDescriptions: EditDescription[];
-};
-
-export type CarriedProposal = {
-  proposalId: string;
-  summary: string;
-  rationale: string;
-  edits: EditOp[];
-};
-
-export type ProposalErrorStage = "validation" | "llm" | "applier_dry_run" | "network";
-
-export type ProposalResult =
-  | { ok: true; proposal: ProposalPayload }
-  | { ok: false; stage: ProposalErrorStage; error: string };
-
-export type ApproveErrorStage = "validation" | "applier" | "yaml_parse" | "git" | "network";
-
-export type ApproveResult =
-  | {
-      ok: true;
-      commitSha: string;
-      shortSha: string;
-      summary: string;
-      editCount: number;
-    }
-  | { ok: false; stage: ApproveErrorStage; error: string };
-
-export type SuggestPromptErrorStage = "validation" | "llm" | "network";
-
-export type SuggestPromptRequest = {
-  messages: KnowledgeFeedbackMessage[];
-  correctionCategory?: CorrectionCategory;
-  context?: KnowledgeFeedbackContext;
-};
-
-export type SuggestPromptResult =
-  | { ok: true; suggestedPrompt: string }
-  | { ok: false; stage: SuggestPromptErrorStage; error: string };
-
-export type ProposeRequest = {
-  messages: KnowledgeFeedbackMessage[];
-  userCorrection: string;
-  correctionCategory?: CorrectionCategory;
-  context?: KnowledgeFeedbackContext;
-};
-
-export type RefineRequest = ProposeRequest & {
-  previousProposal: CarriedProposal;
-  refinementFeedback: string;
-};
-
-export type ApproveRequest = {
-  proposal: CarriedProposal;
-  userCorrection: string;
-  refinementHistory?: string[];
-  messages: KnowledgeFeedbackMessage[];
-};
 
 const ENDPOINT_PROPOSE = "/knowledge-feedback/propose";
 const ENDPOINT_REFINE = "/knowledge-feedback/refine";
 const ENDPOINT_APPROVE = "/knowledge-feedback/approve";
 const ENDPOINT_SUGGEST = "/knowledge-feedback/suggest-prompt";
 
-function resolveMastraUrl(): string {
-  const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
-  const raw = env.VITE_MASTRA_URL || "http://localhost:4111";
-  return raw.replace(/\/$/, "");
-}
+import { mastraUrl as resolveMastraUrl } from "../util/simConfig";
 
 const VALID_PROPOSAL_STAGES = new Set<ProposalErrorStage>([
   "validation",
@@ -288,3 +205,10 @@ export async function suggestKnowledgeFeedbackPrompt(
     suggestedPrompt: String(parsed.suggestedPrompt || "")
   };
 }
+
+export const CircuitKnowledgeFeedbackService = {
+  proposeKnowledgeFeedback,
+  refineKnowledgeFeedback,
+  approveKnowledgeFeedback,
+  suggestKnowledgeFeedbackPrompt,
+};

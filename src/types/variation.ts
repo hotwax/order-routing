@@ -123,3 +123,20 @@ export interface CompareRow {
   parent: RoutingRunResult | null;
   variation: RoutingRunResult | null;
 }
+
+// --- From VariationService ---
+
+export interface VariationConditionInput {
+  conditionSeqId: string;
+  fieldName: string;
+  operator: string;
+  fieldValue: string;
+  sequenceNum: number;
+  conditionTypeEnumId?: string;
+}
+
+export interface VariationActionInput {
+  actionSeqId: string;
+  actionTypeEnumId: string;
+  actionValue: string | null;
+}

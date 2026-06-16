@@ -1,6 +1,6 @@
 import assert from "assert";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
-import { toRows, formatPercent, formatMoney, fillRateOf, moneySaved } from "../src/util/outcomes";
+import { toRows, formatPercent, formatMoney, fillRateOf, moneySaved } from "../src/util/simulationResults";
 
 // toRows: baseline first, asymmetry normalized
 {

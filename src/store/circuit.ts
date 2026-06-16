@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import { CircuitStorageService, ChatThread, ChatMessage, DraftFeedbackRecord } from '@/services/CircuitStorageService';
+import { CircuitStorageService } from '@/services/CircuitStorageService';
+import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
 import CircuitLLMService from '@/services/CircuitLLMService';
 import { translate } from '@common';
 

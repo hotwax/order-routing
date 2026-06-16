@@ -208,3 +208,68 @@ export interface SimulationOutcomes {
   inventory: OutcomeInventory;
   classification: OutcomeClassification;
 }
+
+// --- From SimulationService ---
+
+export interface JobOutcome {
+  done: boolean;
+  result?: { groupRun?: any; variation?: any };
+  error?: string;
+}
+
+export interface SubmitBatchArgs {
+  routingGroupId: string;
+  variants: SimVariant[];
+  sampleCap?: number;
+}
+
+export interface PastSimulationsFilters {
+  productStoreId: string;
+  routingGroupId?: string;
+  statusId?: string;
+  runType?: string;
+  fromDate?: string;
+  thruDate?: string;
+  pageIndex: number;
+  pageSize: number;
+}
+
+// --- From SimulationHistoryCache / SimulationJobStore (shared) ---
+
+export interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+export interface PastSimHeader {
+  simulationId: string;
+  routingGroupId?: string;
+  productStoreId?: string;
+  runType?: string;
+  statusId?: string;
+  attemptedItemCount?: number;
+  brokeredItemCount?: number;
+  queuedItemCount?: number;
+  durationMs?: number;
+  sampleSize?: number;
+  sampleCap?: number;
+  simulationRan?: any;
+  partial?: any;
+  createdDate?: string | number;
+  createdByUser?: string;
+}
+
+export interface DetailEntry {
+  header: PastSimHeader;
+  raw: any;
+  cachedAt: number;
+}
+
+export interface SimJobRecord {
+  jobId: string;
+  batchIndex: number;
+  batchCount: number;
+  variantLabels: string[];
+  submittedAt: number;
+}

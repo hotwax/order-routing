@@ -1,5 +1,5 @@
 import assert from "assert";
-import { chunkVariants, mergeVariationResults } from "../src/util/simulationBatch";
+import { chunkVariants, mergeVariationResults } from "../src/util/simulationCompute";
 
 // chunk into batches of 5
 {

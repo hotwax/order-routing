@@ -3,7 +3,7 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
-import { fetchRoutingGroupDetail } from '@/services/RoutingGroupService'
+import { RoutingGroupService } from '@/services/RoutingGroupService'
 import { v4 as uuidv4, validate } from 'uuid';
 
 export const orderRoutingStore = defineStore('orderRouting', {
@@ -286,7 +286,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
           return;
         }
         // Fetch + normalize via the shared helper (OMS instance: api(), default Maarg baseURL).
-        currentGroup = await fetchRoutingGroupDetail(routingGroupId, this.groups, api)
+        currentGroup = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.groups, api)
       } catch(err) {
         logger.error(err);
       }

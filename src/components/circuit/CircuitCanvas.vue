@@ -599,9 +599,10 @@ import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
-import { applyDraftProposal, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations } from "@/services/DraftAssistantService";
-import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
-import { buildBrokeringAgentSnapshot } from "@/draftTargets/BrokeringAgentSnapshot";
+import { DraftAssistantService } from "@/services/DraftAssistantService";
+import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
+import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/util/brokeringRulesManifest";
+import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
 import { useCreateRouting } from "@/composables/useCreateRouting";
 
 const props = defineProps({
@@ -689,8 +690,8 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   }
 
   const manifest = await buildCircuitDraftManifest();
-  const plan = await requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
-  const proposal = createDraftProposal(plan, manifest);
+  const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
+  const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)
     ? {
       ...proposal,
@@ -742,7 +743,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
 
   const manifest = await buildCircuitDraftManifest();
 
-  const result = await applyDraftProposal(proposal, manifest, {
+  const result = await DraftAssistantService.applyDraftProposal(proposal, manifest, {
     createSiblingRouting: async (name: string) => {
       const existing = group.value?.routings || [];
       const tail = existing[existing.length - 1];
@@ -808,7 +809,7 @@ function buildCircuitDraftBindings() {
 }
 
 function formatDraftProposalMessage(proposal: CircuitDraftProposal, manifest: any) {
-  const formattedSections = formatDraftProposalSections(proposal.operations || [], manifest, proposal.newRouting);
+  const formattedSections = DraftAssistantService.formatDraftProposalSections(proposal.operations || [], manifest, proposal.newRouting);
   const summaryLines = formattedSections
     ? [formattedSections]
     : (proposal.summary || "")

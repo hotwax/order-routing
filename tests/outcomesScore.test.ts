@@ -2,7 +2,7 @@ import assert from "assert";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
 import {
   minMaxNormalize, renormalizeWeights, computeScores, selectWinner, DEFAULT_WEIGHTS,
-} from "../src/util/outcomes";
+} from "../src/util/simulationResults";
 
 // minMaxNormalize: standard
 {

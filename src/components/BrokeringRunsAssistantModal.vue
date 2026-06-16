@@ -93,10 +93,10 @@ import { translate, commonUtil } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
-import { buildBrokeringAgentSnapshot } from "@/draftTargets/BrokeringAgentSnapshot";
-import { buildBrokeringRunsListManifest } from "@/draftTargets/BrokeringRunsListTargets";
-import { requestBrokeringRunsListInquiry } from "@/services/BrokeringRunsAssistantService";
-import type { DraftConversationMessage, PageCapabilityManifest } from "@/services/DraftAssistantService";
+import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
+import { buildBrokeringRunsListManifest } from "@/util/brokeringRunsManifest";
+import { DraftAssistantService } from "@/services/DraftAssistantService";
+import type { DraftConversationMessage, PageCapabilityManifest } from "@/types/draft";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -185,7 +185,7 @@ async function onSend() {
 
   isSending.value = true;
   try {
-    const result = await requestBrokeringRunsListInquiry(message, cachedManifest.value, conversationHistory);
+    const result = await DraftAssistantService.requestBrokeringRunsListInquiry(message, cachedManifest.value, conversationHistory);
     const composed = composeAssistantMessage(result.message, result.questions);
     messages.value.push({ role: "assistant", content: composed });
   } catch (error) {

@@ -1,4 +1,4 @@
-import type { PageCapabilityManifest } from "@/services/DraftAssistantService";
+import type { PageCapabilityManifest } from "@/types/draft";
 
 type EnumInfo = { id: string; code: string };
 type ConditionRow = {

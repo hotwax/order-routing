@@ -1,5 +1,5 @@
 import assert from "assert";
-import { mergeEvents } from "../src/util/progressBuffer";
+import { mergeEvents } from "../src/util/simulationCompute";
 import { OrderEvent } from "../src/types/simulation";
 
 const ev = (seq: number): OrderEvent => ({ seq, orderId: `O${seq}`, facilityId: null, finalReason: "QUEUED" });

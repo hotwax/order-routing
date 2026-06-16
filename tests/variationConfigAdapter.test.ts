@@ -1,6 +1,6 @@
 // tests/variationConfigAdapter.test.ts
 import assert from "node:assert";
-import { toConfigPayload, fromVariationRoutings } from "../src/util/variationConfigAdapter";
+import { toConfigPayload, fromVariationRoutings } from "../src/util/variationUtils";
 
 // ---- Outbound: canvas `working` tree -> PUT /config payload --------------------------------------
 const workingRoutings = [

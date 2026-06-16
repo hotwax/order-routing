@@ -1,5 +1,5 @@
 import assert from "assert";
-import { applyProductStoreId } from "../src/util/simulationDiff";
+import { applyProductStoreId } from "../src/util/simulationCompute";
 
 const variants = [
   { label: "A", parameterOverrides: { distance: 50 }, routingDeltas: [] as any[] },

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
 import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
-import { isFeatureEnabled } from "@/util/featureFlags";
+import { isFeatureEnabled } from "@/util/simConfig";
 import {
   businessOutline,
   cloudUploadOutline,

@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import ExpeditedPanel from "../src/components/simulation/ExpeditedPanel.vue";
-import { toRows } from "../src/util/outcomes";
+import { toRows } from "../src/util/simulationResults";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
 
 vi.mock("@common", () => ({

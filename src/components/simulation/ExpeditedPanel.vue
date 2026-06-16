@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { translate, commonUtil } from "@common";
-import type { OutcomeRow } from "@/util/outcomes";
+import type { OutcomeRow } from "@/util/simulationResults";
 
 defineProps<{ rows: OutcomeRow[] }>();
 

@@ -46,8 +46,7 @@ export function normalizeRoutingGroupHierarchy(group: any): any {
 /** Fetch one routing group's full raw hierarchy (routings/rules/filters) and normalize it. `listGroups`
  *  is the already-loaded group list (for the metadata fallback / isNew short-circuit). `request` +
  *  `baseURL` select the instance: api()+undefined for OMS, simApi()+simMoquiUrl() for the sim instance.
- *  `apiName` is the Moqui component the routing endpoints are mounted under (the sim path passes
- *  simApiName() so the order-routing -> ai-routing rename is one env change). Outcomes:
+ *  Outcomes:
  *  - 200 with an empty/non-object body: "valid group, no routings yet" — list metadata + routings: [].
  *  - request throws (network/5xx) with the group in the list: fall back to the list metadata WITHOUT
  *    a routings array, so cache checks treat it as partial and refetch next visit.
@@ -57,13 +56,12 @@ export async function fetchRoutingGroupDetail(
   listGroups: any[],
   request: RoutingRequest,
   baseURL?: string,
-  apiName = "order-routing",
 ): Promise<any> {
   let group = (listGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
   if (!group?.isNew) {
     let resp;
     try {
-      resp = await request({ url: `${apiName}/groups/${routingGroupId}/raw`, method: "GET", baseURL });
+      resp = await request({ url: `order-routing/groups/${routingGroupId}/raw`, method: "GET", baseURL });
     } catch (err) {
       if (group) return normalizeRoutingGroupHierarchy({ ...group });
       throw err;
@@ -80,19 +78,23 @@ export async function fetchRoutingGroupDetail(
 }
 
 /** Fetch the routing-group list for a product store via the given instance's request fn. Used by the
- *  simulate path (simApi + simMoquiUrl + simApiName); the OMS store keeps its own schedule-enriched
- *  list fetch. */
+ *  simulate path (simApi + simMoquiUrl); the OMS store keeps its own schedule-enriched list fetch. */
 export async function fetchRoutingGroupsList(
   productStoreId: string,
   request: RoutingRequest,
   baseURL?: string,
-  apiName = "order-routing",
 ): Promise<any[]> {
   const resp = await request({
-    url: `${apiName}/groups`,
+    url: `order-routing/groups`,
     method: "GET",
     baseURL,
     params: { productStoreId, pageSize: 200 },
   });
   return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
 }
+
+export const RoutingGroupService = {
+  normalizeRoutingGroupHierarchy,
+  fetchRoutingGroupDetail,
+  fetchRoutingGroupsList,
+};

@@ -3,7 +3,7 @@ import {
   createDraftOutputContract,
   createDraftTargetBindings,
   toDraftOptions
-} from "../services/DraftAssistantService";
+} from "./draftUtils";
 import type {
   DraftOperation,
   DraftOption,
@@ -12,14 +12,14 @@ import type {
   DraftValue,
   DraftValueType,
   PageCapabilityManifest
-} from "../services/DraftAssistantService";
+} from "@/types/draft";
 
-type EnumInfo = {
+export type EnumInfo = {
   id: string;
   code: string;
 };
 
-type ConditionOption = {
+export type ConditionOption = {
   conditionSeqId?: string;
   conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY";
   fieldName: string;
@@ -163,7 +163,6 @@ const inventorySortDefinitions: SortDefinition[] = [
   { key: "INV_BALANCE", label: "Available inventory balance sort" },
   { key: "CUSTOMER_SEQ", label: "Customer sequence sort" }
 ];
-
 
 export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilityManifest {
   const hasSelectedRule = Boolean(input.selectedRoutingRule?.routingRuleId);
@@ -1150,7 +1149,7 @@ function unavailableActionOptions(actionEnums: Record<string, EnumInfo>): DraftO
   ];
 }
 
-function getConditionValue(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, key: string): DraftValue | undefined {
+export function getConditionValue(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, key: string): DraftValue | undefined {
   const enumInfo = enums[key];
   const value = enumInfo?.code ? options?.[enumInfo.code]?.fieldValue : undefined;
   if (typeof value === "string" && value.includes(",")) {

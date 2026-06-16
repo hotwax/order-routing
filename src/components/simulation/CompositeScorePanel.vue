@@ -38,7 +38,7 @@
 import { computed, reactive, watch } from "vue";
 import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonItem, IonLabel, IonRange } from "@ionic/vue";
-import { computeScores, selectWinner, renormalizeWeights, DEFAULT_WEIGHTS } from "@/util/outcomes";
+import { computeScores, selectWinner, renormalizeWeights, DEFAULT_WEIGHTS } from "@/util/simulationResults";
 
 const props = defineProps<{ results: any }>();
 const emit = defineEmits<{ (e: "winner", label: string | undefined): void }>();

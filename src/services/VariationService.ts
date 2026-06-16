@@ -3,23 +3,9 @@
 // return axios-style configs (testable without network); the exported async functions add baseURL +
 // auth via client() and unwrap/validate the response.
 import { client, commonUtil } from "@common";
-import { simRoutingApiBaseUrl } from "./SimulationService";
+import type { VariationConditionInput, VariationActionInput } from "../types/variation";
+import { simRoutingApiBaseUrl } from "../util/simConfig";
 import type { GroupRunResult, VariationListItem, VariationTree } from "../types/variation";
-
-export interface VariationConditionInput {
-  conditionSeqId: string;
-  fieldName: string;
-  operator: string;
-  fieldValue: string;
-  sequenceNum: number;
-  conditionTypeEnumId?: string;
-}
-
-export interface VariationActionInput {
-  actionSeqId: string;
-  actionTypeEnumId: string;
-  actionValue: string | null;
-}
 
 /** Pure request builders — { url, method, params?, data? } relative to simRoutingApiBaseUrl(). */
 export const variationRequests = {
@@ -122,3 +108,19 @@ export async function runVariation(vid: string, sampleCap?: number): Promise<Gro
 
   return data.groupRunResult;
 }
+
+export const VariationService = {
+  listVariations,
+  createVariation,
+  getVariation,
+  replaceVariationConfig,
+  setRouting,
+  upsertFilter,
+  deleteFilter,
+  setRule,
+  upsertInventoryCondition,
+  deleteInventoryCondition,
+  upsertAction,
+  deleteAction,
+  runVariation,
+};

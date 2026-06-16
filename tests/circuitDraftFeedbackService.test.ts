@@ -4,7 +4,7 @@ import {
   buildFeedbackRevisionMessage,
   buildFeedbackRevisionPrompt,
   buildFeedbackSavedMessage
-} from "../src/services/CircuitDraftFeedbackService";
+} from "../src/util/circuitFeedback";
 
 {
   const message = buildDiscardFeedbackPrompt({ summary: "Queue: Brokering Queue" });

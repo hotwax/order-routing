@@ -1,11 +1,8 @@
 // Pure prompt-building utilities for Circuit draft feedback flows.
 // No external system calls — all functions are synchronous transformations.
 
-export type DraftFeedbackType = "approved" | "revision_requested" | "rejected";
-
-export type DraftFeedbackProposalSummary = {
-  summary?: string;
-};
+import type { DraftFeedbackType, DraftFeedbackProposalSummary } from "@/types/circuit";
+export type { DraftFeedbackType, DraftFeedbackProposalSummary };
 
 export function buildDiscardFeedbackPrompt(proposal: DraftFeedbackProposalSummary) {
   const summary = String(proposal.summary || "").trim();

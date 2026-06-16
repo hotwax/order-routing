@@ -6,12 +6,12 @@ vi.mock("@common", () => ({
   commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
   cookieHelper: () => ({ get: () => "" }),
 }));
-import { applyDraftOperations } from "../src/services/DraftAssistantService";
-import type { DraftOperation } from "../src/services/DraftAssistantService";
+import { applyDraftOperations } from "../src/util/draftUtils";
+import type { DraftOperation } from "../src/types/draft";
 import {
   buildBrokeringRulesBindings,
   buildBrokeringRulesManifest
-} from "../src/draftTargets/BrokeringRulesDraftTargets";
+} from "../src/util/brokeringRulesManifest";
 
 it("brokering rules draft targets", async () => {
 

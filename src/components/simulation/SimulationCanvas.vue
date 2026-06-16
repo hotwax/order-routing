@@ -512,9 +512,10 @@ import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptio
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import { DateTime } from "luxon";
-import { applyDraftProposal, createDraftProposal, DraftConversationMessage, DraftProposal, formatDraftProposalSections, requestBrokeringRouteDraftOperations } from "@/services/DraftAssistantService";
-import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/draftTargets/BrokeringRulesDraftTargets";
-import { buildBrokeringAgentSnapshot } from "@/draftTargets/BrokeringAgentSnapshot";
+import { DraftAssistantService } from "@/services/DraftAssistantService";
+import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
+import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/util/brokeringRulesManifest";
+import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
 
 // Simulation fork of CircuitCanvas: edits an in-memory working copy of the
 // routing group (simulationStore.working) and performs NO network writes.
@@ -626,8 +627,8 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   }
 
   const manifest = await buildCircuitDraftManifest();
-  const plan = await requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
-  const proposal = createDraftProposal(plan, manifest);
+  const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
+  const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)
     ? {
       ...proposal,
@@ -679,7 +680,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
 
   const manifest = await buildCircuitDraftManifest();
 
-  const result = await applyDraftProposal(proposal, manifest, {
+  const result = await DraftAssistantService.applyDraftProposal(proposal, manifest, {
     // Creating brand-new routings is not a supported simulation edit (the diff engine
     // only captures changes to existing routings), and the fork performs no backend
     // writes — so this is a no-op in the simulation context.
@@ -733,7 +734,7 @@ function buildCircuitDraftBindings() {
 }
 
 function formatDraftProposalMessage(proposal: CircuitDraftProposal, manifest: any) {
-  const formattedSections = formatDraftProposalSections(proposal.operations || [], manifest, proposal.newRouting);
+  const formattedSections = DraftAssistantService.formatDraftProposalSections(proposal.operations || [], manifest, proposal.newRouting);
   const summaryLines = formattedSections
     ? [formattedSections]
     : (proposal.summary || "")

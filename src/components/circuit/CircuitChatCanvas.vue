@@ -151,7 +151,7 @@ import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
 import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
-import type { KnowledgeFeedbackMessage } from '@/services/CircuitKnowledgeFeedbackService';
+import type { KnowledgeFeedbackMessage } from '@/types/circuit';
 import {
   addOutline,
   bulbOutline,
@@ -168,7 +168,7 @@ import { useCircuitStore } from '@/store/circuit';
 import { storeToRefs } from 'pinia';
 import { DateTime } from 'luxon';
 import { modalController } from '@ionic/vue';
-import { DraftConversationMessage, DraftProposal } from '@/services/DraftAssistantService';
+import type { DraftConversationMessage, DraftProposal } from '@/types/draft';
 import {
   buildDiscardFeedbackPrompt,
   buildFeedbackRevisionMessage,

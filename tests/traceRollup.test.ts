@@ -1,6 +1,6 @@
 // tests/traceRollup.test.ts
 import assert from "node:assert";
-import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff, describeRuleAttempts } from "../src/util/traceRollup";
+import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff, describeRuleAttempts } from "../src/util/simulationResults";
 import type { OrderTrace } from "../src/types/variation";
 
 const trace = (orderId: string, finalReason: string | null, assignments: Array<[string | null, number]> = [], orderItemSeqId = "00101"): OrderTrace => ({

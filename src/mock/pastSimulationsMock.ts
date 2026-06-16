@@ -1,7 +1,7 @@
 // src/mock/pastSimulationsMock.ts
 // Dev-only fixtures for the Past Simulations viewer, used when VITE_SIM_USE_MOCK="true"
 // until backend R1/R2 ship. Never imported on production paths (dynamic import gated by useMock()).
-import type { PastSimulationsFilters } from "../services/SimulationService";
+import type { PastSimulationsFilters } from "../types/simulation";
 
 // createdDate is epoch millis (Long), matching the real contract.
 const HEADERS = [

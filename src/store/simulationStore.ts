@@ -4,7 +4,7 @@ import { logger } from "@common";
 import { productStore } from "./productStore";
 import { buildVariant, isNoOp, applyProductStoreId } from "../util/simulationDiff";
 import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
-import { submitBatch, pollJob, runParentLiveConfig, simRequest, simRequestName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
+import { submitBatch, pollJob, runParentLiveConfig, simRequest, simApiName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
 import { fetchRoutingGroupsList, fetchRoutingGroupDetail } from "../services/RoutingGroupService";
 import { listVariations, createVariation, getVariation, replaceVariationConfig, runVariation } from "../services/VariationService";
 import { toConfigPayload, fromVariationRoutings } from "../util/variationConfigAdapter";
@@ -89,7 +89,7 @@ export const simulationStore = defineStore("simulation", {
     // and leave the list empty — callers (onMounted, loadGroup) must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simRequest, simMoquiUrl(), simRequestName());
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simRequest, simMoquiUrl(), simApiName());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
@@ -105,7 +105,7 @@ export const simulationStore = defineStore("simulation", {
         if (!this.simGroups?.length) {
           await this.fetchSimGroups();
         }
-        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simRequest, simMoquiUrl(), simRequestName());
+        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simRequest, simMoquiUrl(), simApiName());
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }

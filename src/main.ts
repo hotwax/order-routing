@@ -25,7 +25,6 @@ import "@ionic/vue/css/display.css";
 import "@common/css/settings.css"
 import "@common/css/theme.css"
 import "./theme/variables.css";
-import "./theme/circuit.css";
 
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";

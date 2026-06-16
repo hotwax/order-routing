@@ -206,9 +206,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
         });
       } else {
         transformedPayload.routings.forEach((routing: any) => {
-          if(validate(routing.orderRoutingId)) delete routing.orderRoutingId
+          if(routing.orderRoutingId && validate(routing.orderRoutingId)) delete routing.orderRoutingId
           routing.rules?.forEach((rule: any) => {
-            if(validate(rule.routingRuleId)) delete rule.routingRuleId
+            if(rule.routingRuleId && validate(rule.routingRuleId)) delete rule.routingRuleId
           })
         })
       }

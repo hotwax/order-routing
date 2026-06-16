@@ -582,9 +582,9 @@ async function saveAsNewVariation() {
       { text: translate("Cancel"), role: "cancel" },
       {
         text: translate("Save"),
-        handler: (data) => {
+        handler: async (data) => {
           flushWorking();
-          sim.saveAsVariation(data?.label);
+          await sim.saveAsVariation(data?.label);
           commonUtil.showToast(translate("Variation saved"));
         }
       }
@@ -1057,7 +1057,7 @@ function getRouteIndex() {
 }
 
 function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
-  inventoryRules.value.map((inventoryRule: any) => {
+  inventoryRules.value.forEach((inventoryRule: any) => {
     if(ruleKey(inventoryRule) === (routingRuleId || activeRuleId.value)) {
       inventoryRule.statusId = event.detail.value
     }
@@ -1502,7 +1502,7 @@ function doReorder(event: CustomEvent) {
   rulesForReorder.value = updatedSeq
 
   // Update original inventoryRules to maintain state
-  inventoryRules.value.map((rule: any) => {
+  inventoryRules.value.forEach((rule: any) => {
     const updatedRule = updatedSeq.find((seq: any) => ruleKey(seq) === ruleKey(rule))
     if(updatedRule) {
       rule.sequenceNum = updatedRule.sequenceNum

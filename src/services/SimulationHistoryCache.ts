@@ -38,10 +38,16 @@ function readJson<T>(storage: StorageLike, key: string, fallback: T): T {
 function writeJson(storage: StorageLike, key: string, value: any): void {
   try { storage.setItem(key, JSON.stringify(value)); } catch (e) { console.error("[SimulationHistoryCache] write failed", key, e); }
 }
-// createdDate is epoch millis (Long) per the confirmed contract, but tolerate ISO strings too.
+// createdDate is epoch millis (Long) per the confirmed contract, but tolerate ISO strings and
+// digit-only strings (e.g. "1780999300000") that Date.parse() rejects as invalid.
 const ts = (d?: string | number): number => {
   if (typeof d === "number") return Number.isFinite(d) ? d : 0;
-  const t = d ? Date.parse(d) : NaN; return Number.isNaN(t) ? 0 : t;
+  if (typeof d === "string" && /^\d+$/.test(d)) {
+    const num = Number(d);
+    return Number.isFinite(num) ? num : 0;
+  }
+  const t = d ? Date.parse(d) : NaN;
+  return Number.isNaN(t) ? 0 : t;
 };
 
 interface ListBucket { headers: PastSimHeader[]; cachedAt: number; }

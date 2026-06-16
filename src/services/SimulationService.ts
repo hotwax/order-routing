@@ -1,3 +1,4 @@
+import { client, commonUtil } from "@common";
 import { GroupRunProgress, JobStatusResponse, SimVariant } from "../types/simulation";
 
 /** Name of the Moqui component that serves the simulation REST endpoints (and the sim login).
@@ -61,8 +62,7 @@ export function simMoquiUrl(env: Record<string, any> = import.meta.env): string 
  *  Uses the interceptor-free client() rather than api() so that a 401 from the sim Moqui never
  *  triggers the global logout interceptor (which would immediately redirect the user to /login).
  *  The Bearer token is attached manually — same credential as the rest of the app. */
-export async function simApi(config: any): Promise<any> {
-  const { client, commonUtil } = await import("@common");
+function simClient(config: any): Promise<any> {
   const token = commonUtil.getToken();
   return client({
     ...config,
@@ -72,6 +72,10 @@ export async function simApi(config: any): Promise<any> {
     },
   });
 }
+
+/** Exported for callers (simulationStore, variationStore) that need to pass a request function to
+ *  RoutingGroupService. Has the same RoutingRequest signature: (config) => Promise<any>. */
+export const simRequest = simClient;
 
 export interface JobOutcome {
   done: boolean;
@@ -100,8 +104,12 @@ export function interpretJobStatus(resp: JobStatusResponse): JobOutcome {
 }
 
 // Live progress feed streams per-order events as deltas, so a tight 2.5s cadence stays cheap.
-const POLL_INTERVAL_MS = 2_500;
-const MAX_POLL_DURATION_MS = 90 * 60_000;
+const POLL_INTERVAL_MS = import.meta.env.VITE_SIM_POLL_INTERVAL_MS
+  ? Number(import.meta.env.VITE_SIM_POLL_INTERVAL_MS)
+  : 2_500;
+const MAX_POLL_DURATION_MS = import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS
+  ? Number(import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS)
+  : 90 * 60_000;
 
 export interface SubmitBatchArgs {
   routingGroupId: string;
@@ -111,8 +119,7 @@ export interface SubmitBatchArgs {
 
 /** POST one batch (≤5 variants). Returns the jobId. Throws on non-2xx. */
 export async function submitBatch({ routingGroupId, variants, sampleCap }: SubmitBatchArgs): Promise<string> {
-  const { commonUtil } = await import("@common");
-  const resp: any = await simApi({
+  const resp: any = await simClient({
     url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
     method: "POST",
     baseURL: simApiBaseUrl(),
@@ -136,11 +143,10 @@ export async function pollJob(
   onPhase?: (status: string) => void,
   onProgress?: (progress: GroupRunProgress) => void,
 ): Promise<{ groupRun?: any; variation?: any }> {
-  const { commonUtil } = await import("@common");
   const deadline = Date.now() + MAX_POLL_DURATION_MS;
   let sinceSeq = 0;
   while (Date.now() < deadline) {
-    const resp: any = await simApi({
+    const resp: any = await simClient({
       url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
       method: "GET",
       baseURL: simApiBaseUrl(),
@@ -217,9 +223,8 @@ function useMock(env: Record<string, any> = import.meta.env): boolean {
 /** List persisted simulations (R1). Returns { headers, total }. */
 export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
   if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
-  const { commonUtil } = await import("@common");
   const { url, params } = pastSimulationsQuery(f);
-  const resp: any = await simApi({ url, method: "GET", baseURL: simApiBaseUrl(), params });
+  const resp: any = await simClient({ url, method: "GET", baseURL: simApiBaseUrl(), params });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load past simulations: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
   // Confirmed contract: { simulationList: [...headers], totalCount }.
   const headers = resp.data?.simulationList ?? (Array.isArray(resp.data) ? resp.data : []);
@@ -230,8 +235,7 @@ export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{
 /** Fetch one persisted simulation with its variants (R2). Returns the raw response for the adapter. */
 export async function fetchPastSimulation(simulationId: string): Promise<any> {
   if (useMock()) { const { mockPastSimulation } = await import("../mock/pastSimulationsMock"); return mockPastSimulation(simulationId); }
-  const { commonUtil } = await import("@common");
-  const resp: any = await simApi({ url: `brokeringSimulations/${simulationId}`, method: "GET", baseURL: simApiBaseUrl() });
+  const resp: any = await simClient({ url: `brokeringSimulations/${simulationId}`, method: "GET", baseURL: simApiBaseUrl() });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load simulation ${simulationId}: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
   return resp.data;
 }

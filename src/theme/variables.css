@@ -446,3 +446,9 @@ ion-toolbar > ion-segment {
     border-bottom: unset;
   }
 }
+
+/* Global layout helpers used by Circuit components */
+.circuit-mini {
+  max-width: 50ch;
+  margin-inline: auto;
+}

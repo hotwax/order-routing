@@ -61,8 +61,8 @@ export const variationStore = defineStore("variation", {
     async fetchSimGroups() {
       try {
         const { fetchRoutingGroupsList } = await import("../services/RoutingGroupService");
-        const { simApi, simApiName, simMoquiUrl } = await import("../services/SimulationService");
-        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simApi, simMoquiUrl(), simApiName());
+        const { simRequest, simApiName, simMoquiUrl } = await import("../services/SimulationService");
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simRequest, simMoquiUrl(), simApiName());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];

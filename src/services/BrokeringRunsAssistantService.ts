@@ -1,57 +1,55 @@
-import { commonUtil, cookieHelper } from "@common";
+import { client, commonUtil } from "@common";
 import type { DraftConversationMessage, PageCapabilityManifest } from "@/services/DraftAssistantService";
+import type { BrokeringRunsListInquiryResult } from "@/types/circuit";
 
-export type BrokeringRunsListInquiryResult = {
-  message: string;
-  questions: string[];
-  summary: string;
-};
+export { BrokeringRunsListInquiryResult };
+
+export function getMastraUrl(env: Record<string, any> = import.meta.env): string {
+  return ((env && env.VITE_MASTRA_URL) || "http://localhost:4111").replace(/\/$/, "");
+}
 
 const ENDPOINT = "/brokering-runs-list-inquiry";
 
-export async function requestBrokeringRunsListInquiry(
+async function requestBrokeringRunsListInquiry(
   prompt: string,
   manifest: PageCapabilityManifest,
   conversationHistory: DraftConversationMessage[] = []
 ): Promise<BrokeringRunsListInquiryResult> {
-  const mastraUrl = (import.meta.env.VITE_MASTRA_URL || "http://localhost:4111").replace(/\/$/, "");
+  const mastraUrl = getMastraUrl();
   // The order-routing/facility-changes endpoint lives on Moqui (Maarg), not OFBiz/OMS,
-  // so the assistant tool needs the Maarg base URL.
+  // so the assistant tool needs the Maarg base URL and OMS Bearer token to make Moqui calls.
   const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();
-  const authToken = cookieHelper().get("token");
-  let response: Response;
+  const authToken = commonUtil.getToken();
   try {
-    response = await fetch(`${mastraUrl}${ENDPOINT}`, {
+    const response = await client({
+      url: ENDPOINT,
       method: "POST",
+      baseURL: mastraUrl,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      data: {
         prompt,
         conversationHistory,
         pageCapabilityManifest: manifest,
         ...(omsBaseUrl ? { omsBaseUrl } : {}),
         ...(authToken ? { authToken } : {})
-      })
+      }
     });
-  } catch {
+    const body = response.data as { schemaVersion?: string; message?: string; questions?: string[]; summary?: string };
+    return {
+      message: String(body?.message || "").trim(),
+      questions: Array.isArray(body?.questions) ? body.questions.map(String).filter(Boolean) : [],
+      summary: String(body?.summary || "").trim()
+    };
+  } catch (err: any) {
+    if (err.response) {
+      const errorBody = err.response.data as { error?: string; issues?: string[] } | null;
+      const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
+      throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Inquiry assistant failed with ${err.response.status}`);
+    }
     throw new Error(`Mastra is not reachable at ${mastraUrl}. Start the circuit server (pnpm dev in sandbox/circuit).`);
   }
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => null) as { error?: string; issues?: string[] } | null;
-    const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
-    throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Inquiry assistant failed with ${response.status}`);
-  }
-
-  const body = await response.json() as {
-    schemaVersion?: string;
-    message?: string;
-    questions?: string[];
-    summary?: string;
-  };
-
-  return {
-    message: String(body?.message || "").trim(),
-    questions: Array.isArray(body?.questions) ? body.questions.map(String).filter(Boolean) : [],
-    summary: String(body?.summary || "").trim()
-  };
 }
+
+export const BrokeringRunAssistantService = {
+  requestBrokeringRunsListInquiry,
+};

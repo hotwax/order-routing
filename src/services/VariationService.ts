@@ -1,8 +1,9 @@
 // src/services/VariationService.ts
 // Thin REST layer for the sim-routing (variation / what-if) API. The pure `variationRequests` builders
 // return axios-style configs (testable without network); the exported async functions add baseURL +
-// auth via simApi() and unwrap/validate the response.
-import { simApi, simRoutingApiBaseUrl } from "./SimulationService";
+// auth via client() and unwrap/validate the response.
+import { client, commonUtil } from "@common";
+import { simRoutingApiBaseUrl } from "./SimulationService";
 import type { GroupRunResult, VariationListItem, VariationTree } from "../types/variation";
 
 export interface VariationConditionInput {
@@ -51,8 +52,13 @@ export const variationRequests = {
 };
 
 async function call(req: { url: string; method: string; params?: any; data?: any }, timeout?: number): Promise<any> {
-  const { commonUtil } = await import("@common");
-  const resp: any = await simApi({ ...req, baseURL: simRoutingApiBaseUrl(), ...(timeout ? { timeout } : {}) });
+  const token = commonUtil.getToken();
+  const resp: any = await client({
+    ...req,
+    baseURL: simRoutingApiBaseUrl(),
+    ...(timeout ? { timeout } : {}),
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
 
   if (commonUtil.hasError(resp)) {
     throw new Error(`sim-routing ${req.method} ${req.url} failed: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);

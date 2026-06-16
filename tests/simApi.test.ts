@@ -1,4 +1,4 @@
-// tests/simApi.test.ts — simApi() uses client() + OMS Bearer token so sim 401s never fire the
+// tests/simApi.test.ts — simRequest() uses client() + OMS Bearer token so sim 401s never fire the
 // global logout interceptor.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,17 +11,17 @@ vi.mock("@common", () => ({
   logger: { warn: () => {}, error: () => {} },
 }));
 
-import { simApi } from "../src/services/SimulationService";
+import { simRequest } from "../src/services/SimulationService";
 
 const BASE = "https://asb-sim-uat.hotwax.io/rest/s1/order-routing";
 
-describe("simApi", () => {
+describe("simRequest", () => {
   afterEach(() => { client.mockReset(); api.mockReset(); vi.unstubAllEnvs(); });
 
   it("uses client() (not api()) so sim 401s don't fire the global logout interceptor", async () => {
     client.mockResolvedValue({ data: { ok: true } });
 
-    await simApi({ url: "facilities", method: "GET", baseURL: BASE });
+    await simRequest({ url: "facilities", method: "GET", baseURL: BASE });
 
     expect(client).toHaveBeenCalledTimes(1);
     expect(api).not.toHaveBeenCalled();
@@ -30,7 +30,7 @@ describe("simApi", () => {
   it("attaches OMS Bearer token from commonUtil.getToken()", async () => {
     client.mockResolvedValue({ data: {} });
 
-    await simApi({ url: "facilities", method: "GET", baseURL: BASE });
+    await simRequest({ url: "facilities", method: "GET", baseURL: BASE });
 
     const cfg = client.mock.calls[0][0];
     expect(cfg.headers?.Authorization).toBe("Bearer oms-token-xyz");
@@ -39,7 +39,7 @@ describe("simApi", () => {
   it("passes through url, method, baseURL, and params unchanged", async () => {
     client.mockResolvedValue({ data: {} });
     const cfg = { url: "brokeringSimulations", method: "GET", baseURL: BASE, params: { pageSize: 10 } };
-    await simApi(cfg);
+    await simRequest(cfg);
 
     const called = client.mock.calls[0][0];
     expect(called.url).toBe(cfg.url);
@@ -50,7 +50,7 @@ describe("simApi", () => {
 
   it("merges caller headers with the Bearer token", async () => {
     client.mockResolvedValue({ data: {} });
-    await simApi({ url: "x", method: "POST", baseURL: BASE, headers: { "X-Custom": "val" } });
+    await simRequest({ url: "x", method: "POST", baseURL: BASE, headers: { "X-Custom": "val" } });
 
     const cfg = client.mock.calls[0][0];
     expect(cfg.headers?.["X-Custom"]).toBe("val");

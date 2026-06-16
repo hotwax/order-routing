@@ -9,7 +9,7 @@ let engine: MLCEngine | null = null;
 
 const CircuitLLMService = {
   async isWebGPUSupported(): Promise<{ supported: boolean; error?: string }> {
-    if (!navigator.gpu) {
+    if (typeof navigator === "undefined" || !navigator.gpu) {
       return { supported: false, error: "WebGPU is not supported in this browser." };
     }
     try {
@@ -93,7 +93,7 @@ const CircuitLLMService = {
     let vendor = "Unknown";
     let bytes = 0;
 
-    if (navigator.gpu) {
+    if (typeof navigator !== "undefined" && navigator.gpu) {
       const adapter = await navigator.gpu.requestAdapter();
       if (adapter) {
         bytes = adapter.limits.maxStorageBufferBindingSize;

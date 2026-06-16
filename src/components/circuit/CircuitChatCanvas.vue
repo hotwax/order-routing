@@ -175,7 +175,7 @@ import {
   buildFeedbackRevisionPrompt,
   buildFeedbackSavedMessage,
   DraftFeedbackType
-} from '@/services/CircuitDraftFeedbackService';
+} from '@/util/circuitFeedback';
 
 const circuitStore = useCircuitStore();
 const { 

@@ -1339,7 +1339,7 @@ function getRouteIndex() {
 }
 
 function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
-  inventoryRules.value.map((inventoryRule: any) => {
+  inventoryRules.value.forEach((inventoryRule: any) => {
     if(inventoryRule.routingRuleId === routingRuleId) {
       inventoryRule.statusId = event.detail.value
     }
@@ -2222,7 +2222,7 @@ function doReorder(event: CustomEvent) {
   rulesForReorder.value = updatedSeq
   
   // Update original inventoryRules to maintain state
-  inventoryRules.value.map((rule: any) => {
+  inventoryRules.value.forEach((rule: any) => {
     const updatedRule = updatedSeq.find((seq: any) => seq.routingRuleId === rule.routingRuleId)
     if(updatedRule) {
       rule.sequenceNum = updatedRule.sequenceNum

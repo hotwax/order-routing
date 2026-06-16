@@ -7,17 +7,18 @@ const SIM_URL = "http://sim.test/rest/s1/";
 
 const api = vi.fn();
 vi.mock("@common", () => ({
-  api: (...a: any[]) => api(...a),
-  commonUtil: { hasError: (resp: any) => resp?._error === true },
+  // The store uses client() (not api()) so sim 401s don't fire the global logout interceptor.
+  // Route it through the same `api` spy so assertions on url/baseURL/params still work.
+  client: (...a: any[]) => api(...a),
+  commonUtil: {
+    hasError: (resp: any) => resp?._error === true,
+    getToken: () => "oms-token-xyz",
+  },
   logger: { error: () => {}, warn: () => {} },
 }));
-// simApi is the authenticated sim-request wrapper (its auth behavior is covered in simApi.test.ts).
-// Here we delegate it to the same `api` mock so these tests assert the store's request shape (url /
-// baseURL / params) — confirming reference data is pulled from the sim instance.
 vi.mock("@/services/SimulationService", () => ({
   simMoquiUrl: () => SIM_URL,
   simApiName: () => "order-routing",
-  simApi: (...a: any[]) => api(...a),
 }));
 
 // Relative import for the SUT (matches the repo's existing vitest store-test pattern).

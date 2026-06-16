@@ -4,7 +4,7 @@ import { logger } from "@common";
 import { productStore } from "./productStore";
 import { buildVariant, isNoOp, applyProductStoreId } from "../util/simulationDiff";
 import { chunkVariants, mergeVariationResults } from "../util/simulationBatch";
-import { submitBatch, pollJob, runParentLiveConfig, simApi, simApiName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
+import { submitBatch, pollJob, runParentLiveConfig, simRequest, simRequestName, simMoquiUrl, simProductStoreId } from "../services/SimulationService";
 import { fetchRoutingGroupsList, fetchRoutingGroupDetail } from "../services/RoutingGroupService";
 import { listVariations, createVariation, getVariation, replaceVariationConfig, runVariation } from "../services/VariationService";
 import { toConfigPayload, fromVariationRoutings } from "../util/variationConfigAdapter";
@@ -25,7 +25,7 @@ const zeroedBatch = (batchIndex: number): BatchProgress => ({
 export const simulationStore = defineStore("simulation", {
   state: () => ({
     routingGroupId: "" as string,
-    // The routing-group list for the picker, fetched from the simulation backend via simApi — kept
+    // The routing-group list for the picker, fetched from the simulation backend via simRequest — kept
     // here, not in the shared orderRoutingStore, so the simulate tab never reads/writes OMS group state.
     simGroups: [] as any[],
     baseline: null as any,
@@ -85,11 +85,11 @@ export const simulationStore = defineStore("simulation", {
     resolveProductStoreId(prefer?: string): string {
       return simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
     },
-    // Routing-group list for the picker, pulled from the sim instance via simApi. Errors are logged
+    // Routing-group list for the picker, pulled from the sim instance via simRequest. Errors are logged
     // and leave the list empty — callers (onMounted, loadGroup) must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simApi, simMoquiUrl(), simApiName());
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), simRequest, simMoquiUrl(), simRequestName());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
@@ -101,11 +101,11 @@ export const simulationStore = defineStore("simulation", {
       this.working = null;
       try {
         // On a fresh deep-link the list is empty; load it first so fetchRoutingGroupDetail has the
-        // group metadata to fall back on. All reads go through simApi to the simulation backend.
+        // group metadata to fall back on. All reads go through simRequest to the simulation backend.
         if (!this.simGroups?.length) {
           await this.fetchSimGroups();
         }
-        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simApi, simMoquiUrl(), simApiName());
+        const group = await fetchRoutingGroupDetail(routingGroupId, this.simGroups, simRequest, simMoquiUrl(), simRequestName());
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }
@@ -320,24 +320,28 @@ export const simulationStore = defineStore("simulation", {
       this.results = null;
       this.view = "results";
 
-      // Use the max recorded batchCount (records may have been partially removed after some batches
-      // completed before the refresh). 0/missing values are safely ignored by Math.max with seed 0.
-      const batchCount = Math.max(0, ...jobs.map((j) => j.batchCount ?? 0));
-      this.batchProgress = Array.from({ length: batchCount }, (_, i) => zeroedBatch(i));
-      this.runStates = [];
+      try {
+        // Use the max recorded batchCount (records may have been partially removed after some batches
+        // completed before the refresh). 0/missing values are safely ignored by Math.max with seed 0.
+        const batchCount = Math.max(0, ...jobs.map((j) => j.batchCount ?? 0));
+        this.batchProgress = Array.from({ length: batchCount }, (_, i) => zeroedBatch(i));
+        this.runStates = [];
 
-      const toRun = jobs.map((j) => {
-        // jobId-keyed synthetic ids guarantee uniqueness across batches.
-        const ids = j.variantLabels.map((label, n) => {
-          const id = `${j.jobId}:${n}`;
-          this.runStates.push({ variationId: id, label, phase: "running" as const });
-          return id;
+        const toRun = jobs.map((j) => {
+          // jobId-keyed synthetic ids guarantee uniqueness across batches.
+          const ids = j.variantLabels.map((label, n) => {
+            const id = `${j.jobId}:${n}`;
+            this.runStates.push({ variationId: id, label, phase: "running" as const });
+            return id;
+          });
+          return { batchIndex: j.batchIndex, ids, jobId: j.jobId };
         });
-        return { batchIndex: j.batchIndex, ids, jobId: j.jobId };
-      });
 
-      const batchResults = await Promise.all(toRun.map((x) => this.runBatch(x)));
-      try { this.results = mergeVariationResults(batchResults); } finally { this.isRunning = false; }
+        const batchResults = await Promise.all(toRun.map((x) => this.runBatch(x)));
+        this.results = mergeVariationResults(batchResults);
+      } finally {
+        this.isRunning = false;
+      }
     },
   },
 });

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { commonUtil, logger } from '@common'
-import { simApi, simApiName, simMoquiUrl } from '@/services/SimulationService'
+import { client, commonUtil, logger } from '@common'
+import { simApiName, simMoquiUrl } from '@/services/SimulationService'
 
 // Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
 // sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
@@ -47,20 +47,41 @@ export const useSimReferenceStore = defineStore('simReference', {
       }
 
       const prefix = simApiName()
+      const baseURL = simMoquiUrl()
       // Mirrors the old productStore guard: without a store there is nothing meaningful to scope the
       // store-level slices to, and interpolating a blank id would request /productStores/undefined/...
       if (!productStoreId) {
         logger.warn("Skipping store-scoped sim reference fetches because productStoreId is missing.")
       }
+
+      const token = commonUtil.getToken()
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+
+      /** Fetch one reference slice from the sim instance, reduced to a map keyed by `keyField`.
+       *  Returns {} for an empty/garbage body and null when the request errored. */
+      const fetchMap = async (url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> => {
+        try {
+          const resp = await client({ url, method: "GET", baseURL, params, headers: authHeaders })
+          if (commonUtil.hasError(resp)) return null
+          if (Array.isArray(resp.data) && resp.data.length) {
+            return resp.data.reduce((map: any, item: any) => { map[item[keyField]] = item; return map }, {})
+          }
+          return {}
+        } catch (err) {
+          logger.error(err)
+          return null
+        }
+      }
+
       const [facilities, shippingMethods, facilityGroups, salesChannels] = await Promise.all([
-        this.fetchSimMap(`${prefix}/facilities`, { pageSize: 500 }, "facilityId"),
+        fetchMap(`${prefix}/facilities`, { pageSize: 500 }, "facilityId"),
         productStoreId
-          ? this.fetchSimMap(`${prefix}/productStores/${productStoreId}/shippingMethods`, { productStoreId, pageSize: 200 }, "shipmentMethodTypeId")
+          ? fetchMap(`${prefix}/productStores/${productStoreId}/shippingMethods`, { productStoreId, pageSize: 200 }, "shipmentMethodTypeId")
           : Promise.resolve({}),
         productStoreId
-          ? this.fetchSimMap(`${prefix}/productStores/${productStoreId}/facilityGroups`, { productStoreId, pageSize: 200 }, "facilityGroupId")
+          ? fetchMap(`${prefix}/productStores/${productStoreId}/facilityGroups`, { productStoreId, pageSize: 200 }, "facilityGroupId")
           : Promise.resolve({}),
-        this.fetchSimMap(`${prefix}/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
+        fetchMap(`${prefix}/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
       ])
 
       this.facilities = facilities ?? {}
@@ -70,23 +91,6 @@ export const useSimReferenceStore = defineStore('simReference', {
       // null = that slice errored: leave the cache key uncommitted so the next visit refetches.
       const failed = [facilities, shippingMethods, facilityGroups, salesChannels].some((r) => r === null)
       this.productStoreId = failed ? "" : productStoreId
-    },
-
-    /** One reference slice from the sim instance, reduced to a map keyed by `keyField`.
-     *  Returns {} for an empty/garbage body and null when the request errored (so callers can tell
-     *  "nothing there" apart from "fetch failed" for caching decisions). */
-    async fetchSimMap(url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> {
-      try {
-        const resp = await simApi({ url, method: "GET", baseURL: simMoquiUrl(), params })
-        if (commonUtil.hasError(resp)) return null
-        if (Array.isArray(resp.data) && resp.data.length) {
-          return resp.data.reduce((map: any, item: any) => { map[item[keyField]] = item; return map }, {})
-        }
-        return {}
-      } catch (err) {
-        logger.error(err)
-        return null
-      }
     },
   },
 })

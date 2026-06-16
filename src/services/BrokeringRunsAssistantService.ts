@@ -8,8 +8,6 @@ export function getMastraUrl(env: Record<string, any> = import.meta.env): string
   return ((env && env.VITE_MASTRA_URL) || "http://localhost:4111").replace(/\/$/, "");
 }
 
-const ENDPOINT = "/brokering-runs-list-inquiry";
-
 async function requestBrokeringRunsListInquiry(
   prompt: string,
   manifest: PageCapabilityManifest,
@@ -22,7 +20,7 @@ async function requestBrokeringRunsListInquiry(
   const authToken = commonUtil.getToken();
   try {
     const response = await client({
-      url: ENDPOINT,
+      url: "/brokering-runs-list-inquiry",
       method: "POST",
       baseURL: mastraUrl,
       headers: { "Content-Type": "application/json" },

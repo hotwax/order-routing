@@ -19,8 +19,19 @@
         </section>
       </main>
 
-      <div class="empty-state" v-else>
-       <p>{{ translate("No threshold rule found.") }}</p>
+      <div class="empty-block" v-else>
+        <EmptyState
+          :icon="globeOutline"
+          :title="translate('No threshold rules yet')"
+          :message="translate('Threshold rules hold back a portion of inventory so you do not oversell online. Create your first rule to get started.')"
+        >
+          <template #actions>
+            <ion-button @click="createRule()">
+              {{ translate("Create threshold rule") }}
+              <ion-icon slot="end" :icon="addOutline" />
+            </ion-button>
+          </template>
+        </EmptyState>
       </div>
 
       <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="ion-margin">
@@ -36,11 +47,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, balloonOutline, saveOutline } from 'ionicons/icons';
+import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
+import { addOutline, balloonOutline, globeOutline, saveOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import ScheduleRuleItem from '@/components/ScheduleRuleItem.vue';
 import ArchivedRuleItem from '@/components/ArchivedRuleItem.vue';
+import EmptyState from '@/components/EmptyState.vue'
 import router from '@/router';
 import { computed, ref } from 'vue';
 import { useRuleStore } from '@/store/rule';
@@ -113,3 +125,13 @@ function createRule() {
   router.push({ path: '/create-threshold' })
 }
 </script>
+
+<style scoped>
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+</style>

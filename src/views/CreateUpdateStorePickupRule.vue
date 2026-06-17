@@ -75,9 +75,24 @@
             </ion-card-content>
           </ion-card>
         </section>
-        <div v-else class="empty-state">
-          <ion-note>{{ translate("No facility group found for selected product store. Either change the product store or associate facility groups with the product store.") }}</ion-note>
-        </div>
+        <EmptyState
+          v-else
+          variant="compact"
+          :icon="businessOutline"
+          :title="translate('No facility groups yet')"
+          :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
+        >
+          <template #actions>
+            <ion-button @click="createFacilityGroup()">
+              {{ translate("Create facility group") }}
+              <ion-icon slot="end" :icon="addOutline" />
+            </ion-button>
+            <ion-button fill="outline" @click="linkExistingFacilityGroup()">
+              {{ translate("Use an existing group") }}
+              <ion-icon slot="end" :icon="linkOutline" />
+            </ion-button>
+          </template>
+        </EmptyState>
       </template>
 
       <template v-else>
@@ -92,9 +107,24 @@
             </ion-card-header>
           </ion-card>
         </section>
-        <div v-else class="empty-state">
-          <ion-note>{{ translate("No channel found for selected product store. Either change the product store or associate channels with the product store.") }}</ion-note>
-        </div>
+        <EmptyState
+          v-else
+          variant="compact"
+          :icon="cloudUploadOutline"
+          :title="translate('No channels yet')"
+          :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')"
+        >
+          <template #actions>
+            <ion-button @click="createChannel()">
+              {{ translate("Create channel") }}
+              <ion-icon slot="end" :icon="addOutline" />
+            </ion-button>
+            <ion-button fill="outline" @click="goToChannels()">
+              {{ translate("Manage channels") }}
+              <ion-icon slot="end" :icon="openOutline" />
+            </ion-button>
+          </template>
+        </EmptyState>
       </template>
 
       <ProductFilters />
@@ -110,10 +140,14 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, closeCircle, saveOutline, storefrontOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
 import ProductFilters from '@/components/ProductFilters.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import CreateGroupModal from '@/components/CreateGroupModal.vue';
+import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue';
+import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue';
 import router from '@/router';
 import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupModal.vue';
 import { useAtpProductStore } from '@/store/atpProductStore';
@@ -214,6 +248,38 @@ onIonViewWillLeave(() => {
 
 async function redirectLink() {
   router.push("/store-pickup");
+}
+
+async function createFacilityGroup() {
+  const modal = await modalController.create({ component: CreateUpdateFacilityGroupModal });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.saved) productStore.fetchFacilityGroups();
+  });
+  modal.present();
+}
+
+async function linkExistingFacilityGroup() {
+  const modal = await modalController.create({
+    component: LinkExistingGroupModal,
+    componentProps: {
+      linkedGroupIds: facilityGroups.value.map((group: any) => group.facilityGroupId),
+      title: translate("Use an existing group")
+    }
+  });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.linked) productStore.fetchFacilityGroups();
+  });
+  modal.present();
+}
+
+async function createChannel() {
+  const modal = await modalController.create({ component: CreateGroupModal });
+  modal.onDidDismiss().then(() => productStore.fetchConfigFacilities());
+  return modal.present();
+}
+
+function goToChannels() {
+  router.push("/inventory-channels");
 }
 
 async function openProductFacilityGroupModal(type: string) {
@@ -353,9 +419,5 @@ ion-card-header {
 
 ion-card-header > ion-checkbox {
   flex-shrink: 0;
-}
-
-.empty-state {
-  align-items: start;
 }
 </style>

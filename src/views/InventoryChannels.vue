@@ -70,11 +70,25 @@
             </ion-card>
           </template>
 
-          <div class="empty-state" v-else>
-            <p>{{ translate("No inventory channel found.") }}</p>
-          </div>
+          <EmptyState
+            v-else
+            :icon="cloudUploadOutline"
+            :title="translate('No inventory channels yet')"
+            :message="translate('An inventory channel maps a set of facilities to a sales channel so their stock can be published together. Create one, or use a channel that already exists.')"
+          >
+            <template #actions>
+              <ion-button @click="openCreateGroupModal()">
+                {{ translate("Create channel") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+              <ion-button fill="outline" @click="linkExistingChannel()">
+                {{ translate("Use an existing channel") }}
+                <ion-icon slot="end" :icon="linkOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
         </section>
- 
+
         <section v-else-if="selectedSegment === 'publish'">
           <template v-if="shopifyJobs.length">
             <ion-card v-for="job in shopifyJobs" :key="job.shopId">
@@ -129,9 +143,13 @@
             </ion-card>
           </template>
 
-          <div class="empty-state" v-else>
-            <p>{{ translate("No job found.") }}</p>
-          </div>
+          <EmptyState
+            v-else
+            variant="compact"
+            :icon="cloudUploadOutline"
+            :title="translate('No publish jobs yet')"
+            :message="translate('Publish jobs sync inventory to your sales channels on a schedule. They appear here once a Shopify shop is connected to this product store.')"
+          />
         </section>
       </main>
     </ion-content>
@@ -147,10 +165,12 @@
 <script setup lang="ts">
 import { IonBadge, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonDatetime, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonMenuButton, IonModal, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave, alertController, popoverController } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addOutline, albumsOutline, businessOutline, ellipsisVerticalOutline, globeOutline, optionsOutline, storefrontOutline, timeOutline, timerOutline } from 'ionicons/icons';
+import { addOutline, albumsOutline, businessOutline, cloudUploadOutline, ellipsisVerticalOutline, globeOutline, linkOutline, optionsOutline, storefrontOutline, timeOutline, timerOutline } from 'ionicons/icons';
 import { emitter, logger, translate } from '@common';
 import ShopActionsPopover from '@/components/ShopActionsPopover.vue'
 import CreateGroupModal from '@/components/CreateGroupModal.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue'
 import LinkFacilitiesToGroupModal from '@/components/LinkFacilitiesToGroupModal.vue'
 import LinkThresholdFacilitiesToGroupModal from '@/components/LinkThresholdFacilitiesToGroupModal.vue'
 import { useUserStore } from '@/store/userStore';
@@ -253,11 +273,26 @@ async function openEditGroupModal(group: any) {
 }
 
 async function openCreateGroupModal() {
-  const popover = await modalController.create({
+  const modal = await modalController.create({
     component: CreateGroupModal
   });
+  modal.onDidDismiss().then(() => fetchInventoryChannels());
+  return modal.present();
+}
 
-  return popover.present();
+async function linkExistingChannel() {
+  const modal = await modalController.create({
+    component: LinkExistingGroupModal,
+    componentProps: {
+      facilityGroupTypeId: "CHANNEL_FAC_GROUP",
+      linkedGroupIds: inventoryChannels.value.map((channel: any) => channel.facilityGroupId),
+      title: translate("Use an existing channel")
+    }
+  });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.linked) fetchInventoryChannels();
+  });
+  return modal.present();
 }
 
 async function openLinkFacilitiesToGroupModal(group: any) {

@@ -196,12 +196,19 @@
               </ion-item>
             </ion-card>
           </ion-list>
-          <div v-else class="empty-state">
-            <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
-            <ion-button @click="createOrderRoute">
-              <ion-icon slot="start" :icon="addOutline"></ion-icon>
-              {{ translate("Create order batch") }}
-            </ion-button>
+          <div v-else class="empty-block">
+            <EmptyState
+              :icon="albumsOutline"
+              :title="translate('No order batches yet')"
+              :message="translate('Create an order batch to define routing rules and policies for this run.')"
+            >
+              <template #actions>
+                <ion-button @click="createOrderRoute">
+                  <ion-icon slot="start" :icon="addOutline"></ion-icon>
+                  {{ translate("Create order batch") }}
+                </ion-button>
+              </template>
+            </EmptyState>
           </div>
           <div class="save-batches" v-if="hasUnsavedChanges">
             <ion-item lines="none">
@@ -221,7 +228,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, addOutline, albumsOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
@@ -231,6 +238,7 @@ import { useUtilStore } from "@/store/utilStore";
 import { computed, nextTick, ref } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
+import EmptyState from "@/components/EmptyState.vue"
 import { DateTime } from "luxon";
 import { logger, emitter, translate, commonUtil } from "@common";
 import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
@@ -894,5 +902,13 @@ ion-reorder ion-chip {
 /* We need to disable pointer events from the card, but we do not want its styling to be changed thus defined this class to unset the opacity when reordering is enabled */
 .reordering-enabled.card-disabled {
   opacity: unset;
+}
+
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
 }
 </style>

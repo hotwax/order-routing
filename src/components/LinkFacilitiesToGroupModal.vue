@@ -29,9 +29,13 @@
         </ion-checkbox>
       </ion-item> 
     </ion-list>
-    <div v-else class="empty-state">
-      <p>{{ translate("No facility found.") }}</p>
-    </div> 
+    <EmptyState
+      v-else
+      variant="compact"
+      :icon="searchOutline"
+      :title="translate('No facilities match your search')"
+      :message="translate('Adjust your search to find facilities to add.')"
+    />
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
       <ion-fab-button :disabled="!areFacilitiesUpdated()" @click="saveFacilities()">
@@ -43,11 +47,12 @@
 
 <script setup lang="ts">
 import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonSearchbar, IonSpinner, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { closeOutline, saveOutline } from "ionicons/icons";
+import { closeOutline, saveOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, emitter, logger, translate } from '@common';
 import { onMounted, ref } from "vue";
 import { useChannelStore } from "@/store/channel";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import EmptyState from "@/components/EmptyState.vue";
 import { DateTime } from "luxon";
 
 const channelStore = useChannelStore();

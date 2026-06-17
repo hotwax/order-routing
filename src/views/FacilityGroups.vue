@@ -17,12 +17,27 @@
       <main>
         <ion-searchbar v-model="query" :placeholder="translate('Search facility groups')" />
 
-        <div class="empty-state" v-if="!filteredGroups.length">
-          <p>{{ translate("No facility group found.") }}</p>
-          <ion-button fill="outline" @click="openCreateModal()">
-            {{ translate("Create your first group") }}
-            <ion-icon slot="end" :icon="addOutline" />
-          </ion-button>
+        <div class="empty-block" v-if="!filteredGroups.length">
+          <EmptyState
+            v-if="query.trim()"
+            variant="compact"
+            :icon="searchOutline"
+            :title="translate('No groups match your search')"
+            :message="translate('Try a different search term.')"
+          />
+          <EmptyState
+            v-else
+            :icon="businessOutline"
+            :title="translate('No facility groups yet')"
+            :message="translate('Facility groups organize facilities so you can reference them in sourcing and routing rules.')"
+          >
+            <template #actions>
+              <ion-button @click="openCreateModal()">
+                {{ translate("Create your first group") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
         </div>
 
         <div v-else class="group-grid">
@@ -103,14 +118,20 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { addOutline, archiveOutline, businessOutline, createOutline } from "ionicons/icons";
+import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
 import { computed, onActivated, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
+import { useAtpProductStore } from "@/store/atpProductStore";
+import EmptyState from "@/components/EmptyState.vue";
 import CreateUpdateFacilityGroupModal from "@/components/CreateUpdateFacilityGroupModal.vue";
 import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroupFacilitiesModal.vue";
 
 const facilityGroupStore = useFacilityGroupStore();
+const productStore = useAtpProductStore();
+
+// This view manages brokering facility groups for the selected product store only.
+const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
 
@@ -142,11 +163,13 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
+  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
+  if (!productStoreId) {
+    facilityGroupStore.$patch({ groups: [] });
+    return;
+  }
   try {
-    await Promise.all([
-      facilityGroupStore.fetchGroupTypes(),
-      facilityGroupStore.fetchGroups()
-    ]);
+    await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -154,7 +177,8 @@ async function load() {
 
 async function openCreateModal() {
   const modal = await modalController.create({
-    component: CreateUpdateFacilityGroupModal
+    component: CreateUpdateFacilityGroupModal,
+    componentProps: { defaultTypeId: BROKERING_GROUP_TYPE }
   });
   modal.onDidDismiss().then((res: any) => {
     if (res?.data?.saved) load();
@@ -230,10 +254,12 @@ main {
   padding: var(--spacer-2xs) var(--spacer-xs);
 }
 
-.empty-state {
-  text-align: center;
-  padding: var(--spacer-2xl) var(--spacer-base);
-  color: var(--ion-color-medium);
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
 }
 
 @container (max-width: 600px) {

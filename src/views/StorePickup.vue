@@ -31,19 +31,53 @@
             </ion-reorder-group>
           </section>
         </template>
-        <div class="empty-state" v-else>
-          <p>{{ translate("No store pickup rule found.") }}</p>
+        <div class="empty-block" v-else>
+          <EmptyState
+            :icon="storefrontOutline"
+            :title="translate('No store pickup rules yet')"
+            :message="translate('Store pickup rules decide which facilities can fulfill in-store pickup orders, based on product and facility or product and channel combinations.')"
+          >
+            <template #actions>
+              <ion-button @click="createStorePickup()">
+                {{ translate("Create store pickup rule") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
+          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
       </main>
       <main class="atp-main" v-else>
-        <div v-if="!pickupGroups.length" class="empty-state">
-          <p>{{ translate("No store pickup group found linked with current product store.") }}</p>
+        <div v-if="!pickupGroups.length" class="empty-block">
+          <EmptyState
+            :icon="businessOutline"
+            :title="translate('No pickup groups yet')"
+            :message="translate('A pickup group is the set of facilities that can fulfill store pickup orders for this product store. Create one, or use a group that already exists.')"
+          >
+            <template #actions>
+              <ion-button @click="createPickupGroup()">
+                {{ translate("Create pickup group") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+              <ion-button fill="outline" @click="linkExistingPickupGroup()">
+                {{ translate("Use an existing group") }}
+                <ion-icon slot="end" :icon="linkOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
+          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
         <section v-else-if="facilities.length">
           <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
         </section>
-        <div v-else class="empty-state">
-          <p>{{ translate("No facility found.") }}</p>
+        <div v-else class="empty-block">
+          <EmptyState
+            variant="compact"
+            :icon="storefrontOutline"
+            :title="translate('No facilities to assign')"
+            :message="translate('This product store has no facilities available to add to your pickup groups. Facilities come from your OMS — once they exist, they will appear here.')"
+          />
+          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" @select="changeSegment" />
         </div>
       </main>
 
@@ -72,11 +106,15 @@
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
+import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addOutline, balloonOutline, saveOutline } from 'ionicons/icons';
+import { addOutline, balloonOutline, businessOutline, globeOutline, linkOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import FacilityItem from '@/components/FacilityItem.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import SectionWayfinding from '@/components/SectionWayfinding.vue'
+import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue'
+import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue'
 import { commonUtil, emitter, translate } from '@common';
 import { ruleUtil } from '@/utils/ruleUtil';
 import ArchivedRuleItem from '@/components/ArchivedRuleItem.vue';
@@ -100,6 +138,12 @@ const reorderingRules = ref([]) as any;
 const isScrollingEnabled = ref(false);
 const contentRef = ref({}) as any;
 const infiniteScrollRef = ref({}) as any;
+
+const sectionTabs = computed(() => [
+  { value: "RG_PICKUP_FACILITY", label: translate("Product and facility"), intro: translate("Route pickup orders by product and facility"), icon: businessOutline },
+  { value: "RG_PICKUP_CHANNEL", label: translate("Product and channel"), intro: translate("Route pickup orders by product and channel"), icon: globeOutline },
+  { value: "PICKUP_FACILITY", label: translate("Facility"), intro: translate("Assign facilities to your pickup groups"), icon: storefrontOutline },
+]);
 
 onIonViewDidEnter(async() => {
   fetchRules();
@@ -160,21 +204,52 @@ async function loadMoreFacilities(event: any) {
   });
 }
 
-async function updateSegment(event: any) {
-  productStore.updateSelectedSegment(event.detail.value);
+function updateSegment(event: any) {
+  changeSegment(event.detail.value);
+}
+
+async function changeSegment(value: string) {
+  if(value === selectedSegment.value) return;
+  productStore.updateSelectedSegment(value);
 
   emitter.emit("presentLoader");
-  if(selectedSegment.value === 'PICKUP_FACILITY') {
+  if(value === 'PICKUP_FACILITY') {
     isScrollingEnabled.value = false;
     await fetchFacilities();
     ruleStore.updateIsReorderActive(false)
-    productStore.fetchPickupGroups()
+    await productStore.fetchPickupGroups()
   } else {
     ruleStore.updateIsReorderActive(false)
     reorderingRules.value = []
-    await ruleStore.fetchRules({ groupTypeEnumId: selectedSegment.value, pageSize: 50 })
+    await ruleStore.fetchRules({ groupTypeEnumId: value, pageSize: 50 })
   }
   emitter.emit("dismissLoader");
+}
+
+async function createPickupGroup() {
+  const modal = await modalController.create({
+    component: CreateUpdateFacilityGroupModal,
+    componentProps: { defaultTypeId: "PICKUP" }
+  });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.saved) productStore.fetchPickupGroups();
+  });
+  await modal.present();
+}
+
+async function linkExistingPickupGroup() {
+  const modal = await modalController.create({
+    component: LinkExistingGroupModal,
+    componentProps: {
+      facilityGroupTypeId: "PICKUP",
+      linkedGroupIds: pickupGroups.value.map((group: any) => group.facilityGroupId),
+      title: translate("Link existing pickup group")
+    }
+  });
+  modal.onDidDismiss().then((res: any) => {
+    if(res?.data?.linked) productStore.fetchPickupGroups();
+  });
+  await modal.present();
 }
 
 function activateReordering() {
@@ -214,3 +289,13 @@ function createStorePickup() {
   router.push("create-store-pickup")
 }
 </script>
+
+<style scoped>
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+</style>

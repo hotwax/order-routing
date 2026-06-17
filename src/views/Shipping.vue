@@ -31,16 +31,34 @@
             </ion-reorder-group>
           </section>
         </template>
-        <div v-else class="empty-state">
-          <p>{{ translate("No shipping rule found.") }}</p>
+        <div class="empty-block" v-else>
+          <EmptyState
+            :icon="sendOutline"
+            :title="translate('No shipping rules yet')"
+            :message="translate('Shipping rules control which facilities can ship online orders, based on product and facility or product and channel combinations.')"
+          >
+            <template #actions>
+              <ion-button @click="createShipping()">
+                {{ translate("Create shipping rule") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
+          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Shipping is set up across three tabs')" @select="changeSegment" />
         </div>
       </main>
       <main class="atp-main" v-else>
         <section v-if="facilities.length">
           <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
         </section>
-        <div v-else class="empty-state">
-          <p>{{ translate("No facility found.") }}</p>
+        <div v-else class="empty-block">
+          <EmptyState
+            variant="compact"
+            :icon="storefrontOutline"
+            :title="translate('No facilities to assign')"
+            :message="translate('This product store has no facilities available for shipping. Facilities come from your OMS — once they exist, they will appear here.')"
+          />
+          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" @select="changeSegment" />
         </div>
       </main>
       <ion-infinite-scroll
@@ -68,11 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
+import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addOutline, balloonOutline, saveOutline } from 'ionicons/icons';
+import { addOutline, balloonOutline, sendOutline, businessOutline, globeOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import FacilityItem from '@/components/FacilityItem.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import SectionWayfinding from '@/components/SectionWayfinding.vue'
 import { commonUtil, emitter, translate } from '@common';
 import ScheduleRuleItem from '@/components/ScheduleRuleItem.vue';
 import router from '@/router';
@@ -97,6 +117,12 @@ const isScrollingEnabled = ref(false);
 const contentRef = ref({}) as any;
 const infiniteScrollRef = ref({}) as any;
 
+const sectionTabs = computed(() => [
+  { value: "RG_SHIPPING_FACILITY", label: translate("Product and facility"), intro: translate("Route shipments by product and facility"), icon: businessOutline },
+  { value: "RG_SHIPPING_CHANNEL", label: translate("Product and channel"), intro: translate("Route shipments by product and channel"), icon: globeOutline },
+  { value: "SHIPPING_FACILITY", label: translate("Facility"), intro: translate("Browse facilities that can ship orders"), icon: storefrontOutline },
+]);
+
 onIonViewDidEnter(async() => {
   fetchRules();
   emitter.on("productStoreOrConfigChanged", fetchRules);
@@ -112,7 +138,7 @@ async function fetchRules() {
   ruleStore.updateIsReorderActive(false)
   if(!selectedSegment.value || (selectedSegment.value !== 'RG_SHIPPING_FACILITY' && selectedSegment.value !== 'RG_SHIPPING_CHANNEL' && selectedSegment.value !== 'SHIPPING_FACILITY')) productStore.updateSelectedSegment("RG_SHIPPING_FACILITY");
   await Promise.allSettled([ruleStore.fetchRules({ groupTypeEnumId: selectedSegment.value, pageSize: 50 }), productStore.fetchConfigFacilities(), productStore.fetchFacilityGroups()])
-  if(selectedSegment.value === 'SHIPPING_FACILITY') fetchFacilities();
+  if(selectedSegment.value === 'SHIPPING_FACILITY') await fetchFacilities();
   emitter.emit("dismissLoader");
 }
 
@@ -154,18 +180,23 @@ async function loadMoreFacilities(event: any) {
   });
 }
 
-async function updateSegment(event: any) {
-  productStore.updateSelectedSegment(event.detail.value);
+function updateSegment(event: any) {
+  changeSegment(event.detail.value);
+}
+
+async function changeSegment(value: string) {
+  if(value === selectedSegment.value) return;
+  productStore.updateSelectedSegment(value);
 
   emitter.emit("presentLoader");
-  if(selectedSegment.value === 'SHIPPING_FACILITY') {
+  if(value === 'SHIPPING_FACILITY') {
     isScrollingEnabled.value = false;
     await fetchFacilities();
     ruleStore.updateIsReorderActive(false)
   } else {
     ruleStore.updateIsReorderActive(false)
     reorderingRules.value = []
-    await ruleStore.fetchRules({ groupTypeEnumId: selectedSegment.value, pageSize: 50 })
+    await ruleStore.fetchRules({ groupTypeEnumId: value, pageSize: 50 })
   }
   emitter.emit("dismissLoader");
 }
@@ -208,3 +239,13 @@ function createShipping() {
   router.push("create-shipping");
 }
 </script>
+
+<style scoped>
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+</style>

@@ -25,9 +25,13 @@
       </ion-item>
     </ion-list>
 
-    <div class="empty-state" v-else>
-      <p>{{ translate("No record found") }}</p>
-    </div>
+    <EmptyState
+      v-else
+      variant="compact"
+      :icon="albumsOutline"
+      :title="translate('No facility groups available')"
+      :message="translate('Create a facility group before you can include or exclude it here.')"
+    />
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
       <ion-fab-button @click="saveFacilityGroups()">
@@ -56,8 +60,9 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { closeOutline, saveOutline } from 'ionicons/icons';
+import { albumsOutline, closeOutline, saveOutline } from 'ionicons/icons';
 import { useAtpProductStore } from "@/store/atpProductStore";
+import EmptyState from '@/components/EmptyState.vue';
 import { translate } from '@common';
 
 const selectedGroups = ref([]) as any;

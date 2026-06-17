@@ -3,6 +3,7 @@ import { RouteRecordRaw } from "vue-router";
 import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
 import {
+  albumsOutline,
   businessOutline,
   cloudUploadOutline,
   globeOutline,
@@ -102,6 +103,26 @@ const routes: Array<RouteRecordRaw> = [
       section: "sourcing",
       menuIndex: 5
     }
+  },
+  {
+    path: "/inventory",
+    name: "Inventory",
+    component: () => import("@/views/Inventory.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Inventory",
+      icon: albumsOutline,
+      section: "sourcing",
+      menuIndex: 6,
+      childRoutes: ["/inventory/"]
+    }
+  },
+  {
+    path: "/inventory/:productId",
+    name: "Inventory detail",
+    component: () => import("@/views/InventoryDetail.vue"),
+    beforeEnter: authGuard,
+    props: true
   },
   {
     path: "/create-threshold",

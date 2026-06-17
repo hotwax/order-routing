@@ -393,6 +393,11 @@ ion-toolbar > ion-segment {
     max-width: 375px;
     margin: auto;
   }
+
+  main {
+    max-width:375px;
+    margin: auto
+  }
 }
 
 @media (min-width: 991px) {

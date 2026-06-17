@@ -37,7 +37,17 @@ const authGuard = async (to: any, _from: any, next: any) => {
 };
 
 const routes: Array<RouteRecordRaw> = [
-  { path: "/", redirect: "/threshold" },
+  { path: "/", redirect: "/dashboard" },
+
+  {
+    path: "/dashboard",
+    name: "Dashboard",
+    component: () => import("@/views/Dashboard.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Dashboard"
+    }
+  },
 
   // -------------------- Sourcing (ATP) --------------------
   {

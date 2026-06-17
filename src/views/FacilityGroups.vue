@@ -122,11 +122,16 @@ import { addOutline, archiveOutline, businessOutline, createOutline, searchOutli
 import { commonUtil, logger, translate } from "@common";
 import { computed, onActivated, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
+import { useAtpProductStore } from "@/store/atpProductStore";
 import EmptyState from "@/components/EmptyState.vue";
 import CreateUpdateFacilityGroupModal from "@/components/CreateUpdateFacilityGroupModal.vue";
 import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroupFacilitiesModal.vue";
 
 const facilityGroupStore = useFacilityGroupStore();
+const productStore = useAtpProductStore();
+
+// This view manages brokering facility groups for the selected product store only.
+const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
 
@@ -158,11 +163,13 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
+  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
+  if (!productStoreId) {
+    facilityGroupStore.$patch({ groups: [] });
+    return;
+  }
   try {
-    await Promise.all([
-      facilityGroupStore.fetchGroupTypes(),
-      facilityGroupStore.fetchGroups()
-    ]);
+    await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -170,7 +177,8 @@ async function load() {
 
 async function openCreateModal() {
   const modal = await modalController.create({
-    component: CreateUpdateFacilityGroupModal
+    component: CreateUpdateFacilityGroupModal,
+    componentProps: { defaultTypeId: BROKERING_GROUP_TYPE }
   });
   modal.onDidDismiss().then((res: any) => {
     if (res?.data?.saved) load();

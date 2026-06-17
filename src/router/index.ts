@@ -22,7 +22,7 @@ declare module "vue-router" {
     title?: string;
     icon?: string;
     menuIndex?: number;
-    section?: "sourcing" | "routing" | "foundations";
+    section?: "sourcing" | "routing";
     childRoutes?: string[];
   }
 }
@@ -210,7 +210,6 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
 
-  // -------------------- Foundations --------------------
   {
     path: "/facility-groups",
     name: "Facility groups",
@@ -219,8 +218,8 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: "Facility groups",
       icon: businessOutline,
-      section: "foundations",
-      menuIndex: 15
+      section: "routing",
+      menuIndex: 11
     }
   },
 

@@ -47,22 +47,6 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="foundationsItems.length">
-              <ion-label>{{ translate("Foundations") }}</ion-label>
-            </ion-list-header>
-            <ion-menu-toggle :auto-hide="false" v-for="(page, index) in foundationsItems" :key="`f-${index}`">
-              <ion-item
-                button
-                router-direction="root"
-                :router-link="page.url"
-                class="hydrated"
-                :class="{ selected: isSelected(page) }"
-              >
-                <ion-icon slot="start" :ios="page.icon" :md="page.icon" />
-                <ion-label>{{ translate(page.title) }}</ion-label>
-              </ion-item>
-            </ion-menu-toggle>
-
             <ion-list-header v-if="otherItems.length">
               <ion-label>{{ translate("General") }}</ion-label>
             </ion-list-header>
@@ -180,7 +164,6 @@ const menuItems = computed(() => {
 
 const sourcingItems = computed(() => menuItems.value.filter((m) => m.section === "sourcing"));
 const routingItems = computed(() => menuItems.value.filter((m) => m.section === "routing"));
-const foundationsItems = computed(() => menuItems.value.filter((m) => m.section === "foundations"));
 const otherItems = computed(() => menuItems.value.filter((m) => !m.section));
 
 function isSelected(page: { url: string; childRoutes: string[] }) {

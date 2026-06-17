@@ -21,7 +21,7 @@
 
       <div class="empty-block" v-else>
         <EmptyState
-          :icon="optionsOutline"
+          :icon="globeOutline"
           :title="translate('No threshold rules yet')"
           :message="translate('Threshold rules hold back a portion of inventory so you do not oversell online. Create your first rule to get started.')"
         >
@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, balloonOutline, optionsOutline, saveOutline } from 'ionicons/icons';
+import { addOutline, balloonOutline, globeOutline, saveOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import ScheduleRuleItem from '@/components/ScheduleRuleItem.vue';
 import ArchivedRuleItem from '@/components/ArchivedRuleItem.vue';

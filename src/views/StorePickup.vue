@@ -33,7 +33,7 @@
         </template>
         <div class="empty-block" v-else>
           <EmptyState
-            :icon="bagHandleOutline"
+            :icon="storefrontOutline"
             :title="translate('No store pickup rules yet')"
             :message="translate('Store pickup rules decide which facilities can fulfill in-store pickup orders, based on product and facility or product and channel combinations.')"
           >
@@ -50,7 +50,7 @@
       <main class="atp-main" v-else>
         <div v-if="!pickupGroups.length" class="empty-block">
           <EmptyState
-            :icon="albumsOutline"
+            :icon="businessOutline"
             :title="translate('No pickup groups yet')"
             :message="translate('A pickup group is the set of facilities that can fulfill store pickup orders for this product store. Create one, or use a group that already exists.')"
           >
@@ -108,7 +108,7 @@
 <script setup lang="ts">
 import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addOutline, albumsOutline, bagHandleOutline, balloonOutline, businessOutline, globeOutline, linkOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
+import { addOutline, balloonOutline, businessOutline, globeOutline, linkOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import FacilityItem from '@/components/FacilityItem.vue'
 import EmptyState from '@/components/EmptyState.vue'

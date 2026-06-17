@@ -77,7 +77,7 @@
       <EmptyState
         v-else
         variant="compact"
-        :icon="albumsOutline"
+        :icon="businessOutline"
         :title="translate('No facility groups yet')"
         :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
       >
@@ -106,7 +106,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, addOutline, albumsOutline, closeCircle, linkOutline, saveOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, businessOutline, closeCircle, linkOutline, saveOutline } from 'ionicons/icons'
 import { emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';

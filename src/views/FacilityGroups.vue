@@ -27,7 +27,7 @@
           />
           <EmptyState
             v-else
-            :icon="albumsOutline"
+            :icon="businessOutline"
             :title="translate('No facility groups yet')"
             :message="translate('Facility groups organize facilities so you can reference them in sourcing and routing rules.')"
           >
@@ -118,7 +118,7 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { addOutline, albumsOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
+import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
 import { computed, onActivated, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";

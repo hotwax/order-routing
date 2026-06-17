@@ -78,7 +78,7 @@
         <EmptyState
           v-else
           variant="compact"
-          :icon="albumsOutline"
+          :icon="businessOutline"
           :title="translate('No facility groups yet')"
           :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
         >
@@ -110,7 +110,7 @@
         <EmptyState
           v-else
           variant="compact"
-          :icon="globeOutline"
+          :icon="cloudUploadOutline"
           :title="translate('No channels yet')"
           :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')"
         >
@@ -141,7 +141,7 @@
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addCircleOutline, addOutline, albumsOutline, closeCircle, globeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';

@@ -33,7 +33,7 @@
         </template>
         <div class="empty-block" v-else>
           <EmptyState
-            :icon="boatOutline"
+            :icon="sendOutline"
             :title="translate('No shipping rules yet')"
             :message="translate('Shipping rules control which facilities can ship online orders, based on product and facility or product and channel combinations.')"
           >
@@ -88,7 +88,7 @@
 <script setup lang="ts">
 import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
-import { addOutline, balloonOutline, boatOutline, businessOutline, globeOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
+import { addOutline, balloonOutline, sendOutline, businessOutline, globeOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
 import FacilityItem from '@/components/FacilityItem.vue'
 import EmptyState from '@/components/EmptyState.vue'

@@ -54,7 +54,7 @@
       <EmptyState
         v-else
         variant="compact"
-        :icon="globeOutline"
+        :icon="cloudUploadOutline"
         :title="translate('No channels yet')"
         :message="translate('This product store has no inventory channels. Create one to choose where this threshold applies.')"
       >
@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonPage, IonNote, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewWillLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, globeOutline, openOutline, saveOutline } from 'ionicons/icons'
+import { addOutline, cloudUploadOutline, openOutline, saveOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';

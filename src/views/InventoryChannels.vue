@@ -72,7 +72,7 @@
 
           <EmptyState
             v-else
-            :icon="globeOutline"
+            :icon="cloudUploadOutline"
             :title="translate('No inventory channels yet')"
             :message="translate('An inventory channel maps a set of facilities to a sales channel so their stock can be published together. Create one, or use a channel that already exists.')"
           >

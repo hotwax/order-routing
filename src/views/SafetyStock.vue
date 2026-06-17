@@ -21,7 +21,7 @@
 
       <div class="empty-block" v-else>
         <EmptyState
-          :icon="shieldCheckmarkOutline"
+          :icon="pulseOutline"
           :title="translate('No safety stock rules yet')"
           :message="translate('Safety stock reserves a buffer of inventory per facility or group so it is not promised to online orders.')"
         >
@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, saveOutline, balloonOutline, shieldCheckmarkOutline } from 'ionicons/icons';
+import { addOutline, saveOutline, balloonOutline, pulseOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import router from "@/router";

@@ -29,7 +29,9 @@ defineProps<{
   display: flex;
   align-items: flex-start;
   gap: var(--spacer-xs);
-  padding: var(--spacer-xs) 0;
+  /* Horizontal padding matches Ionic's item content inset (16px) so the hint
+     lines up with the dividers/items it sits among instead of hugging the edge. */
+  padding: var(--spacer-xs) var(--spacer-sm);
 }
 
 .inline-hint__icon {

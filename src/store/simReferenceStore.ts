@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { client, commonUtil, logger } from '@common'
+import { api, commonUtil, logger } from '@common'
 import { SimulationService } from '@/services/SimulationService'
 
 // Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
@@ -46,21 +46,18 @@ export const useSimReferenceStore = defineStore('simReference', {
         return
       }
 
-      const baseURL = SimulationService.simMoquiUrl()
+      const baseURL = SimulationService.simBaseURL()
       // Mirrors the old productStore guard: without a store there is nothing meaningful to scope the
       // store-level slices to, and interpolating a blank id would request /productStores/undefined/...
       if (!productStoreId) {
         logger.warn("Skipping store-scoped sim reference fetches because productStoreId is missing.")
       }
 
-      const token = commonUtil.getToken()
-      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
-
       /** Fetch one reference slice from the sim instance, reduced to a map keyed by `keyField`.
        *  Returns {} for an empty/garbage body and null when the request errored. */
       const fetchMap = async (url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> => {
         try {
-          const resp = await client({ url, method: "GET", baseURL, params, headers: authHeaders })
+          const resp = await api({ url, method: "GET", baseURL, params })
           if (commonUtil.hasError(resp)) return null
           if (Array.isArray(resp.data) && resp.data.length) {
             return resp.data.reduce((map: any, item: any) => { map[item[keyField]] = item; return map }, {})

@@ -2,48 +2,46 @@
 // Thin REST layer for the sim-routing (variation / what-if) API. The pure `variationRequests` builders
 // return axios-style configs (testable without network); the exported async functions add baseURL +
 // auth via client() and unwrap/validate the response.
-import { client, commonUtil } from "@common";
+import { api, commonUtil } from "@common";
 import type { VariationConditionInput, VariationActionInput } from "../types/variation";
-import { simRoutingApiBaseUrl } from "../util/simConfig";
+import { simApiBaseUrl } from "../util/simConfig";
 import type { GroupRunResult, VariationListItem, VariationTree } from "../types/variation";
 
-/** Pure request builders — { url, method, params?, data? } relative to simRoutingApiBaseUrl(). */
+/** Pure request builders — { url, method, params?, data? } relative to simApiBaseUrl(). */
 export const variationRequests = {
   listVariations: (parentRoutingGroupId: string) =>
-    ({ url: "variations", method: "GET", params: { parentRoutingGroupId } }),
+    ({ url: "sim-routing/variations", method: "GET", params: { parentRoutingGroupId } }),
   createVariation: (parentRoutingGroupId: string, variationName?: string) =>
-    ({ url: `routingGroups/${parentRoutingGroupId}/variations`, method: "POST",
+    ({ url: `sim-routing/routingGroups/${parentRoutingGroupId}/variations`, method: "POST",
       data: variationName ? { variationName } : {} }),
-  getVariation: (vid: string) => ({ url: `variations/${vid}`, method: "GET" }),
+  getVariation: (vid: string) => ({ url: `sim-routing/variations/${vid}`, method: "GET" }),
   replaceConfig: (vid: string, routings: any[]) =>
-    ({ url: `variations/${vid}/config`, method: "PUT", data: { routings } }),
+    ({ url: `sim-routing/variations/${vid}/config`, method: "PUT", data: { routings } }),
   setRouting: (vid: string, rid: string, patch: { statusId?: string; sequenceNum?: number }) =>
-    ({ url: `variations/${vid}/routings/${rid}`, method: "PUT", data: patch }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}`, method: "PUT", data: patch }),
   upsertFilter: (vid: string, rid: string, cond: VariationConditionInput) =>
-    ({ url: `variations/${vid}/routings/${rid}/filters`, method: "POST", data: cond }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/filters`, method: "POST", data: cond }),
   deleteFilter: (vid: string, rid: string, seqId: string) =>
-    ({ url: `variations/${vid}/routings/${rid}/filters/${seqId}`, method: "DELETE" }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/filters/${seqId}`, method: "DELETE" }),
   setRule: (vid: string, rid: string, ruleId: string, patch: { statusId?: string; sequenceNum?: number }) =>
-    ({ url: `variations/${vid}/routings/${rid}/rules/${ruleId}`, method: "PUT", data: patch }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/rules/${ruleId}`, method: "PUT", data: patch }),
   upsertInventoryCondition: (vid: string, rid: string, ruleId: string, cond: VariationConditionInput) =>
-    ({ url: `variations/${vid}/routings/${rid}/rules/${ruleId}/inventoryConditions`, method: "POST", data: cond }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/rules/${ruleId}/inventoryConditions`, method: "POST", data: cond }),
   deleteInventoryCondition: (vid: string, rid: string, ruleId: string, seqId: string) =>
-    ({ url: `variations/${vid}/routings/${rid}/rules/${ruleId}/inventoryConditions/${seqId}`, method: "DELETE" }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/rules/${ruleId}/inventoryConditions/${seqId}`, method: "DELETE" }),
   upsertAction: (vid: string, rid: string, ruleId: string, action: VariationActionInput) =>
-    ({ url: `variations/${vid}/routings/${rid}/rules/${ruleId}/actions`, method: "POST", data: action }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/rules/${ruleId}/actions`, method: "POST", data: action }),
   deleteAction: (vid: string, rid: string, ruleId: string, seqId: string) =>
-    ({ url: `variations/${vid}/routings/${rid}/rules/${ruleId}/actions/${seqId}`, method: "DELETE" }),
+    ({ url: `sim-routing/variations/${vid}/routings/${rid}/rules/${ruleId}/actions/${seqId}`, method: "DELETE" }),
   runVariation: (vid: string, sampleCap?: number) =>
-    ({ url: `variations/${vid}/simulation`, method: "POST", data: sampleCap != null ? { sampleCap } : {} }),
+    ({ url: `sim-routing/variations/${vid}/simulation`, method: "POST", data: sampleCap != null ? { sampleCap } : {} }),
 };
 
 async function call(req: { url: string; method: string; params?: any; data?: any }, timeout?: number): Promise<any> {
-  const token = commonUtil.getToken();
-  const resp: any = await client({
+  const resp: any = await api({
     ...req,
-    baseURL: simRoutingApiBaseUrl(),
+    baseURL: simApiBaseUrl(),
     ...(timeout ? { timeout } : {}),
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
 
   if (commonUtil.hasError(resp)) {

@@ -4,8 +4,7 @@
 
 /** Base URL for the Mastra AI server (circuit backend). */
 export function mastraUrl(env: Record<string, any> = import.meta.env): string {
-  const raw = (env && env.VITE_MASTRA_URL) || "http://localhost:4111";
-  return raw.replace(/\/$/, "");
+  return ((env && env.VITE_MASTRA_URL) || "").trim().replace(/\/$/, "");
 }
 
 /** Product store id scoping simulation routing-group + reference-data queries. */
@@ -18,23 +17,9 @@ export function simBaseURL(env: Record<string, any> = import.meta.env): string {
   return ((env && env.VITE_SIM_URL) || "").trim();
 }
 
-/** Base URL for the brokering simulation API (includes `/rest/s1/order-routing` prefix). */
+/** Base URL shared by all simulation REST APIs: {VITE_SIM_URL}/rest/s1/ */
 export function simApiBaseUrl(env: Record<string, any> = import.meta.env): string {
-  return ((env && env.VITE_SIM_API_BASE_URL) || "https://asb-sim-uat.hotwax.io/rest/s1/order-routing").trim();
-}
-
-/** Base URL for the sim-routing (variation / what-if) API. */
-export function simRoutingApiBaseUrl(env: Record<string, any> = import.meta.env): string {
-  const explicit = ((env && env.VITE_SIM_ROUTING_API_BASE_URL) || "").trim();
-  if (explicit) return explicit;
-  const moqui = simBaseURL(env);
-  if (moqui) return moqui.replace(/\/+$/, "") + "/sim-routing";
-  return simApiBaseUrl(env).replace(/\/[^/]+\/?$/, "/sim-routing");
-}
-
-/** REST root the simulation page uses for routing-group and reference-data calls. */
-export function simMoquiUrl(env: Record<string, any> = import.meta.env): string {
-  return simBaseURL(env);
+  return simBaseURL(env).replace(/\/+$/, "") + "/rest/s1/";
 }
 
 /** Whether the brokering Simulation tab/feature is shown for this deployment.

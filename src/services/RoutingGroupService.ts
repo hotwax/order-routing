@@ -1,9 +1,4 @@
-import { commonUtil } from "@common";
-
-/** A request function with the api()/simApi() signature: takes an axios-style config, returns the
- *  response. orderRoutingStore passes api() (OMS Bearer); the simulate path passes simApi() (sim
- *  api_key in two-instance mode) so the two backends never share a request path. */
-export type RoutingRequest = (config: any) => Promise<any>;
+import { api, commonUtil } from "@common";
 
 /** Pure: normalize a routing group's routing/rule/filter hierarchy in place and return it. Sorts
  *  routings, rules and inventory filters by sequence, and rewrites negative-operator filters to their
@@ -45,23 +40,18 @@ export function normalizeRoutingGroupHierarchy(group: any): any {
 
 /** Fetch one routing group's full raw hierarchy (routings/rules/filters) and normalize it. `listGroups`
  *  is the already-loaded group list (for the metadata fallback / isNew short-circuit). `request` +
- *  `baseURL` select the instance: api()+undefined for OMS, simApi()+simMoquiUrl() for the sim instance.
+ *  `baseURL` select the instance: api()+undefined for OMS, simApi()+simBaseURL() for the sim instance.
  *  Outcomes:
  *  - 200 with an empty/non-object body: "valid group, no routings yet" — list metadata + routings: [].
  *  - request throws (network/5xx) with the group in the list: fall back to the list metadata WITHOUT
  *    a routings array, so cache checks treat it as partial and refetch next visit.
  *  - request throws with no list entry: rethrow — there is nothing to render. */
-export async function fetchRoutingGroupDetail(
-  routingGroupId: string,
-  listGroups: any[],
-  request: RoutingRequest,
-  baseURL?: string,
-): Promise<any> {
+export async function fetchRoutingGroupDetail(routingGroupId: string, listGroups: any[], baseURL?: string): Promise<any> {
   let group = (listGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
   if (!group?.isNew) {
     let resp;
     try {
-      resp = await request({ url: `order-routing/groups/${routingGroupId}/raw`, method: "GET", baseURL });
+      resp = await api({ url: `order-routing/groups/${routingGroupId}/raw`, method: "GET", baseURL });
     } catch (err) {
       if (group) return normalizeRoutingGroupHierarchy({ ...group });
       throw err;
@@ -78,13 +68,9 @@ export async function fetchRoutingGroupDetail(
 }
 
 /** Fetch the routing-group list for a product store via the given instance's request fn. Used by the
- *  simulate path (simApi + simMoquiUrl); the OMS store keeps its own schedule-enriched list fetch. */
-export async function fetchRoutingGroupsList(
-  productStoreId: string,
-  request: RoutingRequest,
-  baseURL?: string,
-): Promise<any[]> {
-  const resp = await request({
+ *  simulate path (simApi + simBaseURL); the OMS store keeps its own schedule-enriched list fetch. */
+export async function fetchRoutingGroupsList(productStoreId: string, baseURL?: string): Promise<any[]> {
+  const resp = await api({
     url: `order-routing/groups`,
     method: "GET",
     baseURL,

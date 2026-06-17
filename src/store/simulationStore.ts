@@ -25,7 +25,7 @@ export const simulationStore = defineStore("simulation", {
   state: () => ({
     // ---- Simulate-tab (canvas + batch submission) ----
     routingGroupId: "" as string,
-    // The routing-group list for the picker, fetched from the simulation backend via simRequest — kept
+    // The routing-group list for the picker, fetched from the simulation backend — kept
     // here, not in the shared orderRoutingStore, so the simulate tab never reads/writes OMS group state.
     simGroups: [] as any[],
     baseline: null as any,
@@ -112,11 +112,11 @@ export const simulationStore = defineStore("simulation", {
     resolveProductStoreId(prefer?: string): string {
       return SimulationService.simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
     },
-    // Routing-group list for the picker, pulled from the sim instance via simRequest. Errors are logged
+    // Routing-group list for the picker, pulled from the sim instance via api. Errors are logged
     // and leave the list empty — callers must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await RoutingGroupService.fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simRequest, SimulationService.simMoquiUrl());
+        this.simGroups = await RoutingGroupService.fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simBaseURL());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
@@ -132,7 +132,7 @@ export const simulationStore = defineStore("simulation", {
         if (!this.simGroups?.length) {
           await this.fetchSimGroups();
         }
-        const group = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.simGroups, SimulationService.simRequest, SimulationService.simMoquiUrl());
+        const group = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.simGroups, SimulationService.simBaseURL());
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }

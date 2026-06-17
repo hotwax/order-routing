@@ -1,24 +1,7 @@
-import type {
-  ProposalPayload,
-  ProposalErrorStage,
-  ProposalResult,
-  ApproveErrorStage,
-  ApproveResult,
-  SuggestPromptErrorStage,
-  SuggestPromptRequest,
-  SuggestPromptResult,
-  ProposeRequest,
-  RefineRequest,
-  ApproveRequest,
-} from "@/types/circuit";
+import { client } from "@common";
+import type { ProposalPayload, ProposalErrorStage, ProposalResult, ApproveErrorStage, ApproveResult, SuggestPromptErrorStage, SuggestPromptRequest, SuggestPromptResult, ProposeRequest, RefineRequest, ApproveRequest } from "@/types/circuit";
 
-
-const ENDPOINT_PROPOSE = "/knowledge-feedback/propose";
-const ENDPOINT_REFINE = "/knowledge-feedback/refine";
-const ENDPOINT_APPROVE = "/knowledge-feedback/approve";
-const ENDPOINT_SUGGEST = "/knowledge-feedback/suggest-prompt";
-
-import { mastraUrl as resolveMastraUrl } from "../util/simConfig";
+import { mastraUrl } from "../util/simConfig";
 
 const VALID_PROPOSAL_STAGES = new Set<ProposalErrorStage>([
   "validation",
@@ -41,169 +24,112 @@ const VALID_SUGGEST_STAGES = new Set<SuggestPromptErrorStage>([
   "network"
 ]);
 
-async function postProposal(
-  endpoint: string,
-  body: unknown
-): Promise<ProposalResult> {
-  const url = `${resolveMastraUrl()}${endpoint}`;
-  let response: Response;
+async function postProposal(endpoint: string, body: unknown): Promise<ProposalResult> {
   try {
-    response = await fetch(url, {
+    const response = await client({
+      url: endpoint,
       method: "POST",
+      baseURL: mastraUrl(),
+      data: body,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
     });
+    const parsed = response.data;
+    if (parsed?.ok === false) {
+      const stage: ProposalErrorStage = VALID_PROPOSAL_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return { ok: false, stage, error: typeof parsed?.error === "string" && parsed.error ? parsed.error : "Feedback proposal failed" };
+    }
+    return { ok: true, proposal: parsed.proposal as ProposalPayload };
   } catch (err: any) {
-    return {
-      ok: false,
-      stage: "network",
-      error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable."
-    };
-  }
-
-  let parsed: any;
-  try {
-    parsed = await response.json();
-  } catch {
-    return {
-      ok: false,
-      stage: "network",
-      error: `Unexpected non-JSON response (HTTP ${response.status}).`
-    };
-  }
-
-  if (!response.ok || parsed?.ok === false) {
-    const stage: ProposalErrorStage = VALID_PROPOSAL_STAGES.has(parsed?.stage)
-      ? parsed.stage
-      : "network";
-    return {
-      ok: false,
-      stage,
-      error:
-        typeof parsed?.error === "string" && parsed.error
+    if (err.response) {
+      const parsed = err.response.data;
+      const stage: ProposalErrorStage = VALID_PROPOSAL_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return {
+        ok: false,
+        stage,
+        error: typeof parsed?.error === "string" && parsed.error
           ? parsed.error
-          : `Feedback proposal failed with HTTP ${response.status}`
-    };
+          : `Feedback proposal failed with HTTP ${err.response.status}`
+      };
+    }
+    return { ok: false, stage: "network", error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable." };
   }
-
-  return { ok: true, proposal: parsed.proposal as ProposalPayload };
 }
 
-export async function proposeKnowledgeFeedback(
-  request: ProposeRequest
-): Promise<ProposalResult> {
-  return postProposal(ENDPOINT_PROPOSE, request);
+export async function proposeKnowledgeFeedback(request: ProposeRequest): Promise<ProposalResult> {
+  return postProposal("/knowledge-feedback/propose", request);
 }
 
-export async function refineKnowledgeFeedback(
-  request: RefineRequest
-): Promise<ProposalResult> {
-  return postProposal(ENDPOINT_REFINE, request);
+export async function refineKnowledgeFeedback(request: RefineRequest): Promise<ProposalResult> {
+  return postProposal("/knowledge-feedback/refine", request);
 }
 
-export async function approveKnowledgeFeedback(
-  request: ApproveRequest
-): Promise<ApproveResult> {
-  const url = `${resolveMastraUrl()}${ENDPOINT_APPROVE}`;
-  let response: Response;
+export async function approveKnowledgeFeedback(request: ApproveRequest): Promise<ApproveResult> {
   try {
-    response = await fetch(url, {
+    const response = await client({
+      url: "/knowledge-feedback/approve",
       method: "POST",
+      baseURL: mastraUrl(),
+      data: request,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request)
     });
+    const parsed = response.data;
+    if (parsed?.ok === false) {
+      const stage: ApproveErrorStage = VALID_APPROVE_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return { ok: false, stage, error: typeof parsed?.error === "string" && parsed.error ? parsed.error : "Feedback approval failed" };
+    }
+    return {
+      ok: true,
+      commitSha: String(parsed.commitSha || ""),
+      shortSha: String(parsed.shortSha || ""),
+      summary: String(parsed.summary || ""),
+      editCount: Number(parsed.editCount || 0)
+    };
   } catch (err: any) {
-    return {
-      ok: false,
-      stage: "network",
-      error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable."
-    };
-  }
-
-  let parsed: any;
-  try {
-    parsed = await response.json();
-  } catch {
-    return {
-      ok: false,
-      stage: "network",
-      error: `Unexpected non-JSON response (HTTP ${response.status}).`
-    };
-  }
-
-  if (!response.ok || parsed?.ok === false) {
-    const stage: ApproveErrorStage = VALID_APPROVE_STAGES.has(parsed?.stage)
-      ? parsed.stage
-      : "network";
-    return {
-      ok: false,
-      stage,
-      error:
-        typeof parsed?.error === "string" && parsed.error
+    if (err.response) {
+      const parsed = err.response.data;
+      const stage: ApproveErrorStage = VALID_APPROVE_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return {
+        ok: false,
+        stage,
+        error: typeof parsed?.error === "string" && parsed.error
           ? parsed.error
-          : `Feedback approval failed with HTTP ${response.status}`
-    };
+          : `Feedback approval failed with HTTP ${err.response.status}`
+      };
+    }
+    return { ok: false, stage: "network", error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable." };
   }
-
-  return {
-    ok: true,
-    commitSha: String(parsed.commitSha || ""),
-    shortSha: String(parsed.shortSha || ""),
-    summary: String(parsed.summary || ""),
-    editCount: Number(parsed.editCount || 0)
-  };
 }
 
-export async function suggestKnowledgeFeedbackPrompt(
-  request: SuggestPromptRequest,
-  signal?: AbortSignal
-): Promise<SuggestPromptResult> {
-  const url = `${resolveMastraUrl()}${ENDPOINT_SUGGEST}`;
-  let response: Response;
+export async function suggestKnowledgeFeedbackPrompt(request: SuggestPromptRequest, signal?: AbortSignal): Promise<SuggestPromptResult> {
   try {
-    response = await fetch(url, {
+    const response = await client({
+      url: "/knowledge-feedback/suggest-prompt",
       method: "POST",
+      baseURL: mastraUrl(),
+      data: request,
+      signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-      signal
     });
+    const parsed = response.data;
+    if (parsed?.ok === false) {
+      const stage: SuggestPromptErrorStage = VALID_SUGGEST_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return { ok: false, stage, error: typeof parsed?.error === "string" && parsed.error ? parsed.error : "Suggestion failed" };
+    }
+    return { ok: true, suggestedPrompt: String(parsed.suggestedPrompt || "") };
   } catch (err: any) {
-    return {
-      ok: false,
-      stage: "network",
-      error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable."
-    };
-  }
-
-  let parsed: any;
-  try {
-    parsed = await response.json();
-  } catch {
-    return {
-      ok: false,
-      stage: "network",
-      error: `Unexpected non-JSON response (HTTP ${response.status}).`
-    };
-  }
-
-  if (!response.ok || parsed?.ok === false) {
-    const stage: SuggestPromptErrorStage = VALID_SUGGEST_STAGES.has(parsed?.stage)
-      ? parsed.stage
-      : "network";
-    return {
-      ok: false,
-      stage,
-      error:
-        typeof parsed?.error === "string" && parsed.error
+    if (err.response) {
+      const parsed = err.response.data;
+      const stage: SuggestPromptErrorStage = VALID_SUGGEST_STAGES.has(parsed?.stage) ? parsed.stage : "network";
+      return {
+        ok: false,
+        stage,
+        error: typeof parsed?.error === "string" && parsed.error
           ? parsed.error
-          : `Suggestion failed with HTTP ${response.status}`
-    };
+          : `Suggestion failed with HTTP ${err.response.status}`
+      };
+    }
+    return { ok: false, stage: "network", error: err?.message ? `Circuit unreachable: ${err.message}` : "Circuit unreachable." };
   }
-
-  return {
-    ok: true,
-    suggestedPrompt: String(parsed.suggestedPrompt || "")
-  };
 }
 
 export const CircuitKnowledgeFeedbackService = {

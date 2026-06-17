@@ -41,10 +41,7 @@ const CircuitLLMService = {
     return engine;
   },
 
-  async generateResponse(
-    messages: { role: "system" | "user" | "assistant"; content: string }[],
-    onChunk?: (chunk: string) => void
-  ) {
+  async generateResponse(messages: { role: "system" | "user" | "assistant"; content: string }[], onChunk?: (chunk: string) => void) {
     if (!engine) throw new Error("Circuit Backend not initialized");
 
     try {

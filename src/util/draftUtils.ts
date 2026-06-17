@@ -25,7 +25,6 @@ type OperationCandidateOptions = {
   ruleSequence?: number;
 };
 
-export const ROUTE_ASSISTANT_ENDPOINT = "/brokering-route-assistant";
 
 const orderFilterTargets = {
   queues: {

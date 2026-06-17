@@ -286,7 +286,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
           return;
         }
         // Fetch + normalize via the shared helper (OMS instance: api(), default Maarg baseURL).
-        currentGroup = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.groups, api)
+        currentGroup = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.groups)
       } catch(err) {
         logger.error(err);
       }

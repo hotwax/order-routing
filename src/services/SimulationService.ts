@@ -1,24 +1,9 @@
-import { client, commonUtil } from "@common";
-import { simApiBaseUrl, simMoquiUrl, simProductStoreId } from "../util/simConfig";
+import { api, commonUtil } from "@common";
+import { simApiBaseUrl, simBaseURL, simProductStoreId } from "../util/simConfig";
 import { interpretJobStatus, pastSimulationsQuery, isFilteredQuery } from "../util/simulationCompute";
 import type { SubmitBatchArgs, PastSimulationsFilters } from "../types/simulation";
 import { GroupRunProgress, JobStatusResponse } from "../types/simulation";
 
-
-/** Issue a request to the simulation backend with the OMS Bearer token.
- *  Uses the interceptor-free client() rather than api() so that a 401 from the sim Moqui never
- *  triggers the global logout interceptor (which would immediately redirect the user to /login).
- *  The Bearer token is attached manually — same credential as the rest of the app. */
-function simClient(config: any): Promise<any> {
-  const token = commonUtil.getToken();
-  return client({
-    ...config,
-    headers: {
-      ...(config.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-}
 
 
 
@@ -32,8 +17,8 @@ const MAX_POLL_DURATION_MS = import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS
 
 /** POST one batch (≤5 variants). Returns the jobId. Throws on non-2xx. */
 export async function submitBatch({ routingGroupId, variants, sampleCap }: SubmitBatchArgs): Promise<string> {
-  const resp: any = await simClient({
-    url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
+  const resp: any = await api({
+    url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
     method: "POST",
     baseURL: simApiBaseUrl(),
     data: { variants, ...(sampleCap != null ? { sampleCap } : {}) },
@@ -50,17 +35,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  *  Resolves with { groupRun?, variation? } on success; throws on failure/timeout.
  *  `onPhase` gets the raw status each poll; `onProgress` gets the `progress` object each poll
  *  that carries one (running ticks and the terminal flush). */
-export async function pollJob(
-  routingGroupId: string,
-  jobId: string,
-  onPhase?: (status: string) => void,
-  onProgress?: (progress: GroupRunProgress) => void,
-): Promise<{ groupRun?: any; variation?: any }> {
+export async function pollJob(routingGroupId: string, jobId: string, onPhase?: (status: string) => void, onProgress?: (progress: GroupRunProgress) => void): Promise<{ groupRun?: any; variation?: any }> {
   const deadline = Date.now() + MAX_POLL_DURATION_MS;
   let sinceSeq = 0;
   while (Date.now() < deadline) {
-    const resp: any = await simClient({
-      url: `routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
+    const resp: any = await api({
+      url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
       method: "GET",
       baseURL: simApiBaseUrl(),
       params: { sinceSeq },
@@ -85,11 +65,7 @@ export async function pollJob(
 /** Run the parent group's live config (no variants) via the existing job endpoint, returning its
  *  GroupRunResult. Reuses submitBatch (empty variants -> baseline groupRun) + pollJob for live
  *  progress. `onProgress` receives each progress tick for the parent-side progress bar. */
-export async function runParentLiveConfig(
-  parentRoutingGroupId: string,
-  sampleCap: number | undefined,
-  onProgress?: (progress: GroupRunProgress) => void,
-): Promise<any> {
+export async function runParentLiveConfig(parentRoutingGroupId: string, sampleCap: number | undefined, onProgress?: (progress: GroupRunProgress) => void): Promise<any> {
   const jobId = await submitBatch({ routingGroupId: parentRoutingGroupId, variants: [], sampleCap });
   const result = await pollJob(parentRoutingGroupId, jobId, undefined, onProgress);
 
@@ -110,7 +86,12 @@ function useMock(env: Record<string, any> = import.meta.env): boolean {
 export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
   if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
   const { url, params } = pastSimulationsQuery(f);
-  const resp: any = await simClient({ url, method: "GET", baseURL: simApiBaseUrl(), params });
+  const resp: any = await api({
+    url,
+    method: "GET",
+    baseURL: simApiBaseUrl(),
+    params,
+  });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load past simulations: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
   // Confirmed contract: { simulationList: [...headers], totalCount }.
   const headers = resp.data?.simulationList ?? (Array.isArray(resp.data) ? resp.data : []);
@@ -121,7 +102,11 @@ export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{
 /** Fetch one persisted simulation with its variants (R2). Returns the raw response for the adapter. */
 export async function fetchPastSimulation(simulationId: string): Promise<any> {
   if (useMock()) { const { mockPastSimulation } = await import("../mock/pastSimulationsMock"); return mockPastSimulation(simulationId); }
-  const resp: any = await simClient({ url: `brokeringSimulations/${simulationId}`, method: "GET", baseURL: simApiBaseUrl() });
+  const resp: any = await api({
+    url: `order-routing/brokeringSimulations/${simulationId}`,
+    method: "GET",
+    baseURL: simApiBaseUrl(),
+  });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load simulation ${simulationId}: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
   return resp.data;
 }
@@ -132,8 +117,7 @@ export const SimulationService = {
   runParentLiveConfig,
   fetchPastSimulations,
   fetchPastSimulation,
-  simRequest: simClient,
-  simMoquiUrl,
+  simBaseURL,
   simProductStoreId,
   isFilteredQuery,
 };

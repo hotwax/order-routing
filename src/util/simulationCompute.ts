@@ -178,7 +178,7 @@ export function pastSimulationsQuery(f: PastSimulationsFilters): { url: string; 
   params.orderByField = "-createdDate";
   params.pageIndex = f.pageIndex;
   params.pageSize = f.pageSize;
-  return { url: "brokeringSimulations", params };
+  return { url: "order-routing/brokeringSimulations", params };
 }
 
 export function isFilteredQuery(f: PastSimulationsFilters): boolean {

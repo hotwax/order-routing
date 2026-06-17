@@ -11,12 +11,6 @@
   </ion-header>
 
   <ion-content>
-    <ion-searchbar
-      v-if="!isLoading && allCandidates.length"
-      v-model="query"
-      :placeholder="translate('Search groups')"
-    />
-
     <div v-if="isLoading" class="loader">
       <ion-spinner name="crescent" />
       <p>{{ translate("Loading groups") }}</p>
@@ -34,17 +28,20 @@
       <ion-item
         v-for="group in filteredCandidates"
         :key="group.facilityGroupId"
-        button
-        @click="toggle(group.facilityGroupId)"
       >
         <ion-checkbox
-          slot="start"
           :checked="selected.has(group.facilityGroupId)"
-        />
-        <ion-label class="ion-text-wrap">
-          <h2>{{ group.facilityGroupName || group.facilityGroupId }}</h2>
-          <p class="overline">{{ group.facilityGroupId }}</p>
-        </ion-label>
+          label-placement="end"
+          @ionChange="toggle(group.facilityGroupId)"
+        >
+          <ion-label class="ion-text-wrap">
+            {{ group.facilityGroupName || group.facilityGroupId }}
+            <p>{{ group.facilityGroupId }}</p>
+            <p v-if="getProductStoreNames(group.facilityGroupId)">
+              {{ translate("Product stores") }}: {{ getProductStoreNames(group.facilityGroupId) }}
+            </p>
+          </ion-label>
+        </ion-checkbox>
         <ion-note slot="end">
           {{ facilityCount(group.facilityGroupId) }}
           {{ translate(facilityCount(group.facilityGroupId) === 1 ? "facility" : "facilities") }}
@@ -154,11 +151,19 @@ async function linkSelected() {
   }
 }
 
+function getProductStoreNames(groupId: string): string {
+  const stores = facilityGroupStore.getGroupProductStores(groupId);
+  return stores.join(", ");
+}
+
 onMounted(async () => {
   try {
-    await facilityGroupStore.fetchGroups();
+    await Promise.allSettled([
+      facilityGroupStore.fetchGroups(),
+      facilityGroupStore.fetchGroupProductStoreAssociations()
+    ]);
   } catch (err) {
-    logger.error("Failed to load groups for linking", err);
+    logger.error("Failed to load groups or associations for linking", err);
   }
   isLoading.value = false;
 });

@@ -107,7 +107,7 @@ const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 
-const cronExpressions = JSON.parse(import.meta.env?.VITE_VUE_APP_CRON_EXPRESSIONS)
+const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS)
 
 let isLoading = ref(false)
 let brokeringGroups = ref([]) as any

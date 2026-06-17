@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { defineConfig } from 'vite'
 import pkg from './package.json'
+import { ideTraceVue } from 'chrome-ide-trace/vite'
 import { versionInfoUtil } from '../../common/utils/versionInfoUtil';
 import { VitePWA } from 'vite-plugin-pwa'
 import manifest from "./manifest.json"
@@ -12,6 +13,7 @@ import manifest from "./manifest.json"
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    ideTraceVue(),
     vue(),
     legacy(),
     VitePWA({

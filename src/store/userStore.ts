@@ -41,6 +41,9 @@ export const useUserStore = defineStore('user', {
     getPwaState(state) {
       return state.pwaState;
     },
+    getCurrentTimeZone(state): string | undefined {
+      return state.current?.timeZone
+    },
     hasPermission: (state: any) => (permissionId: string): boolean => {
       const permissions = state.permissions;
 
@@ -67,7 +70,7 @@ export const useUserStore = defineStore('user', {
       this.oms = oms
     },
     async fetchPermissions() {
-      const permissionId = import.meta.env.VITE_VUE_APP_PERMISSION_ID;
+      const permissionId = import.meta.env.VITE_PERMISSION_ID;
       const serverPermissions = [] as any;
 
       // TODO Make it configurable from the environment variables.

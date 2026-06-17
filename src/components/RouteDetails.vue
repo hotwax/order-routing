@@ -89,7 +89,7 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
-import { computed, defineProps } from "vue"
+import { computed } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
 import { translate } from "@common";
 import OrderFilterItem from "./OrderFilterItem.vue";

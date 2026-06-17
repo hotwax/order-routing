@@ -36,7 +36,7 @@
 import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } from "@ionic/vue";
-import { computed, defineProps } from "vue";
+import { computed } from "vue";
 import { warningOutline } from "ionicons/icons"
 import { productStore } from "@/store/productStore";
 
@@ -63,7 +63,7 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(import.meta.env?.VITE_VUE_APP_RULE_ENUMS as string)
+const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
 
 const enums = computed(() => useUtilStore().getEnums)
 const facilities = computed(() => productStore().getVirtualFacilities)

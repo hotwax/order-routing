@@ -18,7 +18,7 @@
     </ion-header>
 
     <ion-content>
-      <main>
+      <main class="atp-main">
         <section v-if="selectedSegment === 'channels'">
           <template v-if="inventoryChannels.length">
             <ion-card v-for="channel in inventoryChannels" :key="channel.facilityGroupId">

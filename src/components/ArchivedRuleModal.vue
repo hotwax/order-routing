@@ -27,7 +27,7 @@
 import { translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline } from "ionicons/icons";
-import { defineProps, ref } from "vue";
+import { ref } from "vue";
 
 const props = defineProps({
   archivedRules: {

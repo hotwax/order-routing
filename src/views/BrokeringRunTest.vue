@@ -53,7 +53,7 @@
                   <ion-label>
                     <h1>{{ routing.routingName }}</h1>
                   </ion-label>
-                  {{ `${index + 1}/${group.routings.length}` }}
+                  {{ `${Number(index) + 1}/${group.routings.length}` }}
                 </ion-item>
                 <ion-item lines="full" v-if="routing.filtersCount">
                   <ion-label>{{ routing.filtersCount }}{{ " filters" }}</ion-label>

@@ -20,7 +20,7 @@
     </ion-header>
 
     <ion-content ref="contentRef" :scroll-events="true" @ionScroll="enableScrolling()">
-      <main v-if="selectedSegment !== 'SHIPPING_FACILITY'">
+      <main class="atp-main" v-if="selectedSegment !== 'SHIPPING_FACILITY'">
         <template v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
           <ScheduleRuleItem v-if="rules.length" />
           <ArchivedRuleItem v-if="archivedRules?.length" />
@@ -35,7 +35,7 @@
           <p>{{ translate("No shipping rule found.") }}</p>
         </div>
       </main>
-      <main v-else>
+      <main class="atp-main" v-else>
         <section v-if="facilities.length">
           <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
         </section>

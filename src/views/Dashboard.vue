@@ -22,6 +22,9 @@
       <DashboardSummary
         v-else
         :brokering="brokering"
+        :facility-orders="facilityOrders"
+        :facility-orders-date="facilityOrdersDate"
+        :facility-orders-is-today="facilityOrdersIsToday"
         :sourcing="sourcing"
         :foundations="foundations"
         :jobs="jobs"
@@ -49,6 +52,9 @@ const productStore = useAtpProductStore();
 const currentProductStore = computed(() => productStore.getCurrentProductStore);
 const sourcing = computed(() => dashboardStore.getSourcing);
 const brokering = computed(() => dashboardStore.getBrokering);
+const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
+const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
+const facilityOrdersIsToday = computed(() => dashboardStore.getFacilityOrdersIsToday);
 const foundations = computed(() => dashboardStore.getFoundations);
 const jobs = computed(() => dashboardStore.getJobs);
 const totalSourcing = computed(() => dashboardStore.totalSourcingRules);
@@ -64,8 +70,11 @@ onIonViewWillLeave(() => {
 
 async function load() {
   emitter.emit("presentLoader");
-  await dashboardStore.loadDashboard();
-  emitter.emit("dismissLoader");
+  try {
+    await dashboardStore.loadDashboard();
+  } finally {
+    emitter.emit("dismissLoader");
+  }
 }
 
 function refresh() {

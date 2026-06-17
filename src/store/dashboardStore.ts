@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
+import { DateTime } from "luxon";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
@@ -16,15 +17,68 @@ const SOURCING = [
   { key: "shipping", label: "Shipping", route: "/shipping", groupTypes: ["RG_SHIPPING_FACILITY", "RG_SHIPPING_CHANNEL"], metric: "shipping" }
 ];
 
-function isTruthyFlag(v: any) {
-  return v === true || v === "Y" || v === "y";
+function isTruthyFlag(value: any) {
+  return value === true || value === "Y" || value === "y";
+}
+
+// Helper function to process requests in concurrent batches to avoid network congestion
+async function fetchInBatches<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  batchSize = 5
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+export interface BrokeringRun {
+  routingRunId: string;
+  routingGroupId: string;
+  orderRoutingId: string;
+  routingBatchId: string;
+  startDate: number;
+  endDate: number;
+  orderItemCount: number;
+  brokeredItemCount: number;
+  hasError: string;
+  routingResult: string;
+}
+
+export interface BrokeringState {
+  total: number;
+  scheduled: number;
+  paused: number;
+  draft: number;
+  nextRun: number | null;
+  errorCount: number;
+  runs: BrokeringRun[];
+  queueDepth: number;
+  totalAttempted: number;
+  totalBrokered: number;
+  lastRun: BrokeringRun | null;
+}
+
+export interface FacilityOrder {
+  facilityId: string;
+  facilityName: string;
+  orderCount: number;
+  maximumOrderLimit: number | null;
+  utilization: number;
 }
 
 export interface DashboardState {
   loading: boolean;
   loadedAt: number | null;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
-  brokering: { total: number; scheduled: number; paused: number; draft: number; nextRun: number | null; errorCount: number };
+  brokering: BrokeringState;
+  facilityOrders: FacilityOrder[];
+  facilityOrdersDate: string | null;
+  facilityOrdersIsToday: boolean;
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
   jobs: { total: number; running: number };
 }
@@ -34,73 +88,79 @@ export const useDashboardStore = defineStore("dashboard", {
     loading: false,
     loadedAt: null,
     sourcing: [],
-    brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0 },
+    brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, totalAttempted: 0, totalBrokered: 0, lastRun: null },
+    facilityOrders: [],
+    facilityOrdersDate: null,
+    facilityOrdersIsToday: false,
     foundations: { facilityGroups: 0, facilityGroupsByType: {}, channels: 0 },
     jobs: { total: 0, running: 0 }
   }),
   getters: {
-    getSourcing: (s) => s.sourcing,
-    getBrokering: (s) => s.brokering,
-    getFoundations: (s) => s.foundations,
-    getJobs: (s) => s.jobs,
-    isLoading: (s) => s.loading,
-    totalSourcingRules: (s) => s.sourcing.reduce((n, x) => n + x.count, 0)
+    getSourcing: (state) => state.sourcing,
+    getBrokering: (state) => state.brokering,
+    getFacilityOrders: (state) => state.facilityOrders,
+    getFacilityOrdersDate: (state) => state.facilityOrdersDate,
+    getFacilityOrdersIsToday: (state) => state.facilityOrdersIsToday,
+    getFoundations: (state) => state.foundations,
+    getJobs: (state) => state.jobs,
+    isLoading: (state) => state.loading,
+    totalSourcingRules: (state) => state.sourcing.reduce((total, sourcing) => total + sourcing.count, 0)
   },
   actions: {
     // Loads every tile in parallel; each section is independent and error-tolerant
     // so one failing endpoint never blanks the whole dashboard.
     async loadDashboard() {
       this.loading = true;
-      await Promise.allSettled([this.loadSourcing(), this.loadBrokering(), this.loadFoundations(), this.loadJobs()]);
+      await Promise.allSettled([this.loadSourcing(), this.loadBrokering(), this.loadFacilityOrders(), this.loadFoundations(), this.loadJobs()]);
       this.loadedAt = Date.now();
       this.loading = false;
     },
     async loadSourcing() {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
-      const result = SOURCING.map((s) => ({ key: s.key, label: s.label, route: s.route, metric: s.metric, count: 0, total: 0, blocking: 0 }));
+      const result = SOURCING.map((source) => ({ key: source.key, label: source.label, route: source.route, metric: source.metric, count: 0, total: 0, blocking: 0 }));
       if (!productStoreId) {
         this.sourcing = result;
         return;
       }
       try {
-        const resp = (await api({
+        const response = (await api({
           url: "available-to-promise/ruleGroups",
           method: "GET",
           params: { productStoreId, statusId: "ATP_RG_ACTIVE", pageSize: 100 }
         })) as any;
-        const groups = commonUtil.hasError(resp) ? [] : resp.data || [];
-        // One call per active rule group (N calls, accepted for Phase 1). The list
-        // returns each rule's ruleActions, so we also aggregate configured amounts
+        const ruleGroups = commonUtil.hasError(response) ? [] : response.data || [];
+        // Concurrency-limited calls per active rule group (N calls, accepted for Phase 1).
+        // The list returns each rule's ruleActions, so we also aggregate configured amounts
         // (threshold/safety stock units) and count pickup/shipping disallow rules.
-        const responses = await Promise.allSettled(
-          groups.map((g: any) =>
+        const ruleResponses = await fetchInBatches(
+          ruleGroups,
+          (ruleGroup: any) =>
             api({
               url: "available-to-promise/decisionRules",
               method: "GET",
-              params: { ruleGroupId: g.ruleGroupId, statusId: "ATP_RULE_ACTIVE", pageSize: 200 }
+              params: { ruleGroupId: ruleGroup.ruleGroupId, statusId: "ATP_RULE_ACTIVE", pageSize: 200 }
             })
-          )
         );
-        groups.forEach((g: any, i: number) => {
-          const r: any = responses[i];
-          const rules = r.status === "fulfilled" && !commonUtil.hasError(r.value) ? r.value.data || [] : [];
-          const def = SOURCING.find((s) => s.groupTypes.includes(g.groupTypeEnumId));
-          const cat = def && result.find((c) => c.key === def.key);
-          if (!def || !cat) return;
-          cat.count += rules.length;
+        ruleGroups.forEach((ruleGroup: any, index: number) => {
+          const ruleResponse: any = ruleResponses[index];
+          const rules = ruleResponse.status === "fulfilled" && !commonUtil.hasError(ruleResponse.value) ? ruleResponse.value.data || [] : [];
+          const sourcingConfig = SOURCING.find((source) => source.groupTypes.includes(ruleGroup.groupTypeEnumId));
+          const sourcingCategory = sourcingConfig && result.find((category) => category.key === sourcingConfig.key);
+          if (!sourcingConfig || !sourcingCategory) return;
+          sourcingCategory.count += rules.length;
           for (const rule of rules) {
             const actions = rule.ruleActions || [];
-            const fieldValue = (type: string) => actions.find((a: any) => a.actionTypeEnumId === type)?.fieldValue;
-            if (def.metric === "threshold") {
-              const v = Number(fieldValue("ATP_THRESHOLD"));
-              if (!isNaN(v)) cat.total += v;
-            } else if (def.metric === "safetyStock") {
-              const v = Number(fieldValue("ATP_SAFETY_STOCK"));
-              if (!isNaN(v)) cat.total += v;
-            } else if (def.metric === "pickup") {
-              if (fieldValue("ATP_ALLOW_PICKUP") === "N") cat.blocking += 1;
-            } else if (def.metric === "shipping") {
-              if (fieldValue("ATP_ALLOW_BROKERING") === "N") cat.blocking += 1;
+            const fieldValue = (type: string) => actions.find((action: any) => action.actionTypeEnumId === type)?.fieldValue;
+            if (sourcingConfig.metric === "threshold") {
+              const value = Number(fieldValue("ATP_THRESHOLD"));
+              if (!isNaN(value)) sourcingCategory.total += value;
+            } else if (sourcingConfig.metric === "safetyStock") {
+              const value = Number(fieldValue("ATP_SAFETY_STOCK"));
+              if (!isNaN(value)) sourcingCategory.total += value;
+            } else if (sourcingConfig.metric === "pickup") {
+              if (fieldValue("ATP_ALLOW_PICKUP") === "N") sourcingCategory.blocking += 1;
+            } else if (sourcingConfig.metric === "shipping") {
+              if (fieldValue("ATP_ALLOW_BROKERING") === "N") sourcingCategory.blocking += 1;
             }
           }
         });
@@ -110,62 +170,193 @@ export const useDashboardStore = defineStore("dashboard", {
       this.sourcing = result;
     },
     async loadBrokering() {
-      const store = orderRoutingStore();
-      const brokering = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null as number | null, errorCount: 0 };
+      const routingStore = orderRoutingStore();
+      const brokering: BrokeringState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, totalAttempted: 0, totalBrokered: 0, lastRun: null };
       try {
-        await store.fetchOrderRoutingGroups();
-        const groups = store.getRoutingGroups || [];
-        brokering.total = groups.length;
+        await routingStore.fetchOrderRoutingGroups();
+        const routingGroups = routingStore.getRoutingGroups || [];
+        brokering.total = routingGroups.length;
         const now = Date.now();
-        for (const g of groups) {
-          const sched = (g as any).schedule;
-          if (!sched) brokering.draft++;
-          else if (isTruthyFlag(sched.paused)) brokering.paused++;
-          else {
+        for (const routingGroup of routingGroups) {
+          const schedule = (routingGroup as any).schedule;
+          if (!schedule) {
+            brokering.draft++;
+          } else if (isTruthyFlag(schedule.paused)) {
+            brokering.paused++;
+          } else {
             brokering.scheduled++;
-            const t = Number((g as any).runTime || sched.nextExecutionDateTime);
-            if (t && t > now && (brokering.nextRun === null || t < brokering.nextRun)) brokering.nextRun = t;
+            const runTime = Number((routingGroup as any).runTime || schedule.nextExecutionDateTime);
+            if (runTime && runTime > now && (brokering.nextRun === null || runTime < brokering.nextRun)) {
+              brokering.nextRun = runTime;
+            }
           }
         }
-        // Last-run status per group (N calls) — best effort.
-        const runs = await Promise.allSettled(
-          groups.map((g: any) =>
+        // Fetch recent runs per group (pageSize 50) for performance metrics.
+        const allRuns: BrokeringRun[] = [];
+        const runResponses = await fetchInBatches(
+          routingGroups,
+          (routingGroup: any) =>
             api({
-              url: `order-routing/groups/${g.routingGroupId}/routingRuns`,
+              url: `order-routing/groups/${routingGroup.routingGroupId}/routingRuns`,
               method: "GET",
-              params: { orderByField: "startDate DESC", pageSize: 1 }
+              params: { orderByField: "startDate DESC", pageSize: 50 }
             })
-          )
         );
-        runs.forEach((r: any) => {
-          if (r.status === "fulfilled" && !commonUtil.hasError(r.value)) {
-            const last = (r.value.data || [])[0];
-            if (last && isTruthyFlag(last.hasError)) brokering.errorCount++;
+        runResponses.forEach((runResponse: any) => {
+          if (runResponse.status === "fulfilled" && !commonUtil.hasError(runResponse.value)) {
+            const runs = runResponse.value.data || [];
+            for (const run of runs) {
+              allRuns.push(run);
+              if (isTruthyFlag(run.hasError)) brokering.errorCount++;
+            }
           }
         });
+        allRuns.sort((a, b) => b.startDate - a.startDate);
+        brokering.runs = allRuns;
+        brokering.lastRun = allRuns.find(r => r.orderItemCount > 0) || allRuns[0] || null;
+        brokering.totalAttempted = allRuns.reduce((sum, r) => sum + (r.orderItemCount || 0), 0);
+        brokering.totalBrokered = allRuns.reduce((sum, r) => sum + (r.brokeredItemCount || 0), 0);
+
+        // Fetch live queue depth per routing.
+        // Collect unique routing IDs from the runs we already fetched.
+        const routingIds = [...new Set(allRuns.map(r => r.orderRoutingId).filter(Boolean))];
+        if (routingIds.length) {
+          const queueResponses = await fetchInBatches(
+            routingIds,
+            (orderRoutingId: string) =>
+              api({
+                url: `order-routing/routings/${orderRoutingId}/orderCount`,
+                method: "GET"
+              })
+          );
+          queueResponses.forEach((qr: any) => {
+            if (qr.status === "fulfilled" && !commonUtil.hasError(qr.value)) {
+              brokering.queueDepth += Number(qr.value.data?.orderItemCount || 0);
+            }
+          });
+        }
       } catch (err) {
         logger.error("dashboard: failed to load brokering runs", err);
       }
       this.brokering = brokering;
     },
+    async loadFacilityOrders() {
+      let facilityOrders: FacilityOrder[] = [];
+      let facilityOrdersDate: string | null = null;
+      let facilityOrdersIsToday = false;
+      try {
+        const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+        if (!productStoreId) {
+          this.facilityOrders = [];
+          this.facilityOrdersDate = null;
+          this.facilityOrdersIsToday = false;
+          return;
+        }
+        const resp = await api({
+          url: `admin/productStores/${productStoreId}/facilities`,
+          method: "GET",
+          params: {
+            productStoreId,
+            parentFacilityTypeId: "VIRTUAL_FACILITY",
+            parentFacilityTypeId_not: "Y",
+            facilityTypeId: "VIRTUAL_FACILITY",
+            facilityTypeId_not: "Y",
+            pageSize: 250
+          }
+        }) as any;
+        if (commonUtil.hasError(resp) || !resp.data?.length) {
+          this.facilityOrders = [];
+          this.facilityOrdersDate = null;
+          this.facilityOrdersIsToday = false;
+          return;
+        }
+        const facilities = resp.data;
+        const facilityMap: Record<string, any> = {};
+        for (const f of facilities) facilityMap[f.facilityId] = f;
+        const facilityIds = Object.keys(facilityMap);
+
+        const today = DateTime.now().toFormat("yyyy-MM-dd");
+        let countMap: Record<string, number> = {};
+
+        const todayResp = await api({
+          url: "admin/facilities/orderCount",
+          method: "GET",
+          params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: today }
+        }) as any;
+        if (!commonUtil.hasError(todayResp) && todayResp.data?.length) {
+          for (const entry of todayResp.data) {
+            const count = Number(entry.lastOrderCount) || 0;
+            if (count > 0) countMap[entry.facilityId] = count;
+          }
+        }
+
+        if (Object.keys(countMap).length > 0) {
+          facilityOrdersDate = today;
+          facilityOrdersIsToday = true;
+        } else {
+          const fallbackResp = await api({
+            url: "admin/facilities/orderCount",
+            method: "GET",
+            params: { facilityId: facilityIds.join(","), facilityId_op: "in", orderByField: "-entryDate", pageSize: 1 }
+          }) as any;
+          if (!commonUtil.hasError(fallbackResp) && fallbackResp.data?.length) {
+            const latestEntry = fallbackResp.data[0];
+            const latestDate = DateTime.fromMillis(Number(latestEntry.entryDate)).toFormat("yyyy-MM-dd");
+            facilityOrdersDate = latestDate;
+            const dateResp = await api({
+              url: "admin/facilities/orderCount",
+              method: "GET",
+              params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: latestDate }
+            }) as any;
+            if (!commonUtil.hasError(dateResp) && dateResp.data?.length) {
+              for (const entry of dateResp.data) {
+                const count = Number(entry.lastOrderCount) || 0;
+                if (count > 0) countMap[entry.facilityId] = count;
+              }
+            }
+          }
+        }
+
+        for (const facilityId of facilityIds) {
+          const facility = facilityMap[facilityId];
+          const orderCount = countMap[facilityId] || 0;
+          const limit = facility.maximumOrderLimit != null ? Number(facility.maximumOrderLimit) : null;
+          const utilization = limit && limit > 0 ? Math.round((orderCount / limit) * 100) : 0;
+          facilityOrders.push({
+            facilityId,
+            facilityName: facility.facilityName || facilityId,
+            orderCount,
+            maximumOrderLimit: limit,
+            utilization
+          });
+        }
+        facilityOrders.sort((a, b) => b.orderCount - a.orderCount);
+        facilityOrders.splice(10);
+      } catch (err) {
+        logger.error("dashboard: failed to load facility orders", err);
+      }
+      this.facilityOrders = facilityOrders;
+      this.facilityOrdersDate = facilityOrdersDate;
+      this.facilityOrdersIsToday = facilityOrdersIsToday;
+    },
     async loadFoundations() {
       const foundations = { facilityGroups: 0, facilityGroupsByType: {} as Record<string, number>, channels: 0 };
       try {
-        const fg = useFacilityGroupStore();
-        await fg.fetchGroups();
-        const groups = fg.getGroups || [];
-        foundations.facilityGroups = groups.length;
-        for (const g of groups) {
-          const t = g.facilityGroupTypeId || "OTHER";
-          foundations.facilityGroupsByType[t] = (foundations.facilityGroupsByType[t] || 0) + 1;
+        const facilityGroupStore = useFacilityGroupStore();
+        await facilityGroupStore.fetchGroups();
+        const facilityGroups = facilityGroupStore.getGroups || [];
+        foundations.facilityGroups = facilityGroups.length;
+        for (const facilityGroup of facilityGroups) {
+          const facilityGroupTypeId = facilityGroup.facilityGroupTypeId || "OTHER";
+          foundations.facilityGroupsByType[facilityGroupTypeId] = (foundations.facilityGroupsByType[facilityGroupTypeId] || 0) + 1;
         }
       } catch (err) {
         logger.error("dashboard: failed to load facility groups", err);
       }
       try {
-        const ch = useChannelStore();
-        await ch.fetchInventoryChannels();
-        foundations.channels = (ch.getInventoryChannels || []).length;
+        const channelStore = useChannelStore();
+        await channelStore.fetchInventoryChannels();
+        foundations.channels = (channelStore.getInventoryChannels || []).length;
       } catch (err) {
         logger.error("dashboard: failed to load channels", err);
       }
@@ -174,11 +365,11 @@ export const useDashboardStore = defineStore("dashboard", {
     async loadJobs() {
       const jobs = { total: 0, running: 0 };
       try {
-        const ch = useChannelStore();
-        await ch.fetchJobs();
-        const list = ch.getJobs || [];
-        jobs.total = list.length;
-        jobs.running = list.filter((j: any) => j.statusId === "SERVICE_PENDING").length;
+        const channelStore = useChannelStore();
+        await channelStore.fetchJobs();
+        const jobsList = channelStore.getJobs || [];
+        jobs.total = jobsList.length;
+        jobs.running = jobsList.filter((job: any) => job.statusId === "SERVICE_PENDING").length;
       } catch (err) {
         logger.error("dashboard: failed to load publish jobs", err);
       }

@@ -1,26 +1,30 @@
 <template>
   <nav class="wayfinding" :aria-label="heading || undefined">
-    <p v-if="heading" class="wayfinding__heading">{{ heading }}</p>
+    <ion-text v-if="heading" color="medium">
+      <p class="wayfinding__heading">{{ heading }}</p>
+    </ion-text>
     <div class="wayfinding__cards">
-      <button
+      <ion-card
         v-for="item in items"
         :key="item.value"
-        type="button"
-        class="wayfinding__card"
-        :class="{ 'is-active': item.value === active }"
-        :aria-current="item.value === active ? 'true' : undefined"
+        button
+        :disabled="item.value === active"
         @click="$emit('select', item.value)"
       >
-        <ion-icon v-if="item.icon" :icon="item.icon" class="wayfinding__icon" />
-        <span class="wayfinding__label">{{ item.label }}</span>
-        <span v-if="item.intro" class="wayfinding__intro">{{ item.intro }}</span>
-      </button>
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon v-if="item.icon" :icon="item.icon" />
+            {{ item.label }}
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content v-if="item.intro">{{ item.intro }}</ion-card-content>
+      </ion-card>
     </div>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { IonIcon } from "@ionic/vue";
+import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon, IonText } from "@ionic/vue";
 
 interface WayfindingItem {
   value: string;
@@ -31,7 +35,7 @@ interface WayfindingItem {
 
 defineProps<{
   items: WayfindingItem[];
-  /** The currently active item's `value`; rendered as highlighted/current. */
+  /** The currently active item's `value`; rendered as the disabled/current card. */
   active?: string;
   heading?: string;
 }>();
@@ -51,52 +55,20 @@ defineEmits<{
 .wayfinding__heading {
   margin: 0 0 var(--spacer-xs);
   text-align: center;
-  color: var(--ion-color-medium);
-  font-size: 0.875rem;
 }
 
 .wayfinding__cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: var(--spacer-xs);
 }
 
-.wayfinding__card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacer-2xs);
-  padding: var(--spacer-sm);
-  border: 1px solid var(--ion-color-step-150, #e0e0e0);
-  border-radius: 8px;
-  background: var(--ion-card-background, var(--ion-background-color, #fff));
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+.wayfinding__cards ion-card {
+  margin: 0;
 }
 
-.wayfinding__card:hover {
-  border-color: var(--ion-color-primary);
-}
-
-.wayfinding__card.is-active {
-  border-color: var(--ion-color-primary);
-  cursor: default;
-}
-
-.wayfinding__icon {
-  font-size: 24px;
-  color: var(--ion-color-primary);
-}
-
-.wayfinding__label {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.wayfinding__intro {
-  color: var(--ion-color-medium);
-  font-size: 0.8125rem;
-  line-height: 1.35;
+.wayfinding ion-card-title ion-icon {
+  vertical-align: middle;
+  margin-inline-end: var(--spacer-2xs);
 }
 </style>

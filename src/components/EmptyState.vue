@@ -1,10 +1,14 @@
 <template>
   <div class="empty-state" :class="variant">
     <img v-if="image" :src="image" class="empty-state__art" :alt="title || ''" />
-    <ion-icon v-else-if="icon" :icon="icon" class="empty-state__icon" />
+    <ion-icon v-else-if="icon" :icon="icon" color="medium" class="empty-state__icon" />
 
-    <h2 v-if="title" class="empty-state__title">{{ title }}</h2>
-    <p v-if="message" class="empty-state__message">{{ message }}</p>
+    <ion-text v-if="title">
+      <h2>{{ title }}</h2>
+    </ion-text>
+    <ion-text v-if="message" color="medium">
+      <p>{{ message }}</p>
+    </ion-text>
 
     <div v-if="$slots.actions" class="empty-state__actions">
       <slot name="actions" />
@@ -13,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonIcon } from "@ionic/vue";
+import { IonIcon, IonText } from "@ionic/vue";
 
 withDefaults(
   defineProps<{
@@ -39,7 +43,7 @@ withDefaults(
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--spacer-sm);
+  gap: var(--spacer-xs);
   margin-inline: auto;
 }
 
@@ -51,7 +55,6 @@ withDefaults(
 .empty-state.compact {
   max-width: 380px;
   padding: var(--spacer-lg) var(--spacer-base);
-  gap: var(--spacer-xs);
 }
 
 .empty-state__art {
@@ -59,32 +62,18 @@ withDefaults(
   max-width: 60%;
   height: auto;
   object-fit: contain;
-  margin-bottom: var(--spacer-2xs);
 }
 
 .empty-state__icon {
-  font-size: 64px;
-  color: var(--ion-color-medium);
+  font-size: 48px;
 }
 
-.empty-state.compact .empty-state__icon {
-  font-size: 44px;
+.empty-state h2 {
+  margin: var(--spacer-xs) 0 0;
 }
 
-.empty-state__title {
+.empty-state p {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.empty-state.compact .empty-state__title {
-  font-size: 1rem;
-}
-
-.empty-state__message {
-  margin: 0;
-  color: var(--ion-color-medium);
-  line-height: 1.45;
 }
 
 .empty-state__actions {
@@ -92,6 +81,6 @@ withDefaults(
   flex-wrap: wrap;
   gap: var(--spacer-xs);
   justify-content: center;
-  margin-top: var(--spacer-xs);
+  margin-top: var(--spacer-sm);
 }
 </style>

@@ -1,8 +1,10 @@
 <template>
   <div class="inline-hint">
-    <ion-icon :icon="icon || informationCircleOutline" class="inline-hint__icon" />
+    <ion-icon :icon="icon || informationCircleOutline" color="medium" class="inline-hint__icon" />
     <div class="inline-hint__body">
-      <p class="inline-hint__text"><slot>{{ text }}</slot></p>
+      <ion-text color="medium">
+        <p class="inline-hint__text"><slot>{{ text }}</slot></p>
+      </ion-text>
       <div v-if="$slots.action" class="inline-hint__action">
         <slot name="action" />
       </div>
@@ -11,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonIcon } from "@ionic/vue";
+import { IonIcon, IonText } from "@ionic/vue";
 import { informationCircleOutline } from "ionicons/icons";
 
 defineProps<{
@@ -27,18 +29,12 @@ defineProps<{
   display: flex;
   align-items: flex-start;
   gap: var(--spacer-xs);
-  padding: var(--spacer-sm);
-  border-radius: 8px;
-  border-inline-start: 3px solid var(--ion-color-medium);
-  background: var(--ion-color-light);
-  color: var(--ion-color-dark);
+  padding: var(--spacer-xs) 0;
 }
 
 .inline-hint__icon {
   flex: none;
-  font-size: 20px;
-  color: var(--ion-color-medium);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .inline-hint__body {
@@ -49,7 +45,6 @@ defineProps<{
 
 .inline-hint__text {
   margin: 0;
-  line-height: 1.45;
 }
 
 .inline-hint__action {

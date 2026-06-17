@@ -601,7 +601,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
-import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/util/brokeringRulesManifest";
+import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/utils/brokeringRulesManifest";
 import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
 import { useCreateRouting } from "@/composables/useCreateRouting";
 

@@ -1,7 +1,7 @@
 import { client } from "@common";
 import type { ProposalPayload, ProposalErrorStage, ProposalResult, ApproveErrorStage, ApproveResult, SuggestPromptErrorStage, SuggestPromptRequest, SuggestPromptResult, ProposeRequest, RefineRequest, ApproveRequest } from "@/types/circuit";
 
-import { mastraUrl } from "../util/simConfig";
+import { mastraUrl } from "../utils/simConfig";
 
 const VALID_PROPOSAL_STAGES = new Set<ProposalErrorStage>([
   "validation",

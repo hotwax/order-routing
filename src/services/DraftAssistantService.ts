@@ -6,8 +6,8 @@ import {
   convertBrokeringRouteDraftToOperations,
   createDraftProposal, validateDraftOperations,
   applyDraftProposal, summarizeDraftOperations, formatDraftProposalSections,
-} from "../util/draftUtils";
-import { mastraUrl } from "../util/simConfig";
+} from "../utils/draftUtils";
+import { mastraUrl } from "../utils/simConfig";
 
 type DraftRequestOptions = {
   conversationHistory?: DraftConversationMessage[];

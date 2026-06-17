@@ -3,8 +3,18 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
-import { RoutingGroupService } from '@/services/RoutingGroupService'
+import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
 import { v4 as uuidv4, validate } from 'uuid';
+
+export async function fetchRoutingGroupsList(productStoreId: string, baseURL?: string): Promise<any[]> {
+  const resp = await api({
+    url: `order-routing/groups`,
+    method: "GET",
+    baseURL,
+    params: { productStoreId, pageSize: 200 },
+  });
+  return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
+}
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -277,16 +287,36 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
       this.setCurrentGroup(currentGroup, false);
     },
+    async fetchRoutingGroupDetail(routingGroupId: string): Promise<any> {
+      let group = (this.groups || []).find((g: any) => g.routingGroupId === routingGroupId);
+      if (!group?.isNew) {
+        let resp;
+        try {
+          resp = await api({
+            url: `order-routing/groups/${routingGroupId}/raw`,
+            method: "GET",
+          });
+        } catch (err) {
+          if (group) return normalizeRoutingGroupHierarchy({ ...group });
+          throw err;
+        }
+        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
+          group = resp.data;
+        } else if (group) {
+          group = { ...group, routings: [] };
+        } else {
+          throw resp?.data;
+        }
+      }
+      return normalizeRoutingGroupHierarchy(group);
+    },
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
       try {
-        // Only skip when we have the FULL hierarchy cached. Metadata-only currentGroup
-        // (just the groups[] shape with no routings) means we still need to fetch /raw.
         if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
           return;
         }
-        // Fetch + normalize via the shared helper (OMS instance: api(), default Maarg baseURL).
-        currentGroup = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.groups)
+        currentGroup = await this.fetchRoutingGroupDetail(routingGroupId)
       } catch(err) {
         logger.error(err);
       }

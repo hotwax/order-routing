@@ -94,7 +94,7 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
 import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
-import { buildBrokeringRunsListManifest } from "@/util/brokeringRunsManifest";
+import { buildBrokeringRunsListManifest } from "@/utils/brokeringRunsManifest";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, PageCapabilityManifest } from "@/types/draft";
 

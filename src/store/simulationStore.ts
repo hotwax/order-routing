@@ -1,14 +1,15 @@
 // src/store/simulationStore.ts
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { logger } from "@common";
+import { api, commonUtil, logger } from "@common";
 import { productStore } from "./productStore";
-import { buildVariant, isNoOp, applyProductStoreId, chunkVariants, mergeVariationResults } from "../util/simulationCompute";
+import { buildVariant, isNoOp, applyProductStoreId, chunkVariants, mergeVariationResults } from "../utils/simulationCompute";
 import { SimulationService } from "../services/SimulationService";
-import { RoutingGroupService } from "../services/RoutingGroupService";
+import { fetchRoutingGroupsList } from "./orderRoutingStore";
 import { VariationService } from "../services/VariationService";
-import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, sortBySequence } from "../util/variationUtils";
-import { joinRoutingResults } from "../util/simulationResults";
-import { mergeEvents } from "../util/simulationCompute";
+import { normalizeRoutingGroupHierarchy } from "../utils/ruleUtil";
+import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, sortBySequence } from "../utils/variationUtils";
+import { joinRoutingResults } from "../utils/simulationResults";
+import { mergeEvents } from "../utils/simulationCompute";
 import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
 import { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationRule, VariationTree } from "../types/variation";
 import type { VariationConditionInput, VariationActionInput } from "../types/variation";
@@ -116,11 +117,37 @@ export const simulationStore = defineStore("simulation", {
     // and leave the list empty — callers must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await RoutingGroupService.fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simBaseURL());
+        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simBaseURL());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
       }
+    },
+
+    async fetchSimGroupDetail(routingGroupId: string): Promise<any> {
+      const baseURL = SimulationService.simBaseURL();
+      let group = (this.simGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
+      if (!group?.isNew) {
+        let resp;
+        try {
+          resp = await api({
+            url: `order-routing/groups/${routingGroupId}/raw`,
+            method: "GET",
+            baseURL,
+          });
+        } catch (err) {
+          if (group) return normalizeRoutingGroupHierarchy({ ...group });
+          throw err;
+        }
+        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
+          group = resp.data;
+        } else if (group) {
+          group = { ...group, routings: [] };
+        } else {
+          throw resp?.data;
+        }
+      }
+      return normalizeRoutingGroupHierarchy(group);
     },
 
     // ---- Simulate-tab actions ----
@@ -132,7 +159,7 @@ export const simulationStore = defineStore("simulation", {
         if (!this.simGroups?.length) {
           await this.fetchSimGroups();
         }
-        const group = await RoutingGroupService.fetchRoutingGroupDetail(routingGroupId, this.simGroups, SimulationService.simBaseURL());
+        const group = await this.fetchSimGroupDetail(routingGroupId);
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }

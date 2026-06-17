@@ -39,8 +39,8 @@
 
 <script setup lang="ts">
 import { translate, commonUtil } from "@common";
-import { fillRateOf, formatPercent, moneySaved } from "@/util/simulationResults";
-import type { OutcomeRow } from "@/util/simulationResults";
+import { fillRateOf, formatPercent, moneySaved } from "@/utils/simulationResults";
+import type { OutcomeRow } from "@/utils/simulationResults";
 
 const props = defineProps<{ rows: OutcomeRow[]; winnerLabel?: string }>();
 

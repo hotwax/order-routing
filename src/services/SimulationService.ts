@@ -1,6 +1,6 @@
 import { api, commonUtil } from "@common";
-import { simApiBaseUrl, simBaseURL, simProductStoreId } from "../util/simConfig";
-import { interpretJobStatus, pastSimulationsQuery, isFilteredQuery } from "../util/simulationCompute";
+import { simApiBaseUrl, simBaseURL, simProductStoreId } from "../utils/simConfig";
+import { interpretJobStatus, pastSimulationsQuery, isFilteredQuery } from "../utils/simulationCompute";
 import type { SubmitBatchArgs, PastSimulationsFilters } from "../types/simulation";
 import { GroupRunProgress, JobStatusResponse } from "../types/simulation";
 

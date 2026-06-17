@@ -147,7 +147,7 @@ import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
-import { isFeatureEnabled } from "@/util/simConfig";
+import { isFeatureEnabled } from "@/utils/simConfig";
 import router from "@/router";
 
 const userStore = useUserStore();

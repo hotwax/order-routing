@@ -6,7 +6,7 @@ import { acceptHMRUpdate, defineStore } from "pinia";
 import { SimulationService } from "@/services/SimulationService";
 import { SimulationStorage } from "@/services/simulationStorage";
 import type { PastSimulationsFilters, PastSimHeader } from "@/types/simulation";
-import { persistedSimulationAdapter, type AdaptedResults } from "@/util/simulationResults";
+import { persistedSimulationAdapter, type AdaptedResults } from "@/utils/simulationResults";
 
 const TERMINAL = new Set(["COMPLETE", "FAILED"]);
 

@@ -4,7 +4,7 @@
 // auth via client() and unwrap/validate the response.
 import { api, commonUtil } from "@common";
 import type { VariationConditionInput, VariationActionInput } from "../types/variation";
-import { simApiBaseUrl } from "../util/simConfig";
+import { simApiBaseUrl } from "../utils/simConfig";
 import type { GroupRunResult, VariationListItem, VariationTree } from "../types/variation";
 
 /** Pure request builders — { url, method, params?, data? } relative to simApiBaseUrl(). */

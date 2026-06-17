@@ -51,12 +51,16 @@ export async function fetchRoutingGroupDetail(routingGroupId: string, listGroups
   if (!group?.isNew) {
     let resp;
     try {
-      resp = await api({ url: `order-routing/groups/${routingGroupId}/raw`, method: "GET", baseURL });
+      resp = await api({
+        url: `order-routing/groups/${routingGroupId}/raw`,
+        method: "GET",
+        baseURL,
+      });
     } catch (err) {
       if (group) return normalizeRoutingGroupHierarchy({ ...group });
       throw err;
     }
-    if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
+    if (!commonUtil.hasError(resp)) {
       group = resp.data;
     } else if (group) {
       group = { ...group, routings: [] };

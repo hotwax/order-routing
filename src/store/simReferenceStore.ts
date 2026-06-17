@@ -57,7 +57,12 @@ export const useSimReferenceStore = defineStore('simReference', {
        *  Returns {} for an empty/garbage body and null when the request errored. */
       const fetchMap = async (url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> => {
         try {
-          const resp = await api({ url, method: "GET", baseURL, params })
+          const resp = await api({
+            url,
+            method: "GET",
+            baseURL,
+            params,
+          })
           if (commonUtil.hasError(resp)) return null
           if (Array.isArray(resp.data) && resp.data.length) {
             return resp.data.reduce((map: any, item: any) => { map[item[keyField]] = item; return map }, {})

@@ -36,7 +36,6 @@ export function useProductFacility() {
   }
 
   async function updateProductFacility(payload: any) {
-    console.log("payload", payload)
     try {
       await api({
         url: "oms/productFacilities",

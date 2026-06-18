@@ -29,54 +29,54 @@
               <p v-else>{{ productSubtitle }}</p>
             </div>
           </ion-item>
+
+          <ion-card class="ion-margin-top">
+            <div class="card-header">
+              <ion-card-header>
+                <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
+              </ion-card-header>
+              <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
+                {{ translate("Edit") }}
+              </ion-button>
+            </div>
+            <ion-item>
+              <ion-label>{{ translate("QOH") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.qoh ?? "-" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("ATP") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.atp ?? "-" }}</ion-label>
+            </ion-item>
+          </ion-card>
         </section>
 
         <div class="config-column">
-        <ion-card>
-          <div class="card-header">
-            <ion-card-header>
-              <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
-            </ion-card-header>
-            <ion-button fill="clear" @click="openConfigEditModal">
-              {{ translate("Edit") }}
-            </ion-button>
-          </div>
-          <ion-item>
-            <ion-label>{{ translate("Allow Brokering") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Allow Pickup") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Safety stock") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Days to Ship") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
-          </ion-item>
-        </ion-card>
-
-        <ion-card>
-          <div class="card-header">
-            <ion-card-header>
-              <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
-            </ion-card-header>
-            <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
-              {{ translate("Edit") }}
-            </ion-button>
-          </div>
-          <ion-item>
-            <ion-label>{{ translate("QOH") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.lastInventoryCount ?? "-" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("ATP") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.computedLastInventoryCount ?? "-" }}</ion-label>
-          </ion-item>
-        </ion-card>
+          <ion-card>
+            <div class="card-header">
+              <ion-card-header>
+                <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
+              </ion-card-header>
+              <ion-button fill="clear" @click="openConfigEditModal">
+                {{ translate("Edit") }}
+              </ion-button>
+            </div>
+            <ion-item>
+              <ion-label>{{ translate("Allow Brokering") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Allow Pickup") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Safety stock") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Days to Ship") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
+            </ion-item>
+          </ion-card>
         </div>
       </div>
       <section class="ion-margin panel logs-panel">

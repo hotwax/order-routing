@@ -45,20 +45,20 @@
             <template v-if="product.inventoryConfig">
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.computedLastInventoryCount }}
+                  {{ product.inventoryConfig.atp }}
                   <p>{{ translate("ATP") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.lastInventoryCount }}
+                  {{ product.inventoryConfig.qoh }}
                   <p>{{ translate("QOH") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
                   {{ product.inventoryConfig.minimumStock || "-" }}
-                  <p>{{ translate("Minimum Stock") }}</p>
+                  <p>{{ translate("Safety Stock") }}</p>
                 </ion-label>
               </div>
               <div>
@@ -91,7 +91,7 @@
       <ion-toolbar class="footer-actions">
         <ion-buttons>
           <ion-button @click="openBulkInventoryEditModal">{{ "Adjust Inventory" }}</ion-button>
-          <ion-button @click="openProductFacilityConfigModal">{{ "Adjust Config" }}</ion-button>
+          <ion-button @click="openProductFacilityConfigModal()">{{ "Adjust Config" }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-footer>
@@ -196,7 +196,7 @@ async function openBulkInventoryEditModal() {
   })
 
   bulkInventoryEditModal.onDidDismiss().then((data) => {
-    data.data.updated && fetchProductFacility();
+    data?.data?.updated && fetchProductFacility();
   })
 
   await bulkInventoryEditModal.present()
@@ -207,12 +207,12 @@ async function openProductFacilityConfigModal(selectedProducts?: any[]) {
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: selectedProducts ?? products.value.filter((product: any) => product.isChecked)
+      selectedProducts: selectedProducts ? selectedProducts : products.value.filter((product: any) => product.isChecked)
     }
   })
 
   productFacilityConfigEditModal.onDidDismiss().then((data) => {
-    data.data.updated && fetchProductFacility();
+    data?.data?.updated && fetchProductFacility();
   })
 
   await productFacilityConfigEditModal.present()

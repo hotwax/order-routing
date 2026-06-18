@@ -145,6 +145,7 @@ import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore } from "@/store/productStore";
 import router from "@/router";
 
 const userStore = useUserStore();
@@ -235,6 +236,7 @@ async function setProductStore(event: SelectCustomEvent) {
             text: translate("Yes"),
             handler: async () => {
               await atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+              productStore().setEcomStore({ productStoreId: event.detail.value });
               emitter.emit("productStoreOrConfigChanged");
             }
           }
@@ -243,6 +245,7 @@ async function setProductStore(event: SelectCustomEvent) {
       alert.present();
     } else {
       atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+      productStore().setEcomStore({ productStoreId: event.detail.value });
       emitter.emit("productStoreOrConfigChanged");
     }
   }

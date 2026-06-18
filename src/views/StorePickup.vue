@@ -48,7 +48,7 @@
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
       </main>
-      <main class="atp-main" v-else>
+      <main class="atp-main facility-main" v-else>
         <div v-if="!pickupGroups.length" class="empty-block">
           <EmptyState
             :icon="businessOutline"
@@ -68,9 +68,29 @@
           </EmptyState>
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
-        <section v-else-if="facilities.length">
-          <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
-        </section>
+        <template v-else-if="facilities.length">
+          <div class="facility-controls">
+            <ion-searchbar :placeholder="translate('Search facilities')" :value="facilitySearch" :debounce="200" @ionInput="facilitySearch = $event.detail.value || ''" />
+            <ion-item lines="none">
+              <ion-select v-model="facilitySort" :label="translate('Sort by')" interface="popover">
+                <ion-select-option value="volume">{{ translate("Order volume") }}</ion-select-option>
+                <ion-select-option value="name">{{ translate("Alphabetical") }}</ion-select-option>
+                <ion-select-option value="created">{{ translate("Created date") }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </div>
+          <section class="facility-grid" v-if="displayedFacilities.length">
+            <FacilityItem v-for="facility in displayedFacilities" :facility="facility" :key="facility.facilityId" pickup />
+          </section>
+          <div v-else class="empty-block">
+            <EmptyState
+              variant="compact"
+              :icon="storefrontOutline"
+              :title="translate('No facilities match your search')"
+              :message="translate('Adjust your search to find facilities to add.')"
+            />
+          </div>
+        </template>
         <div v-else class="empty-block">
           <EmptyState
             variant="compact"
@@ -107,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
+import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInfiniteScroll, IonInfiniteScrollContent, IonItem, IonLabel, IonMenuButton, IonPage, IonReorderGroup, IonSearchbar, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { addOutline, balloonOutline, businessOutline, globeOutline, linkOutline, saveOutline, storefrontOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue'
@@ -144,10 +164,44 @@ const isScrollingEnabled = ref(false);
 const contentRef = ref({}) as any;
 const infiniteScrollRef = ref({}) as any;
 
+const facilitySearch = ref("");
+const facilitySort = ref("volume");
+
+// All facilities are loaded at once, so search and sort are applied locally.
+const displayedFacilities = computed(() => {
+  const term = facilitySearch.value.trim().toLowerCase();
+  let list = facilities.value;
+  if(term) {
+    list = list.filter((facility: any) =>
+      `${facility.facilityName || ""}`.toLowerCase().includes(term) ||
+      `${facility.facilityId || ""}`.toLowerCase().includes(term)
+    );
+  }
+
+  return [...list].sort((a: any, b: any) => {
+    if(facilitySort.value === "name") {
+      return `${a.facilityName || a.facilityId}`.localeCompare(`${b.facilityName || b.facilityId}`);
+    }
+    if(facilitySort.value === "created") {
+      return facilityCreatedTime(b) - facilityCreatedTime(a);
+    }
+    // Order volume (BOPIS orders in the last 30 days), highest first.
+    return pickupAnalyticsStore.getFacilityOrderCount(b.facilityId) - pickupAnalyticsStore.getFacilityOrderCount(a.facilityId);
+  });
+});
+
+// Resolve a creation timestamp from whichever date field the facility record carries.
+function facilityCreatedTime(facility: any): number {
+  const raw = facility.createdDate || facility.createdStamp || facility.createdTxStamp || facility.lastUpdatedStamp || facility.fromDate;
+  if(!raw) return 0;
+  const millis = typeof raw === "number" ? raw : Date.parse(raw);
+  return Number.isNaN(millis) ? 0 : millis;
+}
+
 const sectionTabs = computed(() => [
   { value: "RG_PICKUP_FACILITY", label: translate("Product and facility"), intro: translate("Route pickup orders by product and facility"), icon: businessOutline },
   { value: "RG_PICKUP_CHANNEL", label: translate("Product and channel"), intro: translate("Route pickup orders by product and channel"), icon: globeOutline },
-  { value: "PICKUP_FACILITY", label: translate("Facility"), intro: translate("Assign facilities to your pickup groups"), icon: storefrontOutline },
+  { value: "PICKUP_FACILITY", label: translate("Facility"), intro: translate("Select stores that participate in store pickup"), icon: storefrontOutline },
 ]);
 
 onIonViewDidEnter(async() => {
@@ -166,7 +220,7 @@ async function fetchRules() {
   ruleStore.updateIsReorderActive(false)
   if(!selectedSegment.value || (selectedSegment.value !== 'RG_PICKUP_FACILITY' && selectedSegment.value !== 'RG_PICKUP_CHANNEL' && selectedSegment.value !== 'PICKUP_FACILITY')) await productStore.updateSelectedSegment("RG_PICKUP_FACILITY");
   if(selectedSegment.value === 'PICKUP_FACILITY') {
-    await Promise.allSettled([fetchFacilities(), productStore.fetchPickupGroups()]) ;
+    await Promise.allSettled([fetchFacilities(250), productStore.fetchPickupGroups(), pickupAnalyticsStore.loadFacilityOrderCounts()]) ;
   } else {
     await Promise.allSettled([ruleStore.fetchRules({ groupTypeEnumId: selectedSegment.value, pageSize: 50 }), productStore.fetchConfigFacilities(), productStore.fetchFacilityGroups()])
   }
@@ -221,9 +275,9 @@ async function changeSegment(value: string) {
   emitter.emit("presentLoader");
   if(value === 'PICKUP_FACILITY') {
     isScrollingEnabled.value = false;
-    await fetchFacilities();
+    await fetchFacilities(250);
     ruleStore.updateIsReorderActive(false)
-    await productStore.fetchPickupGroups()
+    await Promise.allSettled([productStore.fetchPickupGroups(), pickupAnalyticsStore.loadFacilityOrderCounts()])
   } else {
     ruleStore.updateIsReorderActive(false)
     reorderingRules.value = []
@@ -303,5 +357,41 @@ function createStorePickup() {
   align-items: center;
   gap: var(--spacer-base);
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+
+/* The facility tab uses the full width so its cards can lay out in a grid,
+   overriding the global 375px cap that keeps the rule lists narrow. */
+.facility-main {
+  max-width: none;
+  margin: 0;
+}
+
+.facility-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacer-xs);
+  padding-inline: var(--spacer-sm);
+}
+
+.facility-controls ion-searchbar {
+  flex: 1;
+  padding: 0;
+}
+
+.facility-controls ion-item {
+  flex-shrink: 0;
+}
+
+.facility-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacer-xs);
+  align-items: start;
+}
+
+@media (min-width: 720px) {
+  .facility-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 </style>

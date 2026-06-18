@@ -14,81 +14,67 @@
     </ion-header>
 
     <ion-content>
-      <!-- Adding find class only when we are displaying product stores, as adding this class takes specific space on page -->
-      <div :class="ecomStores.length > 1 ? 'find' : ''">
-        <aside class="filters" v-if="ecomStores.length > 1">
-          <ion-list>
-            <ion-list-header>{{ translate("Product Store") }}</ion-list-header>
-            <ion-radio-group :value="currentEComStore.productStoreId" @ionChange="setEComStore($event)">
-              <ion-item v-for="store in ecomStores" :key="store.productStoreId" lines="none">
-                <ion-radio :value="store.productStoreId">{{ store.storeName || store.productStoreId }}</ion-radio>
-              </ion-item>
-            </ion-radio-group>
-          </ion-list>
-        </aside>
-
-        <main v-if="isLoading">
-          <ion-item lines="none">
-            <ion-spinner name="crescent" slot="start" />
-            {{ translate("Fetching runs") }}
-          </ion-item>
-        </main>
-        <main v-else-if="brokeringGroups.length">
-          <section>
-            <ion-card class="pointer" v-for="group in brokeringGroups" :key="group.routingGroupId" @click="redirect(group)">
-              <ion-item>
-                <ion-label>
-                  <h1>{{ group.groupName }}</h1>
-                  <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
-                </ion-label>
-              </ion-item>
-              <ion-item v-if="group.description">
-                <ion-label>
-                  {{ group.description }}
-                </ion-label>
-              </ion-item>
-              <ion-item v-if="group.schedule?.paused === 'N'">
-                <ion-label>
-                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
-                  <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
-                </ion-label>
-                <ion-badge slot="end" color="dark">
-                  {{ group.schedule ? commonUtil.getRelativeTime(group.schedule.nextExecutionDateTime) : "-" }}
-                </ion-badge>
-              </ion-item>
-              <ion-item v-else>
-                <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
-                <ion-label>
-                  {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
-                </ion-label>
-                <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
-              </ion-item>
-              <ion-item lines="none">
-                {{ `Updated at ${commonUtil.getDateAndTime(group.lastUpdatedStamp)}` }}
-                <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
-                  <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
-                </ion-button>
-              </ion-item>
-            </ion-card>
-          </section>
-        </main>
-        <main v-else>
-          <div class="empty-block">
-            <EmptyState
-              :image="brokeringRunsEmptyImage"
-              :title="translate('No routing runs yet')"
-              :message="translate('Create your first brokering run to define how orders are routed across facilities and inventory rules.')"
-            >
-              <template #actions>
-                <ion-button @click="addNewRun">
-                  {{ translate("Create brokering run") }}
-                  <ion-icon slot="end" :icon="addOutline" />
-                </ion-button>
-              </template>
-            </EmptyState>
-          </div>
-        </main>
-      </div>
+      <main v-if="isLoading">
+        <ion-item lines="none">
+          <ion-spinner name="crescent" slot="start" />
+          {{ translate("Fetching runs") }}
+        </ion-item>
+      </main>
+      <main v-else-if="brokeringGroups.length">
+        <section>
+          <ion-card class="pointer" v-for="group in brokeringGroups" :key="group.routingGroupId" @click="redirect(group)">
+            <ion-item>
+              <ion-label>
+                <h1>{{ group.groupName }}</h1>
+                <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item v-if="group.description">
+              <ion-label>
+                {{ group.description }}
+              </ion-label>
+            </ion-item>
+            <ion-item v-if="group.schedule?.paused === 'N'">
+              <ion-label>
+                {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+                <p>{{ group.schedule ? getScheduleFrequency(group.schedule) : "-" }}</p>
+              </ion-label>
+              <ion-badge slot="end" color="dark">
+                {{ group.schedule ? commonUtil.getRelativeTime(group.schedule.nextExecutionDateTime) : "-" }}
+              </ion-badge>
+            </ion-item>
+            <ion-item v-else>
+              <!-- TODO: display lastRunTime, but as we are not getting the same in response, so displaying nextExecutionTime for now -->
+              <ion-label>
+                {{ group.schedule ? commonUtil.getDateAndTime(group.schedule.nextExecutionDateTime) : "-" }}
+              </ion-label>
+              <ion-badge slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
+            </ion-item>
+            <ion-item lines="none">
+              {{ `Updated at ${commonUtil.getDateAndTime(group.lastUpdatedStamp)}` }}
+              <ion-button size="default" fill="clear" color="medium" slot="end" @click.stop="groupActionsPopover(group, $event)">
+                <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
+              </ion-button>
+            </ion-item>
+          </ion-card>
+        </section>
+      </main>
+      <main v-else>
+        <div class="empty-block">
+          <EmptyState
+            :image="brokeringRunsEmptyImage"
+            :title="translate('No routing runs yet')"
+            :message="translate('Create your first brokering run to define how orders are routed across facilities and inventory rules.')"
+          >
+            <template #actions>
+              <ion-button @click="addNewRun">
+                {{ translate("Create brokering run") }}
+                <ion-icon slot="end" :icon="addOutline" />
+              </ion-button>
+            </template>
+          </EmptyState>
+        </div>
+      </main>
     </ion-content>
   </ion-page>
 </template>
@@ -98,13 +84,12 @@ import EmptyState from "@/components/EmptyState.vue";
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
-import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonPage, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, onIonViewWillLeave, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline } from "ionicons/icons"
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
 import router from "@/router";
 import { useUserStore } from "@/store/userStore";
-import { productStore } from "@/store/productStore";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 
@@ -112,8 +97,6 @@ const userStore = useUserStore()
 const utilStore = useUtilStore()
 const groups = computed(() => orderRoutingStore().getRoutingGroups)
 const userProfile = computed(() => userStore.getUserProfile)
-const currentEComStore = computed(() => productStore().getCurrentEComStore)
-const ecomStores = computed(() => productStore().ecomStores)
 
 const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS)
 const brokeringRunsEmptyImage = new URL("../assets/images/BrokeringRunsEmptyState.png", import.meta.url).href
@@ -122,12 +105,21 @@ let isLoading = ref(false)
 let brokeringGroups = ref([]) as any
 
 onIonViewWillEnter(async () => {
+  await fetchRuns()
+  emitter.on("productStoreOrConfigChanged", fetchRuns)
+})
+
+onIonViewWillLeave(() => {
+  emitter.off("productStoreOrConfigChanged", fetchRuns)
+})
+
+async function fetchRuns() {
   isLoading.value = true
   await orderRoutingStore().fetchOrderRoutingGroups();
   isLoading.value = false
   brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
   utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" })
-})
+}
 
 
 async function addNewRun() {
@@ -164,18 +156,6 @@ async function addNewRun() {
   })
 
   return newRunAlert.present();
-}
-
-async function setEComStore(event: CustomEvent) {
-  emitter.emit("presentLoader")
-  if(ecomStores.value.length) {
-      productStore().setEcomStore({
-      "productStoreId": event.detail.value
-    })
-    await orderRoutingStore().fetchOrderRoutingGroups();
-    brokeringGroups.value = JSON.parse(JSON.stringify(groups.value))
-  }
-  emitter.emit("dismissLoader")
 }
 
 function getScheduleFrequency(brokeringGroupObj: any) {

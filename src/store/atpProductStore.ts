@@ -2,6 +2,13 @@ import { defineStore } from 'pinia'
 import { api, logger, commonUtil } from '@common'
 import { DateTime } from 'luxon'
 import { useUserStore } from '@/store/userStore'
+import { buildProductQuery } from '@/utils/productSync'
+
+// SOLR facet fields the applied product filters map to.
+const FILTER_FIELD_MAP: Record<string, string> = {
+  tags: 'tagsFacet',
+  productFeatures: 'productFeaturesFacet'
+}
 
 export interface ProductStoreState {
   productStores: any[]
@@ -367,6 +374,72 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         method: "POST",
         data: payload
       });
+    },
+    // Resolve the facilities belonging to a single facility group (read-only).
+    async fetchFacilitiesForGroup(facilityGroupId: string) {
+      let facilities = [] as any[];
+      try {
+        const resp = await api({
+          url: `admin/facilityGroups/${facilityGroupId}/facilities`,
+          method: "GET",
+          params: {
+            pageSize: 100,
+            parentFacilityTypeId: 'VIRTUAL_FACILITY',
+            parentFacilityTypeId_not: 'Y',
+            facilityTypeId: 'VIRTUAL_FACILITY',
+            facilityTypeId_not: 'Y'
+          }
+        }) as any;
+        if (resp && !commonUtil.hasError(resp)) {
+          facilities = resp.data || [];
+        } else {
+          throw resp.data
+        }
+      } catch (error) {
+        logger.error(error)
+      }
+      return facilities;
+    },
+    // Preview the products the current applied filters resolve to (read-only SOLR query).
+    async previewProducts(payload: { viewSize?: number; viewIndex?: number; keyword?: string } = {}) {
+      const query = buildProductQuery({
+        docType: 'PRODUCT',
+        viewSize: payload.viewSize || 25,
+        viewIndex: payload.viewIndex || 0,
+        keyword: payload.keyword,
+        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl'
+      });
+
+      const quote = (value: string) => `"${String(value).replace(/"/g, '\\"')}"`;
+
+      Object.entries(this.appliedFilters.included).forEach(([key, values]: any) => {
+        const field = FILTER_FIELD_MAP[key];
+        if (field && values?.length) {
+          const op = (this.appliedFiltersOperator.included as any)[key] === 'and' ? 'AND' : 'OR';
+          query.json.filter.push(`${field}: (${values.map(quote).join(` ${op} `)})`);
+        }
+      });
+
+      Object.entries(this.appliedFilters.excluded).forEach(([key, values]: any) => {
+        const field = FILTER_FIELD_MAP[key];
+        if (field && values?.length) {
+          const op = (this.appliedFiltersOperator.excluded as any)[key] === 'or' ? 'OR' : 'AND';
+          query.json.filter.push(`-(${field}: (${values.map(quote).join(` ${op} `)}))`);
+        }
+      });
+
+      try {
+        const resp = await api({ url: "admin/runSolrQuery", method: "POST", data: query }) as any;
+        if (!commonUtil.hasError(resp)) {
+          const response = resp.data?.response || resp.response || {};
+          return { products: response.docs || [], total: response.numFound || 0 };
+        } else {
+          throw resp.data
+        }
+      } catch (error) {
+        logger.error(error)
+      }
+      return { products: [], total: 0 };
     }
   },
   persist: true

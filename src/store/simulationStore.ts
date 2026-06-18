@@ -4,7 +4,8 @@ import { api, commonUtil, logger } from "@common";
 import { productStore } from "./productStore";
 import { buildVariant, isNoOp, applyProductStoreId, chunkVariants, mergeVariationResults } from "../utils/simulationCompute";
 import { SimulationService } from "../services/SimulationService";
-import { fetchRoutingGroupsList } from "./orderRoutingStore";
+import { simProductStoreId, simBaseURL, simApiBaseUrl } from "../utils/simConfig";
+import { orderRoutingStore } from "./orderRoutingStore";
 import { VariationService } from "../services/VariationService";
 import { normalizeRoutingGroupHierarchy } from "../utils/ruleUtil";
 import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, sortBySequence } from "../utils/variationUtils";
@@ -111,13 +112,13 @@ export const simulationStore = defineStore("simulation", {
     // submit) funnels through here so the precedence lives in one place.
     // Precedence: the configured sim store (VITE_SIM_PRODUCT_STORE_ID) > caller-supplied > OMS currentEComStore.
     resolveProductStoreId(prefer?: string): string {
-      return SimulationService.simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
+      return simProductStoreId() || prefer || productStore().getCurrentEComStore?.productStoreId || "";
     },
     // Routing-group list for the picker, pulled from the sim instance via api. Errors are logged
     // and leave the list empty — callers must not blow up on a sim outage.
     async fetchSimGroups() {
       try {
-        this.simGroups = await fetchRoutingGroupsList(this.resolveProductStoreId(), SimulationService.simBaseURL());
+        this.simGroups = await orderRoutingStore().fetchRoutingGroupsList(this.resolveProductStoreId());
       } catch (err) {
         logger.error(err);
         this.simGroups = [];
@@ -125,7 +126,6 @@ export const simulationStore = defineStore("simulation", {
     },
 
     async fetchSimGroupDetail(routingGroupId: string): Promise<any> {
-      const baseURL = SimulationService.simBaseURL();
       let group = (this.simGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
       if (!group?.isNew) {
         let resp;
@@ -133,7 +133,7 @@ export const simulationStore = defineStore("simulation", {
           resp = await api({
             url: `order-routing/groups/${routingGroupId}/raw`,
             method: "GET",
-            baseURL,
+            baseURL: simApiBaseUrl,
           });
         } catch (err) {
           if (group) return normalizeRoutingGroupHierarchy({ ...group });

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { api, commonUtil, logger } from '@common'
 import { SimulationService } from '@/services/SimulationService'
+import { simBaseURL } from '@/utils/simConfig'
 
 // Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
 // sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
@@ -46,7 +47,7 @@ export const useSimReferenceStore = defineStore('simReference', {
         return
       }
 
-      const baseURL = SimulationService.simBaseURL()
+      const baseURL = simBaseURL()
       // Mirrors the old productStore guard: without a store there is nothing meaningful to scope the
       // store-level slices to, and interpolating a blank id would request /productStores/undefined/...
       if (!productStoreId) {

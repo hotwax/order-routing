@@ -5,16 +5,7 @@ import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
 import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
 import { v4 as uuidv4, validate } from 'uuid';
-
-export async function fetchRoutingGroupsList(productStoreId: string, baseURL?: string): Promise<any[]> {
-  const resp = await api({
-    url: `order-routing/groups`,
-    method: "GET",
-    baseURL,
-    params: { productStoreId, pageSize: 200 },
-  });
-  return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
-}
+import { simApiBaseUrl } from '@/utils/simConfig';
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -79,6 +70,15 @@ export const orderRoutingStore = defineStore('orderRouting', {
     }
   },
   actions: {
+    async fetchRoutingGroupsList(productStoreId: string): Promise<any[]> {
+      const resp = await api({
+        url: `order-routing/groups`,
+        method: "GET",
+        baseURL: simApiBaseUrl(),
+        params: { productStoreId, pageSize: 200 },
+      });
+      return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
+    },
     async fetchOrderRoutingGroups() {
       let routingGroups = [] as any;
       const payload = {

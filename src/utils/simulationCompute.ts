@@ -168,7 +168,7 @@ export function interpretJobStatus(resp: JobStatusResponse): JobOutcome {
   }
 }
 
-export function pastSimulationsQuery(f: PastSimulationsFilters): { url: string; params: Record<string, any> } {
+export function pastSimulationsQuery(f: PastSimulationsFilters): Record<string, any> {
   const params: Record<string, any> = { productStoreId: f.productStoreId };
   if (f.routingGroupId) params.routingGroupId = f.routingGroupId;
   if (f.statusId) params.statusId = f.statusId;
@@ -178,7 +178,7 @@ export function pastSimulationsQuery(f: PastSimulationsFilters): { url: string; 
   params.orderByField = "-createdDate";
   params.pageIndex = f.pageIndex;
   params.pageSize = f.pageSize;
-  return { url: "order-routing/brokeringSimulations", params };
+  return params;
 }
 
 export function isFilteredQuery(f: PastSimulationsFilters): boolean {

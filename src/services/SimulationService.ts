@@ -1,5 +1,5 @@
 import { api, commonUtil } from "@common";
-import { simApiBaseUrl, simBaseURL, simProductStoreId } from "../utils/simConfig";
+import { simApiBaseUrl } from "../utils/simConfig";
 import { interpretJobStatus, pastSimulationsQuery, isFilteredQuery } from "../utils/simulationCompute";
 import type { SubmitBatchArgs, PastSimulationsFilters } from "../types/simulation";
 import { GroupRunProgress, JobStatusResponse } from "../types/simulation";
@@ -85,9 +85,9 @@ function useMock(env: Record<string, any> = import.meta.env): boolean {
 /** List persisted simulations (R1). Returns { headers, total }. */
 export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
   if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
-  const { url, params } = pastSimulationsQuery(f);
+  const params = pastSimulationsQuery(f);
   const resp: any = await api({
-    url,
+    url: "order-routing/brokeringSimulations",
     method: "GET",
     baseURL: simApiBaseUrl(),
     params,
@@ -117,7 +117,5 @@ export const SimulationService = {
   runParentLiveConfig,
   fetchPastSimulations,
   fetchPastSimulation,
-  simBaseURL,
-  simProductStoreId,
   isFilteredQuery,
 };

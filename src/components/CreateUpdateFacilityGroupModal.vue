@@ -92,6 +92,8 @@ import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 
 const props = defineProps<{
   group?: any;
+  /** Pre-selects the group type when creating (e.g. "PICKUP" from the store pickup view). */
+  defaultTypeId?: string;
 }>();
 
 const facilityGroupStore = useFacilityGroupStore();
@@ -102,7 +104,7 @@ const groupTypes = computed(() => facilityGroupStore.getGroupTypes);
 const form = ref({
   facilityGroupId: props.group?.facilityGroupId || "",
   facilityGroupName: props.group?.facilityGroupName || "",
-  facilityGroupTypeId: props.group?.facilityGroupTypeId || "",
+  facilityGroupTypeId: props.group?.facilityGroupTypeId || props.defaultTypeId || "",
   description: props.group?.description || ""
 });
 

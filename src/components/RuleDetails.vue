@@ -33,10 +33,10 @@
               <ion-icon slot="start" :icon="filterOutline"/>
               <h4>{{ translate("Filters") }}</h4>
             </ion-item>
-            <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
+            <InlineHint v-if="!isInventoryRuleFiltersApplied()" :icon="optionsOutline">
               {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
               <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
-            </p>
+            </InlineHint>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
               <ion-label>{{ translate("Group") }}</ion-label>
               <ion-label slot="end">{{ getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') }}</ion-label>
@@ -68,9 +68,9 @@
               <ion-icon slot="start" :icon="swapVerticalOutline"/>
               <h4>{{ translate("Sort") }}</h4>
             </ion-item>
-            <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions)?.length">
+            <InlineHint v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions)?.length" :icon="swapVerticalOutline">
               {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
-            </p>
+            </InlineHint>
             <ion-item v-for="(sort, code) in (inventoryRuleSortOptions as Record<string, any>)" :key="code as string">
               <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
             </ion-item>
@@ -134,8 +134,9 @@ import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
-import { arrowBackOutline, bookmarkOutline, filterOutline, swapVerticalOutline } from "ionicons/icons"
+import { arrowBackOutline, bookmarkOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { computed, ref } from "vue"
+import InlineHint from "@/components/InlineHint.vue"
 
 const props = defineProps({
   group: {
@@ -255,10 +256,5 @@ ion-menu {
 
 .menu {
   border-right: 1px solid var(--ion-color-medium);
-}
-
-.empty-state {
-  text-align: center;
-  margin: 0;
 }
 </style>

@@ -41,3 +41,5 @@ npm-debug.log*
 !.env.example
 .agent
 .gstack/
+# Vite PWA dev output
+/dev-dist

@@ -20,7 +20,9 @@ export const productStore = defineStore('productStore', {
       facilities: {} as any,
       shippingMethods: {} as any,
       facilityGroups: {} as any,
-      carriers: {} as any
+      carriers: {} as any,
+      productStoreFacilities: [] as any, // TODO: Storing productStore facilities separately to be used on inventory pages
+      selectedInventoryFacilityId: '' as string
     }
   },
   getters: {
@@ -63,9 +65,12 @@ export const productStore = defineStore('productStore', {
         return result
       }, {})
     },
+    getProductStoreFacilities(state) {
+      return state.productStoreFacilities
+    }
   },
   actions: {
-    async fetchEComStores(): Promise<any> {
+    async fetchProductStores(): Promise<any> {
       try {
         const resp = await api({
           url: "admin/user/productStore",
@@ -282,6 +287,29 @@ export const productStore = defineStore('productStore', {
       this.shippingMethods = {};
       this.facilityGroups = {};
       this.carriers = {};
+    },
+    setSelectedInventoryFacilityId(facilityId: string) {
+      this.selectedInventoryFacilityId = facilityId;
+    },
+    async fetchProductStoreFacilities() {
+      try {
+        const resp = await api({
+          url: `admin/productStores/${this.currentEComStore.productStoreId}/facilities`,
+          method: "GET",
+          params: {
+            pageSize: 250,
+            parentFacilityTypeId: "VIRTUAL_FACILITY",
+            parentFacilityTypeId_op: "equals",
+            parentFacilityTypeId_not: "Y",
+          }
+        });
+
+        if(resp.data?.length) {
+          this.productStoreFacilities = resp.data
+        }
+      } catch(err) {
+        logger.error(err)
+      }
     }
   },
   persist: true

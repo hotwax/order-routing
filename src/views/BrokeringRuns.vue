@@ -81,12 +81,19 @@
           </section>
         </main>
         <main v-else>
-          <div class="empty-state">
-            <img src="../assets/images/BrokeringRunsEmptyState.png" />
-            <ion-button @click="addNewRun">
-              {{ translate("Create brokering run") }}
-              <ion-icon slot="end" :icon="addOutline"></ion-icon>
-            </ion-button>
+          <div class="empty-block">
+            <EmptyState
+              :image="brokeringRunsEmptyImage"
+              :title="translate('No routing runs yet')"
+              :message="translate('Create your first brokering run to define how orders are routed across facilities and inventory rules.')"
+            >
+              <template #actions>
+                <ion-button @click="addNewRun">
+                  {{ translate("Create brokering run") }}
+                  <ion-icon slot="end" :icon="addOutline" />
+                </ion-button>
+              </template>
+            </EmptyState>
           </div>
         </main>
       </div>
@@ -97,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from "@/components/EmptyState.vue";
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
 import { Group } from "@/types";
@@ -119,6 +127,7 @@ const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 
 const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS)
+const brokeringRunsEmptyImage = new URL("../assets/images/BrokeringRunsEmptyState.png", import.meta.url).href
 
 let isLoading = ref(false)
 let brokeringGroups = ref([]) as any
@@ -211,6 +220,23 @@ function redirect(group: Group) {
   height: 100%;
   overflow: hidden;
 }
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+
+@media (min-width: 991px) {
+  main {
+    display: flex;
+    justify-content: center;
+    align-items: start;
+    gap: var(--spacer-2xl);
+    max-width: 990px;
+    margin: var(--spacer-base) auto 0;
+  }
 
 .run-list-container {
   display: flex;

@@ -6,12 +6,14 @@ export interface FacilityGroupState {
   groups: any[];
   facilitiesByGroup: Record<string, any[]>;
   groupTypes: any[];
+  groupProductStores: Record<string, any[]>;
 }
 
 // Optional, friendlier labels for type IDs that are well-known across HotWax apps.
 // Anything else falls through to its raw ID.
 const TYPE_LABELS: Record<string, string> = {
   FACILITY_GROUP: "Generic",
+  BROKERING_GROUP: "Brokering",
   CHANNEL_FAC_GROUP: "Inventory channel",
   PICKUP: "Store pickup",
   SHIPPING: "Shipping",
@@ -26,22 +28,32 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
   state: (): FacilityGroupState => ({
     groups: [],
     facilitiesByGroup: {},
-    groupTypes: []
+    groupTypes: [],
+    groupProductStores: {}
   }),
   getters: {
     getGroups: (state) => state.groups,
     getGroupFacilities: (state) => (groupId: string) => state.facilitiesByGroup[groupId] || [],
-    getGroupTypes: (state) => state.groupTypes
+    getGroupTypes: (state) => state.groupTypes,
+    getGroupProductStores: (state) => (groupId: string) => state.groupProductStores[groupId] || []
   },
   actions: {
-    async fetchGroups() {
-      // System-wide list of facility groups — not product-store-scoped, so the
-      // result matches what the facilities app surfaces.
+    async fetchGroups(options: { productStoreId?: string; facilityGroupTypeId?: string } = {}) {
+      // Default: system-wide list of facility groups (used by the "use an existing
+      // group" picker). Pass productStoreId to scope to groups linked to that store,
+      // and/or facilityGroupTypeId to filter by type (e.g. BROKERING_GROUP).
       try {
+        const params: any = { pageSize: 200 };
+        let url = "/oms/facilityGroups";
+        if (options.productStoreId) {
+          url = `admin/productStores/${options.productStoreId}/facilityGroups`;
+          params.productStoreId = options.productStoreId;
+        }
+        if (options.facilityGroupTypeId) params.facilityGroupTypeId = options.facilityGroupTypeId;
         const resp = await api({
-          url: "/oms/facilityGroups",
+          url,
           method: "GET",
-          params: { pageSize: 200 }
+          params
         }) as any;
         if (!commonUtil.hasError(resp)) {
           this.groups = (resp.data || []) as any[];
@@ -119,6 +131,21 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       }
       return resp.data;
     },
+    async associateWithProductStore(facilityGroupId: string) {
+      // Link an already-existing group to the current product store. Backs the
+      // "use an existing group" empty-state action; mirrors the association call
+      // that createGroup() performs for freshly created groups.
+      const product = useAtpProductStore();
+      const productStoreId = product.currentProductStore?.productStoreId;
+      if (!productStoreId) throw new Error("No product store selected");
+      const resp = await api({
+        url: `admin/productStores/${productStoreId}/facilityGroups/${facilityGroupId}/association`,
+        method: "POST",
+        data: { productStoreId, facilityGroupId }
+      }) as any;
+      if (commonUtil.hasError(resp)) throw resp.data;
+      return resp.data;
+    },
     async updateGroup(payload: any) {
       const resp = await api({
         url: `admin/facilityGroups/${payload.facilityGroupId}`,
@@ -159,6 +186,47 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);
+    },
+    async fetchGroupProductStoreAssociations() {
+      const productStore = useAtpProductStore();
+      if (!productStore.getProductStores.length) {
+        await productStore.fetchUserProductStores();
+      }
+
+      const stores = productStore.getProductStores;
+      if (!stores.length) return;
+
+      const groupStoresMap: Record<string, any[]> = {};
+
+      await Promise.allSettled(
+        stores.map(async (store: any) => {
+          try {
+            const resp = await api({
+              url: `admin/productStores/${store.productStoreId}/facilityGroups`,
+              method: "GET",
+              params: { pageSize: 100 }
+            }) as any;
+            if (resp && !commonUtil.hasError(resp) && resp.data) {
+              for (const group of resp.data) {
+                const groupId = group.facilityGroupId;
+                if (groupId) {
+                  if (!groupStoresMap[groupId]) {
+                    groupStoresMap[groupId] = [];
+                  }
+                  const storeName = store.storeName || store.productStoreId;
+                  if (!groupStoresMap[groupId].includes(storeName)) {
+                    groupStoresMap[groupId].push(storeName);
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            logger.error(`Failed to fetch facility groups for store ${store.productStoreId}`, err);
+          }
+        })
+      );
+
+      this.groupProductStores = groupStoresMap;
     }
   },
   persist: false

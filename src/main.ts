@@ -31,6 +31,7 @@ import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { logger, createDxpI18n, initialiseConfig } from "@common";
 import localeMessages from "./locales"
 import { useUserStore } from "@/store/userStore";
+import { initialize } from "@/services/appInitializer";
 
 const i18n = createDxpI18n(localeMessages)
 const pinia = createPinia().use(piniaPluginPersistedstate);
@@ -55,6 +56,12 @@ initialiseConfig({
   router: router
 })
 
-router.isReady().then(() => {
+router.isReady().then(async () => {
+  try {
+    await initialize()
+  } catch (error) {
+    logger.error('[IndexedDB] Failed to open CommonDB', error)
+  }
+
   app.mount("#app");
 });

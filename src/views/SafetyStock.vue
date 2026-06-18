@@ -19,8 +19,19 @@
         </section>
       </main>
 
-      <div class="empty-state" v-else>
-       <p>{{ translate("No safety stock rule found.") }}</p>
+      <div class="empty-block" v-else>
+        <EmptyState
+          :icon="pulseOutline"
+          :title="translate('No safety stock rules yet')"
+          :message="translate('Safety stock reserves a buffer of inventory per facility or group so it is not promised to online orders.')"
+        >
+          <template #actions>
+            <ion-button @click="createRule()">
+              {{ translate("Create safety stock rule") }}
+              <ion-icon slot="end" :icon="addOutline" />
+            </ion-button>
+          </template>
+        </EmptyState>
       </div>
     </ion-content>
 
@@ -36,9 +47,10 @@
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, saveOutline, balloonOutline } from 'ionicons/icons';
+import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonMenuButton, IonPage, IonReorderGroup, IonTitle, IonToolbar, onIonViewDidLeave, onIonViewDidEnter } from '@ionic/vue';
+import { addOutline, saveOutline, balloonOutline, pulseOutline } from 'ionicons/icons';
 import RuleItem from '@/components/RuleItem.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import router from "@/router";
 import { computed, ref } from 'vue';
 import ScheduleRuleItem from '@/components/ScheduleRuleItem.vue';
@@ -112,3 +124,13 @@ function createRule() {
   router.push({ path: '/create-safety-stock' })
 }
 </script>
+
+<style scoped>
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacer-base);
+  padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
+}
+</style>

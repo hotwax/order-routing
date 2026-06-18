@@ -35,9 +35,13 @@
         </ion-checkbox>
       </ion-item>
     </ion-list>
-    <div class="empty-state" v-else>
-      <p>{{ translate("No facilities found.") }}</p>
-    </div>
+    <EmptyState
+      v-else
+      variant="compact"
+      :icon="searchOutline"
+      :title="translate('No facilities match your search')"
+      :message="translate('Adjust your search to find facilities to add.')"
+    />
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
       <ion-fab-button :disabled="!isDirty || isSaving" @click="save()">
@@ -67,11 +71,12 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { closeOutline, saveOutline } from "ionicons/icons";
+import { closeOutline, saveOutline, searchOutline } from "ionicons/icons";
 import { api, commonUtil, emitter, logger, translate } from "@common";
 import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import EmptyState from "@/components/EmptyState.vue";
 
 const props = defineProps<{ group: any }>();
 

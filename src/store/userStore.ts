@@ -6,6 +6,8 @@ import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 import { productStore as useProduct } from './product'
 import { productStore } from './productStore'
+import { useProductInventoryStore } from './productInventory'
+import { initialize } from '@/services/appInitializer'
 import { useAtpProductStore } from './atpProductStore'
 import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
@@ -82,10 +84,10 @@ export const useUserStore = defineStore('user', {
         let resp;
         do {
           resp = await api({
-            url: "getPermissions",
-            method: "post",
-            baseURL: commonUtil.getOmsURL(),
-            data: { viewIndex, viewSize }
+            url: "admin/user/permissions",
+            method: "get",
+            baseURL: commonUtil.getMaargURL(),
+            params: { viewIndex, viewSize }
           }) as any
 
           if (resp.status === 200 && resp.data.docs?.length && !commonUtil.hasError(resp)) {
@@ -148,8 +150,9 @@ export const useUserStore = defineStore('user', {
       try {
         await this.fetchUserProfile()
         await this.setOms(cookieHelper().get("oms"))
+        await initialize()
         await this.fetchPermissions()
-        await productStore().fetchEComStores()
+        await productStore().fetchProductStores()
         await this.fetchAvailableTimeZones()
         // ATP (sourcing rules) initialisation
         try {
@@ -171,7 +174,8 @@ export const useUserStore = defineStore('user', {
       orderRoutingStore().clearRoutingTestInfo()
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
-      productStore().clearProductStoreState()
+      productStore().$reset()
+      await useProductInventoryStore().clearProductInventory()
       useAtpProductStore().$reset()
       useRuleStore().$reset()
       useChannelStore().$reset()

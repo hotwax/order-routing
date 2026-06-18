@@ -4,6 +4,7 @@ import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
 import { isFeatureEnabled } from "@/utils/simConfig";
 import {
+  albumsOutline,
   businessOutline,
   cloudUploadOutline,
   flaskOutline,
@@ -23,7 +24,7 @@ declare module "vue-router" {
     title?: string;
     icon?: string;
     menuIndex?: number;
-    section?: "sourcing" | "routing" | "foundations";
+    section?: "sourcing" | "routing";
     childRoutes?: string[];
     featureFlag?: string;
   }
@@ -110,6 +111,26 @@ const routes: Array<RouteRecordRaw> = [
       section: "sourcing",
       menuIndex: 5
     }
+  },
+  {
+    path: "/inventory",
+    name: "Inventory",
+    component: () => import("@/views/Inventory.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Inventory",
+      icon: albumsOutline,
+      section: "sourcing",
+      menuIndex: 6,
+      childRoutes: ["/inventory/"]
+    }
+  },
+  {
+    path: "/inventory/:productId",
+    name: "Inventory detail",
+    component: () => import("@/views/InventoryDetail.vue"),
+    beforeEnter: authGuard,
+    props: true
   },
   {
     path: "/create-threshold",
@@ -224,7 +245,6 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
 
-  // -------------------- Foundations --------------------
   {
     path: "/facility-groups",
     name: "Facility groups",
@@ -233,8 +253,8 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: "Facility groups",
       icon: businessOutline,
-      section: "foundations",
-      menuIndex: 15
+      section: "routing",
+      menuIndex: 11
     }
   },
 

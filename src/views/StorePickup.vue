@@ -20,35 +20,40 @@
     </ion-header>
 
     <ion-content ref="contentRef" :scroll-events="true" @ionScroll="enableScrolling()">
-      <PickupAnalytics />
-      <main class="atp-main" v-if="selectedSegment !== 'PICKUP_FACILITY'">
+      <template v-if="selectedSegment !== 'PICKUP_FACILITY'">
         <template v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
-          <ScheduleRuleItem v-if="rules.length" />
-          <ArchivedRuleItem v-if="archivedRules?.length" />
+          <PickupAnalytics />
+          <main class="atp-main">
+            <ScheduleRuleItem v-if="rules.length" />
+            <ArchivedRuleItem v-if="archivedRules?.length" />
 
-          <section v-if="rules.length">
-            <ion-reorder-group :disabled="false" @ionItemReorder="updateReorderingRules($event)">
-              <RuleItem v-for="(rule, ruleIndex) in (isReorderActive ? reorderingRules : rules)" :rule="rule" :ruleIndex="ruleIndex" :key="rule.ruleId" />
-            </ion-reorder-group>
-          </section>
+            <section v-if="rules.length">
+              <ion-reorder-group :disabled="false" @ionItemReorder="updateReorderingRules($event)">
+                <RuleItem v-for="(rule, ruleIndex) in (isReorderActive ? reorderingRules : rules)" :rule="rule" :ruleIndex="ruleIndex" :key="rule.ruleId" />
+              </ion-reorder-group>
+            </section>
+          </main>
         </template>
-        <div class="empty-block" v-else>
-          <EmptyState
-            :icon="storefrontOutline"
-            :title="translate('No store pickup rules yet')"
-            :message="translate('Store pickup rules decide which facilities can fulfill in-store pickup orders, based on product and facility or product and channel combinations.')"
-          >
-            <template #actions>
-              <ion-button @click="createStorePickup()">
-                {{ translate("Create store pickup rule") }}
-                <ion-icon slot="end" :icon="addOutline" />
-              </ion-button>
-            </template>
-          </EmptyState>
-          <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
-        </div>
-      </main>
-      <main class="atp-main facility-main" v-else>
+        <template v-else>
+          <div class="empty-block">
+            <EmptyState
+              :icon="storefrontOutline"
+              :title="translate('No store pickup rules yet')"
+              :message="translate('Store pickup rules decide which facilities can fulfill in-store pickup orders, based on product and facility or product and channel combinations.')"
+            >
+              <template #actions>
+                <ion-button @click="createStorePickup()">
+                  {{ translate("Create store pickup rule") }}
+                  <ion-icon slot="end" :icon="addOutline" />
+                </ion-button>
+              </template>
+            </EmptyState>
+            <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
+          </div>
+          <PickupAnalytics />
+        </template>
+      </template>
+      <template v-else>
         <div v-if="!pickupGroups.length" class="empty-block">
           <EmptyState
             :icon="businessOutline"
@@ -68,29 +73,32 @@
           </EmptyState>
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
-        <template v-else-if="facilities.length">
-          <div class="facility-controls">
-            <ion-searchbar :placeholder="translate('Search facilities')" :value="facilitySearch" :debounce="200" @ionInput="facilitySearch = $event.detail.value || ''" />
-            <ion-item lines="none">
-              <ion-select v-model="facilitySort" :label="translate('Sort by')" interface="popover">
+        <div v-else-if="facilities.length" class="facility-layout">
+          <aside class="facility-analytics">
+            <PickupAnalytics />
+          </aside>
+          <main class="facility-list-col">
+            <div class="facility-controls">
+              <ion-searchbar :placeholder="translate('Search')" :value="facilitySearch" :debounce="200" @ionInput="facilitySearch = $event.detail.value || ''" />
+              <ion-select v-model="facilitySort" :aria-label="translate('Sort by')" interface="popover">
                 <ion-select-option value="volume">{{ translate("Order volume") }}</ion-select-option>
                 <ion-select-option value="name">{{ translate("Alphabetical") }}</ion-select-option>
                 <ion-select-option value="created">{{ translate("Created date") }}</ion-select-option>
               </ion-select>
-            </ion-item>
-          </div>
-          <section class="facility-grid" v-if="displayedFacilities.length">
-            <FacilityItem v-for="facility in displayedFacilities" :facility="facility" :key="facility.facilityId" pickup />
-          </section>
-          <div v-else class="empty-block">
-            <EmptyState
-              variant="compact"
-              :icon="storefrontOutline"
-              :title="translate('No facilities match your search')"
-              :message="translate('Adjust your search to find facilities to add.')"
-            />
-          </div>
-        </template>
+            </div>
+            <section class="facility-list" v-if="displayedFacilities.length">
+              <FacilityItem v-for="facility in displayedFacilities" :facility="facility" :key="facility.facilityId" pickup />
+            </section>
+            <div v-else class="empty-block">
+              <EmptyState
+                variant="compact"
+                :icon="storefrontOutline"
+                :title="translate('No facilities match your search')"
+                :message="translate('Adjust your search to find facilities to add.')"
+              />
+            </div>
+          </main>
+        </div>
         <div v-else class="empty-block">
           <EmptyState
             variant="compact"
@@ -100,7 +108,7 @@
           />
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" @select="changeSegment" />
         </div>
-      </main>
+      </template>
 
       <ion-infinite-scroll
         @ionInfinite="loadMoreFacilities($event)"
@@ -359,11 +367,23 @@ function createStorePickup() {
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
 }
 
-/* The facility tab uses the full width so its cards can lay out in a grid,
-   overriding the global 375px cap that keeps the rule lists narrow. */
-.facility-main {
-  max-width: none;
-  margin: 0;
+/* Facility tab: analytics in a left column, the facility list on the right. */
+.facility-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: var(--spacer-base);
+  align-items: start;
+}
+
+.facility-analytics {
+  position: sticky;
+  top: var(--spacer-base);
+}
+
+.facility-list-col {
+  min-width: 0;
+  /* Keep the cards at the base width they had before the two-column layout. */
+  max-width: 375px;
 }
 
 .facility-controls {
@@ -378,20 +398,25 @@ function createStorePickup() {
   padding: 0;
 }
 
-.facility-controls ion-item {
+.facility-controls ion-select {
   flex-shrink: 0;
+  max-width: 50%;
 }
 
-.facility-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--spacer-xs);
-  align-items: start;
+/* Single-column list of facility cards, as before — now with stats per card. */
+.facility-list {
+  display: flex;
+  flex-direction: column;
 }
 
-@media (min-width: 720px) {
-  .facility-grid {
-    grid-template-columns: 1fr 1fr;
+/* Stack the analytics above the list on narrow screens. */
+@media (max-width: 991px) {
+  .facility-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .facility-analytics {
+    position: static;
   }
 }
 </style>

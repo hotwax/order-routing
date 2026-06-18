@@ -83,8 +83,8 @@ function sparkline(daily: SparklineEntry[]): string {
 
 <style scoped>
 .pickup-analytics {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--spacer-sm);
   padding: var(--spacer-base) 0 0;
 }
@@ -111,31 +111,31 @@ function sparkline(daily: SparklineEntry[]): string {
 }
 
 .chip-scroll {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
+}
+
+@media (max-width: 380px) {
+  .chip-scroll {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chip-skeleton {
-  min-width: 160px;
   height: 72px;
   border-radius: 12px;
-  flex-shrink: 0;
 }
 
 .stat-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 170px;
-  max-width: 220px;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid var(--ion-border-color, var(--ion-color-light-shade));
   background: var(--ion-item-background, var(--ion-background-color));
-  flex-shrink: 0;
 }
 
 .chip-thumb {

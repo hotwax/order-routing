@@ -189,7 +189,9 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
       }
     },
 
-    // Distinct BOPIS orders (approved or completed) per facility over the last 30 days. Read-only.
+    // Pickup order counts per facility over the last 30 days. Uses the exact same
+    // filter and count metric as loadTopFacilities so the per-card numbers match the
+    // "Top pickup facilities" widget; only the facet limit differs (all vs top 10).
     async loadFacilityOrderCounts(productStoreId?: string) {
       const storeId = productStoreId || useAtpProductStore().currentProductStore?.productStoreId;
       if (!storeId) return;
@@ -204,15 +206,12 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
             "json": {
               "params": { "rows": "0" },
               "query": "*:*",
-              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${storeId} AND orderStatusId: (ORDER_APPROVED OR ORDER_COMPLETED) AND orderDate: [${start} TO ${end}]`,
+              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${storeId} AND orderDate: [${start} TO ${end}]`,
               "facet": {
                 "facilities": {
                   "type": "terms",
                   "field": "facilityId",
-                  "limit": 1000,
-                  "facet": {
-                    "orders": "unique(orderId)"
-                  }
+                  "limit": 1000
                 }
               }
             }
@@ -223,8 +222,7 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
         const counts: Record<string, number> = {};
         if (!commonUtil.hasError(resp) && facets?.facilities?.buckets) {
           for (const bucket of facets.facilities.buckets) {
-            // Prefer distinct order count; fall back to document count if the agg is absent.
-            counts[bucket.val] = typeof bucket.orders === "number" ? bucket.orders : bucket.count;
+            counts[bucket.val] = bucket.count;
           }
         }
         this.facilityOrderCounts = counts;

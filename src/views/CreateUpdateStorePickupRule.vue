@@ -140,7 +140,12 @@
         </div>
 
         <aside class="rule-preview">
-          <RuleProductPreview />
+          <RuleProductPreview
+            :selected-segment="selectedSegment"
+            :selected-facility-groups="formData.selectedFacilityGroups"
+            :selected-config-facilities="formData.selectedConfigFacilites"
+            :are-all-selected="formData.areAllSelected"
+          />
         </aside>
       </div>
     </ion-content>

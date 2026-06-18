@@ -20,8 +20,8 @@
     </ion-header>
 
     <ion-content ref="contentRef" :scroll-events="true" @ionScroll="enableScrolling()">
-      <main class="atp-main" v-if="selectedSegment !== 'SHIPPING_FACILITY'">
-        <template v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
+      <template v-if="selectedSegment !== 'SHIPPING_FACILITY'">
+        <main class="atp-main" v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
           <ScheduleRuleItem v-if="rules.length" />
           <ArchivedRuleItem v-if="archivedRules?.length" />
 
@@ -30,7 +30,7 @@
               <RuleItem v-for="(rule, ruleIndex) in (isReorderActive ? reorderingRules : rules)" :rule="rule" :ruleIndex="ruleIndex" :key="rule.ruleId" />
             </ion-reorder-group>
           </section>
-        </template>
+        </main>
         <div class="empty-block" v-else>
           <EmptyState
             :icon="sendOutline"
@@ -46,11 +46,13 @@
           </EmptyState>
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Shipping is set up across three tabs')" @select="changeSegment" />
         </div>
-      </main>
-      <main class="atp-main" v-else>
-        <section v-if="facilities.length">
-          <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
-        </section>
+      </template>
+      <template v-else>
+        <main class="atp-main" v-if="facilities.length">
+          <section>
+            <FacilityItem v-for="facility in facilities" :facility="facility" :key="facility.facilityId" />
+          </section>
+        </main>
         <div v-else class="empty-block">
           <EmptyState
             variant="compact"
@@ -60,7 +62,7 @@
           />
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" @select="changeSegment" />
         </div>
-      </main>
+      </template>
       <ion-infinite-scroll
         @ionInfinite="loadMoreFacilities($event)"
         threshold="100px"

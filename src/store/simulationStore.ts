@@ -128,12 +128,13 @@ export const simulationStore = defineStore("simulation", {
     async fetchSimGroupDetail(routingGroupId: string): Promise<any> {
       let group = (this.simGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
       if (!group?.isNew) {
+        
         let resp;
         try {
           resp = await api({
             url: `order-routing/groups/${routingGroupId}/raw`,
             method: "GET",
-            baseURL: simApiBaseUrl,
+            baseURL: simApiBaseUrl(),
           });
         } catch (err) {
           if (group) return normalizeRoutingGroupHierarchy({ ...group });

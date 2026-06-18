@@ -25,10 +25,10 @@
         </ion-select>
       </ion-item>
       <ion-item>
-        <ion-input v-model="minimumStock" label="Safety stock"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock"></ion-input>
       </ion-item>
       <ion-item>
-        <ion-input v-model="daysToShip" label="Days to Ship"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship"></ion-input>
       </ion-item>
     </ion-list>
   </ion-content>
@@ -50,8 +50,8 @@ const props = defineProps(["selectedProducts", "selectedFacility"])
 
 const allowPickup = ref("");
 const allowBrokering = ref("")
-const minimumStock = ref(0);
-const daysToShip = ref(0);
+const minimumStock = ref();
+const daysToShip = ref();
 
 function closeModal() {
   modalController.dismiss();
@@ -80,18 +80,19 @@ async function updateConfig() {
 
   const selectedProductIds = props.selectedProducts.map((product: any) => product.productId)
   try {
-    // TODO: define a multi service for this
+    const payload = []
     for(const productId of selectedProductIds) {
-      await api({
-        url: "oms/productFacilities",
-        method: "POST",
-        data: {
-          ...params,
-          productId
-        }
+      payload.push({
+        ...params,
+        productId
       })
     }
-    closeModal();
+    await api({
+      url: "oms/productFacilities",
+      method: "POST",
+      data: payload
+    })
+    modalController.dismiss({ updated: true });
     commonUtil.showToast(translate("Inventory config update for selected products"))
   } catch(err) {
     logger.error("Failed to update inventory config for product facilities");

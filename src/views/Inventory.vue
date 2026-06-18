@@ -33,7 +33,7 @@
           </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
             <ion-item>
-              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = true"></ion-checkbox>
+              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = $event.detail.checked"></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
@@ -45,20 +45,20 @@
             <template v-if="product.inventoryConfig">
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.computedLastInventoryCount }}
+                  {{ product.inventoryConfig.atp }}
                   <p>{{ translate("ATP") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.lastInventoryCount }}
+                  {{ product.inventoryConfig.qoh }}
                   <p>{{ translate("QOH") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
                   {{ product.inventoryConfig.minimumStock || "-" }}
-                  <p>{{ translate("Minimum Stock") }}</p>
+                  <p>{{ translate("Safety Stock") }}</p>
                 </ion-label>
               </div>
               <div>
@@ -86,14 +86,12 @@
           </div>
         </template>
       </ion-list>
-
     </ion-content>
-    <!-- TODO: on selecting a product and then unselecting the footer is still visible and check/uncheck on bulk checkbox has corner case issues -->
     <ion-footer v-if="isAnyProductSelected">
       <ion-toolbar class="footer-actions">
         <ion-buttons>
           <ion-button @click="openBulkInventoryEditModal">{{ "Adjust Inventory" }}</ion-button>
-          <ion-button @click="openProductFacilityConfigModal">{{ "Adjust Config" }}</ion-button>
+          <ion-button @click="openProductFacilityConfigModal()">{{ "Adjust Config" }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-footer>
@@ -105,7 +103,6 @@ import { computed, ref, watch } from 'vue';
 import router from '../router';
 import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, modalController } from '@ionic/vue';
 import { DxpShopifyImg, translate } from '@common';
-import type { Product } from '@/services/commonDatabase';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
@@ -198,6 +195,10 @@ async function openBulkInventoryEditModal() {
     }
   })
 
+  bulkInventoryEditModal.onDidDismiss().then((data) => {
+    data?.data?.updated && fetchProductFacility();
+  })
+
   await bulkInventoryEditModal.present()
 }
 
@@ -206,8 +207,12 @@ async function openProductFacilityConfigModal(selectedProducts?: any[]) {
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: selectedProducts ?? products.value.filter((product: any) => product.isChecked)
+      selectedProducts: selectedProducts ? selectedProducts : products.value.filter((product: any) => product.isChecked)
     }
+  })
+
+  productFacilityConfigEditModal.onDidDismiss().then((data) => {
+    data?.data?.updated && fetchProductFacility();
   })
 
   await productFacilityConfigEditModal.present()

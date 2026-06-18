@@ -237,6 +237,7 @@ function redirect(group: Group) {
     max-width: 990px;
     margin: var(--spacer-base) auto 0;
   }
+}
 
 .run-list-container {
   display: flex;

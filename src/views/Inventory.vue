@@ -105,6 +105,7 @@ import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPag
 import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
+import { useAtpProductStore } from '@/store/atpProductStore';
 import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
 import { useProductFacility } from '@/composables/useProductFacility';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
@@ -128,10 +129,24 @@ const isAnyProductSelected = computed(() => products.value.some((product: any) =
 const allSelected = computed(() => products.value.every((product: any) => product.isChecked))
 
 async function onProductStoreOrConfigChanged() {
+  const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+  if (productStoreId) {
+    productStore().$patch({
+      currentEComStore: { productStoreId }
+    });
+  }
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  await fetchProductFacility();
-  selectedFacility.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value?.[0]?.facilityId
+  
+  const facilityId = productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
+    ? productStore().selectedInventoryFacilityId
+    : productStoreFacilities.value?.[0]?.facilityId;
+
+  if (selectedFacility.value === facilityId) {
+    await fetchProductFacility();
+  } else {
+    selectedFacility.value = facilityId || '';
+  }
 }
 
 onIonViewDidEnter(async () => {

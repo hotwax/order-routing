@@ -109,7 +109,6 @@ async function search() {
 
   if(queryString.value.trim()) {
     isLoading.value = true;
-    await productStore.fetchProductFilters({ facetToSelect: props.facetToSelect, searchfield: props.searchfield, queryString: queryString.value.trim() })
     filteredOptions.value = productStore.getFacetOptions(props.searchfield).filter((option: any) => option.label.toLowerCase().includes(queryString.value.trim().toLowerCase()))
     isLoading.value = false;
   } else {

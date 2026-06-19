@@ -131,26 +131,25 @@ const allSelected = computed(() => products.value.every((product: any) => produc
 async function onProductStoreOrConfigChanged() {
   const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
   if (productStoreId) {
-    productStore().$patch({
-      currentEComStore: { productStoreId }
-    });
+    productStore().setEcomStore({ productStoreId });
   }
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
   
-  const facilityId = productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
+  const facilityId = (productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
     ? productStore().selectedInventoryFacilityId
-    : productStoreFacilities.value?.[0]?.facilityId;
+    : productStoreFacilities.value?.[0]?.facilityId) || '';
 
   if (selectedFacility.value === facilityId) {
     await fetchProductFacility();
   } else {
-    selectedFacility.value = facilityId || '';
+    selectedFacility.value = facilityId;
   }
 }
 
 onIonViewDidEnter(async () => {
   await onProductStoreOrConfigChanged();
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
   emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
 })
 

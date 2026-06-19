@@ -47,22 +47,6 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="foundationsItems.length">
-              <ion-label>{{ translate("Foundations") }}</ion-label>
-            </ion-list-header>
-            <ion-menu-toggle :auto-hide="false" v-for="(page, index) in foundationsItems" :key="`f-${index}`">
-              <ion-item
-                button
-                router-direction="root"
-                :router-link="page.url"
-                class="hydrated"
-                :class="{ selected: isSelected(page) }"
-              >
-                <ion-icon slot="start" :ios="page.icon" :md="page.icon" />
-                <ion-label>{{ translate(page.title) }}</ion-label>
-              </ion-item>
-            </ion-menu-toggle>
-
             <ion-list-header v-if="otherItems.length">
               <ion-label>{{ translate("General") }}</ion-label>
             </ion-list-header>
@@ -147,6 +131,7 @@ import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { isFeatureEnabled } from "@/utils/simConfig";
 import router from "@/router";
 
 const userStore = useUserStore();
@@ -167,6 +152,7 @@ const menuItems = computed(() => {
         !route.meta.permissionId ||
         (userStore as any).hasPermission(route.meta.permissionId as string)
     )
+    .filter((route) => !route.meta.featureFlag || isFeatureEnabled(route.meta.featureFlag as string))
     .sort((a, b) => (a.meta!.menuIndex as number) - (b.meta!.menuIndex as number))
     .map((route) => ({
       title: route.meta!.title as string,
@@ -180,7 +166,6 @@ const menuItems = computed(() => {
 
 const sourcingItems = computed(() => menuItems.value.filter((m) => m.section === "sourcing"));
 const routingItems = computed(() => menuItems.value.filter((m) => m.section === "routing"));
-const foundationsItems = computed(() => menuItems.value.filter((m) => m.section === "foundations"));
 const otherItems = computed(() => menuItems.value.filter((m) => !m.section));
 
 function isSelected(page: { url: string; childRoutes: string[] }) {
@@ -189,20 +174,31 @@ function isSelected(page: { url: string; childRoutes: string[] }) {
   return page.childRoutes?.some((r) => path === r || path.includes(r));
 }
 
+let isLoaderDismissed = false;
+
 async function presentLoader(options = { message: "", backdropDismiss: true }) {
+  isLoaderDismissed = false;
   if (options.message && loader.value) dismissLoader();
 
   if (!loader.value) {
-    loader.value = await loadingController.create({
+    const currentLoader = await loadingController.create({
       message: options.message ? translate(options.message) : translate("Click the backdrop to dismiss."),
       translucent: true,
       backdropDismiss: options.backdropDismiss
     });
+
+    if (isLoaderDismissed) {
+      currentLoader.dismiss();
+      return;
+    }
+
+    loader.value = currentLoader;
   }
-  loader.value.present();
+  await loader.value.present();
 }
 
 function dismissLoader() {
+  isLoaderDismissed = true;
   if (loader.value) {
     loader.value.dismiss();
     loader.value = null;

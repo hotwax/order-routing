@@ -35,10 +35,10 @@ npm-debug.log*
 /www
 
 .firebase
+
 .env
 .env.*
 !.env.example
-env
 .agent
 .gstack/
 # Vite PWA dev output

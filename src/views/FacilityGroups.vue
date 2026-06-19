@@ -130,8 +130,7 @@ import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroup
 const facilityGroupStore = useFacilityGroupStore();
 const productStore = useAtpProductStore();
 
-// This view manages brokering facility groups for the selected product store only.
-const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
+const DEFAULT_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
 
@@ -169,7 +168,7 @@ async function load() {
     return;
   }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
+    await facilityGroupStore.fetchGroups({ productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -178,7 +177,7 @@ async function load() {
 async function openCreateModal() {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
-    componentProps: { defaultTypeId: BROKERING_GROUP_TYPE }
+    componentProps: { defaultTypeId: DEFAULT_GROUP_TYPE }
   });
   modal.onDidDismiss().then((res: any) => {
     if (res?.data?.saved) load();

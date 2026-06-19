@@ -254,7 +254,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         const resp = await api({
           url: `admin/productStores/${this.currentProductStore.productStoreId}/facilityGroups`,
           method: "GET",
-          params: { facilityGroupTypeId: 'PICKUP', productStoreId: this.currentProductStore.productStoreId, pageSize: 100 }
+          params: { facilityGroupId: 'PICKUP', productStoreId: this.currentProductStore.productStoreId, pageSize: 100 }
         }) as any;
         if (resp && !commonUtil.hasError(resp)) {
           groups = resp.data;

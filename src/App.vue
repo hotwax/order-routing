@@ -223,7 +223,8 @@ async function setProductStore(event: SelectCustomEvent) {
           {
             text: translate("Yes"),
             handler: async () => {
-              await atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+              const store = productStores.value.find((store: any) => store.productStoreId === event.detail.value);
+              atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
               productStore().setEcomStore({ productStoreId: event.detail.value });
               emitter.emit("productStoreOrConfigChanged");
             }
@@ -232,7 +233,8 @@ async function setProductStore(event: SelectCustomEvent) {
       });
       alert.present();
     } else {
-      atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+      const store = productStores.value.find((store: any) => store.productStoreId === event.detail.value);
+      atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
       productStore().setEcomStore({ productStoreId: event.detail.value });
       emitter.emit("productStoreOrConfigChanged");
     }

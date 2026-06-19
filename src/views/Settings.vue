@@ -225,9 +225,9 @@ function setEComStore(event: CustomEvent) {
     productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
-    useAtpProductStore().setCurrentProductStore({
-      "productStoreId": event.detail.value
-    })
+    const atpProductStore = useAtpProductStore();
+    const store = atpProductStore.productStores.find((store: any) => store.productStoreId === event.detail.value);
+    atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
     emitter.emit("productStoreOrConfigChanged");
   }
 }

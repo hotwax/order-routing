@@ -159,10 +159,14 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
     },
     async archiveGroup(facilityGroupId: string) {
       const thruDate = Date.now();
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+      const group = this.groups.find((g: any) => g.facilityGroupId === facilityGroupId);
+      if (!productStoreId) throw new Error("No product store selected");
+      if (group?.fromDate == null) throw new Error("No active product store association found for facility group.");
       const resp = await api({
-        url: `admin/facilityGroups/${facilityGroupId}`,
-        method: "PUT",
-        params: { facilityGroupId, thruDate }
+        url: `admin/productStores/${productStoreId}/facilityGroups/${facilityGroupId}/association`,
+        method: "POST",
+        data: { productStoreId, facilityGroupId, fromDate: group.fromDate, thruDate }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       this.groups = this.groups.filter((g: any) => g.facilityGroupId !== facilityGroupId);

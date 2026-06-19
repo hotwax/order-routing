@@ -101,8 +101,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, modalController } from '@ionic/vue';
-import { DxpShopifyImg, translate } from '@common';
+import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
@@ -127,11 +127,20 @@ const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1)
 const isAnyProductSelected = computed(() => products.value.some((product: any) => product.isChecked))
 const allSelected = computed(() => products.value.every((product: any) => product.isChecked))
 
-onIonViewDidEnter(async () => {
+async function onProductStoreOrConfigChanged() {
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
   await fetchProductFacility();
   selectedFacility.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value?.[0]?.facilityId
+}
+
+onIonViewDidEnter(async () => {
+  await onProductStoreOrConfigChanged();
+  emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+})
+
+onIonViewDidLeave(() => {
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
 })
 
 watch(selectedFacility, (facilityId) => {

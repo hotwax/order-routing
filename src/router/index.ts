@@ -13,6 +13,7 @@ import {
   sendOutline,
   settingsOutline,
   shuffleOutline,
+  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 
@@ -255,6 +256,18 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
+    }
+  },
+  {
+    path: "/circuit",
+    name: "Circuit",
+    component: () => import("@/views/Circuit.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Circuit",
+      icon: sparklesOutline,
+      section: "routing",
+      menuIndex: 12
     }
   },
 

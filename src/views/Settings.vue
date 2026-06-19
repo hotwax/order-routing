@@ -175,10 +175,11 @@ import { computed, onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { useCircuitStore } from "@/store/circuit";
 import { productStore } from "@/store/productStore";
+import { useAtpProductStore } from "@/store/atpProductStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
-import { translate, commonUtil, cookieHelper } from "@common";
+import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
@@ -224,6 +225,10 @@ function setEComStore(event: CustomEvent) {
     productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
+    useAtpProductStore().setCurrentProductStore({
+      "productStoreId": event.detail.value
+    })
+    emitter.emit("productStoreOrConfigChanged");
   }
 }
 

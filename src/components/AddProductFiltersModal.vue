@@ -104,15 +104,13 @@ function closeModal() {
   modalController.dismiss({ dismissed: true });
 }
 
-async function search() {
-  filteredOptions.value = []
+function search() {
+  const searchTerm = queryString.value.trim().toLowerCase();
 
-  if(queryString.value.trim()) {
-    isLoading.value = true;
-    filteredOptions.value = productStore.getFacetOptions(props.searchfield).filter((option: any) => option.label.toLowerCase().includes(queryString.value.trim().toLowerCase()))
-    isLoading.value = false;
+  if(searchTerm) {
+    filteredOptions.value = facetOptions.value.filter((option: any) => option.label.toLowerCase().includes(searchTerm))
   } else {
-    filteredOptions.value = JSON.parse(JSON.stringify(productStore.getFacetOptions(props.searchfield)))
+    filteredOptions.value = JSON.parse(JSON.stringify(facetOptions.value))
   }
 }
 

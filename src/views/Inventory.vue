@@ -168,6 +168,8 @@ function selectAllProducts(checked: boolean) {
 }
 
 async function fetchProductFacility() {
+  if (!selectedFacility.value) return;
+
   isLoading.value = true
   const params = {
     pageSize: PAGE_SIZE,

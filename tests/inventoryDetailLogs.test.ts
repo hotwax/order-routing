@@ -10,16 +10,18 @@ describe("Inventory detail logs", () => {
     const inventoryDetailView = readFileSync(resolve(__dirname, "../src/views/InventoryDetail.vue"), "utf8");
 
     expect(inventoryDetailView).toContain('<div class="logs-scroll">');
-    expect(inventoryDetailView).toContain('<ion-list class="logs-list">');
-    expect(inventoryDetailView).toContain('class="logs-row"');
-    expect(inventoryDetailView).not.toContain("repeat(var(--implicit-columns)");
+    expect(inventoryDetailView).toContain('<div class="list-item">');
+    expect(inventoryDetailView).toContain('class="list-item" v-for');
+    expect(inventoryDetailView).toContain("repeat(var(--implicit-columns)");
+    expect(inventoryDetailView).toContain(".logs-panel .list-item > *");
+    expect(inventoryDetailView).not.toContain('<ion-list class="logs-list">');
+    expect(inventoryDetailView).not.toContain('class="logs-row"');
   });
 
   it("renders the empty log state inside the list with dedicated alignment", () => {
     const inventoryDetailView = readFileSync(resolve(__dirname, "../src/views/InventoryDetail.vue"), "utf8");
 
-    expect(inventoryDetailView).toContain('class="logs-empty"');
-    expect(inventoryDetailView).toContain('class="logs-empty-label"');
+    expect(inventoryDetailView).toContain('class="list-item logs-empty"');
     expect(inventoryDetailView).toContain("No inventory logs found");
   });
 });

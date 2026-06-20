@@ -372,6 +372,7 @@ ion-note[slot="end"] {
 }
 
 .logs-panel {
+  display: block;
   margin-top: var(--spacer-base, 16px);
 }
 
@@ -400,6 +401,10 @@ ion-badge {
 
 .list-item ion-label {
   min-width: 0;
+}
+
+.logs-panel .list-item > * {
+  display: unset;
 }
 
 .list-item p {

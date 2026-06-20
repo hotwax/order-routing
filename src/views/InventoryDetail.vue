@@ -85,36 +85,36 @@
             <ion-item lines="full">
               <div class="logs-row">
                 <ion-label>
-                  <p>{{ "Id" }}</p>
+                  <p>{{ translate("Id") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "Date Time Received" }}</p>
+                  <p>{{ translate("Date Time Received") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "Facility Id" }}</p>
+                  <p>{{ translate("Facility Id") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "Location Seq Id" }}</p>
+                  <p>{{ translate("Location Seq Id") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "Comments" }}</p>
+                  <p>{{ translate("Comments") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "ATP diff" }}</p>
+                  <p>{{ translate("ATP diff") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "QOH Diff" }}</p>
+                  <p>{{ translate("QOH Diff") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "ATP Total" }}</p>
+                  <p>{{ translate("ATP Total") }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ "QOH Total" }}</p>
+                  <p>{{ translate("QOH Total") }}</p>
                 </ion-label>
               </div>
             </ion-item>
 
-            <ion-item lines="full" v-for="log in inventoryLogs" :key="log.inventoryItemId">
+            <ion-item lines="full" v-for="(log, index) in inventoryLogs" :key="`${log.inventoryItemId || 'inventory-log'}-${log.effectiveDate || index}-${index}`">
               <div class="logs-row">
                 <ion-label>
                   <p>{{ log.inventoryItemId }}</p>
@@ -138,17 +138,17 @@
                   <p>{{ log.quantityOnHandDiff }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+                  <p>{{ quantityTotal(log.lastAvailableToPromise, log.availableToPromiseDiff) }}</p>
                 </ion-label>
                 <ion-label>
-                  <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
+                  <p>{{ quantityTotal(log.lastQuantityOnHand, log.quantityOnHandDiff) }}</p>
                 </ion-label>
               </div>
             </ion-item>
 
             <ion-item v-if="!inventoryLogs.length" lines="none" class="logs-empty">
               <ion-label class="logs-empty-label">
-                {{ "No inventory logs found" }}
+                {{ translate("No inventory logs found") }}
               </ion-label>
             </ion-item>
           </ion-list>
@@ -196,6 +196,12 @@ function formatDateTime(value: any): string {
     ? DateTime.fromMillis(value)
     : DateTime.fromISO(String(value));
   return dt.isValid ? dt.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: 'h12' }) : String(value);
+}
+
+function quantityTotal(baseValue: any, diffValue: any): number {
+  const base = Number(baseValue);
+  const diff = Number(diffValue);
+  return (Number.isFinite(base) ? base : 0) + (Number.isFinite(diff) ? diff : 0);
 }
 
 const route = router.currentRoute.value;

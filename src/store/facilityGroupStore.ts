@@ -162,7 +162,8 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
       const group = this.groups.find((g: any) => g.facilityGroupId === facilityGroupId);
       if (!productStoreId) throw new Error("No product store selected");
-      if (group?.fromDate == null) throw new Error("No active product store association found for facility group.");
+      if (!group) throw new Error("Facility group not found in current product store.");
+      if (group.fromDate == null) throw new Error("No active product store association found for facility group.");
       const resp = await api({
         url: `admin/productStores/${productStoreId}/facilityGroups/${facilityGroupId}/association`,
         method: "POST",

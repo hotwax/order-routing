@@ -74,4 +74,13 @@ describe("facilityGroupStore.archiveGroup", () => {
     expect(mockedApi).not.toHaveBeenCalled();
     expect(facilityGroupStore.getGroups).toHaveLength(1);
   });
+
+  it("reports when the group is not loaded in local product store state", async () => {
+    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    const facilityGroupStore = useFacilityGroupStore();
+
+    await expect(facilityGroupStore.archiveGroup("FG1")).rejects.toThrow("Facility group not found in current product store.");
+
+    expect(mockedApi).not.toHaveBeenCalled();
+  });
 });

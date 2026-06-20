@@ -110,6 +110,7 @@ import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
 import { useProductFacility } from '@/composables/useProductFacility';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
+import { buildInventoryFacilitySearchParams, resolveInventoryFacilityId } from '@/utils/inventoryFacility';
 
 const PAGE_SIZE = 50;
 const pageIndex = ref(0);
@@ -135,10 +136,7 @@ async function onProductStoreOrConfigChanged() {
   }
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  
-  const facilityId = (productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
-    ? productStore().selectedInventoryFacilityId
-    : productStoreFacilities.value?.[0]?.facilityId) || '';
+  const facilityId = resolveInventoryFacilityId(productStore().selectedInventoryFacilityId, productStoreFacilities.value);
 
   if (selectedFacility.value === facilityId) {
     await fetchProductFacility();
@@ -167,24 +165,21 @@ function selectAllProducts(checked: boolean) {
 }
 
 async function fetchProductFacility() {
-  if (!selectedFacility.value) return;
-
-  isLoading.value = true
-  const params = {
+  const params = buildInventoryFacilitySearchParams({
     pageSize: PAGE_SIZE,
-    pageIndex: pageIndex.value
-  } as Record<string, string | number>
+    pageIndex: pageIndex.value,
+    searchQuery: searchQuery.value,
+    facilityId: selectedFacility.value
+  });
 
-  if(searchQuery.value.trim()) {
-    params["keyword"] = searchQuery.value.trim();
+  if (!params) return;
+
+  isLoading.value = true;
+  try {
+    total.value = await useProductFacility().fetchProductFacility(params);
+  } finally {
+    isLoading.value = false;
   }
-
-  if(selectedFacility.value) {
-    params["facilityId"] = selectedFacility.value;
-  }
-
-  total.value = await useProductFacility().fetchProductFacility(params);
-  isLoading.value = false
 }
 
 async function updateSearchQuery(event: CustomEvent<{ value?: string | null }>) {

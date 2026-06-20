@@ -207,6 +207,7 @@ const productStoreFacilities = computed(() => productStore().productStoreFacilit
 
 const { inventoryLogs } = useProductFacility();
 const inventoryConfig = ref<any>({});
+let isInitializingInventoryDetail = false;
 
 const productName = computed(() =>
   product.value?.internalName || product.value?.productName || product.value?.parentProductName || ''
@@ -216,30 +217,59 @@ const productSubtitle = computed(() =>
   product.value?.parentProductName || product.value?.productName || product.value?.title || ''
 );
 
+function syncSelectedFacility() {
+  const facilityId = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
+  if (!selectedFacilityId.value && facilityId) {
+    selectedFacilityId.value = facilityId;
+  }
+}
+
+function hasInventoryDetailContext() {
+  return Boolean(productId.value && selectedFacilityId.value);
+}
+
 onIonViewDidEnter(async () => {
-  selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
+  isInitializingInventoryDetail = true;
+  syncSelectedFacility();
   isLoading.value = true;
-  await productInfoStore().fetchProducts([productId.value]);
-  isLoading.value = false;
+  try {
+    if (productId.value) await productInfoStore().fetchProducts([productId.value]);
+  } finally {
+    isLoading.value = false;
+    isInitializingInventoryDetail = false;
+  }
   await fetchInventoryConfig();
   await fetchInventoryLogs();
 });
 
 watch(selectedFacilityId, async () => {
+  if (isInitializingInventoryDetail) return;
   await fetchInventoryConfig();
   await fetchInventoryLogs();
 });
 
+watch(productStoreFacilities, () => {
+  syncSelectedFacility();
+});
+
 async function fetchInventoryConfig() {
+  if (!hasInventoryDetailContext()) {
+    inventoryConfig.value = {};
+    return;
+  }
   const { fetchProductFacility, productFacility } = useProductFacility();
   await fetchProductFacility({
     keyword: productId.value,
     facilityId: selectedFacilityId.value
   });
-  inventoryConfig.value = productFacility.value?.[0] ?? null;
+  inventoryConfig.value = productFacility.value?.[0] ?? {};
 }
 
 async function fetchInventoryLogs() {
+  if (!hasInventoryDetailContext()) {
+    inventoryLogs.value = [];
+    return;
+  }
   await useProductFacility().fetchInventoryLogs({
     productId: productId.value,
     facilityId: selectedFacilityId.value,

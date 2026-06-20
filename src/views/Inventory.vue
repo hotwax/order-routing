@@ -33,7 +33,7 @@
           </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
             <ion-item>
-              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = $event.detail.checked"></ion-checkbox>
+              <ion-checkbox v-model="product.isChecked" slot="start" @click.stop></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>

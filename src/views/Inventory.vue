@@ -245,10 +245,6 @@ async function openProductFacilityConfigModal(selectedProducts?: any[]) {
 </script>
 
 <style scoped>
-ion-content {
-  --padding-bottom: 80px;
-}
-
 .list-item {
   --columns-desktop: 6;
   border-bottom : 1px solid var(--ion-color-medium);

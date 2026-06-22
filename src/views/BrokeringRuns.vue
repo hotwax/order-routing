@@ -7,6 +7,10 @@
           <ion-button :aria-label="translate('Open brokering runs assistant')" @click="openAssistant">
             <ion-icon slot="icon-only" :icon="sparklesOutline" />
           </ion-button>
+          <ion-button color="primary" @click="addNewRun">
+            {{ translate("New Run") }}
+            <ion-icon :icon="addOutline" />
+          </ion-button>
         </ion-buttons>
         <ion-buttons slot="end" v-if="userProfile?.stores?.length > 1">
           <ion-item lines="none" class="store-selector">

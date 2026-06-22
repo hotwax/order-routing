@@ -5,7 +5,7 @@
         side="start"
         content-id="main-content"
         type="overlay"
-        :disabled="!useAuth().isAuthenticated.value || (router.currentRoute.value.name as string) === 'Login'"
+        :disabled="!useAuth().isAuthenticated || router.currentRoute.value.name === 'Login'"
       >
         <ion-header>
           <ion-toolbar>

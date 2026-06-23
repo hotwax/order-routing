@@ -253,6 +253,7 @@ ion-content {
   --columns-desktop: 6;
   border-bottom : 1px solid var(--ion-color-medium);
   align-items: center;
+  padding-inline-end: var(--spacer-base, 16px);
 }
 
 .list-item > ion-item {

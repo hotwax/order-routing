@@ -58,7 +58,7 @@ function closeModal() {
 }
 
 function restrictDecimalAndNegative(event: KeyboardEvent) {
-  const keys = ['e', 'E', '-', '+', '.'];
+  const keys = ['e', 'E', '-', '+', '.', ','];
   if (keys.includes(event.key)) {
     event.preventDefault();
   }

@@ -25,10 +25,10 @@
         </ion-select>
       </ion-item>
       <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock" @keydown="isValidPositiveNumber"></ion-input>
       </ion-item>
       <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship" @keydown="isValidPositiveNumber"></ion-input>
       </ion-item>
     </ion-list>
   </ion-content>
@@ -57,6 +57,12 @@ function closeModal() {
   modalController.dismiss();
 }
 
+function isValidPositiveNumber(event: KeyboardEvent) {
+  if (event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
+    event.preventDefault();
+  }
+}
+
 async function updateConfig() {
   const params = {
     facilityId: props.selectedFacility
@@ -71,11 +77,21 @@ async function updateConfig() {
   }
 
   if(minimumStock.value === 0 || minimumStock.value) {
-    params["minimumStock"] = minimumStock.value
+    const minStockVal = Number(minimumStock.value);
+    if (minStockVal < 0 || !Number.isInteger(minStockVal)) {
+      commonUtil.showToast(translate("Safety stock must be a non-negative integer."));
+      return;
+    }
+    params["minimumStock"] = minStockVal;
   }
 
   if(daysToShip.value === 0 || daysToShip.value) {
-    params["daysToShip"] = daysToShip.value
+    const daysToShipVal = Number(daysToShip.value);
+    if (daysToShipVal < 0 || !Number.isInteger(daysToShipVal)) {
+      commonUtil.showToast(translate("Days to Ship must be a non-negative integer."));
+      return;
+    }
+    params["daysToShip"] = daysToShipVal;
   }
 
   const selectedProductIds = props.selectedProducts.map((product: any) => product.productId)

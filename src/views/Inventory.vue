@@ -31,7 +31,7 @@
           <ion-item lines="none">
             <ion-checkbox :checked="allSelected" :indeterminate="!allSelected && isAnyProductSelected" label-placement="end" @ionChange="selectAllProducts($event.detail.checked)">{{ "Select all" }}</ion-checkbox>
           </ion-item>
-          <div class="list-item" v-for="product in products" :key="product?.productId" @click="viewInventoryDetail(product.productId)">
+          <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
             <ion-item>
               <ion-checkbox v-model="product.isChecked" slot="start" @click.stop></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
@@ -42,7 +42,7 @@
                 <p data-testid="assigned-detail-product-secondary-id">{{ product.productId }}</p>
               </ion-label>
             </ion-item>
-            <template v-if="product?.inventoryConfig">
+            <template v-if="product.inventoryConfig">
               <div>
                 <ion-label>
                   {{ product.inventoryConfig.atp }}

@@ -727,7 +727,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async fetchGroupHistory(jobName: string, params: any): Promise<any> {
       return api({
-        url: `order-routing/serviceJobRuns/${jobName}`,
+        url: `admin/serviceJobs/${jobName}/runs`,
         method: "GET",
         params
       });

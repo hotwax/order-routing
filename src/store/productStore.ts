@@ -109,7 +109,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: "order-routing/facilities", 
+          url: "admin/facilities",
           method: "GET",
           params: payload
         });
@@ -159,7 +159,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `order-routing/productStores/${productStoreId}/shippingMethods`,
+          url: `admin/productStores/${payload.productStoreId}/shippingMethods`,
           method: "GET",
           params: fetchPayload
         });
@@ -195,7 +195,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `order-routing/productStores/${productStoreId}/facilityGroups`, 
+          url: `admin/productStores/${payload.productStoreId}/facilityGroups`,
           method: "GET",
           params: fetchPayload
         });

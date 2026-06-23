@@ -18,7 +18,7 @@ const MAX_POLL_DURATION_MS = import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS
 /** POST one batch (≤5 variants). Returns the jobId. Throws on non-2xx. */
 export async function submitBatch({ routingGroupId, variants, sampleCap }: SubmitBatchArgs): Promise<string> {
   const resp: any = await api({
-    url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
+    url: `sim-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
     method: "POST",
     baseURL: simApiBaseUrl(),
     data: { variants, ...(sampleCap != null ? { sampleCap } : {}) },
@@ -40,7 +40,7 @@ export async function pollJob(routingGroupId: string, jobId: string, onPhase?: (
   let sinceSeq = 0;
   while (Date.now() < deadline) {
     const resp: any = await api({
-      url: `order-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
+      url: `sim-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
       method: "GET",
       baseURL: simApiBaseUrl(),
       params: { sinceSeq },
@@ -87,7 +87,7 @@ export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{
   if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
   const params = pastSimulationsQuery(f);
   const resp: any = await api({
-    url: "order-routing/brokeringSimulations",
+    url: "sim-routing/brokeringSimulations",
     method: "GET",
     baseURL: simApiBaseUrl(),
     params,
@@ -103,7 +103,7 @@ export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{
 export async function fetchPastSimulation(simulationId: string): Promise<any> {
   if (useMock()) { const { mockPastSimulation } = await import("../mock/pastSimulationsMock"); return mockPastSimulation(simulationId); }
   const resp: any = await api({
-    url: `order-routing/brokeringSimulations/${simulationId}`,
+    url: `sim-routing/brokeringSimulations/${simulationId}`,
     method: "GET",
     baseURL: simApiBaseUrl(),
   });

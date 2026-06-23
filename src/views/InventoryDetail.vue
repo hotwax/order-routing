@@ -79,71 +79,73 @@
           </ion-card>
         </div>
       </div>
-      <section class="ion-margin panel logs-panel">
-        <div class="list-item">
-          <ion-label>
-            <p>{{ "Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Date Time Received" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Facility Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Location Seq Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Comments" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "ATP diff" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "QOH Diff" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "ATP Total" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "QOH Total" }}</p>
-          </ion-label>
-        </div>
+      <div>
+        <section class="ion-margin panel logs-panel">
+          <div class="list-item">
+            <ion-label>
+              <p>{{ "Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Date Time Received" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Facility Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Location Seq Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Comments" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP Total" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Total" }}</p>
+            </ion-label>
+          </div>
 
-        <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
-          <ion-label>
-            <p>{{ log.inventoryItemId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ formatDateTime(log.effectiveDate) }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.facilityId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.locationSeqId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.description || "-" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.availableToPromiseDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.quantityOnHandDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
-          </ion-label>
-        </div>
+          <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
+            <ion-label>
+              <p>{{ log.inventoryItemId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ formatDateTime(log.effectiveDate) }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.facilityId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.locationSeqId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.description || "-" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.quantityOnHandDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
+            </ion-label>
+          </div>
 
-        <p v-if="!inventoryLogs.length" class="empty-state">
-          {{ "No inventory logs found" }}
-        </p>
-      </section>
+          <p v-if="!inventoryLogs.length" class="empty-state">
+            {{ "No inventory logs found" }}
+          </p>
+        </section>
+      </div>
     </ion-content>
   </ion-page>
 </template>

@@ -25,10 +25,10 @@
         </ion-select>
       </ion-item>
       <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock" @keydown="restrictDecimalAndNegative"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock" @keydown="isValidPositiveNumber"></ion-input>
       </ion-item>
       <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship" @keydown="restrictDecimalAndNegative"></ion-input>
+        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship" @keydown="isValidPositiveNumber"></ion-input>
       </ion-item>
     </ion-list>
   </ion-content>
@@ -57,7 +57,7 @@ function closeModal() {
   modalController.dismiss();
 }
 
-function restrictDecimalAndNegative(event: KeyboardEvent) {
+function isValidPositiveNumber(event: KeyboardEvent) {
   if (event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
   }

@@ -20,7 +20,6 @@
 <script setup lang="ts">
 import { translate, commonUtil } from "@common";
 import { IonContent, IonItem, IonLabel, IonList, IonListHeader, alertController, popoverController } from "@ionic/vue";
-import { defineProps } from "vue";
 
 const props = defineProps([ "value" ])
 

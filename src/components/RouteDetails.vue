@@ -42,9 +42,7 @@
             <ion-item-divider color="light">
               <ion-label>{{ translate("Filters") }}</ion-label>
             </ion-item-divider>
-            <p class="empty-state" v-if="!routing.filtersCount">
-              {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
-            </p>
+            <InlineHint v-if="!routing.filtersCount" :icon="optionsOutline" :text="translate('All orders in all parkings will be attempted if no filter is applied.')" />
             <OrderFilterItem
               v-for="option in filterOptions"
               :key="option.enumId"
@@ -60,9 +58,7 @@
               <ion-label>{{ translate("Sort") }}</ion-label>
             </ion-item-divider>
             <!-- Added check for undefined as well as empty object, as on initial load there might be a case in which route sorting options are not available thus it will be undefined but when updating the values from the modal this will always return an object -->
-            <p class="empty-state" v-if="!routing.sortCount">
-              {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
-            </p>
+            <InlineHint v-if="!routing.sortCount" :icon="swapVerticalOutline" :text="translate('Orders will be brokered based on order date if no sorting is specified.')" />
             <ion-item v-for="(sort, code) in (routing.sortConditions as Record<string, any>)" :key="code as string">
               <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", code as string) || code }}</ion-label>
             </ion-item>
@@ -78,7 +74,13 @@
             </ion-item>
           </ion-list>
         </section>
-        <p class="ion-text-center" v-else>{{ translate("No rules available") }}</p>
+        <EmptyState
+          v-else
+          variant="compact"
+          :icon="layersOutline"
+          :title="translate('No rules yet')"
+          :message="translate('This batch has no inventory rules.')"
+        />
       </main>
     </ion-content>
   </ion-menu>
@@ -88,11 +90,13 @@
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { IonButton, IonButtons, IonChip, IonContent, IonHeader, IonIcon, IonItem, IonItemDivider, IonItemGroup, IonLabel, IonList, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToolbar, modalController } from "@ionic/vue";
-import { arrowBackOutline, pulseOutline, timeOutline, warningOutline } from "ionicons/icons"
-import { computed, defineProps } from "vue"
+import { arrowBackOutline, layersOutline, optionsOutline, pulseOutline, swapVerticalOutline, timeOutline, warningOutline } from "ionicons/icons"
+import { computed } from "vue"
 import RoutingHistoryModal from "./RoutingHistoryModal.vue";
 import { translate } from "@common";
 import OrderFilterItem from "./OrderFilterItem.vue";
+import InlineHint from "@/components/InlineHint.vue";
+import EmptyState from "@/components/EmptyState.vue";
 import { commonUtil } from "@common";
 const props = defineProps({
   routing: {
@@ -227,10 +231,5 @@ ion-content > main {
 
 .menu {
   border-right: 1px solid var(--ion-color-medium);
-}
-
-.empty-state {
-  text-align: center;
-  margin: 0;
 }
 </style>

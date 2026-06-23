@@ -3,6 +3,15 @@ import { logger, commonUtil, api } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 
+interface ProductStoreReferenceDataPayload {
+  productStoreId?: string;
+  force?: boolean;
+}
+
+function getProductStoreId(payload?: ProductStoreReferenceDataPayload) {
+  return payload?.productStoreId || orderRoutingStore().currentGroup.productStoreId;
+}
+
 export const productStore = defineStore('productStore', {
   state: () => {
     return {
@@ -11,7 +20,9 @@ export const productStore = defineStore('productStore', {
       facilities: {} as any,
       shippingMethods: {} as any,
       facilityGroups: {} as any,
-      carriers: {} as any
+      carriers: {} as any,
+      productStoreFacilities: [] as any, // TODO: Storing productStore facilities separately to be used on inventory pages
+      selectedInventoryFacilityId: '' as string
     }
   },
   getters: {
@@ -45,10 +56,21 @@ export const productStore = defineStore('productStore', {
     },
     getCarriers(state) {
       return state.carriers
+    },
+    getBrokeringFacilityGroups(state) {
+      return Object.values(state.facilityGroups).reduce((result: any, group: any) => {
+        if (group.facilityGroupTypeId === "BROKERING_GROUP") {
+          result[group.facilityGroupId] = group
+        }
+        return result
+      }, {})
+    },
+    getProductStoreFacilities(state) {
+      return state.productStoreFacilities
     }
   },
   actions: {
-    async fetchEComStores(): Promise<any> {
+    async fetchProductStores(): Promise<any> {
       try {
         const resp = await api({
           url: "admin/user/productStore",
@@ -103,12 +125,35 @@ export const productStore = defineStore('productStore', {
       }
       this.facilities = facilities;
     },
-    async fetchShippingMethods() {
-      let shippingMethods = JSON.parse(JSON.stringify(this.shippingMethods))
-      if(Object.keys(shippingMethods).length) return;
+    async fetchRoutingReferenceData(payload: ProductStoreReferenceDataPayload = {}) {
+      const productStoreId = getProductStoreId(payload);
+      await Promise.all([
+        this.fetchFacilities(),
+        this.fetchFacilityGroups(payload),
+        this.fetchShippingMethods(payload),
+        useUtilStore().fetchOmsEnums({ 
+          enumTypeId: "ORDER_SALES_CHANNEL",
+          productStoreId
+        })
+      ])
+    },
+    async fetchShippingMethods(payload: ProductStoreReferenceDataPayload = {}) {
+      let shippingMethods = payload.force ? {} : JSON.parse(JSON.stringify(this.shippingMethods))
   
-      const payload = {
-        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+      // Do not fetch shipping methods if already available
+      if(Object.keys(shippingMethods).length && !payload.force) {
+        return;
+      }
+  
+      const productStoreId = getProductStoreId(payload);
+      if(!productStoreId) {
+        logger.warn("Skipping shipping method fetch because productStoreId is missing.")
+        return;
+      }
+  
+      // Fetching shipping methods for productStore of the currentGroup
+      const fetchPayload = {
+        productStoreId,
         pageSize: 200
       }
   
@@ -116,7 +161,7 @@ export const productStore = defineStore('productStore', {
         const resp = await api({
           url: `admin/productStores/${payload.productStoreId}/shippingMethods`,
           method: "GET",
-          params: payload
+          params: fetchPayload
         });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
@@ -129,12 +174,22 @@ export const productStore = defineStore('productStore', {
       }
       this.shippingMethods = shippingMethods;
     },
-    async fetchFacilityGroups() {
-      let facilityGroups = JSON.parse(JSON.stringify(this.facilityGroups))
-      if(Object.keys(facilityGroups).length) return;
+    async fetchFacilityGroups(payload: ProductStoreReferenceDataPayload = {}) {
+      let facilityGroups = payload.force ? {} : JSON.parse(JSON.stringify(this.facilityGroups))
   
-      const payload = {
-        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+      // Do not fetch groups again if already available
+      if(Object.keys(facilityGroups).length && !payload.force) {
+        return;
+      }
+  
+      const productStoreId = getProductStoreId(payload);
+      if(!productStoreId) {
+        logger.warn("Skipping facility group fetch because productStoreId is missing.")
+        return;
+      }
+  
+      const fetchPayload = {
+        productStoreId,
         pageSize: 200
       }
   
@@ -142,7 +197,7 @@ export const productStore = defineStore('productStore', {
         const resp = await api({
           url: `admin/productStores/${payload.productStoreId}/facilityGroups`,
           method: "GET",
-          params: payload
+          params: fetchPayload
         });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {
@@ -160,26 +215,20 @@ export const productStore = defineStore('productStore', {
       const carrierPartyIds = carrierIds.filter((id: any) => !carriers[id])
   
       if(!carrierPartyIds.length) return;
-  
-      const payload = {
-        inputFields: {
-          partyId: carrierIds,
-          partyId_op: "in"
-        },
-        distinct: "Y",
-        viewSize: carrierIds.length,
-        entityName: "PartyNameView",
-      }
-  
+
       try {
         const resp = await api({
-          url: "performFind",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
+          url: "/oms/parties",
+          method: "GET",
+          params: {
+            partyId: carrierPartyIds,
+            partyId_op: "in",
+            fieldsToSelect: ["firstName", "middleName", "lastName", "groupName", "partyId"],
+            pageSize: carrierPartyIds.length
+          }
         });
-        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
-          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+        if(resp.data?.length) {
+          carriers = resp.data.reduce((carriers: any, carrier: any) => {
             carriers[carrier.partyId] = {
               name: carrier.groupName
             }
@@ -189,28 +238,24 @@ export const productStore = defineStore('productStore', {
       } catch(err) {
         logger.error(err)
       }
-  
-      const deliveryDaysPayload = {
-        inputFields: {
-          partyId: carrierIds,
-          partyId_op: "in",
-          roleTypeId: "CARRIER",
-          deliveryDays_op: "not-empty"
-        },
-        distinct: "Y",
-        viewSize: 200,
-        entityName: "CarrierShipmentMethod",
-      }
-  
+
       try {
         const resp = await api({
-          url: "performFind",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
+          url: "/oms/shippingGateways/carrierShipmentMethods",
+          method: "GET",
+          params: {
+            partyId: carrierPartyIds,
+            partyId_op: "in",
+            deliveryDays_op: "not-empty",
+            roleTypeId: "CARRIER",
+            pageIndex: 0,
+            pageSize: 250,
+            orderByField: "sequenceNumber"
+          }
         });
-        if(!commonUtil.hasError(resp) && resp.data.docs?.length) {
-          carriers = resp.data.docs.reduce((carriers: any, carrier: any) => {
+
+        if(resp.data?.length) {
+          carriers = resp.data.reduce((carriers: any, carrier: any) => {
             if(carriers[carrier.partyId]["deliveryDays"]) {
               carriers[carrier.partyId]["deliveryDays"] = {
                 ...carriers[carrier.partyId]["deliveryDays"],
@@ -242,6 +287,29 @@ export const productStore = defineStore('productStore', {
       this.shippingMethods = {};
       this.facilityGroups = {};
       this.carriers = {};
+    },
+    setSelectedInventoryFacilityId(facilityId: string) {
+      this.selectedInventoryFacilityId = facilityId;
+    },
+    async fetchProductStoreFacilities() {
+      try {
+        const resp = await api({
+          url: `admin/productStores/${this.currentEComStore.productStoreId}/facilities`,
+          method: "GET",
+          params: {
+            pageSize: 250,
+            parentFacilityTypeId: "VIRTUAL_FACILITY",
+            parentFacilityTypeId_op: "equals",
+            parentFacilityTypeId_not: "Y",
+          }
+        });
+
+        if(resp.data?.length) {
+          this.productStoreFacilities = resp.data
+        }
+      } catch(err) {
+        logger.error(err)
+      }
     }
   },
   persist: true

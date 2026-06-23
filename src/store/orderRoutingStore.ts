@@ -3,7 +3,9 @@ import { logger, translate, commonUtil, api } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
+import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
 import { v4 as uuidv4, validate } from 'uuid';
+import { simApiBaseUrl } from '@/utils/simConfig';
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -68,6 +70,15 @@ export const orderRoutingStore = defineStore('orderRouting', {
     }
   },
   actions: {
+    async fetchRoutingGroupsList(productStoreId: string): Promise<any[]> {
+      const resp = await api({
+        url: `order-routing/groups`,
+        method: "GET",
+        baseURL: simApiBaseUrl(),
+        params: { productStoreId, pageSize: 200 },
+      });
+      return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
+    },
     async fetchOrderRoutingGroups() {
       let routingGroups = [] as any;
       const payload = {
@@ -120,6 +131,36 @@ export const orderRoutingStore = defineStore('orderRouting', {
         }
       });
       this.groups = commonUtil.sortSequence(this.groups, "runTime")
+    },
+    // Fetches the raw routings/rules/filters for every group in state.groups that
+    // is missing them. Used by the Brokering Runs assistant to give the agent full
+    // detail visibility across all listed runs without forcing the user to open each one.
+    async fetchOrderRoutingGroupsDetails() {
+      const groupsNeedingDetail = this.groups.filter((group: any) => !group.isNew && !Array.isArray(group.routings));
+      if (!groupsNeedingDetail.length) return;
+
+      const responses = await Promise.allSettled(groupsNeedingDetail.map((group: any) => api({
+        url: `order-routing/groups/${group.routingGroupId}/raw`,
+        method: "GET"
+      })));
+
+      responses.forEach((response: any, index: number) => {
+        const group = groupsNeedingDetail[index];
+        const data = response.status === "fulfilled" && !commonUtil.hasError(response.value) ? response.value.data : null;
+        const detail = data && typeof data === "object" && !Array.isArray(data) ? data : { routings: [] };
+        if (detail?.routings?.length) {
+          detail.routings = commonUtil.sortSequence(detail.routings).map((routing: any) => {
+            if (routing.rules?.length) {
+              routing.rules = commonUtil.sortSequence(routing.rules);
+            }
+            return routing;
+          });
+        }
+        const groupIndex = this.groups.findIndex((g: any) => g.routingGroupId === group.routingGroupId);
+        if (groupIndex !== -1) {
+          this.groups[groupIndex] = { ...this.groups[groupIndex], ...detail };
+        }
+      });
     },
     async createRoutingGroup(groupName: string) {
       const payload = {
@@ -175,9 +216,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
         });
       } else {
         transformedPayload.routings.forEach((routing: any) => {
-          if(validate(routing.orderRoutingId)) delete routing.orderRoutingId
+          if(routing.orderRoutingId && validate(routing.orderRoutingId)) delete routing.orderRoutingId
           routing.rules?.forEach((rule: any) => {
-            if(validate(rule.routingRuleId)) delete rule.routingRuleId
+            if(rule.routingRuleId && validate(rule.routingRuleId)) delete rule.routingRuleId
           })
         })
       }
@@ -246,59 +287,38 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
       this.setCurrentGroup(currentGroup, false);
     },
+    async fetchRoutingGroupDetail(routingGroupId: string): Promise<any> {
+      let group = (this.groups || []).find((g: any) => g.routingGroupId === routingGroupId);
+      if (!group?.isNew) {
+        let resp;
+        try {
+          resp = await api({
+            url: `order-routing/groups/${routingGroupId}/raw`,
+            method: "GET",
+          });
+        } catch (err) {
+          if (group) return normalizeRoutingGroupHierarchy({ ...group });
+          throw err;
+        }
+        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
+          group = resp.data;
+        } else if (group) {
+          group = { ...group, routings: [] };
+        } else {
+          throw resp?.data;
+        }
+      }
+      return normalizeRoutingGroupHierarchy(group);
+    },
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
       try {
-        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId) {
+        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
           return;
         }
-        // Opened group is new group, which being created locally
-        currentGroup = this.groups.find(group => group.routingGroupId === routingGroupId)
-        if (!currentGroup?.isNew) {
-          const resp = await api({
-            url: `order-routing/groups/${routingGroupId}/raw`,
-            method: "GET"
-          });
-          if(!commonUtil.hasError(resp) && resp.data) {
-            currentGroup = resp.data
-          } else {
-            throw resp.data
-          }
-        }
+        currentGroup = await this.fetchRoutingGroupDetail(routingGroupId)
       } catch(err) {
         logger.error(err);
-      }
-
-      // Normalize entire hierarchy
-      if(currentGroup?.routings?.length) {
-        currentGroup.routings = commonUtil.sortSequence(currentGroup.routings).map((routing: any) => {
-          if (routing.orderFilters?.length) {
-            routing.orderFilters = routing.orderFilters.map((filter: any) => {
-              if (filter.operator === "not-equals" || filter.operator === "not-in") {
-                filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
-              }
-              return filter;
-            })
-          }
-          if (routing.rules?.length) {
-            routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
-              if (rule.inventoryFilters?.length) {
-                const filterSortDesc = import.meta.env.VITE_VUE_APP_FILTER_SORT_DESC || ""
-                rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
-                  if (filterSortDesc.includes(filter.fieldName)) {
-                    filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "")
-                  }
-                  if (filter.operator === "not-equals") {
-                    filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded"
-                  }
-                  return filter;
-                })
-              }
-              return rule;
-            })
-          }
-          return routing;
-        })
       }
 
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })

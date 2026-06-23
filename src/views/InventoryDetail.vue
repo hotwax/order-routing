@@ -363,6 +363,7 @@ ion-note[slot="end"] {
 
 .logs-panel {
   margin-top: var(--spacer-base, 16px);
+  display: block;
 }
 
 ion-badge {

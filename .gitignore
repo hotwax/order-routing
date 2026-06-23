@@ -23,8 +23,12 @@ npm-debug.log*
 /.sourcemaps
 /.versions
 /.vscode
+/.claude
+/.mastra
+.mastra-debug/
 /coverage
 /dist
+/dev-dist
 /node_modules
 /platforms
 /plugins
@@ -36,5 +40,6 @@ npm-debug.log*
 .env.*
 !.env.example
 .agent
+.gstack/
 # Vite PWA dev output
 /dev-dist

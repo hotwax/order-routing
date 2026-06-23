@@ -2,15 +2,18 @@ import { createRouter, createWebHistory } from "@ionic/vue-router";
 import { RouteRecordRaw } from "vue-router";
 import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
+import { isFeatureEnabled } from "@/utils/simConfig";
 import {
   albumsOutline,
   businessOutline,
   cloudUploadOutline,
+  flaskOutline,
   globeOutline,
   pulseOutline,
   sendOutline,
   settingsOutline,
   shuffleOutline,
+  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 
@@ -24,6 +27,7 @@ declare module "vue-router" {
     menuIndex?: number;
     section?: "sourcing" | "routing";
     childRoutes?: string[];
+    featureFlag?: string;
   }
 }
 
@@ -35,6 +39,11 @@ const authGuard = async (to: any, _from: any, next: any) => {
   }
   next();
 };
+
+// Same as authGuard, but first redirects away when the simulation feature is disabled for this
+// deployment (VITE_SIMULATION_ENABLED="false"), so /simulate* can't be reached by URL/bookmark.
+const simulateGuard = (to: any, from: any, next: any) =>
+  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering");
 
 const routes: Array<RouteRecordRaw> = [
   { path: "/", redirect: "/dashboard" },
@@ -219,6 +228,33 @@ const routes: Array<RouteRecordRaw> = [
     beforeEnter: authGuard,
     props: true
   },
+  {
+    path: "/simulate",
+    name: "Simulate",
+    component: () => import("@/views/SimulationHome.vue"),
+    beforeEnter: simulateGuard,
+    meta: {
+      title: "Simulate",
+      icon: flaskOutline,
+      section: "routing",
+      menuIndex: 11,
+      childRoutes: ["/simulate/"],
+      featureFlag: "simulation"
+    }
+  },
+  {
+    path: "/simulate/:routingGroupId",
+    component: () => import("@/views/Simulation.vue"),
+    beforeEnter: simulateGuard,
+    props: true
+  },
+  {
+    path: "/simulate/history/:simulationId",
+    name: "PastSimulationDetail",
+    component: () => import("@/views/PastSimulationDetail.vue"),
+    beforeEnter: simulateGuard,
+    props: true
+  },
 
   {
     path: "/facility-groups",
@@ -230,6 +266,18 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
+    }
+  },
+  {
+    path: "/circuit",
+    name: "Circuit",
+    component: () => import("@/views/Circuit.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Circuit",
+      icon: sparklesOutline,
+      section: "routing",
+      menuIndex: 12
     }
   },
 
@@ -255,6 +303,11 @@ const routes: Array<RouteRecordRaw> = [
   { path: "/tabs", redirect: "/brokering" },
   { path: "/tabs/brokering", redirect: "/brokering" },
   { path: "/tabs/settings", redirect: "/settings" },
+  { path: "/tabs/simulate", redirect: "/simulate" },
+  {
+    path: "/tabs/simulate/:routingGroupId",
+    redirect: (to) => `/simulate/${to.params.routingGroupId}`
+  },
   {
     path: "/tabs/brokering/:routingGroupId/routes",
     redirect: (to) => `/brokering/${to.params.routingGroupId}/routes`

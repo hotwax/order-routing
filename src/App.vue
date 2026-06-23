@@ -5,7 +5,7 @@
         side="start"
         content-id="main-content"
         type="overlay"
-        :disabled="!useAuth().isAuthenticated.value || (router.currentRoute.value.name as string) === 'Login'"
+        :disabled="!useAuth().isAuthenticated || router.currentRoute.value.name === 'Login'"
       >
         <ion-header>
           <ion-toolbar>
@@ -145,6 +145,8 @@ import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore } from "@/store/productStore";
+import { isFeatureEnabled } from "@/utils/simConfig";
 import router from "@/router";
 
 const userStore = useUserStore();
@@ -165,6 +167,7 @@ const menuItems = computed(() => {
         !route.meta.permissionId ||
         (userStore as any).hasPermission(route.meta.permissionId as string)
     )
+    .filter((route) => !route.meta.featureFlag || isFeatureEnabled(route.meta.featureFlag as string))
     .sort((a, b) => (a.meta!.menuIndex as number) - (b.meta!.menuIndex as number))
     .map((route) => ({
       title: route.meta!.title as string,
@@ -234,7 +237,9 @@ async function setProductStore(event: SelectCustomEvent) {
           {
             text: translate("Yes"),
             handler: async () => {
-              await atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+              const store = productStores.value.find((s: any) => s.productStoreId === event.detail.value);
+              atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
+              productStore().setEcomStore({ productStoreId: event.detail.value });
               emitter.emit("productStoreOrConfigChanged");
             }
           }
@@ -242,7 +247,9 @@ async function setProductStore(event: SelectCustomEvent) {
       });
       alert.present();
     } else {
-      atpProductStore.setCurrentProductStore({ productStoreId: event.detail.value });
+      const store = productStores.value.find((s: any) => s.productStoreId === event.detail.value);
+      atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
+      productStore().setEcomStore({ productStoreId: event.detail.value });
       emitter.emit("productStoreOrConfigChanged");
     }
   }

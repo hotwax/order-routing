@@ -31,6 +31,7 @@
           <!-- <ion-button fill="outline" color="medium">{{ "Reset password") }}</ion-button> -->
         </ion-card>
       </div>
+
       <div class="section-header">
         <h1>{{ translate("OMS") }}</h1>
       </div>
@@ -99,40 +100,112 @@
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
         </ion-card>
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>{{ translate("Preferences") }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            {{ translate("Show or hide the Circuit local-model card on this page.") }}
+          </ion-card-content>
+          <ion-item lines="none">
+            <ion-toggle :checked="circuitEnabled" @ionChange="toggleCircuit($event)">
+              {{ translate("Show Circuit") }}
+            </ion-toggle>
+          </ion-item>
+        </ion-card>
+        <ion-card v-if="circuitEnabled">
+          <ion-card-header>
+            <ion-card-title>Circuit</ion-card-title>
+            <ion-card-subtitle>{{ modelInfo.size }}</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <div v-if="modelInfo.status === 'unsupported'" class="error-message">
+              {{ translate("WebGPU is not supported on this device.") }}
+              <p>{{ modelInfo.supportError }}</p>
+            </div>
+            <div v-else>
+              <div v-if="modelInfo.status === 'installing'">
+                <p>{{ modelInfo.progressText || translate("Installing...") }}</p>
+                <ion-progress-bar :value="modelInfo.progress"></ion-progress-bar>
+              </div>
+              <div v-else-if="modelInfo.status === 'installed'">
+                <p>{{ translate("Model is installed and ready.") }}</p>
+              </div>
+              <div v-else>
+                <p>{{ translate("Download the model to enable local Circuit testing.") }}</p>
+                {{ modelInfo.name || "Default Model" }}
+              </div>
+            </div>
+            <div v-if="gpuInfo.vendor && gpuInfo.vendor !== 'Unknown'" class="gpu-info ion-margin-top">
+              <p>{{ translate("GPU:") }} {{ gpuInfo.vendor }}</p>
+              <p>{{ translate("Max Buffer Size:") }} {{ gpuInfo.maxStorageBufferBindingSize }}</p>
+            </div>
+          </ion-card-content>
+          <ion-item lines="none" v-if="modelInfo.status !== 'unsupported'">
+            <ion-label>
+              {{ modelInfo.status === 'installed' ? translate("Installed") : translate("Status: Not Installed") }}
+            </ion-label>
+            <ion-button 
+              slot="end" 
+              fill="outline" 
+              color="danger"
+              v-if="modelInfo.status === 'installed'"
+              @click="unloadModel()"
+            >
+              {{ translate("Unload") }}
+            </ion-button>
+            <ion-button 
+              slot="end" 
+              fill="outline" 
+              :disabled="modelInfo.status === 'installing' || modelInfo.status === 'installed'"
+              @click="installModel()"
+            >
+              {{ modelInfo.status === 'installed' ? translate("Re-verify") : translate("Install Model") }}
+            </ion-button>
+          </ion-item>
+        </ion-card>
       </section>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
+import { useCircuitStore } from "@/store/circuit";
 import { productStore } from "@/store/productStore";
+import { useAtpProductStore } from "@/store/atpProductStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
-import { translate, commonUtil, cookieHelper } from "@common";
+import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 
 const userStore = useUserStore()
+const circuitStore = useCircuitStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));
 const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
+const modelInfo = computed(() => circuitStore.modelInfo)
+const gpuInfo = computed(() => circuitStore.gpuInfo)
+const circuitEnabled = computed(() => circuitStore.circuitEnabled)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
 })
 
+/* eslint-disable no-undef */
 const props = defineProps({
   showBrowserTimeZone: {
     type: Boolean,
     default: true
   },
+/* eslint-enable no-undef */
   showDateTime: {
     type: Boolean,
     default: true
@@ -144,6 +217,7 @@ const props = defineProps({
 })
 
 onMounted(() => {
+  if (circuitStore.circuitEnabled) circuitStore.checkWebGPUSupport();
 })
 
 function setEComStore(event: CustomEvent) {
@@ -151,6 +225,10 @@ function setEComStore(event: CustomEvent) {
     productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
+    const atpProductStore = useAtpProductStore();
+    const store = atpProductStore.productStores.find((s: any) => s.productStoreId === event.detail.value);
+    atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
+    emitter.emit("productStoreOrConfigChanged");
   }
 }
 
@@ -165,12 +243,31 @@ function logout() {
   useAuth().logout({ isUserUnauthorised: false })
 }
 
+function installModel() {
+  circuitStore.initLLM();
+}
+
+function unloadModel() {
+  circuitStore.unloadLLM();
+}
+
+function toggleCircuit(event: CustomEvent) {
+  const enabled = !!event.detail.checked;
+  circuitStore.setCircuitEnabled(enabled);
+  // When re-enabling in-session, run the WebGPU probe that onMounted skipped while hidden.
+  if (enabled) circuitStore.checkWebGPUSupport();
+}
+
 function goToLaunchpad() {
   window.location.href = `${import.meta.env.VITE_LOGIN_URL}`
 }
 </script>
 
 <style scoped>
+
+  ion-content {
+    --padding-bottom: var(--spacer-xl);
+  }
   ion-card > ion-button {
     margin: var(--spacer-xs);
   }

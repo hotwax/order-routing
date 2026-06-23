@@ -29,121 +29,123 @@
               <p v-else>{{ productSubtitle }}</p>
             </div>
           </ion-item>
+
+          <ion-card class="ion-margin-top">
+            <div class="card-header">
+              <ion-card-header>
+                <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
+              </ion-card-header>
+              <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
+                {{ translate("Edit") }}
+              </ion-button>
+            </div>
+            <ion-item>
+              <ion-label>{{ translate("QOH") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.qoh ?? "-" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("ATP") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.atp ?? "-" }}</ion-label>
+            </ion-item>
+          </ion-card>
         </section>
 
         <div class="config-column">
-        <ion-card>
-          <div class="card-header">
-            <ion-card-header>
-              <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
-            </ion-card-header>
-            <ion-button fill="clear" @click="openConfigEditModal">
-              {{ translate("Edit") }}
-            </ion-button>
-          </div>
-          <ion-item>
-            <ion-label>{{ translate("Allow Brokering") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Allow Pickup") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Safety stock") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Days to Ship") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
-          </ion-item>
-        </ion-card>
-
-        <ion-card>
-          <div class="card-header">
-            <ion-card-header>
-              <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
-            </ion-card-header>
-            <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
-              {{ translate("Edit") }}
-            </ion-button>
-          </div>
-          <ion-item>
-            <ion-label>{{ translate("QOH") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.lastInventoryCount ?? "-" }}</ion-label>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("ATP") }}</ion-label>
-            <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.computedLastInventoryCount ?? "-" }}</ion-label>
-          </ion-item>
-        </ion-card>
+          <ion-card>
+            <div class="card-header">
+              <ion-card-header>
+                <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
+              </ion-card-header>
+              <ion-button fill="clear" @click="openConfigEditModal">
+                {{ translate("Edit") }}
+              </ion-button>
+            </div>
+            <ion-item>
+              <ion-label>{{ translate("Allow Brokering") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Allow Pickup") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Safety stock") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
+            </ion-item>
+            <ion-item>
+              <ion-label>{{ translate("Days to Ship") }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
+            </ion-item>
+          </ion-card>
         </div>
       </div>
-      <section class="ion-margin panel logs-panel">
-        <div class="list-item">
-          <ion-label>
-            <p>{{ "Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Date Time Received" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Facility Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Location Seq Id" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "Comments" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "ATP diff" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "QOH Diff" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "ATP Total" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ "QOH Total" }}</p>
-          </ion-label>
-        </div>
+      <div>
+        <section class="ion-margin panel logs-panel">
+          <div class="list-item">
+            <ion-label>
+              <p>{{ "Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Date Time Received" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Facility Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Location Seq Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Comments" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP Total" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Total" }}</p>
+            </ion-label>
+          </div>
 
-        <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
-          <ion-label>
-            <p>{{ log.inventoryItemId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ formatDateTime(log.effectiveDate) }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.facilityId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.locationSeqId }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.description || "-" }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.availableToPromiseDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ log.quantityOnHandDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
-          </ion-label>
-          <ion-label>
-            <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
-          </ion-label>
-        </div>
+          <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
+            <ion-label>
+              <p>{{ log.inventoryItemId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ formatDateTime(log.effectiveDate) }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.facilityId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.locationSeqId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.description || "-" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.quantityOnHandDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
+            </ion-label>
+          </div>
 
-        <p v-if="!inventoryLogs.length" class="empty-state">
-          {{ "No inventory logs found" }}
-        </p>
-      </section>
+          <p v-if="!inventoryLogs.length" class="empty-state">
+            {{ "No inventory logs found" }}
+          </p>
+        </section>
+      </div>
     </ion-content>
   </ion-page>
 </template>

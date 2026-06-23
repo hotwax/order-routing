@@ -3,6 +3,15 @@ import { logger, commonUtil, api } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 
+interface ProductStoreReferenceDataPayload {
+  productStoreId?: string;
+  force?: boolean;
+}
+
+function getProductStoreId(payload?: ProductStoreReferenceDataPayload) {
+  return payload?.productStoreId || orderRoutingStore().currentGroup.productStoreId;
+}
+
 export const productStore = defineStore('productStore', {
   state: () => {
     return {
@@ -47,6 +56,14 @@ export const productStore = defineStore('productStore', {
     },
     getCarriers(state) {
       return state.carriers
+    },
+    getBrokeringFacilityGroups(state) {
+      return Object.values(state.facilityGroups).reduce((result: any, group: any) => {
+        if (group.facilityGroupTypeId === "BROKERING_GROUP") {
+          result[group.facilityGroupId] = group
+        }
+        return result
+      }, {})
     },
     getProductStoreFacilities(state) {
       return state.productStoreFacilities
@@ -108,20 +125,43 @@ export const productStore = defineStore('productStore', {
       }
       this.facilities = facilities;
     },
-    async fetchShippingMethods() {
-      let shippingMethods = JSON.parse(JSON.stringify(this.shippingMethods))
-      if(Object.keys(shippingMethods).length) return;
+    async fetchRoutingReferenceData(payload: ProductStoreReferenceDataPayload = {}) {
+      const productStoreId = getProductStoreId(payload);
+      await Promise.all([
+        this.fetchFacilities(),
+        this.fetchFacilityGroups(payload),
+        this.fetchShippingMethods(payload),
+        useUtilStore().fetchOmsEnums({ 
+          enumTypeId: "ORDER_SALES_CHANNEL",
+          productStoreId
+        })
+      ])
+    },
+    async fetchShippingMethods(payload: ProductStoreReferenceDataPayload = {}) {
+      let shippingMethods = payload.force ? {} : JSON.parse(JSON.stringify(this.shippingMethods))
   
-      const payload = {
-        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+      // Do not fetch shipping methods if already available
+      if(Object.keys(shippingMethods).length && !payload.force) {
+        return;
+      }
+  
+      const productStoreId = getProductStoreId(payload);
+      if(!productStoreId) {
+        logger.warn("Skipping shipping method fetch because productStoreId is missing.")
+        return;
+      }
+  
+      // Fetching shipping methods for productStore of the currentGroup
+      const fetchPayload = {
+        productStoreId,
         pageSize: 200
       }
   
       try {
         const resp = await api({
-          url: `order-routing/productStores/${payload.productStoreId}/shippingMethods`,
+          url: `order-routing/productStores/${productStoreId}/shippingMethods`,
           method: "GET",
-          params: payload
+          params: fetchPayload
         });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           shippingMethods = resp.data.reduce((shippingMethods: any, shippingMethod: any) => {
@@ -134,20 +174,30 @@ export const productStore = defineStore('productStore', {
       }
       this.shippingMethods = shippingMethods;
     },
-    async fetchFacilityGroups() {
-      let facilityGroups = JSON.parse(JSON.stringify(this.facilityGroups))
-      if(Object.keys(facilityGroups).length) return;
+    async fetchFacilityGroups(payload: ProductStoreReferenceDataPayload = {}) {
+      let facilityGroups = payload.force ? {} : JSON.parse(JSON.stringify(this.facilityGroups))
   
-      const payload = {
-        productStoreId: orderRoutingStore().currentGroup.productStoreId,
+      // Do not fetch groups again if already available
+      if(Object.keys(facilityGroups).length && !payload.force) {
+        return;
+      }
+  
+      const productStoreId = getProductStoreId(payload);
+      if(!productStoreId) {
+        logger.warn("Skipping facility group fetch because productStoreId is missing.")
+        return;
+      }
+  
+      const fetchPayload = {
+        productStoreId,
         pageSize: 200
       }
   
       try {
         const resp = await api({
-          url: `order-routing/productStores/${payload.productStoreId}/facilityGroups`, 
+          url: `order-routing/productStores/${productStoreId}/facilityGroups`, 
           method: "GET",
-          params: payload
+          params: fetchPayload
         });
         if(!commonUtil.hasError(resp) && resp.data.length) {
           facilityGroups = resp.data.reduce((facilityGroups: any, facilityGroup: any) => {

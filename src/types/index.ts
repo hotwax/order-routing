@@ -63,6 +63,10 @@ type RouteFilter = {
   lastUpdatedStamp: string
 }
 
+/** Function type for making routing API requests. Accepts the same axios-style config as api()/simApi().
+ *  OMS path passes api(); the simulate path passes simApi() so the two backends never share a request path. */
+export type RoutingRequest = (config: any) => Promise<any>;
+
 export {
   Enumeration,
   EnumerationAndType,

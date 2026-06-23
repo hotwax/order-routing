@@ -33,7 +33,7 @@
           </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
             <ion-item>
-              <ion-checkbox :checked="product.isChecked" slot="start" @click.stop @ionChange="product.isChecked = true"></ion-checkbox>
+              <ion-checkbox v-model="product.isChecked" slot="start" @click.stop></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
@@ -45,20 +45,20 @@
             <template v-if="product.inventoryConfig">
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.computedLastInventoryCount }}
+                  {{ product.inventoryConfig.atp }}
                   <p>{{ translate("ATP") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
-                  {{ product.inventoryConfig.lastInventoryCount }}
+                  {{ product.inventoryConfig.qoh }}
                   <p>{{ translate("QOH") }}</p>
                 </ion-label>
               </div>
               <div>
                 <ion-label>
                   {{ product.inventoryConfig.minimumStock || "-" }}
-                  <p>{{ translate("Minimum Stock") }}</p>
+                  <p>{{ translate("Safety Stock") }}</p>
                 </ion-label>
               </div>
               <div>
@@ -86,14 +86,12 @@
           </div>
         </template>
       </ion-list>
-
     </ion-content>
-    <!-- TODO: on selecting a product and then unselecting the footer is still visible and check/uncheck on bulk checkbox has corner case issues -->
     <ion-footer v-if="isAnyProductSelected">
       <ion-toolbar class="footer-actions">
         <ion-buttons>
           <ion-button @click="openBulkInventoryEditModal">{{ "Adjust Inventory" }}</ion-button>
-          <ion-button @click="openProductFacilityConfigModal">{{ "Adjust Config" }}</ion-button>
+          <ion-button @click="openProductFacilityConfigModal()">{{ "Adjust Config" }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-footer>
@@ -103,11 +101,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, modalController } from '@ionic/vue';
-import { DxpShopifyImg, translate } from '@common';
-import type { Product } from '@/services/commonDatabase';
+import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
+import { useAtpProductStore } from '@/store/atpProductStore';
 import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
 import { useProductFacility } from '@/composables/useProductFacility';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
@@ -130,11 +128,33 @@ const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1)
 const isAnyProductSelected = computed(() => products.value.some((product: any) => product.isChecked))
 const allSelected = computed(() => products.value.every((product: any) => product.isChecked))
 
-onIonViewDidEnter(async () => {
+async function onProductStoreOrConfigChanged() {
+  const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+  if (productStoreId) {
+    productStore().setEcomStore({ productStoreId });
+  }
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  await fetchProductFacility();
-  selectedFacility.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value?.[0]?.facilityId
+  
+  const facilityId = (productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
+    ? productStore().selectedInventoryFacilityId
+    : productStoreFacilities.value?.[0]?.facilityId) || '';
+
+  if (selectedFacility.value === facilityId) {
+    await fetchProductFacility();
+  } else {
+    selectedFacility.value = facilityId;
+  }
+}
+
+onIonViewDidEnter(async () => {
+  await onProductStoreOrConfigChanged();
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+  emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+})
+
+onIonViewDidLeave(() => {
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
 })
 
 watch(selectedFacility, (facilityId) => {
@@ -147,6 +167,8 @@ function selectAllProducts(checked: boolean) {
 }
 
 async function fetchProductFacility() {
+  if (!selectedFacility.value) return;
+
   isLoading.value = true
   const params = {
     pageSize: PAGE_SIZE,
@@ -198,6 +220,10 @@ async function openBulkInventoryEditModal() {
     }
   })
 
+  bulkInventoryEditModal.onDidDismiss().then((data) => {
+    data?.data?.updated && fetchProductFacility();
+  })
+
   await bulkInventoryEditModal.present()
 }
 
@@ -206,8 +232,12 @@ async function openProductFacilityConfigModal(selectedProducts?: any[]) {
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: selectedProducts ?? products.value.filter((product: any) => product.isChecked)
+      selectedProducts: selectedProducts ? selectedProducts : products.value.filter((product: any) => product.isChecked)
     }
+  })
+
+  productFacilityConfigEditModal.onDidDismiss().then((data) => {
+    data?.data?.updated && fetchProductFacility();
   })
 
   await productFacilityConfigEditModal.present()
@@ -223,6 +253,7 @@ ion-content {
   --columns-desktop: 6;
   border-bottom : 1px solid var(--ion-color-medium);
   align-items: center;
+  padding-inline-end: var(--spacer-base, 16px);
 }
 
 .list-item > ion-item {

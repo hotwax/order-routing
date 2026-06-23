@@ -1,29 +1,55 @@
-import { commonUtil, logger, translate } from '@common';
+import { commonUtil, logger, translate } from "@common";
+
+export function normalizeRoutingGroupHierarchy(group: any): any {
+  if (group?.routings?.length) {
+    group.routings = commonUtil.sortSequence(group.routings).map((routing: any) => {
+      if (routing.orderFilters?.length) {
+        routing.orderFilters = routing.orderFilters.map((filter: any) => {
+          if (filter.operator === "not-equals" || filter.operator === "not-in") {
+            filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded";
+          }
+          return filter;
+        });
+      }
+      if (routing.rules?.length) {
+        routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
+          if (rule.inventoryFilters?.length) {
+            const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC || "";
+            rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
+              if (filterSortDesc.includes(filter.fieldName)) {
+                filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "");
+              }
+              if (filter.operator === "not-equals") {
+                filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded";
+              }
+              return filter;
+            });
+          }
+          return rule;
+        });
+      }
+      return routing;
+    });
+  }
+  return group;
+}
 
 const findRulesDiff = (previousSeq: any, updatedSeq: any) => {
   const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
     if (updatedSeq[key].ruleId === previousSeq[key].ruleId && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
+    return { ...diff, [key]: updatedSeq[key] }
   }, {})
   return diffSeq;
 }
 
 const doReorder = (event: CustomEvent, rules: any) => {
   const previousSeq = JSON.parse(JSON.stringify(rules))
-
-  // returns the updated sequence after reordering
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(rules)));
-
   let diffSeq = findRulesDiff(previousSeq, updatedSeq)
-
   const updatedSeqenceNum = previousSeq.map((rule: any) => rule.sequenceNum)
   Object.keys(diffSeq).map((key: any) => {
     diffSeq[key].sequenceNum = updatedSeqenceNum[key]
   })
-
   diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key])
   return updatedSeq
 }
@@ -43,19 +69,9 @@ const generateRuleActions = (ruleId: string, actionTypeEnumId: string, actionVal
 
   let condition;
   if (actionTypeEnumId === "ATP_THRESHOLD" || actionTypeEnumId === "ATP_SAFETY_STOCK") {
-    condition = [{
-      ruleId,
-      actionTypeEnumId,
-      "fieldName": "facility-safety-stock",
-      "fieldValue": actionValue ? actionValue : 0
-    }]
+    condition = [{ ruleId, actionTypeEnumId, "fieldName": "facility-safety-stock", "fieldValue": actionValue ? actionValue : 0 }]
   } else {
-    condition = [{
-      ruleId,
-      actionTypeEnumId,
-      "fieldName": actionTypeEnumId === "ATP_ALLOW_PICKUP" ? "allow-pickup" : "allow-brokering",
-      "fieldValue": actionValue ? "Y" : "N"
-    }]
+    condition = [{ ruleId, actionTypeEnumId, "fieldName": actionTypeEnumId === "ATP_ALLOW_PICKUP" ? "allow-pickup" : "allow-brokering", "fieldValue": actionValue ? "Y" : "N" }]
   }
   return condition
 }
@@ -64,56 +80,24 @@ const generateRuleConditions = (ruleId: string, conditionTypeEnumId: string, app
   const conditions = [];
 
   if (areAllSelected) {
-    conditions.push({
-      "ruleId": ruleId,
-      conditionTypeEnumId,
-      "fieldName": conditionTypeEnumId === "ENTCT_ATP_FACILITIES" ? "facilityId" : "facilityGroupId",
-      "operator": "in",
-      "fieldValue": "ALL"
-    })
+    conditions.push({ "ruleId": ruleId, conditionTypeEnumId, "fieldName": conditionTypeEnumId === "ENTCT_ATP_FACILITIES" ? "facilityId" : "facilityGroupId", "operator": "in", "fieldValue": "ALL" })
   } else if (conditionTypeEnumId === "ENTCT_ATP_FACILITIES") {
-    conditions.push({
-      "ruleId": ruleId,
-      conditionTypeEnumId,
-      "fieldName": "facilityId",
-      "operator": "in",
-      "fieldValue": selectedFac.length ? selectedFac.join(",") : ""
-    })
+    conditions.push({ "ruleId": ruleId, conditionTypeEnumId, "fieldName": "facilityId", "operator": "in", "fieldValue": selectedFac.length ? selectedFac.join(",") : "" })
   } else {
     const includedFacilityGroupIds = selectedFac.included.map((group: any) => group.facilityGroupId)
     if (includedFacilityGroupIds.length) {
-      conditions.push({
-        "ruleId": ruleId,
-        "conditionTypeEnumId": "ENTCT_ATP_FAC_GROUPS",
-        "fieldName": "facilityGroupId",
-        "operator": "in",
-        "fieldValue": includedFacilityGroupIds.join(",")
-      })
+      conditions.push({ "ruleId": ruleId, "conditionTypeEnumId": "ENTCT_ATP_FAC_GROUPS", "fieldName": "facilityGroupId", "operator": "in", "fieldValue": includedFacilityGroupIds.join(",") })
     }
-
     const excludedFacilityGroupIds = selectedFac.excluded.map((group: any) => group.facilityGroupId)
     if (excludedFacilityGroupIds.length) {
-      conditions.push({
-        "ruleId": ruleId,
-        "conditionTypeEnumId": "ENTCT_ATP_FAC_GROUPS",
-        "fieldName": "facilityGroupId",
-        "operator": "not-in",
-        "fieldValue": excludedFacilityGroupIds.join(",")
-      })
+      conditions.push({ "ruleId": ruleId, "conditionTypeEnumId": "ENTCT_ATP_FAC_GROUPS", "fieldName": "facilityGroupId", "operator": "not-in", "fieldValue": excludedFacilityGroupIds.join(",") })
     }
   }
 
   Object.entries(appliedFilters).map(([type, filters]: any) => {
     Object.entries(filters as any).map(([filter, value]: any) => {
       if (value.length) {
-        conditions.push({
-          "ruleId": ruleId,
-          "conditionTypeEnumId": "ENTCT_ATP_FILTER",
-          "fieldName": filter,
-          "operator": type === "included" ? "contains" : "not-contains",
-          "joinOperator": appliedFiltersOperator?.[type]?.[filter] || "",
-          "fieldValue": value.join(",")
-        })
+        conditions.push({ "ruleId": ruleId, "conditionTypeEnumId": "ENTCT_ATP_FILTER", "fieldName": filter, "operator": type === "included" ? "contains" : "not-contains", "joinOperator": appliedFiltersOperator?.[type]?.[filter] || "", "fieldValue": value.join(",") })
       }
     })
   })
@@ -146,5 +130,5 @@ export const ruleUtil = {
   findRulesDiff,
   generateRuleActions,
   generateRuleConditions,
-  hasJobDataError
+  hasJobDataError,
 }

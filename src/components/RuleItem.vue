@@ -337,7 +337,7 @@ async function archiveRule() {
             commonUtil.showToast(translate("Rule archived successfully."))
             alertController.dismiss()
           } catch(err: any) {
-            commonUtil.showToast(translate("Failed to update threhold."))
+            commonUtil.showToast(translate("Failed to archive rule."))
             logger.error(err);
           }
           emitter.emit("dismissLoader");

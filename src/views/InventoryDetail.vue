@@ -257,7 +257,7 @@ async function openConfigEditModal() {
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacilityId.value,
-      selectedProducts: [{ productId: productId.value }]
+      selectedProducts: inventoryConfig.value ? [inventoryConfig.value] : [{ productId: productId.value }]
     }
   });
   await modal.present();

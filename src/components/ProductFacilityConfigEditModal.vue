@@ -44,7 +44,7 @@
 import { IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, saveOutline } from "ionicons/icons";
 import { api, commonUtil, logger, translate } from '@common';
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 
 const props = defineProps(["selectedProducts", "selectedFacility"])
 
@@ -52,6 +52,18 @@ const allowPickup = ref("");
 const allowBrokering = ref("")
 const minimumStock = ref();
 const daysToShip = ref();
+
+onMounted(() => {
+  if (props.selectedProducts && props.selectedProducts.length === 1) {
+    const product = props.selectedProducts[0];
+    if (product.inventoryConfig) {
+      allowBrokering.value = product.inventoryConfig.allowBrokering ?? "";
+      allowPickup.value = product.inventoryConfig.allowPickup ?? "";
+      minimumStock.value = product.inventoryConfig.minimumStock;
+      daysToShip.value = product.inventoryConfig.daysToShip;
+    }
+  }
+});
 
 function closeModal() {
   modalController.dismiss();

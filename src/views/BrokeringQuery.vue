@@ -750,7 +750,7 @@ async function editRouteName() {
 async function updateRouteName() {
   if(routeName.value.trim() && routeName.value.trim() !== currentRouting.value.routingName.trim()) {
 
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
     const payload = {
       orderRoutingId: props.orderRoutingId,
@@ -770,7 +770,7 @@ async function updateRouteName() {
       routeName.value = currentRouting.value.routingName.trim()
     }
 
-    emitter.emit("dismissLoader")
+    // emitter.emit("dismissLoader")
   }
 
   isRouteNameUpdating.value = false
@@ -791,12 +791,6 @@ async function fetchRuleInformation(routingRuleId: string, forceUpdate = false) 
   // Only fetch the rules information, if already not present, as we are updating rule values
   if(!rulesInformation.value[routingRuleId] || forceUpdate) {
     rulesInformation.value[routingRuleId] = await orderRoutingStore().fetchInventoryRuleInformation( routingRuleId)
-  }
-
-  // TODO: check on this condition, remove if not required
-  // If there is not an already selected rule, deep clone it for usage. This condition can occur when we does not have any inventory rules for the route and we have created a new rule
-  if(!selectedRoutingRule.value.routingRuleId) {
-    rulesInformation.value = JSON.parse(JSON.stringify(routingRules.value))
   }
 
   // Using rulesForReorder object here, as we will update the change in rules only those are not archived
@@ -1247,7 +1241,7 @@ async function updateRuleName(routingRuleId: string) {
   })
 
   if(isUpdateRequired) {
-    emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
+    // emitter.emit("presentLoader", { message: "Updating...", backdropDismiss: false })
 
     let ruleId = await orderRoutingStore().updateRule( {
       routingRuleId,
@@ -1261,14 +1255,14 @@ async function updateRuleName(routingRuleId: string) {
       commonUtil.showToast(translate("Failed to update rule information"))
     }
 
-    emitter.emit("dismissLoader")
+    // emitter.emit("dismissLoader")
   }
 
   isRuleNameUpdating.value = false
 }
 
 async function cloneRule() {
-  emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: `Cloning ${selectedRoutingRule.value.ruleName}`, backdropDismiss: false })
 
   try {
     const resp = await orderRoutingStore().cloneRule({
@@ -1287,7 +1281,7 @@ async function cloneRule() {
     commonUtil.showToast(translate("Failed to clone rule"))
   }
 
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -1488,7 +1482,7 @@ function doReorder(event: CustomEvent) {
 }
 
 async function save() {
-  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  // emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
   const orderRouting = {
     orderRoutingId: props.orderRoutingId,
     routingGroupId: currentRouting.value.routingGroupId
@@ -1560,7 +1554,29 @@ async function save() {
     }
   }
 
-  const initialInventoryRulesInformation = JSON.parse(JSON.stringify(routingRules.value))
+  // routingRules.value holds each rule's inventoryFilters/actions as flat arrays (straight from the server),
+  // but rulesInformation.value groups them by conditionTypeEnumId/actionTypeEnumId (see fetchInventoryRuleInformation).
+  // Applying the same grouping here so findFilterDiff/findSortDiff/findActionDiff compare like-shaped objects -
+  // otherwise every action (and rule-level filter) looks "removed" on every save, regardless of what changed.
+  const initialInventoryRulesInformation = Object.keys(routingRules.value).reduce((rules: any, ruleId: string) => {
+    const rule = JSON.parse(JSON.stringify(routingRules.value[ruleId]))
+    rules[ruleId] = {
+      ...rule,
+      inventoryFilters: (rule.inventoryFilters || []).reduce((filters: any, filter: any) => {
+        if(filters[filter.conditionTypeEnumId]) {
+          filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+        } else {
+          filters[filter.conditionTypeEnumId] = { [filter.fieldName]: filter }
+        }
+        return filters
+      }, {}),
+      actions: (rule.actions || []).reduce((actions: any, action: any) => {
+        actions[action.actionTypeEnumId] = action
+        return actions
+      }, {})
+    }
+    return rules
+  }, {})
 
   // Whenever we will be having a feature to delete a rule then this logic needs updation
   const rulesDiff = Object.keys(initialInventoryRulesInformation).map((ruleId: string) => {
@@ -1627,6 +1643,8 @@ async function save() {
     }
   }
 
+  await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value)
+
   await orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId)
   if(currentRouting.value["orderFilters"]?.length) {
     initializeOrderRoutingOptions()
@@ -1641,7 +1659,7 @@ async function save() {
   }
 
   hasUnsavedChanges.value = false
-  emitter.emit("dismissLoader")
+  // emitter.emit("dismissLoader")
 }
 
 function updatePartialGroupItemsAllocation(checked: boolean) {

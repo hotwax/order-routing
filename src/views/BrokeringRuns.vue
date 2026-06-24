@@ -227,7 +227,7 @@ async function groupActionsPopover(group: Group, event: Event) {
 
   const result = await popover.onDidDismiss();
   if (result.data && result.data.routingGroups) {
-    brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
+    brokeringGroups.value = result.data.routingGroups;
   }
 }
 

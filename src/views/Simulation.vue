@@ -1,5 +1,13 @@
 <template>
   <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/simulation" />
+        </ion-buttons>
+        <ion-title>{{ translate("Simulation") }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
     <ion-content>
       <div v-if="sim.loadError" class="ion-padding">
         <p>{{ sim.loadError }}</p>
@@ -36,7 +44,7 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { translate } from "@common";
-import { IonButton, IonContent, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSpinner } from "@ionic/vue";
+import { IonBackButton, IonButton, IonButtons, IonContent, IonHeader, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
 import { simulationStore } from "@/store/simulationStore";
 import SimulationCanvas from "@/components/simulation/SimulationCanvas.vue";
 import VariationRail from "@/components/simulation/VariationRail.vue";

@@ -38,7 +38,7 @@ export const useCircuitStore = defineStore('circuit', {
     modelInfo: {
       name: '',
       size: '',
-      status: 'not_installed',
+      status: 'installed', //As we are using the Mastra (Circuit) server instead of the local browser-based model, I’m setting the status to 'Installed'. I’ll do the cleanup later.
       progress: 0
     },
     gpuInfo: {

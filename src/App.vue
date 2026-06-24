@@ -15,6 +15,19 @@
 
         <ion-content>
           <ion-list>
+            <ion-menu-toggle :auto-hide="false">
+              <ion-item
+                button
+                router-direction="root"
+                router-link="/dashboard"
+                class="hydrated"
+                :class="{ selected: isSelected({ url: '/dashboard', childRoutes: [] }) }"
+              >
+                <ion-icon slot="start" :ios="gridOutline" :md="gridOutline" />
+                <ion-label>{{ translate("Dashboard") }}</ion-label>
+              </ion-item>
+            </ion-menu-toggle>
+
             <ion-list-header v-if="sourcingItems.length">
               <ion-label>{{ translate("Sourcing") }}</ion-label>
             </ion-list-header>
@@ -126,6 +139,7 @@ import {
   SelectCustomEvent
 } from "@ionic/vue";
 import { computed, onBeforeMount, onMounted, onUnmounted, ref } from "vue";
+import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
 import { commonUtil, emitter, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";

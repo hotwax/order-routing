@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia';
 import { CircuitStorageService } from '@/services/CircuitStorageService';
 import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
-import CircuitLLMService from '@/services/CircuitLLMService';
-import { translate } from '@common';
 
 export interface CircuitState {
   isIntroDone: boolean;
@@ -10,22 +8,8 @@ export interface CircuitState {
   threads: ChatThread[];
   currentThreadId: string | null;
   messages: any[];
-  modelInfo: {
-    name: string;
-    size: string;
-    status: 'not_installed' | 'installing' | 'installed' | 'unsupported';
-    progress: number;
-    supportError?: string;
-    progressText?: string;
-  };
-  gpuInfo: {
-    vendor: string;
-    maxStorageBufferBindingSize: string;
-  };
   activeContext: any | null;
   lastPrompt: any[] | null;
-  // Whether the Circuit model-installer card is shown on /settings. Persisted; default shown.
-  circuitEnabled: boolean;
 }
 
 export const useCircuitStore = defineStore('circuit', {
@@ -35,19 +19,8 @@ export const useCircuitStore = defineStore('circuit', {
     threads: [],
     currentThreadId: null,
     messages: [],
-    modelInfo: {
-      name: '',
-      size: '',
-      status: 'installed', //As we are using the Mastra (Circuit) server instead of the local browser-based model, I’m setting the status to 'Installed'. I’ll do the cleanup later.
-      progress: 0
-    },
-    gpuInfo: {
-      vendor: 'Unknown',
-      maxStorageBufferBindingSize: '0 MB'
-    },
     activeContext: null,
-    lastPrompt: null,
-    circuitEnabled: true
+    lastPrompt: null
   }),
   getters: {
     getThreads: (state) => state.threads,
@@ -190,211 +163,16 @@ export const useCircuitStore = defineStore('circuit', {
       }
     },
     async sendAgentMessage(payload: string) {
-      this.isChatStarted = true;
-      
-      let threadId: string | null | undefined = this.currentThreadId;
-
-      if (!threadId) {
-        threadId = await this.createThread(payload.substring(0, 30) || 'New Chat');
-        if (!threadId) {
-          return;
-        }
-      }
-
-      const userMessage: ChatMessage = {
+      // Records the opening user message and starts the chat. The Circuit reply
+      // is produced by the Mastra-backed DraftAssistantService from the chat canvas.
+      await this.addLocalMessage({
         role: 'user',
         content: payload,
-        id: Date.now().toString(),
-        threadId: threadId!,
-        createdAt: Date.now()
-      }
-      
-      try {
-        await CircuitStorageService.saveMessage(userMessage);
-        this.messages.push(userMessage);
-
-        const modelStatus = this.modelInfo.status;
-        if (modelStatus === 'installed') {
-          let fullResponse = "";
-          try {
-            const history = this.messages
-              .map(msg => ({
-                role: (msg.role === 'circuit' ? 'assistant' : 'user') as "assistant" | "user",
-                content: msg.content
-              }));
-            
-            let systemContent = "You are Circuit, an AI assistant for HotWax Commerce. You help users manage routing rules and orders.";
-
-            if (this.activeContext) {
-              systemContent += `\n\nThe following is the JSON context for the routing group "${this.activeContext.routingName}":\n${JSON.stringify(this.activeContext, null, 2)}`;
-            }
-
-            const systemPrompt = {
-              role: 'system' as const,
-              content: systemContent
-            };
-            
-            const assistantMessage: ChatMessage = {
-              role: 'circuit',
-              content: '',
-              id: (Date.now() + 1).toString(),
-              threadId: threadId!,
-              createdAt: Date.now()
-            };
-            this.messages.push(assistantMessage);
-            
-            const messages = [systemPrompt, ...history];
-
-            this.lastPrompt = messages;
-
-            await CircuitLLMService.generateResponse(
-              messages,
-              (chunk: string) => {
-                if (this.currentThreadId === threadId) {
-                  if (this.messages.length > 0) {
-                    const lastMessage = this.messages[this.messages.length - 1];
-                    this.messages.splice(this.messages.length - 1, 1, {
-                      ...lastMessage,
-                      content: lastMessage.content + chunk
-                    });
-                  }
-                }
-                fullResponse += chunk;
-              }
-            );
-
-            try {
-               await CircuitStorageService.saveMessage({ ...assistantMessage, content: fullResponse });
-            } catch (error) {
-               console.error('Failed to save assistant message', error);
-            }
-
-          } catch (error) {
-            console.error('Failed to generate response from local LLM', error);
-            
-            const errorMessage: ChatMessage = {
-              role: 'circuit',
-              content: "Sorry, I encountered an error generating a response locally.",
-              id: (Date.now() + 1).toString(),
-              threadId: threadId!,
-              createdAt: Date.now()
-            }
-            await CircuitStorageService.saveMessage(errorMessage);
-            if (this.currentThreadId === threadId) {
-              this.messages.push(errorMessage);
-            }
-          }
-        } else {
-          const statusMessage: ChatMessage = {
-            role: 'circuit',
-            content: this.modelInfo.status === 'installing' 
-              ? "I'm still preparing my local knowledge. Please wait a moment until the model is fully installed."
-              : "I need to be installed before I can help you. Please head to the Settings tab to install the local model.",
-            id: (Date.now() + 1).toString(),
-            threadId: threadId!,
-            createdAt: Date.now()
-          };
-          await CircuitStorageService.saveMessage(statusMessage);
-          if (this.currentThreadId === threadId) {
-            this.messages.push(statusMessage);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to save message', error);
-      }
-    },
-    async checkWebGPUSupport() {
-      const { supported, error } = await CircuitLLMService.isWebGPUSupported();
-      const modelInfo = CircuitLLMService.getModelInfo();
-
-      if (!supported) {
-        this.modelInfo = {
-          ...modelInfo,
-          status: 'unsupported',
-          supportError: error,
-          progress: 0
-        };
-      } else {
-        const wasInstalled = localStorage.getItem('circuit_model_installed') === 'true';
-        
-        const gpuInfo = await CircuitLLMService.getGPUInfo();
-        this.gpuInfo = gpuInfo;
-
-        if (this.modelInfo.status !== 'installed' && this.modelInfo.status !== 'installing') {
-          this.modelInfo = {
-            ...modelInfo,
-            status: 'not_installed',
-            progress: 0
-          };
-
-          if (wasInstalled) {
-            this.initLLM();
-          }
-        }
-      }
-    },
-    async initLLM() {
-      const modelInfo = CircuitLLMService.getModelInfo();
-
-      if (this.modelInfo.status === 'installed' || this.modelInfo.status === 'installing') {
-        return;
-      }
-
-      this.modelInfo = {
-        ...modelInfo,
-        status: 'installing',
-        progress: 0
-      };
-
-      try {
-        await CircuitLLMService.initEngine((progress: any) => {
-          this.modelInfo = {
-            ...modelInfo,
-            status: 'installing',
-            progress: progress.progress || 0,
-            progressText: progress.text
-          };
-        });
-
-        this.modelInfo = {
-          ...modelInfo,
-          status: 'installed',
-          progress: 1,
-          progressText: translate('Model ready')
-        };
-        localStorage.setItem('circuit_model_installed', 'true');
-
-        const gpuInfo = await CircuitLLMService.getGPUInfo();
-        this.gpuInfo = gpuInfo;
-      } catch (error) {
-        console.error('Failed to initialize WebLLM engine', error);
-        localStorage.removeItem('circuit_model_installed');
-        this.modelInfo = {
-          ...modelInfo,
-          status: 'not_installed',
-          progress: 0,
-          supportError: (error as Error).message
-        };
-      }
-    },
-    async unloadLLM() {
-      try {
-        await CircuitLLMService.unloadEngine();
-        const modelInfo = CircuitLLMService.getModelInfo();
-        this.modelInfo = {
-          ...modelInfo,
-          status: 'not_installed',
-          progress: 0
-        };
-      } catch (error) {
-        console.error('Failed to unload WebLLM engine', error);
-      }
+        threadName: payload.substring(0, 30) || 'New Chat'
+      });
     },
     setActiveContext(payload: any) {
       this.activeContext = payload;
-    },
-    setCircuitEnabled(payload: boolean) {
-      this.circuitEnabled = payload;
     }
   },
   persist: true

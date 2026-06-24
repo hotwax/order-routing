@@ -4,6 +4,10 @@ import { useAtpProductStore } from '@/store/atpProductStore'
 import { DateTime } from 'luxon'
 import { api, commonUtil, logger } from '@common'
 
+function isNotFoundError(error: any) {
+  return error?.response?.status === 404 || error?.status === 404;
+}
+
 export interface ChannelState {
   inventoryChannels: any[];
   jobs: any[];
@@ -132,13 +136,18 @@ export const useChannelStore = defineStore('channel', {
       }
 
       const fetchJobsData = async (payload: any) => {
-        const resp = await api({
-          url: "findJobs",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
-        }) as any;
-        return resp.data?.docs || [];
+        try {
+          const resp = await api({
+            url: "findJobs",
+            method: "post",
+            baseURL: commonUtil.getOmsURL(),
+            data: payload
+          }) as any;
+          return resp.data?.docs || [];
+        } catch (error: any) {
+          if (isNotFoundError(error)) return [];
+          throw error;
+        }
       }
 
       const draftJobs = await fetchJobsData(params);
@@ -258,13 +267,18 @@ export const useChannelStore = defineStore('channel', {
       });
     },
     async fetchJobInformation(payload: any) {
-      const resp = await api({
-        url: "findJobs",
-        method: "post",
-        baseURL: commonUtil.getOmsURL(),
-        data: payload
-      }) as any;
-      return resp.data?.docs || [];
+      try {
+        const resp = await api({
+          url: "findJobs",
+          method: "post",
+          baseURL: commonUtil.getOmsURL(),
+          data: payload
+        }) as any;
+        return resp.data?.docs || [];
+      } catch (error: any) {
+        if (isNotFoundError(error)) return [];
+        throw error;
+      }
     },
     async scheduleJob(payload: any) {
       return await api({

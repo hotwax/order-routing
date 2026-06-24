@@ -6,6 +6,15 @@
           <ion-back-button default-href="/simulation" />
         </ion-buttons>
         <ion-title>{{ translate("Simulation") }}</ion-title>
+        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = String($event.detail.value)">
+          <ion-segment-button value="editor">
+            <ion-label>{{ translate("Editor") }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="results">
+            <ion-label>{{ (sim.isRunning || sim.isRunningVariationRun) ? translate("Simulation") : translate("Results") }}</ion-label>
+            <ion-spinner v-if="sim.isRunning || sim.isRunningVariationRun" name="dots" />
+          </ion-segment-button>
+        </ion-segment>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -18,20 +27,11 @@
         <!-- Toggle is always available so the user can move freely between the editor and the
              (possibly still-running, or not-yet-started) simulation. Both panes stay mounted so
              switching is instant and the editor keeps its state while a run continues in the background. -->
-        <ion-segment :value="sim.view" @ionChange="sim.view = String($event.detail.value)" class="sim-viewbar">
-          <ion-segment-button value="editor">
-            <ion-label>{{ translate("Editor") }}</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="results">
-            <ion-label>{{ (sim.isRunning || sim.isRunningVariationRun) ? translate("Simulation") : translate("Results") }}</ion-label>
-            <ion-spinner v-if="sim.isRunning || sim.isRunningVariationRun" name="dots" />
-          </ion-segment-button>
-        </ion-segment>
-
-        <div v-show="sim.view === 'editor'" class="sim-editor">
+        <div v-show="sim.view === 'editor'">
           <simulation-canvas />
-          <variation-rail />
         </div>
+        <!-- Persistent right-side sheet; teleports to body so it stays available across views. -->
+        <variation-rail />
         <div v-show="sim.view === 'results' && !sim.isRunning && !sim.results && !sim.isRunningVariationRun && !sim.variationRunResult" class="ion-padding sim-empty">
           {{ translate("No simulation has run yet. Save a variation and run it.") }}
         </div>
@@ -69,7 +69,6 @@ onMounted(reload);
 </script>
 
 <style scoped>
-.sim-editor { display: flex; gap: var(--spacer-base); }
 .sim-viewbar { max-width: 360px; margin: var(--spacer-sm) auto; }
 .sim-empty { color: var(--ion-color-medium); }
 </style>

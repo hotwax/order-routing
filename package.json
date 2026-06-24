@@ -18,8 +18,6 @@
     "@ionic/core": "catalog:",
     "@ionic/vue": "catalog:",
     "@ionic/vue-router": "catalog:",
-    "@mlc-ai/web-llm": "^0.2.80",
-    "@webgpu/types": "^0.1.69",
     "axios": "catalog:",
     "axios-cache-adapter": "catalog:",
     "boolean-parser": "0.0.2",

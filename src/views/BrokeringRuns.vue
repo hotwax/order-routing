@@ -215,6 +215,22 @@ function redirect(group: Group) {
   router.push(`brokering/${group.routingGroupId}/routes`)
 }
 
+async function groupActionsPopover(group: Group, event: Event) {
+  const popover = await popoverController.create({
+    component: GroupActionsPopover,
+    event,
+    showBackdrop: false,
+    componentProps: { group }
+  });
+
+  popover.present();
+
+  const result = await popover.onDidDismiss();
+  if (result.data && result.data.routingGroups) {
+    brokeringGroups.value = result.data.routingGroups;
+  }
+}
+
 </script>
 
 <style scoped>

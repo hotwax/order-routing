@@ -6,7 +6,7 @@
           <ion-back-button default-href="/simulation" />
         </ion-buttons>
         <ion-title>{{ translate("Simulation") }}</ion-title>
-        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = String($event.detail.value)">
+        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = $event.detail.value as 'editor' | 'results'">
           <ion-segment-button value="editor">
             <ion-label>{{ translate("Editor") }}</ion-label>
           </ion-segment-button>
@@ -28,7 +28,10 @@
              (possibly still-running, or not-yet-started) simulation. Both panes stay mounted so
              switching is instant and the editor keeps its state while a run continues in the background. -->
         <div v-show="sim.view === 'editor'">
-          <simulation-canvas />
+          <!-- Key on the active variation so switching baseline <-> variation tears down and
+               rebuilds the editor, guaranteeing a fresh bind to sim.working regardless of any
+               in-place reactivity edge case (esp. for edited variations). -->
+          <simulation-canvas :key="sim.activeVariationId || 'baseline'" />
         </div>
         <!-- Persistent right-side sheet; teleports to body so it stays available across views. -->
         <variation-rail />

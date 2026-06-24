@@ -135,22 +135,7 @@ export const useChannelStore = defineStore('channel', {
         viewSize: 1
       }
 
-      const fetchJobsData = async (payload: any) => {
-        try {
-          const resp = await api({
-            url: "findJobs",
-            method: "post",
-            baseURL: commonUtil.getOmsURL(),
-            data: payload
-          }) as any;
-          return resp.data?.docs || [];
-        } catch (error: any) {
-          if (isNotFoundError(error)) return [];
-          throw error;
-        }
-      }
-
-      const draftJobs = await fetchJobsData(params);
+      const draftJobs = await this.fetchJobInformation(params);
       if (draftJobs.length) draftJob = draftJobs[0];
       params = {
         inputFields: {
@@ -161,7 +146,7 @@ export const useChannelStore = defineStore('channel', {
         fieldList: ["systemJobEnumId", "runTime", "tempExprId", "parentJobId", "serviceName", "jobId", "jobName", "currentRetryCount", "statusId", "productStoreId", "runtimeDataId", "shopId", "description", "enumTypeId", "enumName"],
         noConditionFind: "Y"
       }
-      const pendingJobs = await fetchJobsData(params);
+      const pendingJobs = await this.fetchJobInformation(params);
       const jobs = shopifyConfigs.map((shop: any) => {
         const pendingJob = pendingJobs.find((job: any) => job.shopId === shop.shopId)
         if (pendingJob?.jobId) {

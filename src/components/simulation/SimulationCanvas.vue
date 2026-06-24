@@ -6,7 +6,7 @@
         <div>
           <ion-card-header>
             <ion-card-title>{{ groupName }}</ion-card-title>
-            <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
+            <ion-card-subtitle>{{ sim.activeVariationId ? (group.variationGroupId || sim.activeVariationId) : group.routingGroupId }}</ion-card-subtitle>
           </ion-card-header>
           <div class="ion-padding variation-editing">
             <ion-chip :color="sim.activeVariationId ? 'primary' : 'medium'" :outline="true">
@@ -469,7 +469,9 @@ import {
   IonBadge,
   IonButton,
   IonCard,
+  IonCardContent,
   IonCardHeader,
+  IonCardSubtitle,
   IonCardTitle,
   IonChip,
   IonIcon,
@@ -478,6 +480,7 @@ import {
   IonItemGroup,
   IonLabel,
   IonList,
+  IonListHeader,
   IonNote,
   IonRippleEffect,
   IonReorder,
@@ -585,8 +588,8 @@ async function saveAsNewVariation() {
         text: translate("Save"),
         handler: async (data) => {
           flushWorking();
-          await sim.saveAsVariation(data?.label);
-          commonUtil.showToast(translate("Variation saved"));
+          const ok = await sim.saveAsVariation(data?.label);
+          commonUtil.showToast(ok ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
         }
       }
     ]
@@ -595,11 +598,11 @@ async function saveAsNewVariation() {
 }
 
 // Overwrite the variation currently being edited with the latest working copy.
-function updateActiveVariation() {
+async function updateActiveVariation() {
   if (!sim.activeVariationId) return;
   flushWorking();
-  sim.updateVariation(sim.activeVariationId);
-  commonUtil.showToast(translate("Variation updated"));
+  const ok = await sim.updateVariation(sim.activeVariationId);
+  commonUtil.showToast(ok ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
 }
 
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))

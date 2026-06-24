@@ -95,7 +95,7 @@ onMounted(async() => {
   isLoading.value = true;
   await productStore.fetchProductFilters({ facetToSelect: props.facetToSelect, searchfield: props.searchfield })
   facetOptions.value = productStore.getFacetOptions(props.searchfield);
-  filteredOptions.value = JSON.parse(JSON.stringify(facetOptions.value))
+  filteredOptions.value = [...facetOptions.value]
   selectedValues.value = JSON.parse(JSON.stringify((appliedFilters.value as any)[props.type][props.searchfield]))
   isLoading.value = false;
 })
@@ -113,7 +113,7 @@ async function search() {
     filteredOptions.value = productStore.getFacetOptions(props.searchfield).filter((option: any) => option.label.toLowerCase().includes(queryString.value.trim().toLowerCase()))
     isLoading.value = false;
   } else {
-    filteredOptions.value = JSON.parse(JSON.stringify(productStore.getFacetOptions(props.searchfield)))
+    filteredOptions.value = [...facetOptions.value]
   }
 }
 

@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Simulate") }}</ion-title>
-        <ion-segment slot="end" :value="tab" @ionChange="tab = String($event.detail.value) as 'new' | 'past'">
+        <ion-segment slot="end" :value="tab" @ionChange="tab = $event.detail.value as 'new' | 'past'">
           <ion-segment-button value="new"><ion-label>{{ translate("New simulation") }}</ion-label></ion-segment-button>
           <ion-segment-button value="past"><ion-label>{{ translate("Past simulations") }}</ion-label></ion-segment-button>
         </ion-segment>

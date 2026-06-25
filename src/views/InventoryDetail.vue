@@ -277,6 +277,8 @@ ion-content {
   gap: var(--spacer-base, 16px);
   padding: var(--spacer-base, 16px);
   width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
   align-items: start;
 }
 
@@ -293,6 +295,8 @@ ion-content {
 
 .detail-grid {
   width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
   padding: var(--spacer-base, 16px);
 }
 
@@ -313,7 +317,7 @@ ion-content {
   height: 96px;
   overflow: hidden;
   border-radius: 8px;
-  margin:7px;
+  margin: 8px;
   background: var(--ion-color-step-100, #f4f5f8);
   color: var(--ion-color-medium);
   font-size: 32px;

@@ -27,7 +27,8 @@
         :facility-orders-is-today="facilityOrdersIsToday"
         :sourcing="sourcing"
         :foundations="foundations"
-        :jobs="jobs"
+        :channels="channels"
+        :channel-jobs="channelJobs"
         :total-sourcing="totalSourcing"
         @navigate="go"
       />
@@ -56,7 +57,8 @@ const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
 const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
 const facilityOrdersIsToday = computed(() => dashboardStore.getFacilityOrdersIsToday);
 const foundations = computed(() => dashboardStore.getFoundations);
-const jobs = computed(() => dashboardStore.getJobs);
+const channels = computed(() => dashboardStore.getChannels);
+const channelJobs = computed(() => dashboardStore.getChannelJobs);
 const totalSourcing = computed(() => dashboardStore.totalSourcingRules);
 
 onIonViewWillEnter(() => {

@@ -1,7 +1,7 @@
 <template>
   <main class="dashboard">
     <!-- Routing performance -->
-    <ion-card class="brokering-stats" button @click="emit('navigate', '/brokering')">
+    <ion-card class="brokering-stats" button router-link="/brokering">
       <ion-card-header>
         <div class="card-head">
           <ion-card-title>{{ translate("Routing") }}</ion-card-title>
@@ -144,17 +144,18 @@
       <ion-card-header>
         <div class="card-head">
           <ion-card-title>{{ translate("Inventory channels") }}</ion-card-title>
+          <ion-note slot="end">{{ foundations.channels }}</ion-note>
         </div>
       </ion-card-header>
-      <ion-card-content>
-        <h1 class="metric">{{ foundations.channels }}</h1>
-      </ion-card-content>
-      <ion-item lines="none">
-          <ion-icon slot="start" :icon="cloudUploadOutline" color="medium" />
-          <ion-label color="medium">
-            {{ translate("{count} publish jobs", { count: jobs.total }) }}<span v-if="jobs.running"> · {{ translate("{count} running", { count: jobs.running }) }}</span>
-          </ion-label>
+      <ion-list lines="full" v-if="channels.length">
+        <ion-item v-for="channel in channels" :key="channel.facilityGroupId">
+          <ion-label>{{ channel.facilityGroupName || channel.facilityGroupId }}</ion-label>
+          <ion-icon slot="end" :icon="isChannelRunning(channel) ? playOutline : pauseOutline" color="medium" />
         </ion-item>
+      </ion-list>
+      <ion-card-content v-else>
+        <p>{{ translate("No inventory channels yet") }}</p>
+      </ion-card-content>
     </ion-card>
   </main>
 </template>
@@ -162,7 +163,7 @@
 <script setup lang="ts">
 import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText } from "@ionic/vue";
 import { computed, ref } from "vue";
-import { cloudUploadOutline, timeOutline } from "ionicons/icons";
+import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
 
 import type { BrokeringState, FacilityOrder } from "@/store/dashboardStore";
@@ -176,7 +177,8 @@ const props = defineProps<{
   facilityOrdersIsToday: boolean;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
-  jobs: { total: number; running: number };
+  channels: any[];
+  channelJobs: any[];
   totalSourcing: number;
 }>();
 
@@ -241,6 +243,23 @@ function metricLine(s: { metric: string; total: number; blocking: number }) {
   if (s.metric === "pickup") return translate("{count} blocking pickup", { count: s.blocking });
   if (s.metric === "shipping") return translate("{count} blocking shipping", { count: s.blocking });
   return "";
+}
+
+function isChannelRunning(channel: any) {
+  return props.channelJobs.some((job: any) => {
+    const runtimeData = getJobRuntimeData(job);
+    const facilityGroupId = runtimeData?.facilityGroupId || job.facilityGroupId;
+    return facilityGroupId === channel.facilityGroupId && job.statusId === "SERVICE_PENDING";
+  });
+}
+
+function getJobRuntimeData(job: any) {
+  if (typeof job.runtimeData !== "string") return job.runtimeData;
+  try {
+    return JSON.parse(job.runtimeData || "{}");
+  } catch {
+    return {};
+  }
 }
 </script>
 

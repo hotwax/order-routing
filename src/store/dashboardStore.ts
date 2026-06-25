@@ -82,7 +82,9 @@ export interface DashboardState {
   facilityOrdersDate: string | null;
   facilityOrdersIsToday: boolean;
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
+  channels: any[];
   jobs: { total: number; running: number };
+  channelJobs: any[];
 }
 
 export const useDashboardStore = defineStore("dashboard", {
@@ -95,7 +97,9 @@ export const useDashboardStore = defineStore("dashboard", {
     facilityOrdersDate: null,
     facilityOrdersIsToday: false,
     foundations: { facilityGroups: 0, facilityGroupsByType: {}, channels: 0 },
-    jobs: { total: 0, running: 0 }
+    channels: [],
+    jobs: { total: 0, running: 0 },
+    channelJobs: []
   }),
   getters: {
     getSourcing: (state) => state.sourcing,
@@ -104,7 +108,9 @@ export const useDashboardStore = defineStore("dashboard", {
     getFacilityOrdersDate: (state) => state.facilityOrdersDate,
     getFacilityOrdersIsToday: (state) => state.facilityOrdersIsToday,
     getFoundations: (state) => state.foundations,
+    getChannels: (state) => state.channels,
     getJobs: (state) => state.jobs,
+    getChannelJobs: (state) => state.channelJobs,
     isLoading: (state) => state.loading,
     totalSourcingRules: (state) => state.sourcing.reduce((total, sourcing) => total + sourcing.count, 0)
   },
@@ -363,9 +369,11 @@ export const useDashboardStore = defineStore("dashboard", {
       try {
         const channelStore = useChannelStore();
         await channelStore.fetchInventoryChannels();
-        foundations.channels = (channelStore.getInventoryChannels || []).length;
+        this.channels = channelStore.getInventoryChannels || [];
+        foundations.channels = this.channels.length;
       } catch (err) {
         logger.error("dashboard: failed to load channels", err);
+        this.channels = [];
       }
       this.foundations = foundations;
     },
@@ -375,10 +383,12 @@ export const useDashboardStore = defineStore("dashboard", {
         const channelStore = useChannelStore();
         await channelStore.fetchJobs();
         const jobsList = channelStore.getJobs || [];
+        this.channelJobs = jobsList;
         jobs.total = jobsList.length;
         jobs.running = jobsList.filter((job: any) => job.statusId === "SERVICE_PENDING").length;
       } catch (err) {
         logger.error("dashboard: failed to load publish jobs", err);
+        this.channelJobs = [];
       }
       this.jobs = jobs;
     }

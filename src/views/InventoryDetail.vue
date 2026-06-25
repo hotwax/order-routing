@@ -30,7 +30,7 @@
             </div>
           </ion-item>
 
-          <ion-card class="ion-margin-top">
+          <ion-card class="ion-no-margin ion-margin-top">
             <div class="card-header">
               <ion-card-header>
                 <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
@@ -51,7 +51,7 @@
         </section>
 
         <div class="config-column">
-          <ion-card>
+          <ion-card class="ion-no-margin">
             <div class="card-header">
               <ion-card-header>
                 <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
@@ -276,7 +276,7 @@ ion-content {
   grid-template-columns: 1fr 1fr;
   gap: var(--spacer-base, 16px);
   padding: var(--spacer-base, 16px);
-  max-width: 1280px;
+  width: 100%;
   align-items: start;
 }
 
@@ -292,7 +292,7 @@ ion-content {
 }
 
 .detail-grid {
-  max-width: 1280px;
+  width: 100%;
   padding: var(--spacer-base, 16px);
 }
 
@@ -313,6 +313,7 @@ ion-content {
   height: 96px;
   overflow: hidden;
   border-radius: 8px;
+  margin:7px;
   background: var(--ion-color-step-100, #f4f5f8);
   color: var(--ion-color-medium);
   font-size: 32px;

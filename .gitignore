@@ -24,6 +24,8 @@ npm-debug.log*
 /.versions
 /.vscode
 /.claude
+/.codex
+/AGENTS.md
 /.mastra
 .mastra-debug/
 /coverage

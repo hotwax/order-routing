@@ -6,19 +6,14 @@
           <ion-icon slot="icon-only" :icon="closeOutline" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ translate("Manage facilities") }}</ion-title>
+      <ion-title>{{ group.facilityGroupName }}</ion-title>
+    </ion-toolbar>
+    <ion-toolbar>
+      <ion-searchbar v-model="queryString" @keyup.enter="fetchFacilities()" :debounce="300" @ionInput="fetchFacilities()" />
     </ion-toolbar>
   </ion-header>
 
   <ion-content>
-    <ion-list-header>
-      <ion-label>
-        <h2>{{ group.facilityGroupName }}</h2>
-        <p>{{ group.facilityGroupId }}</p>
-      </ion-label>
-    </ion-list-header>
-    <ion-searchbar v-model="queryString" @keyup.enter="fetchFacilities()" :debounce="300" @ionInput="fetchFacilities()" />
-
     <div class="empty-state" v-if="isLoading">
       <ion-item lines="none">
         <ion-spinner name="crescent" slot="start" />
@@ -64,7 +59,6 @@ import {
   IonItem,
   IonLabel,
   IonList,
-  IonListHeader,
   IonSearchbar,
   IonSpinner,
   IonTitle,

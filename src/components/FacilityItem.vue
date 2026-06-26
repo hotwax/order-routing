@@ -1,9 +1,15 @@
 <template>
-  <ion-card v-if="selectedPage.path === '/store-pickup'">
+  <ion-card v-if="pickup">
     <ion-card-header>
       <ion-card-subtitle class="overline">{{ facility.facilityId }}</ion-card-subtitle>
       <ion-card-title>{{ facility.facilityName }}</ion-card-title>
     </ion-card-header>
+
+    <ion-item lines="full" class="bopis-stat">
+      <ion-icon :icon="bagCheckOutline" slot="start" />
+      <ion-label>{{ translate("BOPIS orders", { count: bopisOrderCount }) }}</ion-label>
+      <ion-note slot="end">{{ translate("Last 30 days") }}</ion-note>
+    </ion-item>
 
     <ion-item lines="none" v-for="group in pickupGroups" :key="group.facilityGroupId">
       <ion-icon :icon="storefrontOutline" slot="start" />
@@ -34,31 +40,26 @@
 </template>
 
 <script setup lang="ts">
-import { IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonProgressBar, IonText, IonToggle, popoverController } from '@ionic/vue';
-import { computed, onMounted, ref } from 'vue';
-import { storefrontOutline } from 'ionicons/icons';
-import router from '@/router';
+import { IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonNote, IonProgressBar, IonText, IonToggle, popoverController } from '@ionic/vue';
+import { computed } from 'vue';
+import { bagCheckOutline, storefrontOutline } from 'ionicons/icons';
 import { commonUtil, emitter, logger, translate } from '@common';
 import OrderLimitPopover from '@/components/OrderLimitPopover.vue';
 import { useAtpProductStore } from '@/store/atpProductStore';
+import { usePickupAnalyticsStore } from '@/store/pickupAnalyticsStore';
 import { DateTime } from 'luxon';
 
 const productStore = useAtpProductStore();
+const pickupAnalyticsStore = usePickupAnalyticsStore();
 
-const selectedPage = ref({
-  path: '',
-  name: ''
-}) as any
-
-const props = defineProps(["facility"]);
+const props = defineProps({
+  facility: { type: Object, required: true },
+  pickup: { type: Boolean, default: false }
+});
 const facilities = computed(() => productStore.getFacilities);
 const pickupGroups = computed(() => productStore.getPickupGroups);
 const pickupGroupFacilities = computed(() => productStore.getPickupGroupFacilities);
-
-onMounted(() => {
-    selectedPage.value.path = router.currentRoute.value.path
-    selectedPage.value.name = router.currentRoute.value.name
-})
+const bopisOrderCount = computed(() => pickupAnalyticsStore.getFacilityOrderCount(props.facility.facilityId));
 
 async function changeOrderLimitPopover(ev: Event) {
   const popover = await popoverController.create({

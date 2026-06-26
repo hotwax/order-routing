@@ -17,6 +17,8 @@ const SOURCING = [
   { key: "shipping", label: "Shipping", route: "/shipping", groupTypes: ["RG_SHIPPING_FACILITY", "RG_SHIPPING_CHANNEL"], metric: "shipping" }
 ];
 
+const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
+
 function isTruthyFlag(value: any) {
   return value === true || value === "Y" || value === "y";
 }
@@ -341,9 +343,14 @@ export const useDashboardStore = defineStore("dashboard", {
     },
     async loadFoundations() {
       const foundations = { facilityGroups: 0, facilityGroupsByType: {} as Record<string, number>, channels: 0 };
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+      if (!productStoreId) {
+        this.foundations = foundations;
+        return;
+      }
       try {
         const facilityGroupStore = useFacilityGroupStore();
-        await facilityGroupStore.fetchGroups();
+        await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
         const facilityGroups = facilityGroupStore.getGroups || [];
         foundations.facilityGroups = facilityGroups.length;
         for (const facilityGroup of facilityGroups) {

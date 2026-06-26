@@ -1,5 +1,6 @@
 import en from "./en.json"
 
 export default {
-  "en-US": en
+  "en-US": en,
+  "en": en
 };

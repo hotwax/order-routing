@@ -46,7 +46,17 @@ const simulateGuard = (to: any, from: any, next: any) =>
   isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering");
 
 const routes: Array<RouteRecordRaw> = [
-  { path: "/", redirect: "/threshold" },
+  { path: "/", redirect: "/dashboard" },
+
+  {
+    path: "/dashboard",
+    name: "Dashboard",
+    component: () => import("@/views/Dashboard.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Dashboard"
+    }
+  },
 
   // -------------------- Sourcing (ATP) --------------------
   {

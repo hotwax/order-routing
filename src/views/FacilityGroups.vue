@@ -219,7 +219,7 @@ async function confirmArchive(group: any) {
         role: "destructive",
         handler: async () => {
           try {
-            await facilityGroupStore.archiveGroup(group.facilityGroupId);
+            await facilityGroupStore.archiveGroup(group);
             commonUtil.showToast(translate("Facility group archived."));
           } catch (err) {
             logger.error("Failed to archive facility group", err);

@@ -20,6 +20,7 @@
     </ion-header>
 
     <ion-content ref="contentRef" :scroll-events="true" @ionScroll="enableScrolling()">
+      <PickupAnalytics />
       <main class="atp-main" v-if="selectedSegment !== 'PICKUP_FACILITY'">
         <template v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
           <ScheduleRuleItem v-if="rules.length" />
@@ -118,12 +119,16 @@ import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue'
 import { commonUtil, emitter, translate } from '@common';
 import { ruleUtil } from '@/utils/ruleUtil';
 import ArchivedRuleItem from '@/components/ArchivedRuleItem.vue';
+import ScheduleRuleItem from '@/components/ScheduleRuleItem.vue';
+import PickupAnalytics from '@/components/PickupAnalytics.vue';
 import router from '@/router';
 import { useRuleStore } from '@/store/rule';
 import { useAtpProductStore } from '@/store/atpProductStore';
+import { usePickupAnalyticsStore } from '@/store/pickupAnalyticsStore';
 
 const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
+const pickupAnalyticsStore = usePickupAnalyticsStore();
 
 const ruleGroup = computed(() => ruleStore.getRuleGroup);
 const rules = computed(() => ruleStore.getRules);
@@ -147,6 +152,7 @@ const sectionTabs = computed(() => [
 
 onIonViewDidEnter(async() => {
   fetchRules();
+  pickupAnalyticsStore.loadAnalytics();
   emitter.on("productStoreOrConfigChanged", fetchRules);
 })
 

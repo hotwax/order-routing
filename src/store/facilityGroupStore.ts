@@ -181,11 +181,12 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);
     },
-    async removeFacility(facilityGroupId: string, facilityId: string) {
+    async removeFacility(facilityGroupId: string, facility: any) {
+      const facilityId = facility.facilityId;
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",
-        data: { facilityGroupId, facilityId, thruDate: DateTime.now().toMillis() }
+        data: { facilityGroupId, facilityId, fromDate: facility.fromDate, thruDate: DateTime.now().toMillis() }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);

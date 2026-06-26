@@ -89,6 +89,7 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 
 const initiallySelectedIds = ref<Set<string>>(new Set());
+const initialFacilitiesById = ref<Record<string, any>>({});
 const selectedIds = ref<Set<string>>(new Set());
 
 const isDirty = computed(() => {
@@ -156,8 +157,12 @@ async function save() {
     const toAdd = [...selectedIds.value].filter((id) => !initiallySelectedIds.value.has(id));
     const toRemove = [...initiallySelectedIds.value].filter((id) => !selectedIds.value.has(id));
 
-    await Promise.allSettled(toAdd.map((id) => facilityGroupStore.addFacility(props.group.facilityGroupId, id)));
-    await Promise.allSettled(toRemove.map((id) => facilityGroupStore.removeFacility(props.group.facilityGroupId, id)));
+    const results = await Promise.allSettled([
+      ...toAdd.map((id) => facilityGroupStore.addFacility(props.group.facilityGroupId, id)),
+      ...toRemove.map((id) => facilityGroupStore.removeFacility(props.group.facilityGroupId, initialFacilitiesById.value[id]))
+    ]);
+    const failedResult = results.find((result) => result.status === "rejected");
+    if (failedResult) throw (failedResult as PromiseRejectedResult).reason;
 
     commonUtil.showToast(translate("Facility memberships updated."));
     modalController.dismiss({ saved: true });
@@ -172,6 +177,10 @@ async function save() {
 
 onMounted(async () => {
   const current = facilityGroupStore.getGroupFacilities(props.group.facilityGroupId) || [];
+  initialFacilitiesById.value = current.reduce((facilitiesById: Record<string, any>, facility: any) => {
+    facilitiesById[facility.facilityId] = facility;
+    return facilitiesById;
+  }, {});
   initiallySelectedIds.value = new Set(current.map((f: any) => f.facilityId));
   selectedIds.value = new Set(initiallySelectedIds.value);
   await fetchFacilities();

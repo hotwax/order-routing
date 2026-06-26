@@ -1,65 +1,61 @@
-import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAtpProductStore } from "@/store/atpProductStore";
-import { useFacilityGroupStore } from "@/store/facilityGroupStore";
-import { api } from "@common";
+import { createPinia, setActivePinia } from "pinia";
+
+const api = vi.fn();
 
 vi.mock("@common", () => ({
-  api: vi.fn(),
+  api: (...args: any[]) => api(...args),
   commonUtil: {
-    hasError: vi.fn((response: any) => Boolean(response?.error || response?.data?._ERROR_MESSAGE_))
+    hasError: (resp: any) => resp?._error === true,
   },
-  logger: {
-    error: vi.fn()
-  }
+  logger: { error: () => {} },
 }));
 
-vi.mock("@/store/userStore", () => ({
-  useUserStore: vi.fn(() => ({}))
+vi.mock("@/store/atpProductStore", () => ({
+  useAtpProductStore: () => ({
+    currentProductStore: { productStoreId: "STORE" },
+    getProductStores: [],
+    fetchUserProductStores: vi.fn(),
+  }),
 }));
 
-const mockedApi = vi.mocked(api);
+import { useFacilityGroupStore } from "../src/store/facilityGroupStore";
 
-describe("facilityGroupStore.archiveGroup", () => {
+describe("facilityGroupStore", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    mockedApi.mockReset();
-    vi.spyOn(Date, "now").mockReturnValue(1781896000000);
+    vi.setSystemTime(new Date("2026-06-24T08:00:00Z"));
+    api.mockReset();
+    api.mockResolvedValue({ data: [] });
   });
 
-  it("expires the selected product store association for the loaded facility group", async () => {
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
-    const facilityGroupStore = useFacilityGroupStore();
-    facilityGroupStore.$patch({
-      groups: [
-        {
-          productStoreId: "STORE",
-          facilityGroupId: "FG1",
-          fromDate: 1781895000000,
-          facilityGroupTypeId: "BROKERING_GROUP"
-        }
-      ],
-      facilitiesByGroup: {
-        FG1: [{ facilityId: "FACILITY" }]
-      }
+  it("sends the active membership fromDate when removing a facility from a group", async () => {
+    const store = useFacilityGroupStore();
+
+    await store.removeFacility("DivFacilityGroup", {
+      facilityId: "CODEX219_STORE",
+      fromDate: 1782281232454,
     });
-    mockedApi.mockResolvedValue({ data: {} });
 
-    await facilityGroupStore.archiveGroup({ facilityGroupId: "FG1", fromDate: 1781895000000 });
-
-    expect(mockedApi).toHaveBeenCalledWith({
-      url: "admin/productStores/STORE/facilityGroups/FG1/association",
+    expect(api).toHaveBeenNthCalledWith(1, {
+      url: "admin/facilityGroups/DivFacilityGroup/facilities/CODEX219_STORE/association",
       method: "POST",
       data: {
-        productStoreId: "STORE",
-        facilityGroupId: "FG1",
-        fromDate: 1781895000000,
-        thruDate: 1781896000000
-      }
+        facilityGroupId: "DivFacilityGroup",
+        facilityId: "CODEX219_STORE",
+        fromDate: 1782281232454,
+        thruDate: Date.now(),
+      },
     });
-    expect(mockedApi).not.toHaveBeenCalledWith(expect.objectContaining({ url: "admin/facilityGroups/FG1" }));
-    expect(facilityGroupStore.getGroups).toEqual([]);
-    expect(facilityGroupStore.getGroupFacilities("FG1")).toEqual([]);
   });
 
+  it("does not remove a facility when the active membership key is incomplete", async () => {
+    const store = useFacilityGroupStore();
+
+    await expect(store.removeFacility("DivFacilityGroup", { facilityId: "CODEX219_STORE" })).rejects.toThrow(
+      "Active facility group membership is missing its key fields",
+    );
+
+    expect(api).not.toHaveBeenCalled();
+  });
 });

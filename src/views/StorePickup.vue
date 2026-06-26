@@ -21,8 +21,10 @@
 
     <ion-content ref="contentRef" :scroll-events="true" @ionScroll="enableScrolling()">
       <template v-if="selectedSegment !== 'PICKUP_FACILITY'">
-        <template v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
-          <PickupAnalytics />
+        <div v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)" class="pickup-layout">
+          <aside class="pickup-aside">
+            <PickupAnalytics />
+          </aside>
           <main class="atp-main">
             <ScheduleRuleItem v-if="rules.length" />
             <ArchivedRuleItem v-if="archivedRules?.length" />
@@ -33,7 +35,7 @@
               </ion-reorder-group>
             </section>
           </main>
-        </template>
+        </div>
         <template v-else>
           <div class="empty-block">
             <EmptyState
@@ -73,14 +75,14 @@
           </EmptyState>
           <SectionWayfinding :items="sectionTabs" :active="selectedSegment" :heading="translate('Store pickup is set up across three tabs')" @select="changeSegment" />
         </div>
-        <div v-else-if="facilities.length" class="facility-layout">
-          <aside class="facility-analytics">
+        <div v-else-if="facilities.length" class="pickup-layout">
+          <aside class="pickup-aside">
             <PickupAnalytics />
           </aside>
           <main class="facility-list-col">
             <div class="facility-controls">
               <ion-searchbar :placeholder="translate('Search')" :value="facilitySearch" :debounce="200" @ionInput="facilitySearch = $event.detail.value || ''" />
-              <ion-select v-model="facilitySort" :aria-label="translate('Sort by')" interface="popover">
+              <ion-select v-model="facilitySort" :label="translate('Sort')" label-placement="start" interface="popover">
                 <ion-select-option value="volume">{{ translate("Order volume") }}</ion-select-option>
                 <ion-select-option value="name">{{ translate("Alphabetical") }}</ion-select-option>
                 <ion-select-option value="created">{{ translate("Created date") }}</ion-select-option>
@@ -367,23 +369,30 @@ function createStorePickup() {
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
 }
 
-/* Facility tab: analytics in a left column, the facility list on the right. */
-.facility-layout {
+/* Analytics in a left column, the rule/facility list on the right. */
+.pickup-layout {
   display: grid;
   grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
   gap: var(--spacer-base);
   align-items: start;
 }
 
-.facility-analytics {
+.pickup-aside {
   position: sticky;
   top: var(--spacer-base);
+}
+
+/* Keep the rule list centered in its column instead of pinned wide-left. */
+.pickup-layout .atp-main {
+  margin-top: var(--spacer-base);
 }
 
 .facility-list-col {
   min-width: 0;
   /* Keep the cards at the base width they had before the two-column layout. */
-  max-width: 375px;
+  max-width: 400px;
+  justify-self: center;
+  margin-top: var(--spacer-base);
 }
 
 .facility-controls {
@@ -411,11 +420,11 @@ function createStorePickup() {
 
 /* Stack the analytics above the list on narrow screens. */
 @media (max-width: 991px) {
-  .facility-layout {
+  .pickup-layout {
     grid-template-columns: 1fr;
   }
 
-  .facility-analytics {
+  .pickup-aside {
     position: static;
   }
 }

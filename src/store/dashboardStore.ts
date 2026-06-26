@@ -38,6 +38,10 @@ async function fetchInBatches<T, R>(
   return results;
 }
 
+function escapeSolrValue(value: string) {
+  return String(value).replace(/([+\-&|!(){}\[\]^"~*?:\\/])/g, "\\$1");
+}
+
 export interface BrokeringRun {
   routingRunId: string;
   routingGroupId: string;
@@ -49,6 +53,27 @@ export interface BrokeringRun {
   brokeredItemCount: number;
   hasError: string;
   routingResult: string;
+  groupName?: string;
+}
+
+export interface BrokeringGroupRun {
+  routingGroupId: string;
+  groupName: string;
+  routingBatchId: string;
+  startDate: number;
+  endDate: number;
+  orderItemCount: number;
+  brokeredItemCount: number;
+}
+
+export interface OldestQueuedOrder {
+  orderId: string;
+  orderName: string;
+  customerName: string;
+  facilityName: string;
+  orderDate: number | null;
+  orderStatusDesc: string;
+  salesChannelDesc: string;
 }
 
 export interface BrokeringState {
@@ -60,9 +85,105 @@ export interface BrokeringState {
   errorCount: number;
   runs: BrokeringRun[];
   queueDepth: number;
+  oldestQueued: OldestQueuedOrder | null;
   totalAttempted: number;
   totalBrokered: number;
   lastRun: BrokeringRun | null;
+  lastGroupRun: BrokeringGroupRun | null;
+}
+
+function buildLatestGroupRun(runs: BrokeringRun[]): BrokeringGroupRun | null {
+  const latestRun = runs[0];
+  if (!latestRun) return null;
+
+  const relatedRuns = latestRun.routingBatchId
+    ? runs.filter(run => run.routingGroupId === latestRun.routingGroupId && run.routingBatchId === latestRun.routingBatchId)
+    : [latestRun];
+
+  return relatedRuns.reduce<BrokeringGroupRun>((summary, run) => {
+    summary.startDate = Math.min(summary.startDate, Number(run.startDate) || summary.startDate);
+    summary.endDate = Math.max(summary.endDate, Number(run.endDate) || summary.endDate);
+    summary.orderItemCount += Number(run.orderItemCount) || 0;
+    summary.brokeredItemCount += Number(run.brokeredItemCount) || 0;
+    return summary;
+  }, {
+    routingGroupId: latestRun.routingGroupId,
+    groupName: latestRun.groupName || latestRun.routingGroupId,
+    routingBatchId: latestRun.routingBatchId,
+    startDate: Number(latestRun.startDate) || 0,
+    endDate: Number(latestRun.endDate) || 0,
+    orderItemCount: 0,
+    brokeredItemCount: 0
+  });
+}
+
+// Facilities that hold sales-order items still awaiting (or stuck in) brokering — the
+// "queue". Mirrors the OMS Find Order facility filter (Brokering Queue, Unfillable
+// Parking, Rejected Item Parking, Released Order Parking, Unfillable Hold Parking),
+// referenced by facility id rather than name.
+const QUEUE_FACILITY_IDS = [
+  "_NA_",
+  "UNFILLABLE_PARKING",
+  "REJECTED_ITM_PARKING",
+  "RELEASED_ORD_PARKING",
+  "UNF_HOLD_PARKING"
+];
+
+function toMillis(isoDate: string): number | null {
+  if (!isoDate) return null;
+  const millis = new Date(isoDate).getTime();
+  return Number.isNaN(millis) ? null : millis;
+}
+
+// Single query serves both the queue size (numFound) and the oldest queued line
+// (docs[0], sorted by orderDate asc). Returns line-item count to match the OMS
+// Find Order page for the same facilities.
+async function fetchQueueSummary(productStoreId: string): Promise<{ count: number; oldest: OldestQueuedOrder | null }> {
+  try {
+    const response = await api({
+      url: "solr-query",
+      method: "post",
+      baseURL: commonUtil.getOmsURL(),
+      data: {
+        json: {
+          params: {
+            rows: "1",
+            sort: "orderDate asc",
+            fl: "orderId,orderName,customerPartyName,facilityName,orderDate,orderStatusDesc,salesChannelDesc",
+            "q.op": "AND",
+            start: 0
+          },
+          query: "*:*",
+          filter: [
+            "docType: ORDER",
+            "orderTypeId: SALES_ORDER",
+            `facilityId: (${QUEUE_FACILITY_IDS.map(escapeSolrValue).join(" OR ")})`,
+            `productStoreId: ${escapeSolrValue(productStoreId)}`
+          ].join(" AND ")
+        }
+      }
+    }) as any;
+
+    if (commonUtil.hasError(response)) return { count: 0, oldest: null };
+
+    const count = Number(response.data?.response?.numFound || 0);
+    const doc = response.data?.response?.docs?.[0];
+    const oldest: OldestQueuedOrder | null = doc
+      ? {
+          orderId: doc.orderId,
+          orderName: doc.orderName || doc.orderId,
+          customerName: doc.customerPartyName || "",
+          facilityName: doc.facilityName || "",
+          orderDate: toMillis(doc.orderDate),
+          orderStatusDesc: doc.orderStatusDesc || "",
+          salesChannelDesc: doc.salesChannelDesc || ""
+        }
+      : null;
+    return { count, oldest };
+  } catch (err) {
+    logger.error("dashboard: failed to load queue summary", err);
+    return { count: 0, oldest: null };
+  }
 }
 
 export interface FacilityOrder {
@@ -92,7 +213,7 @@ export const useDashboardStore = defineStore("dashboard", {
     loading: false,
     loadedAt: null,
     sourcing: [],
-    brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, totalAttempted: 0, totalBrokered: 0, lastRun: null },
+    brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
     facilityOrders: [],
     facilityOrdersDate: null,
     facilityOrdersIsToday: false,
@@ -179,7 +300,8 @@ export const useDashboardStore = defineStore("dashboard", {
     },
     async loadBrokering() {
       const routingStore = orderRoutingStore();
-      const brokering: BrokeringState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, totalAttempted: 0, totalBrokered: 0, lastRun: null };
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+      const brokering: BrokeringState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null };
       try {
         await routingStore.fetchOrderRoutingGroups();
         const routingGroups = routingStore.getRoutingGroups || [];
@@ -210,38 +332,30 @@ export const useDashboardStore = defineStore("dashboard", {
               params: { orderByField: "startDate DESC", pageSize: 50 }
             })
         );
-        runResponses.forEach((runResponse: any) => {
+        runResponses.forEach((runResponse: any, index: number) => {
           if (runResponse.status === "fulfilled" && !commonUtil.hasError(runResponse.value)) {
+            const routingGroup = routingGroups[index] || {};
             const runs = runResponse.value.data || [];
             for (const run of runs) {
-              allRuns.push(run);
+              allRuns.push({
+                ...run,
+                groupName: routingGroup.groupName || run.routingGroupId
+              });
               if (isTruthyFlag(run.hasError)) brokering.errorCount++;
             }
           }
         });
         allRuns.sort((a, b) => b.startDate - a.startDate);
         brokering.runs = allRuns;
-        brokering.lastRun = allRuns.find(r => r.orderItemCount > 0) || allRuns[0] || null;
+        brokering.lastRun = allRuns[0] || null;
+        brokering.lastGroupRun = buildLatestGroupRun(allRuns);
         brokering.totalAttempted = allRuns.reduce((sum, r) => sum + (r.orderItemCount || 0), 0);
         brokering.totalBrokered = allRuns.reduce((sum, r) => sum + (r.brokeredItemCount || 0), 0);
 
-        // Fetch live queue depth per routing.
-        // Collect unique routing IDs from the runs we already fetched.
-        const routingIds = [...new Set(allRuns.map(r => r.orderRoutingId).filter(Boolean))];
-        if (routingIds.length) {
-          const queueResponses = await fetchInBatches(
-            routingIds,
-            (orderRoutingId: string) =>
-              api({
-                url: `order-routing/routings/${orderRoutingId}/orderCount`,
-                method: "GET"
-              })
-          );
-          queueResponses.forEach((qr: any) => {
-            if (qr.status === "fulfilled" && !commonUtil.hasError(qr.value)) {
-              brokering.queueDepth += Number(qr.value.data?.orderItemCount || 0);
-            }
-          });
+        if (productStoreId) {
+          const queueSummary = await fetchQueueSummary(productStoreId);
+          brokering.queueDepth = queueSummary.count;
+          brokering.oldestQueued = queueSummary.oldest;
         }
       } catch (err) {
         logger.error("dashboard: failed to load brokering runs", err);

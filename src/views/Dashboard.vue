@@ -4,11 +4,6 @@
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Dashboard") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button @click="refresh()">
-            <ion-icon slot="icon-only" :icon="refreshOutline" />
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -37,8 +32,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
-import { gridOutline, refreshOutline } from "ionicons/icons";
+import { IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { gridOutline } from "ionicons/icons";
 import { computed } from "vue";
 import { emitter, translate } from "@common";
 import router from "@/router";
@@ -77,10 +72,6 @@ async function load() {
   } finally {
     emitter.emit("dismissLoader");
   }
-}
-
-function refresh() {
-  load();
 }
 
 function go(path: string) {

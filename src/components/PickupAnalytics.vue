@@ -67,7 +67,7 @@ const prodStore = productStore();
 const loading = computed(() => store.loading);
 const topProducts = computed(() => store.topProducts);
 const topFacilities = computed(() => store.topFacilities);
-const productIdentificationPref = computed(() => prodStore.getProductIdentificationPref);
+const productIdentificationPref = computed(() => (prodStore as any).getProductIdentificationPref || { primaryId: "", secondaryId: "" });
 
 function sparkline(daily: SparklineEntry[]): string {
   if (!daily.length) return "";

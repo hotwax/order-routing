@@ -182,15 +182,11 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       await this.fetchGroupFacilities(facilityGroupId);
     },
     async removeFacility(facilityGroupId: string, facility: any) {
-      const facilityId = facility?.facilityId;
-      const fromDate = facility?.fromDate;
-      if (!facilityId || fromDate == null) {
-        throw new Error("Active facility group membership is missing its key fields");
-      }
+      const facilityId = facility.facilityId;
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",
-        data: { facilityGroupId, facilityId, fromDate, thruDate: DateTime.now().toMillis() }
+        data: { facilityGroupId, facilityId, fromDate: facility.fromDate, thruDate: DateTime.now().toMillis() }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);

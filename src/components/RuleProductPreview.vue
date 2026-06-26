@@ -163,6 +163,7 @@ function dedupe(list: any[]) {
   return Array.from(seen.values()).sort((a, b) => (a.facilityName || a.facilityId).localeCompare(b.facilityName || b.facilityId));
 }
 
+let watchId = 0;
 watch(
   [
     () => props.selectedSegment,
@@ -173,6 +174,7 @@ watch(
     configFacilities
   ],
   async () => {
+    const currentId = ++watchId;
     if (props.areAllSelected) {
       if (props.selectedSegment === 'RG_PICKUP_FACILITY') {
         availableFacilities.value = dedupe(facilities.value);
@@ -189,11 +191,13 @@ watch(
         const includedResults = await Promise.all(
           included.map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
         );
+        if (currentId !== watchId) return;
         const resolvedIncluded = dedupe(includedResults.flat());
 
         const excludedResults = await Promise.all(
           excluded.map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
         );
+        if (currentId !== watchId) return;
         const excludedIds = new Set(excludedResults.flat().map((f: any) => f.facilityId));
 
         availableFacilities.value = resolvedIncluded.filter((f: any) => !excludedIds.has(f.facilityId));
@@ -214,33 +218,43 @@ watch(
   { deep: true, immediate: true }
 );
 
+let inventoryFetchId = 0;
 async function fetchInventoryConfigs() {
   if (!selectedFacilityId.value || !products.value.length) {
     inventoryConfigs.value = {};
     return;
   }
 
+  const currentId = ++inventoryFetchId;
   isInventoryLoading.value = true;
   const configs: Record<string, any> = {};
-  await Promise.all(
-    products.value.map(async (product) => {
-      try {
-        const resp = await api({
-          url: "oms/productFacilities/search",
-          method: "GET",
-          params: {
-            keyword: product.productId,
-            facilityId: selectedFacilityId.value
+  // Resolve in small concurrent batches so a full page (up to pageSize products)
+  // doesn't fire that many requests at once.
+  const batchSize = 5;
+  for (let i = 0; i < products.value.length; i += batchSize) {
+    const batch = products.value.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async (product) => {
+        try {
+          const resp = await api({
+            url: "oms/productFacilities/search",
+            method: "GET",
+            params: {
+              keyword: product.productId,
+              facilityId: selectedFacilityId.value
+            }
+          }) as any;
+          if (resp.data?.products?.length) {
+            configs[product.productId] = resp.data.products[0].inventoryConfig || resp.data.products[0];
           }
-        }) as any;
-        if (resp.data?.products?.length) {
-          configs[product.productId] = resp.data.products[0].inventoryConfig || resp.data.products[0];
+        } catch (err) {
+          console.error("Failed to fetch config for product", product.productId, err);
         }
-      } catch (err) {
-        console.error("Failed to fetch config for product", product.productId, err);
-      }
-    })
-  );
+      })
+    );
+    // A newer fetch started while we were awaiting — drop this stale run.
+    if (currentId !== inventoryFetchId) return;
+  }
   inventoryConfigs.value = configs;
   isInventoryLoading.value = false;
 }

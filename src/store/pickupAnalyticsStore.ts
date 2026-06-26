@@ -198,6 +198,15 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
 
       this.facilityCountsLoading = true;
       try {
+        // Scope to the store's physical facilities and apply the same facilityId
+        // filter as loadTopFacilities so the per-card counts match the widget.
+        const facilities = await this.fetchPhysicalFacilities(storeId);
+        if (!facilities.length) {
+          this.facilityOrderCounts = {};
+          this.facilityCountsLoading = false;
+          return;
+        }
+        const facilityIds = facilities.map((f: any) => f.facilityId);
         const { start, end } = this.buildDateRange();
         const resp = await api({
           url: "admin/runSolrQuery",
@@ -206,7 +215,7 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
             "json": {
               "params": { "rows": "0" },
               "query": "*:*",
-              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${storeId} AND orderDate: [${start} TO ${end}]`,
+              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${storeId} AND orderDate: [${start} TO ${end}] AND facilityId:(${facilityIds.join(" OR ")})`,
               "facet": {
                 "facilities": {
                   "type": "terms",

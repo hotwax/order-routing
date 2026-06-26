@@ -121,7 +121,11 @@ onMounted(async () => {
 
 async function resolveGroups(groups: any[]) {
   if (!groups?.length) return [];
-  const results = await Promise.all(groups.map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId)));
+  const results = await Promise.all(
+    groups
+      .filter((group: any) => group?.facilityGroupId)
+      .map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
+  );
   return results.flat();
 }
 

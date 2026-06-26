@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { DateTime } from "luxon";
 
 export interface FacilityGroupState {
   groups: any[];
@@ -157,16 +158,18 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (idx >= 0) this.groups[idx] = { ...this.groups[idx], ...payload };
       return resp.data;
     },
-    async archiveGroup(facilityGroupId: string) {
-      const thruDate = Date.now();
+    async archiveGroup(group: any) {
+      const thruDate = DateTime.now().toMillis();
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+
       const resp = await api({
-        url: `admin/facilityGroups/${facilityGroupId}`,
-        method: "PUT",
-        params: { facilityGroupId, thruDate }
+        url: `admin/productStores/${productStoreId}/facilityGroups/${group.facilityGroupId}/association`,
+        method: "POST",
+        data: { productStoreId, facilityGroupId: group.facilityGroupId, fromDate: group.fromDate, thruDate }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
-      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== facilityGroupId);
-      delete this.facilitiesByGroup[facilityGroupId];
+      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== group.facilityGroupId);
+      delete this.facilitiesByGroup[group.facilityGroupId];
       this.deriveGroupTypes();
     },
     async addFacility(facilityGroupId: string, facilityId: string) {
@@ -182,7 +185,7 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",
-        data: { facilityGroupId, facilityId, thruDate: Date.now() }
+        data: { facilityGroupId, facilityId, thruDate: DateTime.now().toMillis() }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);

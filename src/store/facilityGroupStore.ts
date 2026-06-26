@@ -157,16 +157,18 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (idx >= 0) this.groups[idx] = { ...this.groups[idx], ...payload };
       return resp.data;
     },
-    async archiveGroup(facilityGroupId: string) {
+    async archiveGroup(group: any) {
       const thruDate = Date.now();
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+
       const resp = await api({
-        url: `admin/facilityGroups/${facilityGroupId}`,
-        method: "PUT",
-        params: { facilityGroupId, thruDate }
+        url: `admin/productStores/${productStoreId}/facilityGroups/${group.facilityGroupId}/association`,
+        method: "POST",
+        data: { productStoreId, facilityGroupId: group.facilityGroupId, fromDate: group.fromDate, thruDate }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
-      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== facilityGroupId);
-      delete this.facilitiesByGroup[facilityGroupId];
+      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== group.facilityGroupId);
+      delete this.facilitiesByGroup[group.facilityGroupId];
       this.deriveGroupTypes();
     },
     async addFacility(facilityGroupId: string, facilityId: string) {

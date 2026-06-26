@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { DateTime } from "luxon";
 
 export interface FacilityGroupState {
   groups: any[];
@@ -158,7 +159,7 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       return resp.data;
     },
     async archiveGroup(group: any) {
-      const thruDate = Date.now();
+      const thruDate = DateTime.now().toMillis();
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
 
       const resp = await api({
@@ -184,7 +185,7 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",
-        data: { facilityGroupId, facilityId, thruDate: Date.now() }
+        data: { facilityGroupId, facilityId, thruDate: DateTime.now().toMillis() }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);

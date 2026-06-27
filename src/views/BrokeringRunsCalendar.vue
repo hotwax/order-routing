@@ -105,7 +105,7 @@
             <ion-item class="cal-stat" lines="none">
               <ion-label class="ion-text-wrap">
                 <ion-note>{{ translate("Busiest hour") }}</ion-note>
-                <span class="cal-stat-v">{{ busiest.count ? `${axisLabelLong(busiest.hour)} · ${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')}` : "—" }}</span>
+                <span class="cal-stat-v">{{ busiest.count ? `${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')} at ${axisLabelLong(busiest.hour)}` : "—" }}</span>
               </ion-label>
             </ion-item>
             <ion-item class="cal-stat" lines="none">
@@ -155,16 +155,23 @@
         <!-- Runs list -->
         <ion-card class="cal-card">
           <ion-card-header class="cal-card-head">
-            <ion-card-title>{{ translate("Runs") }} · {{ displayedGroups.length }}</ion-card-title>
+            <ion-card-title>{{ filteredRuns.length }} {{ translate("Runs") }}</ion-card-title>
             <ion-button fill="clear" size="small" class="cal-add-run" @click="addNewRun">
               <ion-icon slot="start" :icon="addOutline" />
               {{ translate("New Run") }}
             </ion-button>
           </ion-card-header>
-          <ion-list v-if="displayedGroups.length" lines="full" class="cal-cadence">
-            <ion-item v-for="run in displayedGroups" :key="run.routingGroupId" button :detail="true" @click="redirect(run)">
+          <ion-searchbar
+            v-if="displayedGroups.length"
+            v-model="searchQuery"
+            class="cal-search"
+            :placeholder="translate('Search runs')"
+            :debounce="150"
+          />
+          <ion-list v-if="filteredRuns.length" lines="full" class="cal-cadence">
+            <ion-item v-for="run in filteredRuns" :key="run.routingGroupId" button :detail="true" @click="redirect(run)">
               <ion-label>
-                <h3>{{ run.groupName }}</h3>
+                {{ run.groupName }}
                 <p>{{ cadenceLabel(run) }}</p>
               </ion-label>
               <ion-badge v-if="isActive(run)" slot="end" color="dark">{{ nextRunLabel(run) }}</ion-badge>
@@ -173,7 +180,9 @@
           </ion-list>
           <ion-list v-else lines="none">
             <ion-item lines="none">
-              <ion-label color="medium">{{ translate("No {filter} runs.", { filter: selectedFilter }) }}</ion-label>
+              <ion-label color="medium">
+                {{ searchQuery.trim() ? translate("No runs match your search.") : translate("No {filter} runs.", { filter: selectedFilter }) }}
+              </ion-label>
             </ion-item>
           </ion-list>
         </ion-card>
@@ -200,6 +209,7 @@ import {
   IonMenuButton,
   IonNote,
   IonPage,
+  IonSearchbar,
   IonSegment,
   IonSegmentButton,
   IonSpinner,
@@ -270,6 +280,15 @@ const displayedGroups = computed(() => {
   if (selectedFilter.value === "active") list = list.filter(isActive);
   else if (selectedFilter.value === "draft") list = list.filter((g: any) => !isActive(g));
   return sortGroups(list);
+});
+
+// Runs list narrowed by the local keyword search. Kept separate from
+// displayedGroups so the search only filters the list, not the heatmap/stats.
+const searchQuery = ref("");
+const filteredRuns = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return displayedGroups.value;
+  return displayedGroups.value.filter((g: any) => (g.groupName || "").toLowerCase().includes(q));
 });
 
 const activeCount = computed(() => brokeringGroups.value.filter(isActive).length);
@@ -556,6 +575,16 @@ function redirect(group: Group) {
 /* Push the New Run action to the end of the Runs card header. */
 .cal-add-run {
   margin-inline-start: auto;
+}
+
+/* Local keyword search above the runs list; softened to sit inside the card. */
+.cal-search {
+  --box-shadow: none;
+  --background: var(--ion-color-light);
+  --border-radius: 8px;
+  padding-inline: var(--spacer-sm);
+  padding-top: 0;
+  padding-bottom: var(--spacer-2xs);
 }
 
 /* Legend */

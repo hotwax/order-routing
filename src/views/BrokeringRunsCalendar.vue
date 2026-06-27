@@ -535,8 +535,11 @@ function redirect(group: Group) {
 .cal-card {
   margin: 0;
 }
+/* ion-card-header defaults to flex-direction: column; force a row so the title
+   sits at the start and the legend/count is pushed to the end. */
 .cal-card-head {
   display: flex;
+  flex-direction: row;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--spacer-2xs) var(--spacer-xs);

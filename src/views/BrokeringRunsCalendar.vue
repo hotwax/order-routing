@@ -111,16 +111,22 @@
 
           <div class="cal-stats">
             <ion-item class="cal-stat" lines="none">
-              <ion-note>{{ translate("Busiest hour") }}</ion-note>
-              <ion-label slot="end" class="cal-stat-v">{{ busiest.count ? `${axisLabelLong(busiest.hour)} · ${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')}` : "—" }}</ion-label>
+              <ion-label class="ion-text-wrap">
+                <ion-note>{{ translate("Busiest hour") }}</ion-note>
+                <span class="cal-stat-v">{{ busiest.count ? `${axisLabelLong(busiest.hour)} · ${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')}` : "—" }}</span>
+              </ion-label>
             </ion-item>
             <ion-item class="cal-stat" lines="none">
-              <ion-note>{{ translate("Coverage gaps") }}</ion-note>
-              <ion-label slot="end" class="cal-stat-v">{{ gapHours === 0 ? translate("None") : `${gapHours} ${gapHours === 1 ? translate('hour') : translate('hours')}` }}</ion-label>
+              <ion-label class="ion-text-wrap">
+                <ion-note>{{ translate("Coverage gaps") }}</ion-note>
+                <span class="cal-stat-v">{{ gapHours === 0 ? translate("None") : `${gapHours} ${gapHours === 1 ? translate('hour') : translate('hours')}` }}</span>
+              </ion-label>
             </ion-item>
             <ion-item class="cal-stat" lines="none">
-              <ion-note>{{ translate("Active") }}</ion-note>
-              <ion-label slot="end" class="cal-stat-v">{{ activeCount }} / {{ brokeringGroups.length }}</ion-label>
+              <ion-label class="ion-text-wrap">
+                <ion-note>{{ translate("Active") }}</ion-note>
+                <span class="cal-stat-v">{{ activeCount }} / {{ brokeringGroups.length }}</span>
+              </ion-label>
             </ion-item>
           </div>
 
@@ -697,31 +703,39 @@ function redirect(group: Group) {
   box-shadow: inset 0 0 0 2px var(--ion-text-color);
 }
 
-/* Stats strip: native ion-items laid out in a row, outlined via the host
-   border. The label is an ion-note (small text); the value sits in the end
-   slot. Tiles wrap to full width on narrow viewports. */
+/* Stat tiles: three equal outlined ion-items in a row, each stacking a small
+   ion-note label over the bold value. Collapses to a single column only on
+   very narrow viewports, so it never lands on an uneven 2 + 1 wrap. */
 .cal-stats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--spacer-xs);
   padding: var(--spacer-2xs) var(--spacer-sm) 0;
 }
+@media (max-width: 480px) {
+  .cal-stats {
+    grid-template-columns: 1fr;
+  }
+}
 .cal-stat {
-  flex: 1 1 160px;
+  min-width: 0;
   border: 1px solid var(--ion-color-step-150, #e3e5e9);
   border-radius: 8px;
   --background: transparent;
   --border-radius: 8px;
   --padding-start: var(--spacer-sm);
   --inner-padding-end: var(--spacer-sm);
-  --min-height: 46px;
+  --min-height: 56px;
+}
+.cal-stat ion-note {
+  display: block;
+  margin-bottom: 2px;
 }
 .cal-stat .cal-stat-v {
-  flex: none;
-  margin-inline-start: var(--spacer-xs);
-  text-align: end;
-  font-size: 13.5px;
+  display: block;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--ion-text-color);
 }
 
 /* Drill panel: native list with an item-divider header, outlined to read as

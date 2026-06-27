@@ -528,7 +528,8 @@ function redirect(group: Group) {
 .cal-card-head {
   display: flex;
   align-items: center;
-  gap: var(--spacer-xs);
+  flex-wrap: wrap;
+  gap: var(--spacer-2xs) var(--spacer-xs);
   padding: var(--spacer-xs) var(--spacer-sm);
 }
 .cal-card-head ion-card-title {
@@ -566,18 +567,20 @@ function redirect(group: Group) {
 .cal-legend i.lv4 { background: rgba(var(--ion-color-primary-rgb), 0.80); }
 .cal-legend i.lv5 { background: var(--ion-color-primary-shade); }
 
-/* Heatmap: raw CSS grid, themed entirely from Ionic variables. */
+/* Heatmap: raw CSS grid, themed entirely from Ionic variables.
+   Cells use minmax(14px, 1fr) so the grid fills available width and only
+   forces a horizontal scroll on phone-sized viewports (<~460px). */
 .cal-hmwrap {
   padding: var(--spacer-2xs) var(--spacer-sm) var(--spacer-xs);
   overflow-x: auto;
 }
 .cal-hmscroll {
-  min-width: 620px;
+  min-width: 0;
 }
 .cal-axis,
 .cal-dayrow {
   display: grid;
-  grid-template-columns: 58px repeat(24, 1fr);
+  grid-template-columns: 52px repeat(24, minmax(14px, 1fr));
   gap: 3px;
 }
 .cal-axis {
@@ -631,10 +634,11 @@ function redirect(group: Group) {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding-inline: var(--spacer-2xs);
+  padding-inline: 4px;
   font-size: 11px;
   line-height: 1.15;
   white-space: nowrap;
+  overflow: hidden;
 }
 .cal-daylbl .dow {
   color: var(--ion-text-color);

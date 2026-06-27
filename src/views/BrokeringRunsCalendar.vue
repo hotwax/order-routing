@@ -110,39 +110,47 @@
           </div>
 
           <div class="cal-stats">
-            <div class="cal-stat">
-              <span class="k">{{ translate("Busiest hour") }}</span>
-              <span class="v">{{ busiest.count ? `${axisLabelLong(busiest.hour)} · ${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')}` : "—" }}</span>
-            </div>
-            <div class="cal-stat">
-              <span class="k">{{ translate("Coverage gaps") }}</span>
-              <span class="v">{{ gapHours === 0 ? translate("None") : `${gapHours} ${gapHours === 1 ? translate('hour') : translate('hours')}` }}</span>
-            </div>
-            <div class="cal-stat">
-              <span class="k">{{ translate("Active") }}</span>
-              <span class="v">{{ activeCount }} / {{ brokeringGroups.length }}</span>
-            </div>
+            <ion-item class="cal-stat" lines="none">
+              <ion-note>{{ translate("Busiest hour") }}</ion-note>
+              <ion-label slot="end" class="cal-stat-v">{{ busiest.count ? `${axisLabelLong(busiest.hour)} · ${busiest.count} ${busiest.count === 1 ? translate('run') : translate('runs')}` : "—" }}</ion-label>
+            </ion-item>
+            <ion-item class="cal-stat" lines="none">
+              <ion-note>{{ translate("Coverage gaps") }}</ion-note>
+              <ion-label slot="end" class="cal-stat-v">{{ gapHours === 0 ? translate("None") : `${gapHours} ${gapHours === 1 ? translate('hour') : translate('hours')}` }}</ion-label>
+            </ion-item>
+            <ion-item class="cal-stat" lines="none">
+              <ion-note>{{ translate("Active") }}</ion-note>
+              <ion-label slot="end" class="cal-stat-v">{{ activeCount }} / {{ brokeringGroups.length }}</ion-label>
+            </ion-item>
           </div>
 
           <!-- drill panel -->
           <div class="cal-slot" aria-live="polite">
-            <template v-if="selectedCell">
-              <div class="cal-slot-h">
-                {{ slotTitle }}
-                <span class="cnt">· {{ selectedRuns.length }} {{ selectedRuns.length === 1 ? translate("run") : translate("runs") }}</span>
-              </div>
-              <ion-list v-if="selectedRuns.length" lines="none" class="cal-slot-list">
-                <ion-item v-for="run in selectedRuns" :key="run.routingGroupId" button :detail="false" @click="redirect(run)">
-                  <span slot="start" class="cal-dot" :class="isActive(run) ? 'act' : 'dft'"></span>
-                  <ion-label>{{ run.groupName }}</ion-label>
-                  <ion-badge slot="end" :color="isActive(run) ? 'primary' : 'medium'">
-                    {{ isActive(run) ? translate("Active") : translate("Draft") }}
-                  </ion-badge>
-                </ion-item>
-              </ion-list>
-              <p v-else class="cal-slot-empty">{{ translate("No runs scheduled in this hour.") }}</p>
-            </template>
-            <p v-else class="cal-slot-empty">{{ translate("Select a cell to see which runs fire then.") }}</p>
+            <ion-list lines="full" class="cal-slot-list">
+              <ion-item-divider color="light">
+                <ion-label>{{ selectedCell ? slotTitle : translate("Schedule detail") }}</ion-label>
+                <ion-note v-if="selectedCell" slot="end">
+                  {{ selectedRuns.length }} {{ selectedRuns.length === 1 ? translate("run") : translate("runs") }}
+                </ion-note>
+              </ion-item-divider>
+              <ion-item
+                v-for="run in selectedRuns"
+                :key="run.routingGroupId"
+                button
+                :detail="false"
+                @click="redirect(run)"
+              >
+                <ion-label>{{ run.groupName }}</ion-label>
+                <ion-badge slot="end" :color="isActive(run) ? 'primary' : 'medium'">
+                  {{ isActive(run) ? translate("Active") : translate("Draft") }}
+                </ion-badge>
+              </ion-item>
+              <ion-item v-if="!selectedRuns.length" lines="none">
+                <ion-label color="medium">
+                  {{ selectedCell ? translate("No runs scheduled in this hour.") : translate("Select a cell to see which runs fire then.") }}
+                </ion-label>
+              </ion-item>
+            </ion-list>
           </div>
         </ion-card>
 
@@ -154,18 +162,19 @@
           </ion-card-header>
           <ion-list v-if="displayedGroups.length" lines="full" class="cal-cadence">
             <ion-item v-for="run in displayedGroups" :key="run.routingGroupId" button :detail="false" @click="redirect(run)">
-              <span slot="start" class="cal-dot" :class="isActive(run) ? 'act' : 'dft'"></span>
               <ion-label>
                 <h3>{{ run.groupName }}</h3>
                 <p>{{ cadenceLabel(run) }}</p>
               </ion-label>
-              <div slot="end" class="cal-next">
-                <span class="lbl">{{ translate("Next run") }}</span>
-                <span class="t" :class="{ none: nextRunLabel(run) === '-' }">{{ nextRunLabel(run) }}</span>
-              </div>
+              <ion-badge v-if="isActive(run)" slot="end" color="dark">{{ nextRunLabel(run) }}</ion-badge>
+              <ion-badge v-else slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
             </ion-item>
           </ion-list>
-          <p v-else class="cal-cadence-empty">{{ translate("No {filter} runs.", { filter: selectedFilter }) }}</p>
+          <ion-list v-else lines="none">
+            <ion-item lines="none">
+              <ion-label color="medium">{{ translate("No {filter} runs.", { filter: selectedFilter }) }}</ion-label>
+            </ion-item>
+          </ion-list>
         </ion-card>
       </div>
     </ion-content>
@@ -184,6 +193,7 @@ import {
   IonHeader,
   IonIcon,
   IonItem,
+  IonItemDivider,
   IonLabel,
   IonList,
   IonMenuButton,
@@ -532,13 +542,8 @@ function redirect(group: Group) {
   gap: var(--spacer-2xs) var(--spacer-xs);
   padding: var(--spacer-xs) var(--spacer-sm);
 }
-.cal-card-head ion-card-title {
-  font-size: 14px;
-  font-weight: 600;
-}
 .cal-card-head ion-note {
   margin-inline-start: auto;
-  font-size: 12px;
 }
 
 /* Legend */
@@ -689,7 +694,9 @@ function redirect(group: Group) {
   box-shadow: inset 0 0 0 2px var(--ion-text-color);
 }
 
-/* Stats strip */
+/* Stats strip: native ion-items laid out in a row, outlined via the host
+   border. The label is an ion-note (small text); the value sits in the end
+   slot. Tiles wrap to full width on narrow viewports. */
 .cal-stats {
   display: flex;
   flex-wrap: wrap;
@@ -697,56 +704,42 @@ function redirect(group: Group) {
   padding: var(--spacer-2xs) var(--spacer-sm) 0;
 }
 .cal-stat {
-  flex: 1 1 130px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--spacer-xs);
+  flex: 1 1 160px;
   border: 1px solid var(--ion-color-step-150, #e3e5e9);
   border-radius: 8px;
+  --background: transparent;
+  --border-radius: 8px;
+  --padding-start: var(--spacer-sm);
+  --inner-padding-end: var(--spacer-sm);
+  --min-height: 46px;
 }
-.cal-stat .k {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--ion-color-medium);
-}
-.cal-stat .v {
+.cal-stat .cal-stat-v {
+  flex: none;
+  margin-inline-start: var(--spacer-xs);
+  text-align: end;
   font-size: 13.5px;
   font-weight: 600;
 }
 
-/* Drill panel */
+/* Drill panel: native list with an item-divider header, outlined to read as
+   one grouped surface. */
 .cal-slot {
   margin: var(--spacer-xs) var(--spacer-sm) var(--spacer-sm);
-  padding: var(--spacer-xs) var(--spacer-sm);
-  background: var(--ion-color-light);
-  border-radius: 8px;
-  font-size: 12.5px;
-  min-height: 52px;
-}
-.cal-slot-h {
-  font-weight: 600;
-  margin-bottom: var(--spacer-2xs);
-}
-.cal-slot-h .cnt {
-  color: var(--ion-color-medium);
-  font-weight: 500;
-}
-.cal-slot-empty {
-  margin: 0;
-  color: var(--ion-color-medium);
 }
 .cal-slot-list {
-  background: transparent;
-  padding: 0;
+  border: 1px solid var(--ion-color-step-150, #e3e5e9);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cal-slot-list ion-item-divider {
+  --padding-start: var(--spacer-sm);
+  --inner-padding-end: var(--spacer-sm);
+  min-height: 38px;
 }
 .cal-slot-list ion-item {
-  --background: transparent;
-  --padding-start: 0;
-  --inner-padding-end: 0;
-  --min-height: 38px;
-  font-size: 13px;
+  --padding-start: var(--spacer-sm);
+  --inner-padding-end: var(--spacer-sm);
+  --min-height: 42px;
 }
 
 /* Cadence list — Ionic items tuned through their exposed CSS vars. */
@@ -762,46 +755,5 @@ function redirect(group: Group) {
 .cal-cadence ion-label p {
   font-size: 12px;
   color: var(--ion-color-medium);
-}
-.cal-next {
-  text-align: end;
-}
-.cal-next .lbl {
-  display: block;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--ion-color-medium);
-}
-.cal-next .t {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.cal-next .t.none {
-  color: var(--ion-color-medium);
-  font-weight: 400;
-}
-
-.cal-cadence-empty {
-  margin: 0;
-  padding: var(--spacer-sm);
-  font-size: 13px;
-  color: var(--ion-color-medium);
-}
-
-/* Status dot, shared by drill + cadence */
-.cal-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: none;
-}
-.cal-dot.act {
-  background: var(--ion-color-primary);
-}
-.cal-dot.dft {
-  background: var(--ion-color-medium);
 }
 </style>

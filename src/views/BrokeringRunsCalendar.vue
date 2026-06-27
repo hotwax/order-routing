@@ -4,15 +4,7 @@
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Brokering runs calendar") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button color="primary" @click="addNewRun">
-            {{ translate("New Run") }}
-            <ion-icon :icon="addOutline" />
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-      <ion-toolbar v-if="brokeringGroups.length">
-        <ion-segment v-model="selectedFilter" scrollable>
+        <ion-segment v-if="brokeringGroups.length" slot="end" v-model="selectedFilter" class="cal-filter">
           <ion-segment-button value="all">
             <ion-label>{{ translate("All") }}</ion-label>
           </ion-segment-button>
@@ -143,7 +135,7 @@
                 v-for="run in selectedRuns"
                 :key="run.routingGroupId"
                 button
-                :detail="false"
+                :detail="true"
                 @click="redirect(run)"
               >
                 <ion-label>{{ run.groupName }}</ion-label>
@@ -160,14 +152,18 @@
           </div>
         </ion-card>
 
-        <!-- Run cadence list -->
+        <!-- Runs list -->
         <ion-card class="cal-card">
           <ion-card-header class="cal-card-head">
-            <ion-card-title>{{ translate("Run cadence") }}</ion-card-title>
+            <ion-card-title>{{ translate("Runs") }}</ion-card-title>
             <ion-note>{{ displayedGroups.length }} {{ displayedGroups.length === 1 ? translate("run") : translate("runs") }}</ion-note>
+            <ion-button fill="clear" size="small" class="cal-add-run" @click="addNewRun">
+              <ion-icon slot="start" :icon="addOutline" />
+              {{ translate("New Run") }}
+            </ion-button>
           </ion-card-header>
           <ion-list v-if="displayedGroups.length" lines="full" class="cal-cadence">
-            <ion-item v-for="run in displayedGroups" :key="run.routingGroupId" button :detail="false" @click="redirect(run)">
+            <ion-item v-for="run in displayedGroups" :key="run.routingGroupId" button :detail="true" @click="redirect(run)">
               <ion-label>
                 <h3>{{ run.groupName }}</h3>
                 <p>{{ cadenceLabel(run) }}</p>
@@ -514,6 +510,13 @@ function redirect(group: Group) {
 </script>
 
 <style scoped>
+/* Status filter sits in the toolbar end slot. ion-segment is a block-level
+   grid that would otherwise stretch the full toolbar; cap its width so the
+   title keeps its room. */
+.cal-filter {
+  max-width: 320px;
+}
+
 .cal-loader {
   display: flex;
   justify-content: center;
@@ -731,11 +734,9 @@ function redirect(group: Group) {
   display: block;
   margin-bottom: 2px;
 }
+/* Value inherits the native ion-item font; only the layout is set here. */
 .cal-stat .cal-stat-v {
   display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ion-text-color);
 }
 
 /* Drill panel: native list with an item-divider header, outlined to read as
@@ -759,18 +760,11 @@ function redirect(group: Group) {
   --min-height: 42px;
 }
 
-/* Cadence list — Ionic items tuned through their exposed CSS vars. */
+/* Runs list — Ionic items tuned through their exposed CSS vars only;
+   text uses native ion-label typography (no font overrides). */
 .cal-cadence ion-item {
   --padding-start: var(--spacer-sm);
   --inner-padding-end: var(--spacer-sm);
   --min-height: 56px;
-}
-.cal-cadence ion-label h3 {
-  font-size: 14px;
-  font-weight: 500;
-}
-.cal-cadence ion-label p {
-  font-size: 12px;
-  color: var(--ion-color-medium);
 }
 </style>

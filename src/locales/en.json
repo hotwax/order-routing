@@ -499,6 +499,7 @@
   "Running this job now will not replace this job. A copy of this job will be created and run immediately. You may not be able to reverse this action.": "Running this job now will not replace this job. A copy of this job will be created and run immediately.{ space } You may not be able to reverse this action.",
   "Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action.": "Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action.",
   "Running…": "Running…",
+  "Runs": "Runs",
   "Runs scheduled per day and hour": "Runs scheduled per day and hour",
   "Runs with errors": "Runs with errors",
   "SKUs": "SKUs",

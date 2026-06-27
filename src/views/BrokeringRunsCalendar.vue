@@ -123,8 +123,8 @@
           </div>
 
           <!-- drill panel -->
-          <div class="cal-slot" aria-live="polite">
-            <ion-list lines="full" class="cal-slot-list">
+          <div aria-live="polite">
+            <ion-list lines="full">
               <ion-item-divider color="light">
                 <ion-label>{{ selectedCell ? slotTitle : translate("Schedule detail") }}</ion-label>
                 <ion-note v-if="selectedCell" slot="end">
@@ -155,8 +155,7 @@
         <!-- Runs list -->
         <ion-card class="cal-card">
           <ion-card-header class="cal-card-head">
-            <ion-card-title>{{ translate("Runs") }}</ion-card-title>
-            <ion-note>{{ displayedGroups.length }} {{ displayedGroups.length === 1 ? translate("run") : translate("runs") }}</ion-note>
+            <ion-card-title>{{ translate("Runs") }} · {{ displayedGroups.length }}</ion-card-title>
             <ion-button fill="clear" size="small" class="cal-add-run" @click="addNewRun">
               <ion-icon slot="start" :icon="addOutline" />
               {{ translate("New Run") }}
@@ -554,7 +553,8 @@ function redirect(group: Group) {
   gap: var(--spacer-2xs) var(--spacer-xs);
   padding: var(--spacer-xs) var(--spacer-sm);
 }
-.cal-card-head ion-note {
+/* Push the New Run action to the end of the Runs card header. */
+.cal-add-run {
   margin-inline-start: auto;
 }
 
@@ -668,7 +668,6 @@ function redirect(group: Group) {
 .cal-dayrow.cal-today .dow,
 .cal-dayrow.cal-today .dt {
   color: var(--ion-color-primary);
-  font-weight: 600;
 }
 
 .cal-cell {
@@ -728,7 +727,6 @@ function redirect(group: Group) {
   --border-radius: 8px;
   --padding-start: var(--spacer-sm);
   --inner-padding-end: var(--spacer-sm);
-  --min-height: 56px;
 }
 .cal-stat ion-note {
   display: block;
@@ -749,16 +747,7 @@ function redirect(group: Group) {
   border-radius: 8px;
   overflow: hidden;
 }
-.cal-slot-list ion-item-divider {
-  --padding-start: var(--spacer-sm);
-  --inner-padding-end: var(--spacer-sm);
-  min-height: 38px;
-}
-.cal-slot-list ion-item {
-  --padding-start: var(--spacer-sm);
-  --inner-padding-end: var(--spacer-sm);
-  --min-height: 42px;
-}
+
 
 /* Runs list — Ionic items tuned through their exposed CSS vars only;
    text uses native ion-label typography (no font overrides). */

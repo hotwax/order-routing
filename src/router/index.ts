@@ -6,6 +6,7 @@ import { isFeatureEnabled } from "@/utils/simConfig";
 import {
   albumsOutline,
   businessOutline,
+  calendarOutline,
   cloudUploadOutline,
   flaskOutline,
   globeOutline,
@@ -208,6 +209,18 @@ const routes: Array<RouteRecordRaw> = [
       section: "routing",
       menuIndex: 10,
       childRoutes: ["/brokering/"]
+    }
+  },
+  {
+    path: "/brokering-calendar",
+    name: "Brokering calendar",
+    component: () => import("@/views/BrokeringRunsCalendar.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Brokering calendar",
+      icon: calendarOutline,
+      section: "routing",
+      menuIndex: 11
     }
   },
   {

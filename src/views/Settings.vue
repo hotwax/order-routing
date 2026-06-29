@@ -71,6 +71,7 @@
             </ion-select>
           </ion-item>
         </ion-card>
+        <DxpProductIdentifier />
       </section>
       <hr />
       <DxpAppVersionInfo />
@@ -117,6 +118,7 @@ import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
+import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";
 
 const userStore = useUserStore()
 

@@ -17,16 +17,14 @@
         <section class="product-panel">
           <ion-item lines="none">
             <div class="product-image" slot="start">
-              <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="productName" />
+              <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="productPrimaryIdentifier" />
               <ion-skeleton-text v-else-if="isLoading" animated />
             </div>
             <div class="product-title">
-              <ion-skeleton-text v-if="isLoading" animated style="width: 40%; height: 10px;" />
-              <p v-else>{{ product.productId }}</p>
               <ion-skeleton-text v-if="isLoading" animated style="width: 60%; height: 20px;" />
-              <h1 v-else>{{ productName }}</h1>
+              <h1 v-else>{{ productPrimaryIdentifier }}</h1>
               <ion-skeleton-text v-if="isLoading" animated style="width: 40%; height: 14px; margin-top: 4px;" />
-              <p v-else>{{ productSubtitle }}</p>
+              <p v-else>{{ productSecondaryIdentifier }}</p>
             </div>
           </ion-item>
 
@@ -180,6 +178,7 @@ import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from '@/utils/productIdentifier';
 
 function formatDateTime(value: any): string {
   if (!value) return '-';
@@ -196,16 +195,17 @@ const productId = computed(() => String(route.params.productId || ''));
 const product = computed(() => productInfoStore().getProductById(productId.value))
 const selectedFacilityId = ref("");
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
+const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 
 const { inventoryLogs } = useProductFacility();
 const inventoryConfig = ref<any>({});
 
-const productName = computed(() =>
-  product.value?.internalName || product.value?.productName || product.value?.parentProductName || ''
+const productPrimaryIdentifier = computed(() =>
+  getPrimaryProductIdentifier(productIdentificationPref.value, product.value)
 );
 
-const productSubtitle = computed(() =>
-  product.value?.parentProductName || product.value?.productName || product.value?.title || ''
+const productSecondaryIdentifier = computed(() =>
+  getSecondaryProductIdentifier(productIdentificationPref.value, product.value)
 );
 
 onIonViewDidEnter(async () => {

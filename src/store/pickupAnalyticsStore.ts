@@ -11,6 +11,8 @@ export interface SparklineEntry {
 export interface PickupProductStat {
   productId: string;
   productName: string;
+  parentProductName?: string;
+  title?: string;
   imageUrl: string;
   orderCount: number;
   daily: SparklineEntry[];
@@ -112,6 +114,8 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
           this.topProducts = buckets.map((bucket: any) => ({
             productId: bucket.val,
             productName: bucket.product_name?.buckets?.[0]?.val || productInfo[bucket.val]?.name || bucket.val,
+            parentProductName: productInfo[bucket.val]?.parentProductName || "",
+            title: productInfo[bucket.val]?.title || "",
             imageUrl: productInfo[bucket.val]?.imageUrl || "",
             orderCount: bucket.count,
             daily: this.parseDailyBuckets(bucket.daily?.buckets),
@@ -272,8 +276,8 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
       return [];
     },
 
-    async fetchProductInfo(productIds: string[], productStoreId: string): Promise<Record<string, { name: string; imageUrl: string; goodIdentifications: string[]; internalName: string }>> {
-      const infoMap: Record<string, { name: string; imageUrl: string; goodIdentifications: string[]; internalName: string }> = {};
+    async fetchProductInfo(productIds: string[], productStoreId: string): Promise<Record<string, { name: string; parentProductName: string; title: string; imageUrl: string; goodIdentifications: string[]; internalName: string }>> {
+      const infoMap: Record<string, { name: string; parentProductName: string; title: string; imageUrl: string; goodIdentifications: string[]; internalName: string }> = {};
       try {
         const resp = await api({
           url: "admin/runSolrQuery",
@@ -283,7 +287,7 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
               "params": { "rows": String(productIds.length) },
               "query": `productId:(${productIds.join(" OR ")})`,
               "filter": `docType: PRODUCT`,
-              "fields": "productId,productName,mainImageUrl,goodIdentifications,internalName"
+              "fields": "productId,productName,parentProductName,title,mainImageUrl,goodIdentifications,internalName"
             }
           }
         }) as any;
@@ -292,6 +296,8 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
           if (doc.productId && !infoMap[doc.productId]) {
             infoMap[doc.productId] = {
               name: doc.productName || "",
+              parentProductName: doc.parentProductName || "",
+              title: doc.title || "",
               imageUrl: doc.mainImageUrl || "",
               goodIdentifications: doc.goodIdentifications || [],
               internalName: doc.internalName || ""

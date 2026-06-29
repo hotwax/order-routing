@@ -44,8 +44,8 @@
               <DxpShopifyImg :src="product.mainImageUrl" />
             </ion-thumbnail>
             <ion-label>
-              {{ product.parentProductName || product.productName || product.productId }}
-              <p>{{ product.productId }}</p>
+              {{ getPrimaryProductIdentifier(productIdentificationPref, product) }}
+              <p>{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</p>
             </ion-label>
           </ion-item>
           <template v-if="selectedFacilityId">
@@ -124,6 +124,8 @@ import {
 import { caretBackOutline, caretForwardOutline, cubeOutline } from 'ionicons/icons';
 import { DxpShopifyImg, translate, api } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore as useProductStore } from "@/store/productStore";
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 const props = defineProps<{
   selectedSegment?: string;
@@ -136,6 +138,7 @@ const props = defineProps<{
 }>();
 
 const productStore = useAtpProductStore();
+const productIdentifierStore = useProductStore();
 
 const pageSize = 25;
 const products = ref<any[]>([]);
@@ -149,6 +152,7 @@ const facilities = computed(() => productStore.getFacilities);
 const appliedFilters = computed(() => productStore.getAppliedFilters);
 const appliedFiltersOperator = computed(() => productStore.getAppliedFiltersOperator);
 const pageCount = computed(() => Math.max(Math.ceil(total.value / pageSize), 1));
+const productIdentificationPref = computed(() => productIdentifierStore.getProductIdentificationPref);
 
 const availableFacilities = ref<any[]>([]);
 const selectedFacilityId = ref("");
@@ -307,6 +311,7 @@ function goToNextPage() {
   pageIndex.value += 1;
   loadPreview();
 }
+
 </script>
 
 <style scoped>

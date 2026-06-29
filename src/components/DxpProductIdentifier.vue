@@ -28,8 +28,8 @@
           <DxpShopifyImg size="small" :src="currentSampleProduct.mainImageUrl" />
         </ion-thumbnail>
         <ion-label>
-          {{ getProductIdentificationValue(productIdentificationPref.primaryId, currentSampleProduct) || currentSampleProduct.productId }}
-          <p>{{ getProductIdentificationValue(productIdentificationPref.secondaryId, currentSampleProduct) }}</p>
+          {{ getPrimaryProductIdentifier(productIdentificationPref, currentSampleProduct) }}
+          <p>{{ getSecondaryProductIdentifier(productIdentificationPref, currentSampleProduct) }}</p>
         </ion-label>
         <ion-button size="default" fill="clear" @click="shuffle">
           <ion-icon slot="icon-only" :icon="shuffleOutline" />
@@ -42,15 +42,15 @@
 <script setup lang="ts">
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIcon, IonItem, IonLabel, IonSelect, IonSelectOption, IonThumbnail } from "@ionic/vue";
 import { computed, onMounted } from "vue";
-import { commonUtil, DxpShopifyImg, translate } from "@common";
+import { DxpShopifyImg, translate } from "@common";
 import { shuffleOutline } from "ionicons/icons";
 import { productStore } from "@/store/productStore";
 import { useUserStore } from "@/store/userStore";
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 const store = productStore();
 const userStore = useUserStore();
 
-const getProductIdentificationValue = commonUtil.getProductIdentificationValue;
 const currentEComStore = computed(() => store.getCurrentEComStore);
 const productIdentificationPref = computed(() => store.getProductIdentificationPref);
 const productIdentificationOptions = computed(() => store.getProductIdentificationOptions);

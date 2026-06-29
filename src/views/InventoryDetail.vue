@@ -36,7 +36,7 @@
                 <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
               </ion-card-header>
               <ion-button slot="end" fill="clear" @click="openInventoryEditModal">
-                {{ translate("Edit") }}
+                {{ translate("Adjust") }}
               </ion-button>
             </div>
             <ion-item>

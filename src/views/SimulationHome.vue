@@ -3,14 +3,13 @@
     <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Simulate") }}</ion-title>
+        <ion-segment slot="end" :value="tab" @ionChange="tab = $event.detail.value">
+          <ion-segment-button value="new"><ion-label>{{ translate("New simulation") }}</ion-label></ion-segment-button>
+          <ion-segment-button value="past"><ion-label>{{ translate("Past simulations") }}</ion-label></ion-segment-button>
+        </ion-segment>
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-segment :value="tab" @ionChange="tab = String($event.detail.value) as 'new' | 'past'">
-        <ion-segment-button value="new"><ion-label>{{ translate("New simulation") }}</ion-label></ion-segment-button>
-        <ion-segment-button value="past"><ion-label>{{ translate("Past simulations") }}</ion-label></ion-segment-button>
-      </ion-segment>
-
       <ion-list v-show="tab === 'new'">
         <ion-list-header>
           <ion-label>{{ translate("Choose a routing group to simulate") }}</ion-label>
@@ -23,7 +22,7 @@
         </ion-item>
       </ion-list>
 
-      <past-simulations-list v-if="tab === 'past'" />
+      <PastSimulationsList v-if="tab === 'past'" />
     </ion-content>
   </ion-page>
 </template>
@@ -39,7 +38,7 @@ import router from "@/router";
 // Groups come from the simulation backend via the simulation store — isolated from the OMS group state.
 const simStore = simulationStore();
 const groups = computed(() => simStore.getSimGroups);
-const tab = ref<"new" | "past">("new");
+const tab = ref<any>("new");
 
 // fetchSimGroups catches its own errors (empty list on failure), so a sim outage can't reject here.
 onMounted(async () => { await simStore.fetchSimGroups(); });

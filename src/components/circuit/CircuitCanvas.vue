@@ -1013,6 +1013,7 @@ async function fetchRoutingGroupInformation() {
 
       await Promise.all([
         fetchGroupHistory(),
+        fetchGroupSchedule(),
         product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
         utilStore.fetchStatusInformation()
       ])
@@ -2288,9 +2289,10 @@ ion-card {
   grid-column: 2/4;
 }
 
-/* Selected routing: a primary ring so the active card is obvious in light and dark mode. */
+/* Selected routing: a primary ring so the active card is obvious in light and dark mode.
+   outline (not box-shadow) keeps the card's default elevation shadow intact. */
 .routing.selected-path {
-  box-shadow: 0 0 0 2px var(--ion-color-primary);
+  outline: 2px solid var(--ion-color-primary);
 }
 
 /* Routing group description: compact, muted, sits under the title/id. */

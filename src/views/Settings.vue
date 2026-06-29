@@ -108,7 +108,7 @@
             {{ translate("Developer mode shows extra debugging tools, such as Circuit's last-prompt log.") }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-toggle :checked="isDevModeEnabled" @ionChange="setDevMode($event.detail.checked)">{{ translate("Developer mode") }}</ion-toggle>
+            <ion-toggle v-model="isDevModeEnabled">{{ translate("Developer mode") }}</ion-toggle>
           </ion-item>
         </ion-card>
       </section>
@@ -134,11 +134,10 @@ const userStore = useUserStore()
 const preferencesStore = usePreferencesStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
-const isDevModeEnabled = computed(() => preferencesStore.isDevModeEnabled)
-
-function setDevMode(enabled: boolean) {
-  preferencesStore.setDevMode(enabled)
-}
+const isDevModeEnabled = computed({
+  get: () => preferencesStore.isDevModeEnabled,
+  set: (value: boolean) => preferencesStore.setDevMode(value)
+})
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));

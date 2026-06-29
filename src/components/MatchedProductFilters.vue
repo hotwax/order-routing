@@ -1,36 +1,30 @@
 <template>
   <div class="matched-product-filters">
-    <!-- Add-filter actions, kept compact so they read as part of the search experience -->
+    <!-- Compact, icon-led add controls; Include vs Exclude is chosen in an action sheet -->
     <div class="filter-actions">
-      <div class="filter-line">
-        <ion-label class="filter-line-label">{{ translate("Tags") }}</ion-label>
-        <ion-button size="small" fill="outline" @click="openFilterModal('included', 'tags')">
-          <ion-icon slot="start" :icon="addOutline" />
-          {{ translate("Include") }}
-        </ion-button>
-        <ion-button size="small" fill="outline" @click="openFilterModal('excluded', 'tags')">
-          <ion-icon slot="start" :icon="removeOutline" />
-          {{ translate("Exclude") }}
-        </ion-button>
-      </div>
-      <div class="filter-line">
-        <ion-label class="filter-line-label">{{ translate("Features") }}</ion-label>
-        <ion-button size="small" fill="outline" @click="openFilterModal('included', 'productFeatures')">
-          <ion-icon slot="start" :icon="addOutline" />
-          {{ translate("Include") }}
-        </ion-button>
-        <ion-button size="small" fill="outline" @click="openFilterModal('excluded', 'productFeatures')">
-          <ion-icon slot="start" :icon="removeOutline" />
-          {{ translate("Exclude") }}
-        </ion-button>
-      </div>
+      <ion-button size="small" fill="outline" @click="promptAddFilter('tags')">
+        <ion-icon slot="start" :icon="pricetagOutline" />
+        {{ translate("Tags") }}
+        <ion-icon slot="end" :icon="addOutline" />
+      </ion-button>
+      <ion-button size="small" fill="outline" @click="promptAddFilter('productFeatures')">
+        <ion-icon slot="start" :icon="optionsOutline" />
+        {{ translate("Features") }}
+        <ion-icon slot="end" :icon="addOutline" />
+      </ion-button>
     </div>
 
-    <!-- Active filter summary: one group per non-empty condition/field combination -->
+    <!-- Active filter summary: one group per non-empty condition/field combination.
+         A leading icon distinguishes tags (price tag) from features (options) so it isn't guesswork. -->
     <div class="active-filters" v-if="activeGroups.length">
       <div class="active-group" v-for="group in activeGroups" :key="group.key">
         <div class="active-group-head">
-          <ion-note>{{ translate(group.label) }}</ion-note>
+          <ion-icon
+            class="group-icon"
+            :icon="group.field === 'tags' ? pricetagOutline : optionsOutline"
+            :aria-label="translate(group.field === 'tags' ? 'Tags' : 'Features')"
+          />
+          <ion-note>{{ translate(group.conditionLabel) }}</ion-note>
           <!-- Operator only matters once a group has more than one value -->
           <ion-select
             v-if="group.values.length > 1"
@@ -44,7 +38,7 @@
           </ion-select>
         </div>
         <div class="chips">
-          <ion-chip outline v-for="value in group.values" :key="value" @click="removeFilters(group.condition, group.field, value)">
+          <ion-chip v-for="value in group.values" :key="value" @click="removeFilters(group.condition, group.field, value)">
             {{ value }}
             <ion-icon :icon="closeCircle" />
           </ion-chip>
@@ -55,8 +49,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonChip, IonIcon, IonLabel, IonNote, IonSelect, IonSelectOption, modalController } from '@ionic/vue';
-import { addOutline, closeCircle, removeOutline } from 'ionicons/icons';
+import { IonButton, IonChip, IonIcon, IonNote, IonSelect, IonSelectOption, actionSheetController, modalController } from '@ionic/vue';
+import { addOutline, closeCircle, optionsOutline, pricetagOutline } from 'ionicons/icons';
 import { translate } from '@common';
 import AddProductFiltersModal from '@/components/AddProductFiltersModal.vue';
 import { computed } from 'vue';
@@ -78,10 +72,10 @@ const FIELD_META: Record<string, { label: string; facetToSelect: string; searchf
 const DEFAULT_OPERATOR: Record<string, string> = { included: 'or', excluded: 'and' };
 
 const GROUP_DEFS = [
-  { condition: 'included', field: 'tags', label: 'Included tags' },
-  { condition: 'excluded', field: 'tags', label: 'Excluded tags' },
-  { condition: 'included', field: 'productFeatures', label: 'Included features' },
-  { condition: 'excluded', field: 'productFeatures', label: 'Excluded features' }
+  { condition: 'included', field: 'tags' },
+  { condition: 'excluded', field: 'tags' },
+  { condition: 'included', field: 'productFeatures' },
+  { condition: 'excluded', field: 'productFeatures' }
 ] as const;
 
 const activeGroups = computed(() =>
@@ -89,10 +83,28 @@ const activeGroups = computed(() =>
     .map((def) => {
       const values = appliedFilters.value[def.condition][def.field] || [];
       const operator = appliedFiltersOperator.value[def.condition][def.field] || DEFAULT_OPERATOR[def.condition];
-      return { ...def, key: `${def.condition}-${def.field}`, values, operator };
+      return {
+        ...def,
+        key: `${def.condition}-${def.field}`,
+        conditionLabel: def.condition === 'included' ? 'Included' : 'Excluded',
+        values,
+        operator
+      };
     })
     .filter((group) => group.values.length)
 );
+
+async function promptAddFilter(field: 'tags' | 'productFeatures') {
+  const sheet = await actionSheetController.create({
+    header: translate(field === 'tags' ? 'Add tag filter' : 'Add feature filter'),
+    buttons: [
+      { text: translate('Include'), handler: () => { openFilterModal('included', field); } },
+      { text: translate('Exclude'), handler: () => { openFilterModal('excluded', field); } },
+      { text: translate('Cancel'), role: 'cancel' }
+    ]
+  });
+  await sheet.present();
+}
 
 async function openFilterModal(condition: string, field: string) {
   const meta = FIELD_META[field];
@@ -139,19 +151,13 @@ async function updateFiltersOperator(condition: 'included' | 'excluded', field: 
   padding-inline: var(--spacer-sm);
 }
 
-.filter-line {
+.filter-actions {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--spacer-xs);
 }
 
-.filter-line-label {
-  font-weight: 600;
-  min-width: 72px;
-}
-
-.filter-line ion-button {
+.filter-actions ion-button {
   margin: 0;
 }
 
@@ -166,11 +172,17 @@ async function updateFiltersOperator(condition: 'included' | 'excluded', field: 
 .active-group-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacer-xs);
+  gap: 6px;
+}
+
+.group-icon {
+  font-size: 16px;
+  color: var(--ion-color-medium);
+  flex-shrink: 0;
 }
 
 .operator-select {
+  margin-inline-start: auto;
   min-height: 0;
   --padding-top: 0;
   --padding-bottom: 0;
@@ -179,7 +191,7 @@ async function updateFiltersOperator(condition: 'included' | 'excluded', field: 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 4px;
 }
 
 .chips ion-chip {

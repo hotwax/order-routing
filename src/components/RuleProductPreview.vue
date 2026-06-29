@@ -54,13 +54,13 @@
             <!-- Why each product matched: its Solr tags and product features (capped, scan-friendly) -->
             <div class="row-meta" v-if="toArray(product.tags).length || toArray(product.productFeatures).length">
               <div class="meta-line" v-if="toArray(product.tags).length">
-                <ion-note class="meta-label">{{ translate("Tags") }}</ion-note>
-                <ion-chip class="meta-chip" outline v-for="tag in visibleItems(product.tags)" :key="tag">{{ tag }}</ion-chip>
+                <ion-icon class="meta-icon" :icon="pricetagOutline" :aria-label="translate('Tags')" />
+                <ion-chip class="meta-chip" v-for="tag in visibleItems(product.tags)" :key="tag">{{ tag }}</ion-chip>
                 <ion-note class="meta-more" v-if="extraCount(product.tags)">{{ translate("+ {count} more", { count: extraCount(product.tags) }) }}</ion-note>
               </div>
               <div class="meta-line" v-if="toArray(product.productFeatures).length">
-                <ion-note class="meta-label">{{ translate("Features") }}</ion-note>
-                <ion-chip class="meta-chip" outline color="medium" v-for="feature in visibleItems(product.productFeatures)" :key="feature">{{ feature }}</ion-chip>
+                <ion-icon class="meta-icon" :icon="optionsOutline" :aria-label="translate('Features')" />
+                <ion-chip class="meta-chip" v-for="feature in visibleItems(product.productFeatures)" :key="feature">{{ feature }}</ion-chip>
                 <ion-note class="meta-more" v-if="extraCount(product.productFeatures)">{{ translate("+ {count} more", { count: extraCount(product.productFeatures) }) }}</ion-note>
               </div>
             </div>
@@ -139,7 +139,7 @@ import {
   IonSpinner,
   IonThumbnail
 } from "@ionic/vue";
-import { caretBackOutline, caretForwardOutline, cubeOutline } from 'ionicons/icons';
+import { caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
 import { DxpShopifyImg, translate, api } from '@common';
 import MatchedProductFilters from "@/components/MatchedProductFilters.vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
@@ -417,8 +417,9 @@ function goToNextPage() {
 .row-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 var(--spacer-sm) var(--spacer-xs);
+  gap: 4px;
+  /* Indent to line up under the product name (past the 40px thumbnail + item padding) */
+  padding: 0 var(--spacer-sm) var(--spacer-xs) 56px;
 }
 
 .meta-line {
@@ -428,15 +429,14 @@ function goToNextPage() {
   gap: 4px;
 }
 
-.meta-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.meta-icon {
+  font-size: 15px;
+  color: var(--ion-color-medium);
   flex-shrink: 0;
 }
 
 .meta-chip {
-  height: 20px;
+  height: 22px;
   font-size: 11px;
   margin: 0;
 }

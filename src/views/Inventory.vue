@@ -36,7 +36,7 @@
           </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="onRowClick(product.productId)">
             <ion-item>
-              <ion-checkbox v-if="selectMode" :checked="isSelected(product.productId)" slot="start" @click.stop @ionChange="setProductSelection(product.productId, $event.detail.checked)"></ion-checkbox>
+              <ion-checkbox v-if="selectMode" :checked="isSelected(product.productId)" slot="start" @click.stop="toggleProductSelection(product.productId)"></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
@@ -193,24 +193,21 @@ function isSelected(productId: string) {
   return selectedProductIds.value.includes(productId)
 }
 
-function setProductSelection(productId: string, checked: boolean) {
-  if (checked) {
-    if (!selectedProductIds.value.includes(productId)) selectedProductIds.value.push(productId)
-  } else {
-    selectedProductIds.value = selectedProductIds.value.filter((id: string) => id !== productId)
-  }
-}
-
 function toggleProductSelection(productId: string) {
-  setProductSelection(productId, !isSelected(productId))
+  if (selectedProductIds.value.includes(productId)) {
+    selectedProductIds.value = selectedProductIds.value.filter((id: string) => id !== productId)
+  } else {
+    selectedProductIds.value = [...selectedProductIds.value, productId]
+  }
 }
 
 function toggleCurrentPageSelection(checked: boolean) {
   if (checked) {
-    const ids = new Set(selectedProductIds.value)
-    currentPageProductIds.value.forEach((id: string) => ids.add(id))
-    selectedProductIds.value = [...ids]
+    const missingIds = currentPageProductIds.value.filter((id: string) => !selectedProductIds.value.includes(id))
+    if (!missingIds.length) return;
+    selectedProductIds.value = [...selectedProductIds.value, ...missingIds]
   } else {
+    if (!currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id))) return;
     selectedProductIds.value = selectedProductIds.value.filter((id: string) => !currentPageProductIds.value.includes(id))
   }
 }

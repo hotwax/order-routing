@@ -19,13 +19,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, alertController, modalController } from "@ionic/vue";
+import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, alertController, modalController, popoverController } from "@ionic/vue";
 import { emitter, logger, translate } from '@common';
 import { flashOutline, stopCircleOutline, timeOutline } from 'ionicons/icons'
 import { computed } from "vue";
 import { commonUtil } from "@common";
 import RuleGroupHistoryModal from '@/components/RuleGroupHistoryModal.vue';
-import { popoverController } from "@ionic/core";
 import { useRuleStore } from "@/store/rule";
 
 const ruleStore = useRuleStore();

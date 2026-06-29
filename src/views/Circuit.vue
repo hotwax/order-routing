@@ -1,7 +1,7 @@
 <template>
-  <circuit-intro v-if="!isIntroDone" />
-  <circuit-start v-else-if="!isChatStarted" />
-  <circuit-chat-canvas v-else />
+  <CircuitIntro v-if="!isIntroDone" />
+  <CircuitStart v-else-if="!isChatStarted" />
+  <CircuitChatCanvas v-else />
 </template>
 
 <script setup lang="ts">

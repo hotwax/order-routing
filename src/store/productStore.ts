@@ -124,26 +124,24 @@ export const productStore = defineStore('productStore', {
       const productStoreSettings = {} as any
 
       if (productStoreId) {
-        const payload = {
-          productStoreId,
-          settingTypeEnumId: ["PRDT_IDEN_PREF"],
-          settingTypeEnumId_op: "in",
-          pageIndex: 0,
-          pageSize: 50
-        }
         try {
+          // Read via the admin ProductStoreSetting REST endpoint (same family as the write path in
+          // setProductStoreSetting). The "ProductStoreSetting" dataDocument is not registered on the OMS,
+          // so the previous POST /oms/dataDocumentView returned 400 ("No DataDocument found") and the
+          // identifier preference silently fell back to defaults (#454).
           const resp = await api({
-            url: `/oms/dataDocumentView`,
-            method: "POST",
-            data: {
-              dataDocumentId: "ProductStoreSetting",
-              customParametersMap: payload
-            }
+            url: `admin/productStores/${productStoreId}/settings`,
+            method: "GET",
+            params: { settingTypeEnumId: "PRDT_IDEN_PREF" }
           }) as any
 
-          resp?.data?.entityValueList?.forEach((productSetting: any) => {
-            productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
-          })
+          if (resp && !commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+            resp.data.forEach((productSetting: any) => {
+              if (productSetting?.settingTypeEnumId) {
+                productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+              }
+            })
+          }
         } catch (error) {
           logger.error("Failed to fetch settings", error)
         }

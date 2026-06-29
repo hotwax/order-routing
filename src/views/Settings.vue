@@ -71,11 +71,11 @@
             </ion-select>
           </ion-item>
         </ion-card>
-        <DxpProductIdentifier />
       </section>
       <hr />
       <DxpAppVersionInfo />
       <section>
+        <DxpProductIdentifier />
         <ion-card>
           <ion-card-header>
             <ion-card-title>
@@ -101,13 +101,24 @@
             <ion-button @click="changeTimeZone()" slot="end" fill="outline" color="dark">{{ translate("Change") }}</ion-button>
           </ion-item>
         </ion-card>
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>{{ translate("Developer") }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            {{ translate("Developer mode shows extra debugging tools, such as Circuit's last-prompt log.") }}
+          </ion-card-content>
+          <ion-item lines="none">
+            <ion-toggle v-model="isDevModeEnabled">{{ translate("Developer mode") }}</ion-toggle>
+          </ion-item>
+        </ion-card>
       </section>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
+import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
@@ -119,10 +130,16 @@ import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";
+import { usePreferencesStore } from "@/store/preferences";
 
 const userStore = useUserStore()
+const preferencesStore = usePreferencesStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
+const isDevModeEnabled = computed({
+  get: () => preferencesStore.isDevModeEnabled,
+  set: (value: boolean) => preferencesStore.setDevMode(value)
+})
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));

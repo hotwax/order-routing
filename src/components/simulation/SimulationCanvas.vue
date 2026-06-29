@@ -588,8 +588,8 @@ async function saveAsNewVariation() {
         text: translate("Save"),
         handler: async (data) => {
           flushWorking();
-          const ok = await sim.saveAsVariation(data?.label);
-          commonUtil.showToast(ok ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
+          const isSaved = await sim.saveAsVariation(data?.label);
+          commonUtil.showToast(isSaved ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
         }
       }
     ]
@@ -601,8 +601,8 @@ async function saveAsNewVariation() {
 async function updateActiveVariation() {
   if (!sim.activeVariationId) return;
   flushWorking();
-  const ok = await sim.updateVariation(sim.activeVariationId);
-  commonUtil.showToast(ok ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
+  const isUpdated = await sim.updateVariation(sim.activeVariationId);
+  commonUtil.showToast(isUpdated ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
 }
 
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))

@@ -6,7 +6,7 @@
           <ion-back-button default-href="/simulation" />
         </ion-buttons>
         <ion-title>{{ translate("Simulation") }}</ion-title>
-        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = $event.detail.value as 'editor' | 'results'">
+        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = $event.detail.value">
           <ion-segment-button value="editor">
             <ion-label>{{ translate("Editor") }}</ion-label>
           </ion-segment-button>

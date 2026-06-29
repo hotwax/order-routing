@@ -12,14 +12,15 @@
         <ion-button fill="clear" color="danger" :disabled="!facetOptions.length || !selectedValues.length" @click="selectedValues = []">{{ translate("Clear All") }}</ion-button>
       </ion-buttons>
     </ion-toolbar>
+    <ion-toolbar>
+      <ion-searchbar :placeholder="translate('Search', { label })" v-model="queryString" @keyup.enter="search()" />
+    </ion-toolbar>
   </ion-header>
 
   <ion-content>
-    <ion-searchbar :placeholder="translate('Search', { label })" v-model="queryString" @keyup.enter="search()"/>
-
     <div class="selected-chips" v-if="selectedValues.length">
       <ion-chip v-for="filter in selectedValues" outline :key="filter">
-        <ion-label>{{ filter }}</ion-label>
+        <ion-label>{{ countById[filter] != null ? `${filter}: ${countById[filter]}` : filter }}</ion-label>
         <ion-icon :icon="closeOutline" @click.stop="removeSelectedValue(filter)" />
       </ion-chip>
     </div>
@@ -38,12 +39,10 @@
     </div>
     <ion-list v-else-if="filteredOptions.length">
       <ion-item v-for="option in filteredOptions" :key="option.id" :button="!isAlreadyApplied(option.id)" @click="!isAlreadyApplied(option.id) ? updateSelectedValues(option.id) : null">
-        <ion-label v-if="isAlreadyApplied(option.id)">{{ option.label }}</ion-label>
-        <ion-checkbox v-else :checked="selectedValues.includes(option.id)">
-          {{ option.label }}
-        </ion-checkbox>
+        <ion-label>{{ option.label }}</ion-label>
         <ion-note v-if="countById[option.id] != null" slot="end">{{ countById[option.id] }}</ion-note>
         <ion-note v-if="isAlreadyApplied(option.id)" slot="end" color="danger">{{ type === 'included' ? translate("excluded") : translate("included") }}</ion-note>
+        <ion-checkbox v-if="!isAlreadyApplied(option.id)" slot="end" :checked="selectedValues.includes(option.id)" />
       </ion-item>
     </ion-list>
     <div class="empty-state" v-else-if="!queryString">

@@ -77,12 +77,16 @@
             </ion-card-content>
           </ion-card>
 
-          <div class="preview-facilities-action">
-            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected || !hasSelectedFacilityGroups" @click="openFacilityImpactModal()">
+          <ion-item class="facility-impact-summary" lines="none">
+            <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllSelected">
+              <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
+              <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
+            </ion-chip>
+            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected" @click="openFacilityImpactModal()">
               <ion-icon :icon="eyeOutline" slot="start" />
               {{ translate("Preview impacted facilities") }}
             </ion-button>
-          </div>
+          </ion-item>
         </section>
         <EmptyState
           v-else
@@ -159,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
+import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonSpinner, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
 import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
@@ -175,6 +179,7 @@ import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupMo
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { useRuleStore } from '@/store/rule';
 import { ruleUtil } from '@/utils/ruleUtil';
+import { useFacilityGroupNetOutcome } from '@/composables/useFacilityGroupNetOutcome';
 
 const productStore = useAtpProductStore();
 const ruleStore = useRuleStore();
@@ -189,7 +194,6 @@ const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const selectedSegment = computed(() => productStore.getSelectedSegment);
 const facilityGroups = computed(() => productStore.getFacilityGroups)
-const hasSelectedFacilityGroups = computed(() => formData.value.selectedFacilityGroups.included.length || formData.value.selectedFacilityGroups.excluded.length)
 
 const formData = ref({
   ruleName: '',
@@ -201,6 +205,9 @@ const formData = ref({
   selectedConfigFacilites: [],
   areAllSelected: false
 }) as any;
+
+const facilityGroupsSelection = computed(() => formData.value.selectedFacilityGroups)
+const { hasFacilityGroupSelections, isCounting: isCountingNetFacilities, netFacilityCount } = useFacilityGroupNetOutcome(facilityGroupsSelection, computed(() => formData.value.areAllSelected))
 
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
@@ -477,6 +484,20 @@ ion-card-header > ion-checkbox {
   display: flex;
   justify-content: flex-end;
   padding-inline: var(--spacer-sm);
+}
+
+.facility-impact-summary {
+  grid-column: span 2;
+}
+
+.facility-impact-summary ion-chip {
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .facility-impact-summary {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Stack the preview under the form on narrow screens. */

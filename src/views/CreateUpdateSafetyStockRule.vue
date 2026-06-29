@@ -73,6 +73,17 @@
             </ion-chip>
           </ion-card-content>
         </ion-card>
+
+        <ion-item class="facility-impact-summary" lines="none">
+          <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllFacilitiesSelected">
+            <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
+            <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
+          </ion-chip>
+          <ion-button fill="clear" size="small" :disabled="formData.areAllFacilitiesSelected" @click="openFacilityImpactModal()">
+            <ion-icon :icon="eyeOutline" slot="start" />
+            {{ translate("Preview impacted facilities") }}
+          </ion-button>
+        </ion-item>
       </section>
       <EmptyState
         v-else
@@ -105,11 +116,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, addOutline, businessOutline, closeCircle, linkOutline, saveOutline } from 'ionicons/icons'
+import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonSpinner, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
+import { addCircleOutline, addOutline, businessOutline, closeCircle, eyeOutline, linkOutline, saveOutline } from 'ionicons/icons'
 import { emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue';
 import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue';
 import { computed, ref } from 'vue';
@@ -120,6 +132,7 @@ import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupMo
 import router from '@/router';
 import { ruleUtil } from '@/utils/ruleUtil';
 import { commonUtil } from '@common';
+import { useFacilityGroupNetOutcome } from '@/composables/useFacilityGroupNetOutcome';
 
 const userStore = useUserStore();
 const productStore = useAtpProductStore();
@@ -142,6 +155,9 @@ const rules = computed(() => ruleStore.getRules);
 const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
+const facilityGroupsSelection = computed(() => formData.value.selectedFacilityGroups)
+
+const { hasFacilityGroupSelections, isCounting: isCountingNetFacilities, netFacilityCount } = useFacilityGroupNetOutcome(facilityGroupsSelection, computed(() => formData.value.areAllFacilitiesSelected))
 
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
@@ -228,6 +244,17 @@ async function linkExistingFacilityGroup() {
     if(res?.data?.linked) productStore.fetchFacilityGroups();
   });
   modal.present();
+}
+
+async function openFacilityImpactModal() {
+  const modal = await modalController.create({
+    component: FacilityGroupImpactModal,
+    componentProps: {
+      includedGroups: formData.value.selectedFacilityGroups.included,
+      excludedGroups: formData.value.selectedFacilityGroups.excluded
+    }
+  })
+  modal.present()
 }
 
 async function openProductFacilityGroupModal(type: string) {
@@ -352,4 +379,17 @@ function removeFacilityGroups(facilityGroupId: any, type: string) {
 </script>
 
 <style scoped>
+.facility-impact-summary {
+  grid-column: span 2;
+}
+
+.facility-impact-summary ion-chip {
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .facility-impact-summary {
+    grid-column: 1 / -1;
+  }
+}
 </style>

@@ -244,7 +244,8 @@ async function openInventoryEditModal() {
     component: ProductInventoryEdit,
     componentProps: {
       selectedFacility: selectedFacilityId.value,
-      selectedProducts: [{ productId: productId.value, inventoryItemId: inventoryConfig.value?.inventoryConfig?.inventoryItemId }]
+      selectedProducts: [{ productId: productId.value }],
+      currentConfig: inventoryConfig.value?.inventoryConfig
     }
   });
   await modal.present();
@@ -257,7 +258,8 @@ async function openConfigEditModal() {
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacilityId.value,
-      selectedProducts: [{ productId: productId.value }]
+      selectedProducts: [{ productId: productId.value }],
+      currentConfig: inventoryConfig.value?.inventoryConfig
     }
   });
   await modal.present();

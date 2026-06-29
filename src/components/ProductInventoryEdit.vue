@@ -47,7 +47,7 @@ import { api, commonUtil, logger, translate } from '@common';
 import { onMounted, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 
-const props = defineProps(["selectedProducts", "selectedFacility"])
+const props = defineProps(["selectedProducts", "selectedFacility", "currentConfig"])
 
 const variance = ref(0) as any;
 const varianceAction = ref("ADD")
@@ -89,7 +89,7 @@ async function updateInventory() {
     const varianceList = props.selectedProducts
       .map((item: any) => {
         return {
-          inventoryItemId: item.inventoryItemId,
+          inventoryItemId: props.currentConfig ? props.currentConfig.inventoryItemId : (item.inventoryItemId || item.inventoryConfig?.inventoryItemId),
           productId: item.productId,
           facilityId: props.selectedFacility,
           reasonEnumId,

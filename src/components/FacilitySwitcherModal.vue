@@ -127,7 +127,10 @@ async function fetchInventoryAcrossFacilities() {
           const resp = await api({
             url: "oms/productFacilities/search",
             method: "GET",
-            params: { keyword: props.productId, facilityId: facility.facilityId, pageSize: 1 }
+            // Exact productId, NOT keyword: keyword fuzzy-matches a virtual product's variants and
+            // would surface a variant's inventory as if it were this product's. A virtual product
+            // has no inventory of its own, so exact match correctly yields nothing (shown as "-").
+            params: { productId: props.productId, facilityId: facility.facilityId, pageSize: 1 }
           }) as any;
           if (resp && !commonUtil.hasError(resp)) {
             const record = resp.data?.products?.[0];

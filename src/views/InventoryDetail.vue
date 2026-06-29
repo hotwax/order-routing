@@ -252,8 +252,11 @@ watch(selectedFacilityId, async () => {
 
 async function fetchInventoryConfig() {
   const { fetchProductFacility, productFacility } = useProductFacility();
+  // Exact productId (not keyword): keyword fuzzy-matches a virtual product's variants and would
+  // show a variant's inventory for the virtual product. Exact match keeps the detail truthful —
+  // a virtual product has no own inventory — and consistent with the facility switcher.
   await fetchProductFacility({
-    keyword: productId.value,
+    productId: productId.value,
     facilityId: selectedFacilityId.value
   });
   inventoryConfig.value = productFacility.value?.[0] ?? null;

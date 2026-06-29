@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ translate(`Inventory ${props.label}`) }}</ion-title>
+        <ion-title>{{ translate("Inventory {label}", { label: props.label }) }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="closeModal()">{{ translate("Close") }}</ion-button>
         </ion-buttons>
@@ -10,7 +10,7 @@
     </ion-header>
     <ion-content>
       <div v-if="!enumerations.length" class="empty-state">
-        <p>{{ translate(`Failed to fetch ${props.label?.toLowerCase()} options`) }}</p>
+        <p>{{ translate("Failed to fetch {label} options", { label: props.label?.toLowerCase() }) }}</p>
       </div>
 
       <ion-list v-else>

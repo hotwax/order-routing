@@ -16,6 +16,8 @@ import { computed } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { DateTime } from "luxon";
 
+defineOptions({ inheritAttrs: false });
+
 const userStore = useUserStore();
 const pwaState = computed(() => userStore.getPwaState);
 

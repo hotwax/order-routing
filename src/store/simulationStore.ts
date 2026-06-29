@@ -189,8 +189,9 @@ export const simulationStore = defineStore("simulation", {
         logger.error(err);
       }
     },
-    // Persist the current working copy as a NEW H2 variation.
-    async saveAsVariation(label: string) {
+    // Persist the current working copy as a NEW H2 variation. Returns true on success so
+    // callers only report success when the save actually reached the backend.
+    async saveAsVariation(label: string): Promise<boolean> {
       try {
         const vid = await VariationService.createVariation(this.routingGroupId, label);
         const tree = await VariationService.replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
@@ -198,22 +199,26 @@ export const simulationStore = defineStore("simulation", {
         this.variations.push({ id: vid, label: label || tree?.variationName || vid, group, serverVid: vid });
         this.activeVariationId = vid;
         this.working = deepClone(group);
+        return true;
       } catch (err: any) {
         logger.error(err);
         this.loadError = err?.message ?? "Failed to save variation.";
+        return false;
       }
     },
-    // Overwrite an existing H2 variation with the current working copy.
-    async updateVariation(id: string) {
+    // Overwrite an existing H2 variation with the current working copy. Returns true on success.
+    async updateVariation(id: string): Promise<boolean> {
       const v = this.variations.find((x) => x.id === id);
-      if (!v?.serverVid) return;
+      if (!v?.serverVid) return false;
       try {
         const tree = await VariationService.replaceVariationConfig(v.serverVid, toConfigPayload(this.working?.routings ?? []));
         v.group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         this.working = deepClone(v.group);
+        return true;
       } catch (err: any) {
         logger.error(err);
         this.loadError = err?.message ?? "Failed to update variation.";
+        return false;
       }
     },
     // Open a variation in the canvas: use the cached tree or fetch it from H2 (lazy).
@@ -229,7 +234,11 @@ export const simulationStore = defineStore("simulation", {
         if (v.group) this.working = deepClone(v.group);
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message ?? "Failed to load variation.";
+        const message = err?.message ?? "Failed to load variation.";
+        this.loadError = message;
+        // Surface the failure — otherwise a thrown getVariation silently leaves the
+        // canvas on the previous copy, which reads as "the variation didn't load".
+        commonUtil.showToast(message);
       }
     },
     // Run the active H2 variation (synchronous) and the parent live-config (cached) for compare.

@@ -3,14 +3,13 @@
     <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Simulate") }}</ion-title>
+        <ion-segment slot="end" :value="tab" @ionChange="tab = $event.detail.value as 'new' | 'past'">
+          <ion-segment-button value="new"><ion-label>{{ translate("New simulation") }}</ion-label></ion-segment-button>
+          <ion-segment-button value="past"><ion-label>{{ translate("Past simulations") }}</ion-label></ion-segment-button>
+        </ion-segment>
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-segment :value="tab" @ionChange="tab = String($event.detail.value) as 'new' | 'past'">
-        <ion-segment-button value="new"><ion-label>{{ translate("New simulation") }}</ion-label></ion-segment-button>
-        <ion-segment-button value="past"><ion-label>{{ translate("Past simulations") }}</ion-label></ion-segment-button>
-      </ion-segment>
-
       <ion-list v-show="tab === 'new'">
         <ion-list-header>
           <ion-label>{{ translate("Choose a routing group to simulate") }}</ion-label>

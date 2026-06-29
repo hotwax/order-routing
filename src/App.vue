@@ -28,7 +28,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="sourcingItems.length">
+            <ion-list-header v-if="sourcingItems.length" color="light">
               <ion-label>{{ translate("Sourcing") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in sourcingItems" :key="`s-${index}`">
@@ -44,7 +44,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="routingItems.length">
+            <ion-list-header v-if="routingItems.length" color="light">
               <ion-label>{{ translate("Routing") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in routingItems" :key="`r-${index}`">
@@ -60,7 +60,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="otherItems.length">
+            <ion-list-header v-if="otherItems.length" color="light">
               <ion-label>{{ translate("General") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in otherItems" :key="`o-${index}`">

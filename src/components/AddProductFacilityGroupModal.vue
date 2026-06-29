@@ -109,8 +109,8 @@ const filteredFacilityGroups = computed(() => {
 // Net = dedupe(facilities of included groups) minus facilities in any excluded group. The side being
 // edited uses the unsaved modal selection; the opposite side uses the already-applied groups.
 const netFacilityCount = computed(() => {
-  const includedGroups = props.type === 'included' ? selectedGroups.value : props.selectedFacilityGroups.included
-  const excludedGroups = props.type === 'excluded' ? selectedGroups.value : props.selectedFacilityGroups.excluded
+  const includedGroups = props.type === 'included' ? selectedGroups.value : (props.selectedFacilityGroups?.included || [])
+  const excludedGroups = props.type === 'excluded' ? selectedGroups.value : (props.selectedFacilityGroups?.excluded || [])
   const facilityIdsFor = (groups: any[]) => {
     const ids = new Set<string>()
     ;(groups || []).forEach((group: any) => {
@@ -128,7 +128,9 @@ const netFacilityCount = computed(() => {
 })
 
 onMounted(async () => {
-  selectedGroups.value = JSON.parse(JSON.stringify(props.selectedFacilityGroups[props.type]))
+  selectedGroups.value = props.selectedFacilityGroups?.[props.type]
+    ? JSON.parse(JSON.stringify(props.selectedFacilityGroups[props.type]))
+    : []
   await loadFacilityCounts()
 })
 
@@ -136,11 +138,14 @@ async function loadFacilityCounts() {
   const groups = facilityGroups.value || []
   if (!groups.length) return
   isCounting.value = true
+  // Accumulate into a local map and assign the ref once to avoid a reactivity update per group.
+  const resolved: Record<string, any[]> = { ...facilitiesByGroupId.value }
   await Promise.all(groups.map(async (group: any) => {
-    if (facilitiesByGroupId.value[group.facilityGroupId]) return
+    if (resolved[group.facilityGroupId]) return
     const facilities = await productStore.fetchFacilitiesForGroup(group.facilityGroupId)
-    facilitiesByGroupId.value = { ...facilitiesByGroupId.value, [group.facilityGroupId]: facilities || [] }
+    resolved[group.facilityGroupId] = facilities || []
   }))
+  facilitiesByGroupId.value = resolved
   isCounting.value = false
 }
 

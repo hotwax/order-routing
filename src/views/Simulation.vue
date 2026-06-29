@@ -3,9 +3,18 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/simulation" />
+          <ion-back-button default-href="/simulate" />
         </ion-buttons>
         <ion-title>{{ translate("Simulation") }}</ion-title>
+        <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = $event.detail.value">
+          <ion-segment-button value="editor">
+            <ion-label>{{ translate("Editor") }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="results">
+            <ion-label>{{ (sim.isRunning || sim.isRunningVariationRun) ? translate("Simulation") : translate("Results") }}</ion-label>
+            <ion-spinner v-if="sim.isRunning || sim.isRunningVariationRun" name="dots" />
+          </ion-segment-button>
+        </ion-segment>
       </ion-toolbar>
     </ion-header>
     <ion-content>
@@ -18,24 +27,18 @@
         <!-- Toggle is always available so the user can move freely between the editor and the
              (possibly still-running, or not-yet-started) simulation. Both panes stay mounted so
              switching is instant and the editor keeps its state while a run continues in the background. -->
-        <ion-segment :value="sim.view" @ionChange="sim.view = String($event.detail.value)" class="sim-viewbar">
-          <ion-segment-button value="editor">
-            <ion-label>{{ translate("Editor") }}</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="results">
-            <ion-label>{{ (sim.isRunning || sim.isRunningVariationRun) ? translate("Simulation") : translate("Results") }}</ion-label>
-            <ion-spinner v-if="sim.isRunning || sim.isRunningVariationRun" name="dots" />
-          </ion-segment-button>
-        </ion-segment>
-
-        <div v-show="sim.view === 'editor'" class="sim-editor">
-          <simulation-canvas />
-          <variation-rail />
+        <div v-show="sim.view === 'editor'">
+          <!-- Key on the active variation so switching baseline <-> variation tears down and
+               rebuilds the editor, guaranteeing a fresh bind to sim.working regardless of any
+               in-place reactivity edge case (esp. for edited variations). -->
+          <SimulationCanvas :key="sim.activeVariationId || 'baseline'" />
         </div>
+        <!-- Persistent right-side sheet; teleports to body so it stays available across views. -->
+        <VariationRail />
         <div v-show="sim.view === 'results' && !sim.isRunning && !sim.results && !sim.isRunningVariationRun && !sim.variationRunResult" class="ion-padding sim-empty">
           {{ translate("No simulation has run yet. Save a variation and run it.") }}
         </div>
-        <simulation-results v-show="sim.view === 'results' && (sim.isRunning || sim.results || sim.isRunningVariationRun || sim.variationRunResult)" />
+        <SimulationResults v-show="sim.view === 'results' && (sim.isRunning || sim.results || sim.isRunningVariationRun || sim.variationRunResult)" />
       </template>
     </ion-content>
   </ion-page>
@@ -69,7 +72,6 @@ onMounted(reload);
 </script>
 
 <style scoped>
-.sim-editor { display: flex; gap: var(--spacer-base); }
 .sim-viewbar { max-width: 360px; margin: var(--spacer-sm) auto; }
 .sim-empty { color: var(--ion-color-medium); }
 </style>

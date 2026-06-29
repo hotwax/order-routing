@@ -1,6 +1,6 @@
 <template>
   <div class="ion-padding">
-    <simulation-progress v-if="sim.isRunning" />
+    <SimulationProgress v-if="sim.isRunning" />
 
     <ion-button fill="clear" @click="sim.view = 'editor'">
       <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}
@@ -48,43 +48,43 @@
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Outcomes") }}</ion-card-title></ion-card-header>
         <ion-card-content>
-          <outcome-headline :rows="rows" :winner-label="winnerLabel" />
+          <OutcomeHeadline :rows="rows" :winner-label="winnerLabel" />
         </ion-card-content>
       </ion-card>
 
       <!-- Tradeoff -->
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("SLA vs. cost tradeoff") }}</ion-card-title></ion-card-header>
-        <ion-card-content><tradeoff-chart :rows="rows" /></ion-card-content>
+        <ion-card-content><TradeoffChart :rows="rows" /></ion-card-content>
       </ion-card>
 
       <!-- Expedited -->
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Expedited shipping") }}</ion-card-title></ion-card-header>
-        <ion-card-content><expedited-panel :rows="rows" /></ion-card-content>
+        <ion-card-content><ExpeditedPanel :rows="rows" /></ion-card-content>
       </ion-card>
 
       <!-- Stockouts -->
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("New-season stockouts") }}</ion-card-title></ion-card-header>
-        <ion-card-content><stockout-panel :rows="rows" /></ion-card-content>
+        <ion-card-content><StockoutPanel :rows="rows" /></ion-card-content>
       </ion-card>
 
       <!-- Fulfillment mix (self-hides when classification unavailable) -->
       <ion-card v-if="hasClassification">
         <ion-card-header><ion-card-title>{{ translate("Fulfillment mix") }}</ion-card-title></ion-card-header>
-        <ion-card-content><fulfillment-mix-panel :rows="rows" /></ion-card-content>
+        <ion-card-content><FulfillmentMixPanel :rows="rows" /></ion-card-content>
       </ion-card>
 
       <!-- Composite score (collapsed) -->
       <ion-card>
-        <ion-card-content><composite-score-panel :results="sim.results" @winner="onWinner" /></ion-card-content>
+        <ion-card-content><CompositeScorePanel :results="sim.results" @winner="onWinner" /></ion-card-content>
       </ion-card>
 
       <!-- Advanced details (collapsed) -->
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Advanced / per-order details") }}</ion-card-title></ion-card-header>
-        <ion-card-content><advanced-details :results="sim.results" /></ion-card-content>
+        <ion-card-content><AdvancedDetails :results="sim.results" /></ion-card-content>
       </ion-card>
     </template>
   </div>

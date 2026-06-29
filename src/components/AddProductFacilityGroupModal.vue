@@ -139,13 +139,19 @@ async function loadFacilityCounts() {
   isCounting.value = true
   // Accumulate into a local map and assign the ref once to avoid a reactivity update per group.
   const resolved: Record<string, any[]> = { ...facilitiesByGroupId.value }
-  await Promise.all(groups.map(async (group: any) => {
-    if (resolved[group.facilityGroupId]) return
-    const facilities = await productStore.fetchFacilitiesForGroup(group.facilityGroupId)
-    resolved[group.facilityGroupId] = facilities || []
-  }))
-  facilitiesByGroupId.value = resolved
-  isCounting.value = false
+  try {
+    await Promise.all(groups.map(async (group: any) => {
+      if (resolved[group.facilityGroupId]) return
+      // Degrade a single failing/hung group to an empty list so one bad fetch can't wedge the
+      // whole load — otherwise its row (and the spinner) would stay on the "…" placeholder forever.
+      const facilities = await productStore.fetchFacilitiesForGroup(group.facilityGroupId).catch(() => [])
+      resolved[group.facilityGroupId] = facilities || []
+    }))
+  } finally {
+    // Always publish whatever resolved and clear the spinner, even if something above threw.
+    facilitiesByGroupId.value = resolved
+    isCounting.value = false
+  }
 }
 
 function facilityCountLabel(groupId: string) {

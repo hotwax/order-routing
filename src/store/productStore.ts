@@ -22,7 +22,15 @@ export const productStore = defineStore('productStore', {
       facilityGroups: {} as any,
       carriers: {} as any,
       productStoreFacilities: [] as any, // TODO: Storing productStore facilities separately to be used on inventory pages
-      selectedInventoryFacilityId: '' as string
+      selectedInventoryFacilityId: '' as string,
+      settings: {
+        productIdentifier: {
+          productIdentificationPref: {
+            primaryId: 'SKU',
+            secondaryId: 'productId'
+          }
+        }
+      } as any
     }
   },
   getters: {
@@ -67,6 +75,9 @@ export const productStore = defineStore('productStore', {
     },
     getProductStoreFacilities(state) {
       return state.productStoreFacilities
+    },
+    getProductIdentificationPref(state) {
+      return state.settings.productIdentifier.productIdentificationPref
     }
   },
   actions: {
@@ -82,13 +93,14 @@ export const productStore = defineStore('productStore', {
         } else {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
+          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
           return Promise.resolve(resp.data);
         }
       } catch(error: any) {
         return Promise.reject(error)
       }
     },
-    setEcomStore(payload: any) {
+    async setEcomStore(payload: any) {
       let productStore = payload.productStore;
       if(!productStore) {
         productStore = this.ecomStores.find((store: any) => store.productStoreId === payload.productStoreId);
@@ -97,6 +109,74 @@ export const productStore = defineStore('productStore', {
       this.updateShippingMethods({});
       this.updateFacillityGroups({});
       useUtilStore().updateProductCategories({});
+      await this.fetchProductStoreSettings(productStore.productStoreId);
+    },
+    async fetchProductStoreSettings(productStoreId: string) {
+      const productStoreSettings = {} as any
+
+      if (productStoreId) {
+        const payload = {
+          productStoreId,
+          settingTypeEnumId: ["PRDT_IDEN_PREF"],
+          settingTypeEnumId_op: "in",
+          pageIndex: 0,
+          pageSize: 50
+        }
+        try {
+          const resp = await api({
+            url: `/oms/dataDocumentView`,
+            method: "POST",
+            data: {
+              dataDocumentId: "ProductStoreSetting",
+              customParametersMap: payload
+            }
+          }) as any
+
+          resp?.data?.entityValueList?.forEach((productSetting: any) => {
+            productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+          })
+        } catch (error) {
+          logger.error("Failed to fetch settings", error)
+        }
+      }
+
+      const defaultProductStoreSettings = {
+        "PRDT_IDEN_PREF": {
+          "stateKey": "productIdentifier.productIdentificationPref",
+          "value": {
+            "primaryId": "SKU",
+            "secondaryId": "productId"
+          }
+        }
+      } as any;
+
+      Object.entries(defaultProductStoreSettings).forEach(([settingTypeEnumId, setting]: any) => {
+        const { stateKey, value } = setting;
+        const settingValue = productStoreSettings[settingTypeEnumId];
+        let finalValue;
+        try {
+          finalValue = settingValue ? JSON.parse(settingValue) : value;
+        } catch (e) {
+          finalValue = settingValue; // fallback to raw value
+        }
+
+        const keys = stateKey.split('.');
+        let current = this.settings;
+
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+
+          if (i === keys.length - 1) {
+            current[key] = finalValue;
+          } else {
+            // ensure object exists at each level
+            if (!current[key] || typeof current[key] !== 'object') {
+              current[key] = {};
+            }
+            current = current[key];
+          }
+        }
+      })
     },
     async fetchFacilities() {
       let facilities = JSON.parse(JSON.stringify(this.facilities))

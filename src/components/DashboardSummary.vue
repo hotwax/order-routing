@@ -1,47 +1,38 @@
 <template>
   <main class="dashboard">
     <!-- Routing performance -->
-    <ion-card class="brokering-stats" button @click="emit('navigate', '/brokering')">
+    <ion-card class="brokering-stats" button router-link="/brokering">
       <ion-card-header>
         <div class="card-head">
           <ion-card-title>{{ translate("Routing") }}</ion-card-title>
           <ion-note slot="end">{{ brokering.total }} {{ brokering.total === 1 ? translate("group") : translate("groups") }}</ion-note>
         </div>
       </ion-card-header>
-      <template v-if="brokering.lastRun">
+      <template v-if="brokering.lastGroupRun">
         <div class="metric">
-          <h1>{{ lastRunFillRate }}<span class="metric-unit">%</span></h1>
-          <ion-text color="medium"><p class="metric-label">{{ translate("fill rate") }} · {{ translate("last run") }}</p></ion-text>
+          <h1>{{ lastGroupRunBrokerRate }}<span class="metric-unit">%</span></h1>
+          <ion-text color="medium"><p class="metric-label">{{ translate("broker rate") }} {{ translate("last run") }}</p></ion-text>
         </div>
         <ion-list lines="none" class="stat-list">
           <ion-item>
-            <ion-label>{{ translate("Items routed") }}</ion-label>
-            <ion-note slot="end">{{ brokering.lastRun.brokeredItemCount }} / {{ brokering.lastRun.orderItemCount }}</ion-note>
+            <ion-label class="ion-text-wrap">
+              {{ translate("Items routed") }}
+              <p>{{ brokering.lastGroupRun.groupName }}</p>
+            </ion-label>
+            <ion-label slot="end">{{ brokering.lastGroupRun.brokeredItemCount }}</ion-label>
           </ion-item>
-          <ion-item v-if="lastRunUnfilled > 0">
-            <ion-label>{{ translate("Unfilled") }}</ion-label>
-            <ion-note slot="end">{{ lastRunUnfilled }}</ion-note>
-          </ion-item>
-          <ion-item v-if="brokering.queueDepth > 0">
+          <ion-item>
             <ion-label>{{ translate("In queue now") }}</ion-label>
-            <ion-note slot="end">{{ brokering.queueDepth }}</ion-note>
+            <ion-label slot="end">{{ brokering.queueDepth }}</ion-label>
           </ion-item>
-        </ion-list>
-        <ion-list lines="none" class="stat-list" v-if="runsWithItems > 1">
-          <ion-item-divider color="light">
-            <ion-label>{{ translate("Recent {count} runs", { count: runsWithItems }) }}</ion-label>
-          </ion-item-divider>
-          <ion-item>
-            <ion-label>{{ translate("Avg fill rate") }}</ion-label>
-            <ion-note slot="end">{{ avgFillRate }}%</ion-note>
-          </ion-item>
-          <ion-item>
-            <ion-label>{{ translate("Total routed") }}</ion-label>
-            <ion-note slot="end">{{ brokering.totalBrokered }} / {{ brokering.totalAttempted }}</ion-note>
-          </ion-item>
-          <ion-item v-if="brokering.errorCount > 0">
-            <ion-label color="danger">{{ translate("Runs with errors") }}</ion-label>
-            <ion-note slot="end" color="danger">{{ brokering.errorCount }}</ion-note>
+          <ion-item v-if="brokering.oldestQueued" lines="none">
+            <ion-label class="ion-text-wrap">
+              {{ translate("Oldest queued order") }}
+              <p>{{ brokering.oldestQueued.orderName }} · {{ brokering.oldestQueued.customerName }}</p>
+              <p>{{ brokering.oldestQueued.facilityName }}<template v-if="brokering.oldestQueued.salesChannelDesc"> · {{ brokering.oldestQueued.salesChannelDesc }}</template></p>
+              <p>{{ commonUtil.getDateAndTime(brokering.oldestQueued.orderDate) }}</p>
+            </ion-label>
+            <ion-note slot="end" color="danger">{{ oldestQueuedAge }}</ion-note>
           </ion-item>
         </ion-list>
         <div class="groups">
@@ -51,7 +42,7 @@
         </div>
         <ion-item lines="none">
           <ion-icon slot="start" :icon="timeOutline" color="medium" />
-          <ion-label color="medium">{{ translate("Last run {time}", { time: commonUtil.getDateAndTime(brokering.lastRun.startDate) }) }}</ion-label>
+          <ion-label color="medium">{{ translate("Last run {time}", { time: commonUtil.getDateAndTime(brokering.lastGroupRun.startDate) }) }}</ion-label>
         </ion-item>
       </template>
       <template v-else>
@@ -114,7 +105,7 @@
       <ion-list lines="full">
         <ion-item v-for="s in sourcing" :key="s.key" button :detail="true" @click="emit('navigate', s.route)">
           <ion-label class="ion-text-wrap">
-            <h2>{{ translate(s.label) }}</h2>
+            {{ translate(s.label) }}
             <p>{{ metricLine(s) }}</p>
           </ion-label>
           <ion-note slot="end">{{ s.count }}</ion-note>
@@ -132,8 +123,8 @@
       <ion-card-content>
         <h1 class="metric">{{ foundations.facilityGroups }}</h1>
         <div class="chips">
-          <ion-chip outline color="medium" v-for="(n, t) in foundations.facilityGroupsByType" :key="t">
-            <ion-label>{{ typeLabel(String(t)) }}: {{ n }}</ion-label>
+          <ion-chip outline v-for="group in facilityGroups" :key="group.facilityGroupId" @click.stop="openManageFacilities(group)">
+            <ion-label>{{ group.facilityGroupName || group.facilityGroupId }}</ion-label>
           </ion-chip>
         </div>
       </ion-card-content>
@@ -144,26 +135,29 @@
       <ion-card-header>
         <div class="card-head">
           <ion-card-title>{{ translate("Inventory channels") }}</ion-card-title>
+          <ion-note slot="end">{{ foundations.channels }}</ion-note>
         </div>
       </ion-card-header>
-      <ion-card-content>
-        <h1 class="metric">{{ foundations.channels }}</h1>
-      </ion-card-content>
-      <ion-item lines="none">
-          <ion-icon slot="start" :icon="cloudUploadOutline" color="medium" />
-          <ion-label color="medium">
-            {{ translate("{count} publish jobs", { count: jobs.total }) }}<span v-if="jobs.running"> · {{ translate("{count} running", { count: jobs.running }) }}</span>
-          </ion-label>
+      <ion-list lines="full" v-if="channels.length">
+        <ion-item v-for="channel in channels" :key="channel.facilityGroupId">
+          <ion-label>{{ channel.facilityGroupName || channel.facilityGroupId }}</ion-label>
+          <ion-icon slot="end" :icon="isChannelRunning(channel) ? playOutline : pauseOutline" color="medium" />
         </ion-item>
+      </ion-list>
+      <ion-card-content v-else>
+        <p>{{ translate("No inventory channels yet") }}</p>
+      </ion-card-content>
     </ion-card>
   </main>
 </template>
 
 <script setup lang="ts">
-import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText } from "@ionic/vue";
+import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText, modalController } from "@ionic/vue";
 import { computed, ref } from "vue";
-import { cloudUploadOutline, timeOutline } from "ionicons/icons";
+import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
+import { productStore } from "@/store/productStore";
+import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroupFacilitiesModal.vue";
 
 import type { BrokeringState, FacilityOrder } from "@/store/dashboardStore";
 
@@ -176,7 +170,8 @@ const props = defineProps<{
   facilityOrdersIsToday: boolean;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
-  jobs: { total: number; running: number };
+  channels: any[];
+  channelJobs: any[];
   totalSourcing: number;
 }>();
 
@@ -203,23 +198,17 @@ function barWidth(facility: FacilityOrder) {
 
 const emit = defineEmits<{ (e: "navigate", path: string): void }>();
 
-const lastRunFillRate = computed(() => {
-  const run = props.brokering.lastRun;
+const facilityGroups = computed(() => Object.values(productStore().getFacilityGroups));
+
+const lastGroupRunBrokerRate = computed(() => {
+  const run = props.brokering.lastGroupRun;
   if (!run || !run.orderItemCount) return 0;
   return Math.round((run.brokeredItemCount / run.orderItemCount) * 100);
 });
 
-const lastRunUnfilled = computed(() => {
-  const run = props.brokering.lastRun;
-  if (!run) return 0;
-  return run.orderItemCount - run.brokeredItemCount;
-});
-
-const runsWithItems = computed(() => props.brokering.runs?.filter(r => r.orderItemCount > 0).length || 0);
-
-const avgFillRate = computed(() => {
-  if (!props.brokering.totalAttempted) return 0;
-  return Math.round((props.brokering.totalBrokered / props.brokering.totalAttempted) * 100);
+const oldestQueuedAge = computed(() => {
+  const orderDate = props.brokering.oldestQueued?.orderDate;
+  return orderDate ? commonUtil.getRelativeTime(orderDate) : "";
 });
 
 const TYPE_LABELS: Record<string, string> = {
@@ -241,6 +230,31 @@ function metricLine(s: { metric: string; total: number; blocking: number }) {
   if (s.metric === "pickup") return translate("{count} blocking pickup", { count: s.blocking });
   if (s.metric === "shipping") return translate("{count} blocking shipping", { count: s.blocking });
   return "";
+}
+
+function isChannelRunning(channel: any) {
+  return props.channelJobs.some((job: any) => {
+    const runtimeData = getJobRuntimeData(job);
+    const facilityGroupId = runtimeData?.facilityGroupId || job.facilityGroupId;
+    return facilityGroupId === channel.facilityGroupId && job.statusId === "SERVICE_PENDING";
+  });
+}
+
+function getJobRuntimeData(job: any) {
+  if (typeof job.runtimeData !== "string") return job.runtimeData;
+  try {
+    return JSON.parse(job.runtimeData || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function openManageFacilities(group: any) {
+  const modal = await modalController.create({
+    component: ManageFacilityGroupFacilitiesModal,
+    componentProps: { group }
+  });
+  await modal.present();
 }
 </script>
 

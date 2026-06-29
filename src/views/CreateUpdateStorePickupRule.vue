@@ -8,6 +8,8 @@
     </ion-header>
     
     <ion-content>
+      <div class="rule-layout">
+        <div class="rule-form">
       <section>
         <div class="rule-config">
           <ion-card>
@@ -74,6 +76,13 @@
               </ion-chip>
             </ion-card-content>
           </ion-card>
+
+          <div class="preview-facilities-action">
+            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected || !hasSelectedFacilityGroups" @click="openFacilityImpactModal()">
+              <ion-icon :icon="eyeOutline" slot="start" />
+              {{ translate("Preview impacted facilities") }}
+            </ion-button>
+          </div>
         </section>
         <EmptyState
           v-else
@@ -127,7 +136,18 @@
         </EmptyState>
       </template>
 
-      <ProductFilters />
+          <ProductFilters />
+        </div>
+
+        <aside class="rule-preview">
+          <RuleProductPreview
+            :selected-segment="selectedSegment"
+            :selected-facility-groups="formData.selectedFacilityGroups"
+            :selected-config-facilities="formData.selectedConfigFacilites"
+            :are-all-selected="formData.areAllSelected"
+          />
+        </aside>
+      </div>
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
@@ -140,10 +160,12 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
 import ProductFilters from '@/components/ProductFilters.vue';
+import RuleProductPreview from '@/components/RuleProductPreview.vue';
+import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
 import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue';
@@ -167,6 +189,7 @@ const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const selectedSegment = computed(() => productStore.getSelectedSegment);
 const facilityGroups = computed(() => productStore.getFacilityGroups)
+const hasSelectedFacilityGroups = computed(() => formData.value.selectedFacilityGroups.included.length || formData.value.selectedFacilityGroups.excluded.length)
 
 const formData = ref({
   ruleName: '',
@@ -280,6 +303,17 @@ async function createChannel() {
 
 function goToChannels() {
   router.push("/inventory-channels");
+}
+
+async function openFacilityImpactModal() {
+  const modal = await modalController.create({
+    component: FacilityGroupImpactModal,
+    componentProps: {
+      includedGroups: formData.value.selectedFacilityGroups.included,
+      excludedGroups: formData.value.selectedFacilityGroups.excluded
+    }
+  })
+  modal.present()
 }
 
 async function openProductFacilityGroupModal(type: string) {
@@ -419,5 +453,40 @@ ion-card-header {
 
 ion-card-header > ion-checkbox {
   flex-shrink: 0;
+}
+
+.rule-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 4fr;
+  gap: var(--spacer-base);
+  align-items: start;
+  padding-bottom: 80px;
+}
+
+.rule-form {
+  min-width: 0;
+}
+
+.rule-preview {
+  position: sticky;
+  top: var(--spacer-base);
+  padding-top: var(--spacer-base);
+}
+
+.preview-facilities-action {
+  display: flex;
+  justify-content: flex-end;
+  padding-inline: var(--spacer-sm);
+}
+
+/* Stack the preview under the form on narrow screens. */
+@media (max-width: 991px) {
+  .rule-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rule-preview {
+    position: static;
+  }
 }
 </style>

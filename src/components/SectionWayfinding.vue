@@ -50,6 +50,7 @@ defineEmits<{
   width: 100%;
   max-width: 720px;
   margin-inline: auto;
+  align-self: stretch;
 }
 
 .wayfinding__heading {

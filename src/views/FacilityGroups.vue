@@ -4,12 +4,6 @@
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Facility groups") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="solid" color="primary" @click="openCreateModal()">
-            {{ translate("New group") }}
-            <ion-icon slot="end" :icon="addOutline" />
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -84,7 +78,7 @@
                 <ion-icon slot="start" :icon="createOutline" />
                 {{ translate("Edit") }}
               </ion-button>
-              <ion-button fill="clear" size="small" color="danger" @click="confirmArchive(group)">
+              <ion-button class="archive-action" fill="clear" size="small" color="danger" @click="confirmArchive(group)">
                 <ion-icon slot="start" :icon="archiveOutline" />
                 {{ translate("Archive") }}
               </ion-button>
@@ -92,6 +86,12 @@
           </ion-card>
         </div>
       </main>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="ion-margin">
+        <ion-fab-button @click="openCreateModal()">
+          <ion-icon :icon="addOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
@@ -100,13 +100,14 @@
 import {
   alertController,
   IonButton,
-  IonButtons,
   IonCard,
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
   IonChip,
   IonContent,
+  IonFab,
+  IonFabButton,
   IonHeader,
   IonIcon,
   IonItem,
@@ -130,8 +131,7 @@ import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroup
 const facilityGroupStore = useFacilityGroupStore();
 const productStore = useAtpProductStore();
 
-// This view manages brokering facility groups for the selected product store only.
-const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
+const DEFAULT_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
 
@@ -169,7 +169,7 @@ async function load() {
     return;
   }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
+    await facilityGroupStore.fetchGroups({ productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -178,7 +178,7 @@ async function load() {
 async function openCreateModal() {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
-    componentProps: { defaultTypeId: BROKERING_GROUP_TYPE }
+    componentProps: { defaultTypeId: DEFAULT_GROUP_TYPE }
   });
   modal.onDidDismiss().then((res: any) => {
     if (res?.data?.saved) load();
@@ -249,9 +249,13 @@ main {
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  align-items: center;
   padding: var(--spacer-2xs) var(--spacer-xs);
+}
+
+.actions .archive-action {
+  margin-inline-start: auto;
 }
 
 .empty-block {
@@ -260,11 +264,5 @@ main {
   align-items: center;
   gap: var(--spacer-base);
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
-}
-
-@container (max-width: 600px) {
-  .actions {
-    justify-content: stretch;
-  }
 }
 </style>

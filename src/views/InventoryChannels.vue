@@ -32,12 +32,27 @@
   
               <ion-item lines="full">
                 <ion-icon slot="start" :icon="globeOutline"/>
-                <ion-label>
+                <ion-label v-if="channel.selectedConfigFacility">
                   {{ channel.selectedConfigFacility?.facilityName }}
                   <p>{{ channel.selectedConfigFacility?.facilityId }}</p>
                 </ion-label>
-                <ion-button size="default" slot="end" fill="clear" color="medium" @click="openLinkThresholdFacilitiesToGroupModal(channel)">
+                <ion-label v-else>
+                  {{ translate("No configuration facility linked") }}
+                  <p>{{ translate("Needed for channel-level product ATP rules.") }}</p>
+                </ion-label>
+                <ion-button
+                  v-if="channel.selectedConfigFacility"
+                  size="default"
+                  slot="end"
+                  fill="clear"
+                  color="medium"
+                  @click="openLinkThresholdFacilitiesToGroupModal(channel)"
+                >
                   <ion-icon :icon="optionsOutline" slot="icon-only" />
+                </ion-button>
+                <ion-button v-else size="default" slot="end" fill="clear" @click="openLinkThresholdFacilitiesToGroupModal(channel)">
+                  {{ translate("Add") }}
+                  <ion-icon :icon="addOutline" slot="end" />
                 </ion-button>
               </ion-item>
   

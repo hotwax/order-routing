@@ -41,8 +41,8 @@
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
               <ion-label>
-                <h2 data-testid="assigned-detail-product-primary-id">{{ product.parentProductName }}</h2>
-                <p data-testid="assigned-detail-product-secondary-id">{{ product.productId }}</p>
+                <h2 data-testid="assigned-detail-product-primary-id">{{ getPrimaryProductIdentifier(product) }}</h2>
+                <p data-testid="assigned-detail-product-secondary-id">{{ getSecondaryProductIdentifier(product) }}</p>
               </ion-label>
             </ion-item>
             <template v-if="product.inventoryConfig">
@@ -116,6 +116,7 @@ import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
 import { useProductFacility } from '@/composables/useProductFacility';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
+import { getPrimaryProductIdentifier as getPrimaryIdentifier, getSecondaryProductIdentifier as getSecondaryIdentifier } from '@/utils/productIdentifier';
 
 const PAGE_SIZE = 50;
 const pageIndex = ref(0);
@@ -134,6 +135,7 @@ const selectedProductIds = ref<string[]>([]);
 
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
+const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
 
 const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId))
@@ -273,6 +275,20 @@ async function goToNextPage() {
 
 function viewInventoryDetail(productId: string) {
   router.push(`/inventory/${productId}`)
+}
+
+function getDisplayProduct(product: any) {
+  return { ...product, ...productById.value(product.productId) };
+}
+
+function getPrimaryProductIdentifier(product: any) {
+  const displayProduct = getDisplayProduct(product);
+  return getPrimaryIdentifier(productIdentificationPref.value, displayProduct);
+}
+
+function getSecondaryProductIdentifier(product: any) {
+  const displayProduct = getDisplayProduct(product);
+  return getSecondaryIdentifier(productIdentificationPref.value, displayProduct);
 }
 
 async function openBulkInventoryEditModal() {

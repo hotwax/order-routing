@@ -97,6 +97,8 @@ const isLoading = ref(false);
 const matchedCount = ref(0);
 const isCountLoading = ref(false);
 let countTimer: any = null;
+let currentRequestId = 0;
+let isInitialLoad = true;
 
 const props = defineProps(["label", "facetToSelect", "searchfield", "type"]);
 const productStore = useAtpProductStore();
@@ -122,12 +124,18 @@ onUnmounted(() => {
 
 // Recompute the live total (debounced) whenever the modal-local selection changes.
 watch(selectedValues, () => {
+  // Skip the initial set in onMounted (refreshMatchedCount is already called there) to avoid a duplicate request.
+  if (isInitialLoad) {
+    isInitialLoad = false;
+    return;
+  }
   isCountLoading.value = true;
   if (countTimer) clearTimeout(countTimer);
   countTimer = setTimeout(refreshMatchedCount, 350);
 }, { deep: true })
 
 async function refreshMatchedCount() {
+  const requestId = ++currentRequestId;
   // Build a prospective applied-filters object: the saved filters with this side/field replaced by the
   // current unsaved modal selection, so the total reflects exactly what Save would produce.
   const prospectiveFilters = JSON.parse(JSON.stringify(appliedFilters.value))
@@ -138,6 +146,8 @@ async function refreshMatchedCount() {
     operator: appliedFiltersOperator.value,
     countOnly: true
   })
+  // Ignore a stale response that resolved after a newer request was issued.
+  if (requestId !== currentRequestId) return;
   matchedCount.value = total;
   isCountLoading.value = false;
 }

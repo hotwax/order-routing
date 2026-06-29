@@ -366,7 +366,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             }
           }
         }) as any;
-        if (!commonUtil.hasError(resp)) {
+        if (resp && !commonUtil.hasError(resp)) {
           const buckets = resp.data?.facets?.[searchfield]?.buckets || [];
           return buckets.reduce((map: Record<string, number>, bucket: any) => {
             map[bucket.val] = bucket.count;

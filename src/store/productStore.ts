@@ -220,7 +220,7 @@ export const productStore = defineStore('productStore', {
           baseURL: commonUtil.getOmsURL(),
           data: { viewSize: 10 }
         })
-        this.settings.productIdentifier.sampleProducts = resp.data?.response?.docs || []
+        this.settings.productIdentifier.sampleProducts = resp?.data?.response?.docs || []
         this.shuffleProduct()
       } catch(error) {
         logger.error("Failed to fetch sample products", error)
@@ -236,6 +236,10 @@ export const productStore = defineStore('productStore', {
       }
     },
     async setProductStoreSetting(productStoreId: string, settingTypeEnumId: string, settingValue: any) {
+      if(!productStoreId) {
+        logger.error("Product Store ID is missing")
+        return;
+      }
       try {
         const payloadSettingValue = typeof settingValue === "object" ? JSON.stringify(settingValue) : settingValue;
         const resp = await api({

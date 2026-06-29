@@ -10,12 +10,12 @@
 
     <ion-item :disabled="!userStore.hasPermission('COMMON_ADMIN')">
       <ion-select :label="translate('Primary')" interface="popover" :placeholder="translate('primary identifier')" :value="productIdentificationPref.primaryId" @ionChange="setProductIdentificationPref($event.detail.value, 'primaryId')">
-        <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ identification.description || identification.goodIdentificationTypeId }}</ion-select-option>
+        <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ translate(identification.description || identification.goodIdentificationTypeId) }}</ion-select-option>
       </ion-select>
     </ion-item>
     <ion-item lines="none" :disabled="!userStore.hasPermission('COMMON_ADMIN')">
       <ion-select :label="translate('Secondary')" interface="popover" :placeholder="translate('secondary identifier')" :value="productIdentificationPref.secondaryId" @ionChange="setProductIdentificationPref($event.detail.value, 'secondaryId')">
-        <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ identification.description || identification.goodIdentificationTypeId }}</ion-select-option>
+        <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ translate(identification.description || identification.goodIdentificationTypeId) }}</ion-select-option>
         <ion-select-option value="">{{ translate("None") }}</ion-select-option>
       </ion-select>
     </ion-item>
@@ -64,7 +64,8 @@ onMounted(() => {
 })
 
 function setProductIdentificationPref(value: string, id: string) {
-  const updatedPreference = JSON.parse(JSON.stringify(productIdentificationPref.value));
+  if (!currentEComStore.value?.productStoreId) return;
+  const updatedPreference = { ...productIdentificationPref.value } as any;
   updatedPreference[id] = value;
   store.setProductStoreSetting(currentEComStore.value.productStoreId, "PRDT_IDEN_PREF", updatedPreference);
 }

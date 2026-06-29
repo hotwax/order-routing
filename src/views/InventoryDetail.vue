@@ -184,6 +184,10 @@ const productId = computed(() => String(route.params.productId || ''));
 const product = computed(() => productInfoStore().getProductById(productId.value))
 const selectedFacilityId = ref("");
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
+const facilityMap = computed(() => productStoreFacilities.value.reduce((map: any, facility: any) => {
+  map[facility.facilityId] = facility.facilityName
+  return map
+}, {}))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 
 const { inventoryLogs } = useProductFacility();
@@ -203,8 +207,7 @@ const productName = computed(() =>
 );
 
 function facilityName(facilityId: string) {
-  const facility = productStoreFacilities.value.find((f: any) => f.facilityId === facilityId)
-  return facility?.facilityName || facilityId || '-'
+  return facilityMap.value[facilityId] || facilityId || '-'
 }
 
 function signed(value: any) {

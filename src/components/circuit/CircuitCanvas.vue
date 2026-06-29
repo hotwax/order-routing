@@ -2263,6 +2263,15 @@ async function openArchivedRoutingModal() {
 
 <style scoped>
 
+/* The measurement-unit and operator selectors nest an ion-select inside an
+   ion-chip. The modern (non-legacy) ion-select applies its own min-height,
+   which makes those chips taller than the adjacent value chips and breaks the
+   row alignment (most visible in dark mode). Drop the inherited min-height so
+   the chip sizes to the select's content, matching BrokeringQuery.vue. */
+ion-chip > ion-select {
+  min-height: unset;
+}
+
 .circuit-canvas {
   display: grid;
   grid-template-columns: repeat(6, 350px);

@@ -22,7 +22,7 @@
         </ion-item>
       </ion-list>
 
-      <past-simulations-list v-if="tab === 'past'" />
+      <PastSimulationsList v-if="tab === 'past'" />
     </ion-content>
   </ion-page>
 </template>

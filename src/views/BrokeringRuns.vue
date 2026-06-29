@@ -120,7 +120,7 @@
       </div>
     </ion-content>
 
-    <brokering-runs-assistant-modal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
+    <BrokeringRunsAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 

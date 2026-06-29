@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/shipping" />
         <ion-title>{{ ruleId ? translate("Edit shipping rule") : translate("New shipping rule") }}</ion-title>

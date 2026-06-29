@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/threshold" />
         <ion-title>{{ ruleId ? translate("Edit threshold rule") : translate("New threshold rule") }}</ion-title>

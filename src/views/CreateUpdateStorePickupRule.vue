@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/store-pickup" />
         <ion-title>{{ ruleId ? translate("Edit store pickup rule") : translate("New store pickup rule") }}</ion-title>

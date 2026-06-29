@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/safety-stock" />
         <ion-title>{{ ruleId ? translate("Edit safety stock rule") : translate("New safety stock rule") }}</ion-title>

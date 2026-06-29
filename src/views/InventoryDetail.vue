@@ -171,7 +171,7 @@ import {
   onIonViewDidEnter
 } from '@ionic/vue';
 import { arrowForwardOutline, cubeOutline } from 'ionicons/icons';
-import { commonUtil, translate } from '@common';
+import { translate } from '@common';
 import { DateTime } from 'luxon';
 import { useProductFacility } from '@/composables/useProductFacility';
 import { productStore } from '@/store/productStore';
@@ -179,6 +179,7 @@ import { productStore as productInfoStore } from '@/store/product';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
 import FacilitySwitcherModal from '@/components/FacilitySwitcherModal.vue';
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from '@/utils/productIdentifier';
 
 function formatDateTime(value: any): string {
   if (!value) return '-';
@@ -205,13 +206,13 @@ const currentFacilityName = computed(() => facilityMap.value[selectedFacilityId.
 const { inventoryLogs } = useProductFacility();
 const inventoryConfig = ref<any>({});
 
-// Header identity uses the configured product identifier preference, falling back to the product id.
+// Header identity uses the configured product identifier preference, falling back through product identity fields.
 const primaryIdentifier = computed(() =>
-  commonUtil.getProductIdentificationValue(productIdentificationPref.value?.primaryId, product.value) || product.value?.productId || ''
+  getPrimaryProductIdentifier(productIdentificationPref.value, product.value)
 );
 
 const secondaryIdentifier = computed(() =>
-  commonUtil.getProductIdentificationValue(productIdentificationPref.value?.secondaryId, product.value) || ''
+  getSecondaryProductIdentifier(productIdentificationPref.value, product.value)
 );
 
 const productName = computed(() =>

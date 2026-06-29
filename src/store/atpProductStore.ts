@@ -407,7 +407,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         viewSize: payload.viewSize || 25,
         viewIndex: payload.viewIndex || 0,
         keyword: payload.keyword,
-        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl'
+        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,goodIdentifications'
       });
 
       const quote = (value: string) => `"${String(value).replace(/"/g, '\\"')}"`;

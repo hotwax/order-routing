@@ -30,9 +30,13 @@
             </template>
           </div>
           <ion-item class="facility-select" lines="none">
-            <ion-select :label="translate('Facility')" label-placement="stacked" v-model="selectedFacilityId" interface="popover">
-              <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
-            </ion-select>
+            <ion-label>
+              <p class="overline">{{ translate("Facility") }}</p>
+              {{ currentFacilityName || translate("Select facility") }}
+            </ion-label>
+            <ion-button slot="end" fill="outline" color="dark" :disabled="!productStoreFacilities.length" @click="openFacilitySwitcher()">
+              {{ translate("Change location") }}
+            </ion-button>
           </ion-item>
         </section>
 
@@ -160,8 +164,6 @@ import {
   IonLabel,
   IonListHeader,
   IonPage,
-  IonSelect,
-  IonSelectOption,
   IonSkeletonText,
   IonTitle,
   IonToolbar,
@@ -176,6 +178,7 @@ import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+import FacilitySwitcherModal from '@/components/FacilitySwitcherModal.vue';
 
 function formatDateTime(value: any): string {
   if (!value) return '-';
@@ -197,6 +200,7 @@ const facilityMap = computed(() => productStoreFacilities.value.reduce((map: any
   return map
 }, {}))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
+const currentFacilityName = computed(() => facilityMap.value[selectedFacilityId.value] || '')
 
 const { inventoryLogs } = useProductFacility();
 const inventoryConfig = ref<any>({});
@@ -289,6 +293,23 @@ async function openConfigEditModal() {
   await modal.present();
   await modal.onDidDismiss();
   await fetchInventoryConfig();
+}
+
+async function openFacilitySwitcher() {
+  const modal = await modalController.create({
+    component: FacilitySwitcherModal,
+    componentProps: {
+      productId: productId.value,
+      currentFacilityId: selectedFacilityId.value,
+      facilities: productStoreFacilities.value
+    }
+  });
+  await modal.present();
+  const { data } = await modal.onDidDismiss();
+  // Selecting a facility updates selectedFacilityId; its watcher refetches config + logs.
+  if (data?.facilityId && data.facilityId !== selectedFacilityId.value) {
+    selectedFacilityId.value = data.facilityId;
+  }
 }
 </script>
 

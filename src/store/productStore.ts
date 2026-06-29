@@ -126,9 +126,11 @@ export const productStore = defineStore('productStore', {
             params: { settingTypeEnumId: "PRDT_IDEN_PREF" }
           }) as any
 
-          if (!commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+          if (resp && !commonUtil.hasError(resp) && Array.isArray(resp.data)) {
             resp.data.forEach((productSetting: any) => {
-              productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+              if (productSetting?.settingTypeEnumId) {
+                productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+              }
             })
           }
         } catch (error) {

@@ -139,16 +139,18 @@
           </template>
         </EmptyState>
       </template>
-        </div>
 
-        <aside class="rule-preview">
-          <RuleProductPreview
-            :selected-segment="selectedSegment"
-            :selected-facility-groups="formData.selectedFacilityGroups"
-            :selected-config-facilities="formData.selectedConfigFacilites"
-            :are-all-selected="formData.areAllSelected"
-          />
-        </aside>
+          <!-- Matched products + product filters live in the main flow, below the facility/channel
+               scope, so the page reads top-to-bottom: rule config -> scope -> matched products. -->
+          <div class="rule-preview">
+            <RuleProductPreview
+              :selected-segment="selectedSegment"
+              :selected-facility-groups="formData.selectedFacilityGroups"
+              :selected-config-facilities="formData.selectedConfigFacilites"
+              :are-all-selected="formData.areAllSelected"
+            />
+          </div>
+        </div>
       </div>
     </ion-content>
 
@@ -460,10 +462,6 @@ ion-card-header > ion-checkbox {
 }
 
 .rule-layout {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) 4fr;
-  gap: var(--spacer-base);
-  align-items: start;
   padding-bottom: 80px;
 }
 
@@ -472,8 +470,6 @@ ion-card-header > ion-checkbox {
 }
 
 .rule-preview {
-  position: sticky;
-  top: var(--spacer-base);
   padding-top: var(--spacer-base);
 }
 
@@ -482,7 +478,6 @@ ion-card-header > ion-checkbox {
   justify-content: flex-end;
   padding-inline: var(--spacer-sm);
 }
-
 .facility-impact-summary {
   grid-column: span 2;
 }
@@ -494,17 +489,6 @@ ion-card-header > ion-checkbox {
 @media (max-width: 767px) {
   .facility-impact-summary {
     grid-column: 1 / -1;
-  }
-}
-
-/* Stack the preview under the form on narrow screens. */
-@media (max-width: 991px) {
-  .rule-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .rule-preview {
-    position: static;
   }
 }
 </style>

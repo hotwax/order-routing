@@ -5,9 +5,12 @@ import { useUserStore } from '@/store/userStore'
 import { buildProductQuery } from '@/utils/productSync'
 
 // SOLR facet fields the applied product filters map to.
+// Solr FILTER fields used to build runSolrQuery filters. Note: `tagsFacet` / `productFeaturesFacet`
+// are facet-only fields (valid for the admin/solrFacets endpoint) and are NOT queryable on the PRODUCT
+// core — filtering on them returns an "undefined field" 400. The queryable fields are tags / productFeatures.
 const FILTER_FIELD_MAP: Record<string, string> = {
-  tags: 'tagsFacet',
-  productFeatures: 'productFeaturesFacet'
+  tags: 'tags',
+  productFeatures: 'productFeatures'
 }
 
 export interface ProductStoreState {
@@ -322,7 +325,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             noConditionFind: 'Y',
             limit: 1000,
             offset,
-            searchfield: "tags",
+            searchfield: params.searchfield,
             term: params.queryString || "",
             q: params.queryString || ""
           }
@@ -344,6 +347,38 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       }
       filters[params.searchfield] = allFacets
       this.facetOptions = filters;
+    },
+    // Per-value product counts for a facet field (e.g. how many products carry each tag), via a Solr
+    // terms facet. The admin/solrFacets options response only carries id/label/value, not counts.
+    async fetchProductFacetCounts(searchfield: string): Promise<Record<string, number>> {
+      const field = FILTER_FIELD_MAP[searchfield];
+      if (!field) return {};
+      try {
+        const resp = await api({
+          url: "admin/runSolrQuery",
+          method: "POST",
+          data: {
+            json: {
+              query: '(*:*)',
+              filter: ['docType:PRODUCT'],
+              params: { rows: 0 },
+              facet: { [searchfield]: { type: 'terms', field, limit: 1000 } }
+            }
+          }
+        }) as any;
+        if (resp && !commonUtil.hasError(resp)) {
+          const buckets = resp.data?.facets?.[searchfield]?.buckets || [];
+          return buckets.reduce((map: Record<string, number>, bucket: any) => {
+            map[bucket.val] = bucket.count;
+            return map;
+          }, {} as Record<string, number>);
+        } else {
+          throw resp.data;
+        }
+      } catch (error) {
+        logger.error(error);
+      }
+      return {};
     },
     updatePickupGroupFacilities(payload: any) {
       this.pickupGroupFacilities = payload;
@@ -401,29 +436,36 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       return facilities;
     },
     // Preview the products the current applied filters resolve to (read-only SOLR query).
-    async previewProducts(payload: { viewSize?: number; viewIndex?: number; keyword?: string } = {}) {
+    async previewProducts(payload: { viewSize?: number; viewIndex?: number; keyword?: string; filters?: any; operator?: any; countOnly?: boolean } = {}) {
+      // filters/operator default to the saved applied filters, but callers (e.g. the live matched-product
+      // total in the filter modal) can pass a prospective, unsaved selection to preview.
+      const filters = payload.filters || this.appliedFilters
+      const operator = payload.operator || this.appliedFiltersOperator
       const query = buildProductQuery({
         docType: 'PRODUCT',
         viewSize: payload.viewSize || 25,
         viewIndex: payload.viewIndex || 0,
         keyword: payload.keyword,
-        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl'
+        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,goodIdentifications'
       });
+
+      // Count-only callers just need numFound — skip fetching documents.
+      if (payload.countOnly) query.json.params.rows = 0;
 
       const quote = (value: string) => `"${String(value).replace(/"/g, '\\"')}"`;
 
-      Object.entries(this.appliedFilters.included).forEach(([key, values]: any) => {
+      Object.entries(filters.included || {}).forEach(([key, values]: any) => {
         const field = FILTER_FIELD_MAP[key];
         if (field && values?.length) {
-          const op = (this.appliedFiltersOperator.included as any)[key] === 'and' ? 'AND' : 'OR';
+          const op = (operator.included as any)?.[key] === 'and' ? 'AND' : 'OR';
           query.json.filter.push(`${field}: (${values.map(quote).join(` ${op} `)})`);
         }
       });
 
-      Object.entries(this.appliedFilters.excluded).forEach(([key, values]: any) => {
+      Object.entries(filters.excluded || {}).forEach(([key, values]: any) => {
         const field = FILTER_FIELD_MAP[key];
         if (field && values?.length) {
-          const op = (this.appliedFiltersOperator.excluded as any)[key] === 'or' ? 'OR' : 'AND';
+          const op = (operator.excluded as any)?.[key] === 'or' ? 'OR' : 'AND';
           query.json.filter.push(`-(${field}: (${values.map(quote).join(` ${op} `)}))`);
         }
       });

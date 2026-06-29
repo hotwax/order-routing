@@ -195,6 +195,12 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item :disabled="isTestEnabled" v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORDER_TAGS')">
+              <ion-label>{{ translate("Order tags") }}</ion-label>
+              <ion-chip slot="end" outline @click="openOrderTagsModal()">
+                {{ getOrderTagsLabel() }}
+              </ion-chip>
+            </ion-item>
           </ion-item-group>
           <ion-item-group>
             <ion-item-divider color="light">
@@ -478,6 +484,7 @@ import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptio
 import { logger, emitter, translate, commonUtil } from "@common";
 import { Rule } from "@/types";
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
+import OrderTagsModal from "@/components/OrderTagsModal.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
 import { DateTime } from "luxon";
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
@@ -496,6 +503,8 @@ const props = defineProps({
 })
 
 const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
+// "Order tags" is a UI-only route filter (issue #350); registered here rather than via backend enums.
+ruleEnums["ORDER_TAGS"] = { id: "OIP_ORDER_TAGS", code: "orderTags" }
 const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
 const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
 
@@ -1098,6 +1107,37 @@ function getSelectedValue(options: any, enumerations: any, parameter: string) {
   }
 }
 
+function getOrderTags() {
+  return getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "ORDER_TAGS")?.fieldValue?.split(",").filter(Boolean) || []
+}
+
+function getOrderTagsLabel() {
+  const tags = getOrderTags()
+  if(!tags.length) return translate("Select tags")
+  return `${tags.length} ${tags.length === 1 ? translate("tag") : translate("tags")}`
+}
+
+async function openOrderTagsModal() {
+  const orderTagsModal = await modalController.create({
+    component: OrderTagsModal,
+    componentProps: {
+      tags: getOrderTags()
+    }
+  })
+
+  orderTagsModal.onDidDismiss().then((result: any) => {
+    if(result.role === "save") {
+      const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "ORDER_TAGS")
+      if(!filter) return;
+      filter.fieldValue = result.data.tags.join(",")
+      filter.operator = "contains"
+      hasUnsavedChanges.value = true
+    }
+  })
+
+  await orderTagsModal.present()
+}
+
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
   const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
@@ -1523,7 +1563,14 @@ async function save() {
   }, {}) : {}
 
   const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
-  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
+  // Order tags are a UI-only filter (issue #350); keep them out of the server update payload.
+  const serverOrderRoutingFilterOptions = Object.entries(orderRoutingFilterOptions.value).reduce((filters: any, [key, value]: any) => {
+    if(key !== ruleEnums["ORDER_TAGS"].code) {
+      filters[key] = value
+    }
+    return filters
+  }, {})
+  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, serverOrderRoutingFilterOptions)
 
   // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
   Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {

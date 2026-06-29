@@ -70,6 +70,17 @@ const props = defineProps({
     type: String
   }
 })
+
+// "Order tags" is a UI-only order filter (issue #350) that has no backend enum, so we inject it
+// into the order filter picker as a pseudo-option. It is include-only (no _EXCLUDED variant).
+const orderTagFilterOption = {
+  enumId: "OIP_ORDER_TAGS",
+  enumTypeId: "ORD_FILTER_PRM_TYPE",
+  enumCode: "orderTags",
+  sequenceNum: 50,
+  description: "Order tags"
+}
+
 let routingFilters = ref({}) as any
 let areFiltersUpdated = ref(false)
 let segmentSelected = ref("included")
@@ -80,8 +91,11 @@ onMounted(() => {
 
 function getOptions() {
   if(props.conditionTypeEnumId === "ENTCT_FILTER") {
-    const excludeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
-    const includeOptions = Object.values(enums.value[props.parentEnumId]).filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
+    // Only the order filter picker (ORD_FILTER_PRM_TYPE) offers the UI-only "Order tags" option.
+    const baseOptions = Object.values(enums.value[props.parentEnumId])
+    const options = props.parentEnumId === "ORD_FILTER_PRM_TYPE" ? [...baseOptions, orderTagFilterOption] : baseOptions
+    const excludeOptions = options.filter((enumeration: any) => enumeration.enumId.includes('_EXCLUDED'))
+    const includeOptions = options.filter((enumeration: any) => !enumeration.enumId.includes('_EXCLUDED'))
     return segmentSelected.value === "excluded" ? excludeOptions : includeOptions
   }
 

@@ -23,6 +23,8 @@
       </div>
     </div>
 
+    <MatchedProductFilters />
+
     <div class="facility-select-container" v-if="availableFacilities.length">
       <ion-item lines="none">
         <ion-select v-model="selectedFacilityId" :label="translate('Preview facility')" interface="popover" placeholder="Select Facility">
@@ -39,15 +41,30 @@
       </div>
       <template v-else-if="products.length">
         <div class="list-item" v-for="product in products" :key="product.productId" :style="{ '--columns-desktop': selectedFacilityId ? 6 : 1 }">
-          <ion-item lines="none">
-            <ion-thumbnail slot="start">
-              <DxpShopifyImg :src="product.mainImageUrl" />
-            </ion-thumbnail>
-            <ion-label>
-              {{ getPrimaryProductIdentifier(productIdentificationPref, product) }}
-              <p>{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</p>
-            </ion-label>
-          </ion-item>
+          <div class="product-cell">
+            <ion-item lines="none">
+              <ion-thumbnail slot="start">
+                <DxpShopifyImg :src="product.mainImageUrl" />
+              </ion-thumbnail>
+              <ion-label>
+                {{ getPrimaryProductIdentifier(productIdentificationPref, product) }}
+                <p>{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</p>
+              </ion-label>
+            </ion-item>
+            <!-- Why each product matched: its Solr tags and product features (capped, scan-friendly) -->
+            <div class="row-meta" v-if="toArray(product.tags).length || toArray(product.productFeatures).length">
+              <div class="meta-line" v-if="toArray(product.tags).length">
+                <ion-note class="meta-label">{{ translate("Tags") }}</ion-note>
+                <ion-chip class="meta-chip" outline v-for="tag in visibleItems(product.tags)" :key="tag">{{ tag }}</ion-chip>
+                <ion-note class="meta-more" v-if="extraCount(product.tags)">{{ translate("+ {count} more", { count: extraCount(product.tags) }) }}</ion-note>
+              </div>
+              <div class="meta-line" v-if="toArray(product.productFeatures).length">
+                <ion-note class="meta-label">{{ translate("Features") }}</ion-note>
+                <ion-chip class="meta-chip" outline color="medium" v-for="feature in visibleItems(product.productFeatures)" :key="feature">{{ feature }}</ion-chip>
+                <ion-note class="meta-more" v-if="extraCount(product.productFeatures)">{{ translate("+ {count} more", { count: extraCount(product.productFeatures) }) }}</ion-note>
+              </div>
+            </div>
+          </div>
           <template v-if="selectedFacilityId">
             <div v-if="isInventoryLoading" style="grid-column: span 5; display: flex; justify-content: center;">
               <ion-spinner name="crescent" size="small" />
@@ -111,6 +128,7 @@ import {
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
+  IonChip,
   IonIcon,
   IonItem,
   IonLabel,
@@ -123,9 +141,28 @@ import {
 } from "@ionic/vue";
 import { caretBackOutline, caretForwardOutline, cubeOutline } from 'ionicons/icons';
 import { DxpShopifyImg, translate, api } from '@common';
+import MatchedProductFilters from "@/components/MatchedProductFilters.vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
+
+// Cap how many tag/feature chips a row shows before collapsing the rest into a "+N more" note.
+const ROW_META_CAP = 3;
+
+// Solr multi-valued fields come back as arrays, single values as scalars; normalize to a clean array.
+function toArray(value: any): string[] {
+  if (Array.isArray(value)) return value.filter((entry) => entry != null && entry !== "");
+  if (value == null || value === "") return [];
+  return [String(value)];
+}
+
+function visibleItems(value: any): string[] {
+  return toArray(value).slice(0, ROW_META_CAP);
+}
+
+function extraCount(value: any): number {
+  return Math.max(toArray(value).length - ROW_META_CAP, 0);
+}
 
 const props = defineProps<{
   selectedSegment?: string;
@@ -369,8 +406,43 @@ function goToNextPage() {
   --border-radius: 6px;
 }
 
-.list-item > ion-item {
+.product-cell {
+  min-width: 0;
+}
+
+.product-cell > ion-item {
   width: 100%;
+}
+
+.row-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--spacer-sm) var(--spacer-xs);
+}
+
+.meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.meta-chip {
+  height: 20px;
+  font-size: 11px;
+  margin: 0;
+}
+
+.meta-more {
+  font-size: 11px;
 }
 
 .facility-select-container {

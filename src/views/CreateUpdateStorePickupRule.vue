@@ -139,8 +139,6 @@
           </template>
         </EmptyState>
       </template>
-
-          <ProductFilters />
         </div>
 
         <aside class="rule-preview">
@@ -167,7 +165,6 @@ import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCa
 import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
-import ProductFilters from '@/components/ProductFilters.vue';
 import RuleProductPreview from '@/components/RuleProductPreview.vue';
 import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import EmptyState from '@/components/EmptyState.vue';

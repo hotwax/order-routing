@@ -92,36 +92,44 @@
           </ion-list-header>
 
           <div class="history-list" v-if="inventoryLogs.length">
-            <div class="history-row" v-for="(log, index) in inventoryLogs" :key="`${log.inventoryItemId}-${index}`">
-              <div class="history-cell">
-                <p class="cell-label">{{ translate("Log") }}</p>
-                <p class="cell-primary">{{ log.inventoryItemId }}</p>
-                <p class="cell-secondary">{{ formatDateTime(log.effectiveDate) }}</p>
+            <div class="list-item" v-for="(log, index) in inventoryLogs" :key="`${log.inventoryItemId}-${index}`">
+              <ion-item lines="none">
+                <ion-label>
+                  <h2>{{ log.inventoryItemId }}</h2>
+                  <p>{{ formatDateTime(log.effectiveDate) }}</p>
+                </ion-label>
+              </ion-item>
+              <div>
+                <ion-label>
+                  {{ facilityName(log.facilityId) }}
+                  <p>{{ log.locationSeqId || translate("Facility") }}</p>
+                </ion-label>
               </div>
-              <div class="history-cell">
-                <p class="cell-label">{{ translate("Facility") }}</p>
-                <p class="cell-primary">{{ facilityName(log.facilityId) }}</p>
-                <p class="cell-secondary" v-if="log.locationSeqId">{{ log.locationSeqId }}</p>
+              <div>
+                <ion-label>
+                  {{ log.description || "-" }}
+                  <p>{{ translate("Comment") }}</p>
+                </ion-label>
               </div>
-              <div class="history-cell comment">
-                <p class="cell-label">{{ translate("Comment") }}</p>
-                <p>{{ log.description || "-" }}</p>
+              <div>
+                <ion-label>
+                  <span class="movement">
+                    <span :class="diffClass(log.availableToPromiseDiff)">{{ signed(log.availableToPromiseDiff) }}</span>
+                    <ion-icon :icon="arrowForwardOutline" />
+                    <span>{{ runningTotal(log.lastAvailableToPromise, log.availableToPromiseDiff) }}</span>
+                  </span>
+                  <p>{{ translate("ATP") }}</p>
+                </ion-label>
               </div>
-              <div class="history-cell">
-                <p class="cell-label">{{ translate("ATP") }}</p>
-                <p class="movement">
-                  <span :class="diffClass(log.availableToPromiseDiff)">{{ signed(log.availableToPromiseDiff) }}</span>
-                  <ion-icon :icon="arrowForwardOutline" />
-                  <span>{{ runningTotal(log.lastAvailableToPromise, log.availableToPromiseDiff) }}</span>
-                </p>
-              </div>
-              <div class="history-cell">
-                <p class="cell-label">{{ translate("QOH") }}</p>
-                <p class="movement">
-                  <span :class="diffClass(log.quantityOnHandDiff)">{{ signed(log.quantityOnHandDiff) }}</span>
-                  <ion-icon :icon="arrowForwardOutline" />
-                  <span>{{ runningTotal(log.lastQuantityOnHand, log.quantityOnHandDiff) }}</span>
-                </p>
+              <div>
+                <ion-label>
+                  <span class="movement">
+                    <span :class="diffClass(log.quantityOnHandDiff)">{{ signed(log.quantityOnHandDiff) }}</span>
+                    <ion-icon :icon="arrowForwardOutline" />
+                    <span>{{ runningTotal(log.lastQuantityOnHand, log.quantityOnHandDiff) }}</span>
+                  </span>
+                  <p>{{ translate("QOH") }}</p>
+                </ion-label>
               </div>
             </div>
           </div>
@@ -352,7 +360,7 @@ ion-content {
 }
 
 .facility-select {
-  flex: 0 0 auto;
+  flex: 2 0 375px;
   --background: transparent;
   --padding-start: 0;
 }
@@ -381,53 +389,20 @@ ion-item {
   flex-direction: column;
 }
 
-.history-list {
-  border: 1px solid var(--ion-color-step-150, #d7d8da);
-  border-radius: 8px;
-  overflow: hidden;
+/* Inventory history uses the shared global .list-item row grid (see common/css/theme.css),
+   the same pattern as the Inventory list, so it renders consistently with the rest of the app. */
+.list-item {
+  --columns-desktop: 5;
+  border-bottom: 1px solid var(--ion-color-medium);
+  align-items: center;
 }
 
-.history-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacer-sm, 8px) var(--spacer-base, 16px);
-  padding: var(--spacer-sm, 8px) var(--spacer-base, 16px);
-  border-bottom: 1px solid var(--ion-color-step-100, #e0e0e0);
-}
-
-.history-row:last-child {
+.list-item:last-child {
   border-bottom: none;
 }
 
-.history-cell {
-  flex: 1 1 120px;
-  min-width: 0;
-}
-
-.history-cell.comment {
-  flex: 2 1 200px;
-}
-
-.cell-label {
-  margin: 0 0 2px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ion-color-medium);
-}
-
-.history-cell p {
-  margin: 0;
-}
-
-.cell-primary {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.cell-secondary {
-  color: var(--ion-color-medium);
-  font-size: 13px;
+.list-item ion-item {
+  width: 100%;
 }
 
 .movement {

@@ -550,7 +550,21 @@ const ruleNameRef = ref()
 
 onIonViewWillEnter(async () => {
   emitter.emit("presentLoader", { message: "Fetching filters and inventory rules", backdropDismiss: false })
-  await Promise.all([orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId), productStore().fetchFacilities(), useUtilStore().fetchCategories(), useUtilStore().fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" }), productStore().fetchShippingMethods(), productStore().fetchFacilityGroups()])
+  const utilStore = useUtilStore()
+  await Promise.all([
+    orderRoutingStore().fetchCurrentOrderRouting( props.orderRoutingId),
+    productStore().fetchFacilities(),
+    utilStore.fetchCategories(),
+    (async () => {
+      await utilStore.fetchEnums({ enumTypeId: "ORD_FILTER_PRM_TYPE" })
+      await utilStore.fetchEnums({ enumTypeId: "ORD_SORT_PARAM_TYPE" })
+      await utilStore.fetchEnums({ enumTypeId: "INV_FILTER_PRM_TYPE" })
+      await utilStore.fetchEnums({ enumTypeId: "INV_SORT_PARAM_TYPE" })
+      await utilStore.fetchOmsEnums( { enumTypeId: "ORDER_SALES_CHANNEL" })
+    })(),
+    productStore().fetchShippingMethods(),
+    productStore().fetchFacilityGroups()
+  ])
   orderRoutingStore().fetchRoutingHistory( router.currentRoute.value.params.routingGroupId)
 
   // Fetching the group information again if the group stored in the state and the groupId in the route params are not same. This case occurs when we are on the route details page of a group and then directly hit the route details for a different group.

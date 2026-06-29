@@ -446,7 +446,8 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         viewSize: payload.viewSize || 25,
         viewIndex: payload.viewIndex || 0,
         keyword: payload.keyword,
-        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl'
+        // tags / productFeatures are requested so preview rows can show why a product matched.
+        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,tags,productFeatures'
       });
 
       // Count-only callers just need numFound — skip fetching documents.

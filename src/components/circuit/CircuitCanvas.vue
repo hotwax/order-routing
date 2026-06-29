@@ -8,6 +8,7 @@
             <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
             <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
             <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
+            <p v-if="group.description" class="group-description">{{ group.description }}</p>
           </ion-card-header>
           <div class="ion-padding">
             <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
@@ -50,8 +51,9 @@
               <ion-card-subtitle>{{ translate("Scheduler") }}</ion-card-subtitle>
               <ion-card-title>{{ getCronString() || translate("No schedule") }}</ion-card-title>
             </div>
-            <ion-button fill="clear" color="medium" @click="openScheduleModal()">
-              <ion-icon slot="icon-only" :icon="timerOutline" />
+            <ion-button fill="outline" size="small" color="medium" @click="openScheduleModal()">
+              <ion-icon slot="start" :icon="timerOutline" />
+              {{ job?.cronExpression ? translate("Edit schedule") : translate("Add schedule") }}
             </ion-button>
           </div>
         </ion-card-header>
@@ -111,6 +113,7 @@
             <ion-badge :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">
               {{ getStatusDesc(routing.statusId) }}
             </ion-badge>
+            <ion-badge slot="end" color="primary" v-if="activeRoutingId === routing.orderRoutingId">{{ translate("Selected") }}</ion-badge>
           </ion-item>
         </ion-card>
       </ion-reorder-group>
@@ -2283,6 +2286,18 @@ ion-card {
 
 .routing {
   grid-column: 2/4;
+}
+
+/* Selected routing: a primary ring so the active card is obvious in light and dark mode. */
+.routing.selected-path {
+  box-shadow: 0 0 0 2px var(--ion-color-primary);
+}
+
+/* Routing group description: compact, muted, sits under the title/id. */
+.group-description {
+  margin: 4px 0 0;
+  color: var(--ion-color-medium);
+  font-size: 0.85rem;
 }
 
 .routing-rule {

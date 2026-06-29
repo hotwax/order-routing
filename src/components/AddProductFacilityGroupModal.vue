@@ -12,14 +12,15 @@
         <ion-button fill="clear" color="danger" :disabled="!selectedGroups.length" @click="selectedGroups = []">{{ translate("Clear All") }}</ion-button>
       </ion-buttons>
     </ion-toolbar>
+    <ion-toolbar>
+      <ion-searchbar :placeholder="translate('Search facility groups')" v-model="queryString" />
+    </ion-toolbar>
   </ion-header>
 
   <ion-content>
-    <ion-searchbar :placeholder="translate('Search facility groups')" v-model="queryString" />
-
     <div class="selected-chips" v-if="selectedGroups.length">
       <ion-chip v-for="group in selectedGroups" outline :key="group.facilityGroupId">
-        <ion-label>{{ group.facilityGroupName || group.facilityGroupId }}</ion-label>
+        <ion-label>{{ facilitiesByGroupId[group.facilityGroupId] ? `${group.facilityGroupName || group.facilityGroupId}: ${facilityCountLabel(group.facilityGroupId)}` : (group.facilityGroupName || group.facilityGroupId) }}</ion-label>
         <ion-icon :icon="closeOutline" @click.stop="removeSelectedGroup(group.facilityGroupId)" />
       </ion-chip>
     </div>
@@ -32,12 +33,10 @@
 
     <ion-list v-if="filteredFacilityGroups.length">
       <ion-item v-for="group in filteredFacilityGroups" :key="group.facilityGroupId" :button="!isAlreadyApplied(group.facilityGroupId)" @click="!isAlreadyApplied(group.facilityGroupId) ? updateSelectedGroups(group) : null">
-        <ion-label v-if="isAlreadyApplied(group.facilityGroupId)">{{ group.facilityGroupName || group.facilityGroupId }}</ion-label>
-        <ion-checkbox v-else :checked="isAlreadySelected(group.facilityGroupId)">
-          {{ group.facilityGroupName || group.facilityGroupId }}
-        </ion-checkbox>
+        <ion-label>{{ group.facilityGroupName || group.facilityGroupId }}</ion-label>
         <ion-note slot="end">{{ facilityCountLabel(group.facilityGroupId) }}</ion-note>
         <ion-note v-if="isAlreadyApplied(group.facilityGroupId)" slot="end" color="danger">{{ type === 'included' ? translate("excluded") : translate("included") }}</ion-note>
+        <ion-checkbox v-if="!isAlreadyApplied(group.facilityGroupId)" slot="end" :checked="isAlreadySelected(group.facilityGroupId)" />
       </ion-item>
     </ion-list>
 

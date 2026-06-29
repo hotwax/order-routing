@@ -120,7 +120,7 @@
       </div>
     </ion-content>
 
-    <brokering-runs-assistant-modal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
+    <BrokeringRunsAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
@@ -130,7 +130,7 @@ import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
 import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
-import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSegment, IonSegmentButton, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/icons"
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";

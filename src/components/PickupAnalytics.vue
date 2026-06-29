@@ -14,9 +14,9 @@
             <DxpShopifyImg :src="product.imageUrl" />
           </ion-thumbnail>
           <div class="chip-body">
-            <ion-label class="chip-name">{{ commonUtil.getProductIdentificationValue(productIdentificationPref.primaryId, product) || product.productName }}</ion-label>
+            <ion-label class="chip-name">{{ getPrimaryProductIdentifier(productIdentificationPref, product) }}</ion-label>
             <div class="chip-meta">
-              <ion-note class="chip-id">{{ commonUtil.getProductIdentificationValue(productIdentificationPref.secondaryId, product) || product.productId }}</ion-note>
+              <ion-note class="chip-id">{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</ion-note>
               <ion-badge class="chip-count" color="primary">{{ product.orderCount }}</ion-badge>
             </div>
           </div>
@@ -56,10 +56,11 @@
 <script setup lang="ts">
 import { IonBadge, IonLabel, IonNote, IonSkeletonText, IonThumbnail } from "@ionic/vue";
 import { computed } from "vue";
-import { DxpShopifyImg, translate, commonUtil } from "@common";
+import { DxpShopifyImg, translate } from "@common";
 import { usePickupAnalyticsStore } from "@/store/pickupAnalyticsStore";
 import type { SparklineEntry } from "@/store/pickupAnalyticsStore";
 import { productStore } from "@/store/productStore";
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 const store = usePickupAnalyticsStore();
 const prodStore = productStore();
@@ -79,6 +80,7 @@ function sparkline(daily: SparklineEntry[]): string {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
 }
+
 </script>
 
 <style scoped>

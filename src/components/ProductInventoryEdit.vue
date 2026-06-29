@@ -6,7 +6,7 @@
           <ion-icon slot="icon-only" :icon="closeOutline" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ translate("Inventory Edit") }}</ion-title>
+      <ion-title>{{ translate("Adjust inventory") }}</ion-title>
     </ion-toolbar>
   </ion-header>
 

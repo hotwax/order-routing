@@ -93,17 +93,14 @@ const MAX_BP = 0.9;
 const breakpoints = [MIN_BP, 0.5, MAX_BP];
 
 const modalRef = ref<InstanceType<typeof IonModal> | null>(null);
-const currentBp = ref(MIN_BP);
 const isExpanded = ref(false);
 
 function onBreakpointChange(ev: CustomEvent<{ breakpoint: number }>) {
-  currentBp.value = ev.detail.breakpoint;
   isExpanded.value = ev.detail.breakpoint > MIN_BP;
 }
 
 async function setBreakpoint(bp: number) {
   await modalRef.value?.$el.setCurrentBreakpoint(bp);
-  currentBp.value = bp;
   isExpanded.value = bp > MIN_BP;
 }
 

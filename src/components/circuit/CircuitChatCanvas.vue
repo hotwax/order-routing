@@ -4,16 +4,13 @@
       <ion-toolbar>
         <ion-title>{{ translate("Circuit") }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button @click="resetCircuit">
-            <ion-icon slot="icon-only" :icon="refreshOutline" />
-          </ion-button>
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
           <ion-button v-if="messages.length" :disabled="isApplyingDraft" :aria-label="translate('Clear chat history')" @click="clearCurrentChatHistory">
             <ion-icon slot="icon-only" :icon="trashOutline" />
           </ion-button>
-          <ion-button @click="showPromptModal = true">
+          <ion-button v-if="isDevModeEnabled" @click="showPromptModal = true">
             <ion-icon slot="icon-only" :icon="terminalOutline" />
           </ion-button>
           <ion-button
@@ -158,13 +155,13 @@ import {
   chatbubblesOutline,
   checkmarkCircleOutline,
   closeCircleOutline,
-  refreshOutline,
   terminalOutline,
   trashOutline
 } from 'ionicons/icons';
 import { translate } from '@common';
 import { ref, computed, onMounted } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
+import { usePreferencesStore } from '@/store/preferences';
 import { storeToRefs } from 'pinia';
 import { DateTime } from 'luxon';
 import { modalController } from '@ionic/vue';
@@ -178,6 +175,8 @@ import {
 } from '@/utils/circuitFeedback';
 
 const circuitStore = useCircuitStore();
+const preferencesStore = usePreferencesStore();
+const isDevModeEnabled = computed(() => preferencesStore.isDevModeEnabled);
 const { 
   messages, 
   threads, 
@@ -419,10 +418,6 @@ const addContext = async () => {
 
 const removeContext = () => {
   circuitStore.setActiveContext(null);
-}
-
-const resetCircuit = () => {
-  circuitStore.resetCircuit();
 }
 
 const createNewChat = () => {

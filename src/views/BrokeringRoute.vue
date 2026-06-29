@@ -81,7 +81,7 @@
                 <ion-item lines="none">
                   <h2>{{ translate("Test drive") }}</h2>
                 </ion-item>
-                <ion-item class="ion-margin" lines="none">
+                <ion-item lines="none">
                   <ion-label>
                     {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
                   </ion-label>

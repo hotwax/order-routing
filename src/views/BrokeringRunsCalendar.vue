@@ -164,7 +164,6 @@
           <ion-searchbar
             v-if="displayedGroups.length"
             v-model="searchQuery"
-            class="cal-search"
             :placeholder="translate('Search runs')"
             :debounce="150"
           />
@@ -575,16 +574,6 @@ function redirect(group: Group) {
 /* Push the New Run action to the end of the Runs card header. */
 .cal-add-run {
   margin-inline-start: auto;
-}
-
-/* Local keyword search above the runs list; softened to sit inside the card. */
-.cal-search {
-  --box-shadow: none;
-  --background: var(--ion-color-light);
-  --border-radius: 8px;
-  padding-inline: var(--spacer-sm);
-  padding-top: 0;
-  padding-bottom: var(--spacer-2xs);
 }
 
 /* Legend */

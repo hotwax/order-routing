@@ -184,6 +184,17 @@ async function fetchProductFacility() {
   }
 
   total.value = await useProductFacility().fetchProductFacility(params);
+
+  // Hydrate product info (image URLs, names) for the returned product ids so row thumbnails render.
+  // productFacilities/search does not return image data, so without this the product info store has
+  // no entry and DxpShopifyImg gets an empty src (issue #438). fetchProducts() skips already-cached ids.
+  const productIds = [...new Set((products.value || []).map((product: any) => product.productId).filter(Boolean))];
+  // Fire-and-forget: don't block the loader on image hydration. productById is reactive, so thumbnails
+  // render progressively once the product info store populates; fetchProducts() skips already-cached ids.
+  if (productIds.length) {
+    productInfoStore().fetchProducts(productIds);
+  }
+
   isLoading.value = false
 }
 

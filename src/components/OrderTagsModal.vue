@@ -10,8 +10,8 @@
     </ion-header>
     <ion-content>
       <ion-list>
-        <ion-item v-for="(tag, index) in tagInputs" :key="index">
-          <ion-input :label="translate('Tag')" :placeholder="translate('Enter tag')" v-model="tagInputs[index]" />
+        <ion-item v-for="(tag, index) in tagInputs" :key="tag.id">
+          <ion-input :label="translate('Tag')" :placeholder="translate('Enter tag')" v-model="tag.value" />
           <ion-button slot="end" fill="clear" color="danger" :disabled="tagInputs.length === 1" @click="removeTag(index)">
             <ion-icon slot="icon-only" :icon="trashOutline" />
           </ion-button>
@@ -40,15 +40,19 @@ const props = defineProps<{
   tags?: string[]
 }>()
 
-// Local editable copy of the tag keywords; always keep at least one (empty) input row.
-const tagInputs = ref<string[]>([""]);
+// Each input row carries a stable id so v-for can key on it (not the index). Keying on the index
+// while rows are added/removed makes Vue reuse DOM nodes and the input values drift out of sync.
+let nextId = 0;
+const tagInputs = ref<{ id: number; value: string }[]>([]);
 
 onMounted(() => {
-  tagInputs.value = props.tags?.length ? [...props.tags] : [""];
+  tagInputs.value = props.tags?.length
+    ? props.tags.map((tag: string) => ({ id: nextId++, value: tag }))
+    : [{ id: nextId++, value: "" }];
 })
 
 function addTag() {
-  tagInputs.value.push("");
+  tagInputs.value.push({ id: nextId++, value: "" });
 }
 
 function removeTag(index: number) {
@@ -56,7 +60,7 @@ function removeTag(index: number) {
 }
 
 function saveTags() {
-  const tags = tagInputs.value.map((tag: string) => tag.trim()).filter(Boolean);
+  const tags = tagInputs.value.map((tag) => tag.value.trim()).filter(Boolean);
   modalController.dismiss({ dismissed: true, tags }, "save");
 }
 

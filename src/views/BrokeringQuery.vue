@@ -1129,7 +1129,7 @@ async function openOrderTagsModal() {
     if(result.role === "save") {
       const filter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "ORDER_TAGS")
       if(!filter) return;
-      filter.fieldValue = result.data.tags.join(",")
+      filter.fieldValue = result.data?.tags?.join(",") || ""
       filter.operator = "contains"
       hasUnsavedChanges.value = true
     }

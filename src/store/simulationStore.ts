@@ -41,7 +41,7 @@ export const simulationStore = defineStore("simulation", {
     loadError: null as string | null,
     // Which pane is shown. User-controlled so the editor and the (possibly still-running)
     // simulation can be switched between freely — the run continues in the background.
-    view: "editor" as "editor" | "results",
+    view: "editor" as any,
     // The persisted simulationId of the most recently completed run (backend R3), for deep-linking.
     lastSimulationId: null as string | null,
     // ---- H2 variation run + parent compare (persist-on-save flow) ----

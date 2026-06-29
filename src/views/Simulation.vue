@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/simulation" />
+          <ion-back-button default-href="/simulate" />
         </ion-buttons>
         <ion-title>{{ translate("Simulation") }}</ion-title>
         <ion-segment v-if="sim.baseline" slot="end" :value="sim.view" @ionChange="sim.view = $event.detail.value">

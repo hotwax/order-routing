@@ -82,13 +82,13 @@ const GROUP_DEFS = [
   { condition: 'excluded', field: 'tags', label: 'Excluded tags' },
   { condition: 'included', field: 'productFeatures', label: 'Included features' },
   { condition: 'excluded', field: 'productFeatures', label: 'Excluded features' }
-];
+] as const;
 
 const activeGroups = computed(() =>
   GROUP_DEFS
     .map((def) => {
-      const values = (appliedFilters.value as any)?.[def.condition]?.[def.field] || [];
-      const operator = (appliedFiltersOperator.value as any)?.[def.condition]?.[def.field] || DEFAULT_OPERATOR[def.condition];
+      const values = appliedFilters.value[def.condition][def.field] || [];
+      const operator = appliedFiltersOperator.value[def.condition][def.field] || DEFAULT_OPERATOR[def.condition];
       return { ...def, key: `${def.condition}-${def.field}`, values, operator };
     })
     .filter((group) => group.values.length)
@@ -108,15 +108,25 @@ async function openFilterModal(condition: string, field: string) {
   modal.present();
 }
 
-async function removeFilters(condition: string, field: string, value: string) {
-  const selectedFilters = JSON.parse(JSON.stringify(appliedFilters.value));
-  selectedFilters[condition][field] = selectedFilters[condition][field].filter((filter: any) => filter !== value);
+async function removeFilters(condition: 'included' | 'excluded', field: 'tags' | 'productFeatures', value: string) {
+  const selectedFilters = {
+    ...appliedFilters.value,
+    [condition]: {
+      ...appliedFilters.value[condition],
+      [field]: appliedFilters.value[condition][field].filter((filter: string) => filter !== value)
+    }
+  };
   await productStore.updateAppliedFilters(selectedFilters);
 }
 
-async function updateFiltersOperator(condition: string, field: string, value: string) {
-  const operator = JSON.parse(JSON.stringify(appliedFiltersOperator.value));
-  operator[condition][field] = value;
+async function updateFiltersOperator(condition: 'included' | 'excluded', field: 'tags' | 'productFeatures', value: string) {
+  const operator = {
+    ...appliedFiltersOperator.value,
+    [condition]: {
+      ...appliedFiltersOperator.value[condition],
+      [field]: value
+    }
+  };
   await productStore.updateAppliedFiltersOperator(operator);
 }
 </script>

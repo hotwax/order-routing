@@ -151,7 +151,7 @@ const ROW_META_CAP = 3;
 
 // Solr multi-valued fields come back as arrays, single values as scalars; normalize to a clean array.
 function toArray(value: any): string[] {
-  if (Array.isArray(value)) return value.filter((entry) => entry != null && entry !== "");
+  if (Array.isArray(value)) return value.filter((entry) => entry != null && entry !== "").map(String);
   if (value == null || value === "") return [];
   return [String(value)];
 }

@@ -184,7 +184,7 @@ function removeSelectedGroup(groupId: string) {
 
 function isAlreadyApplied(value: string) {
   const type = props.type === 'included' ? 'excluded' : 'included'
-  return props.selectedFacilityGroups[type].some((group: any) => group.facilityGroupId === value)
+  return (props.selectedFacilityGroups?.[type] || []).some((group: any) => group.facilityGroupId === value)
 }
 
 function saveFacilityGroups() {

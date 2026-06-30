@@ -400,41 +400,25 @@ export const useDashboardStore = defineStore("dashboard", {
         const today = DateTime.now().toFormat("yyyy-MM-dd");
         let countMap: Record<string, number> = {};
 
-        const todayResp = await api({
+        const dateResp = await api({
           url: "admin/facilities/orderCount",
           method: "GET",
-          params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: today }
+          params: { facilityId: facilityIds.join(","), facilityId_op: "in", orderByField: "-entryDate", pageSize: 1 }
         }) as any;
-        if (!commonUtil.hasError(todayResp) && todayResp.data?.length) {
-          for (const entry of todayResp.data) {
-            const count = Number(entry.lastOrderCount) || 0;
-            if (count > 0) countMap[entry.facilityId] = count;
-          }
-        }
-
-        if (Object.keys(countMap).length > 0) {
-          facilityOrdersDate = today;
-          facilityOrdersIsToday = true;
-        } else {
-          const fallbackResp = await api({
+        if (!commonUtil.hasError(dateResp) && dateResp.data?.length) {
+          const latestEntry = dateResp.data[0];
+          const latestDate = DateTime.fromMillis(Number(latestEntry.entryDate)).toFormat("yyyy-MM-dd");
+          facilityOrdersDate = latestDate;
+          facilityOrdersIsToday = today === latestDate;
+          const facilityCountsResp = await api({
             url: "admin/facilities/orderCount",
             method: "GET",
-            params: { facilityId: facilityIds.join(","), facilityId_op: "in", orderByField: "-entryDate", pageSize: 1 }
+            params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: latestDate, pageSize: facilityIds.length }
           }) as any;
-          if (!commonUtil.hasError(fallbackResp) && fallbackResp.data?.length) {
-            const latestEntry = fallbackResp.data[0];
-            const latestDate = DateTime.fromMillis(Number(latestEntry.entryDate)).toFormat("yyyy-MM-dd");
-            facilityOrdersDate = latestDate;
-            const dateResp = await api({
-              url: "admin/facilities/orderCount",
-              method: "GET",
-              params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: latestDate }
-            }) as any;
-            if (!commonUtil.hasError(dateResp) && dateResp.data?.length) {
-              for (const entry of dateResp.data) {
-                const count = Number(entry.lastOrderCount) || 0;
-                if (count > 0) countMap[entry.facilityId] = count;
-              }
+          if (!commonUtil.hasError(facilityCountsResp) && facilityCountsResp.data?.length) {
+            for (const entry of facilityCountsResp.data) {
+              const count = Number(entry.lastOrderCount) || 0;
+              if (count > 0) countMap[entry.facilityId] = count;
             }
           }
         }

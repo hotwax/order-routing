@@ -40,7 +40,7 @@
         <ion-spinner name="crescent" />
       </div>
       <template v-else-if="products.length">
-        <div class="list-item" v-for="product in products" :key="product.productId" :style="{ '--columns-desktop': selectedFacilityId ? 6 : 1 }">
+        <div class="list-item" v-for="product in products" :key="product.productId">
           <div class="product-cell">
             <ion-item lines="none">
               <ion-thumbnail slot="start">
@@ -109,6 +109,7 @@
               <div>-</div>
             </template>
           </template>
+          <div></div>
         </div>
       </template>
       <div class="empty-state" v-else>
@@ -140,7 +141,7 @@ import {
   IonThumbnail
 } from "@ionic/vue";
 import { caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
-import { DxpShopifyImg, translate, api } from '@common';
+import { DxpShopifyImg, translate, api, commonUtil } from '@common';
 import MatchedProductFilters from "@/components/MatchedProductFilters.vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
@@ -395,31 +396,18 @@ function goToNextPage() {
 .list-item {
   border-bottom: 1px solid var(--ion-color-light-shade);
   align-items: center;
+  --columns-desktop: 4;
 }
 
 .list-item:last-child {
   border-bottom: none;
 }
 
-.list-item ion-thumbnail {
-  --size: 40px;
-  --border-radius: 6px;
-}
-
-.product-cell {
-  min-width: 0;
-}
-
-.product-cell > ion-item {
-  width: 100%;
-}
-
 .row-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Indent to line up under the product name (past the 40px thumbnail + item padding) */
-  padding: 0 var(--spacer-sm) var(--spacer-xs) 56px;
+  padding-top: 4px;
 }
 
 .meta-line {

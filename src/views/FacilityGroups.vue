@@ -163,13 +163,8 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
-  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
-  if (!productStoreId) {
-    facilityGroupStore.$patch({ groups: [] });
-    return;
-  }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId });
+    await facilityGroupStore.fetchGroups({ productStoreId: productStore.getCurrentProductStore?.productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -190,9 +185,6 @@ async function openEditModal(group: any) {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
     componentProps: { group }
-  });
-  modal.onDidDismiss().then((res: any) => {
-    if (res?.data?.saved) load();
   });
   await modal.present();
 }

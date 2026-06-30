@@ -7,151 +7,146 @@
       </ion-toolbar>
     </ion-header>
     
-    <ion-content>
-      <div class="rule-layout">
-        <div class="rule-form">
+   <ion-content>
       <section>
-        <div class="rule-config">
-          <ion-card>
-            <ion-card-header>
-              <ion-card-title>{{ translate("Rule Configuration") }}</ion-card-title>
-            </ion-card-header>
+            <div class="rule-config">
+              <ion-card>
+                <ion-card-header>
+                  <ion-card-title>{{ translate("Rule Configuration") }}</ion-card-title>
+                </ion-card-header>
 
-            <div class="rule-inputs ion-padding">
-              <ion-item>
-                <ion-input v-model="formData.ruleName">
-                  <div slot="label">{{ translate("Name") }} <ion-text color="danger">*</ion-text></div>
-                </ion-input>
-              </ion-item>
-              <ion-item>
-                <ion-icon slot="start" :icon="storefrontOutline"/>
-                <ion-toggle v-model="formData.isPickupAllowed">{{ translate("Store pickup") }}</ion-toggle>
-              </ion-item>
+                <div class="rule-inputs ion-padding">
+                  <ion-item>
+                    <ion-input v-model="formData.ruleName">
+                      <div slot="label">{{ translate("Name") }} <ion-text color="danger">*</ion-text></div>
+                    </ion-input>
+                  </ion-item>
+                  <ion-item>
+                    <ion-icon slot="start" :icon="storefrontOutline" />
+                    <ion-toggle v-model="formData.isPickupAllowed">{{ translate("Store pickup") }}</ion-toggle>
+                  </ion-item>
+                </div>
+              </ion-card>
             </div>
-          </ion-card>
-        </div>
-      </section>
+          </section>
 
-      <div class="section-header">
-        <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facilities") }} <ion-text color="danger">*</ion-text></h1>
-        <h1 v-else-if="selectedSegment === 'RG_PICKUP_CHANNEL'">{{ translate("Channels") }} <ion-text color="danger">*</ion-text></h1>
-      </div>
-
-      <section>
-        <ion-item lines="none">
-          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_PICKUP_FACILITY" ? translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
-        </ion-item>
-      </section>
-
-      <template v-if="selectedSegment === 'RG_PICKUP_FACILITY'">
-        <section v-if="facilityGroups.length">
-          <ion-card :disabled="formData.areAllSelected">
-            <ion-item lines="none">
-              <ion-label>{{ translate("Included") }} <ion-text color="danger">*</ion-text></ion-label>
-              <ion-button fill="clear" @click="openProductFacilityGroupModal('included')">
-                {{ translate("Add") }}
-                <ion-icon :icon="addCircleOutline" slot="end" />
-              </ion-button>
-            </ion-item>
-            <ion-card-content>
-              <ion-chip outline v-for="group in formData.selectedFacilityGroups['included']" :key="group.facilityGroupId">
-                {{ group.facilityGroupName }}
-                <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'included')" />
-              </ion-chip>
-            </ion-card-content>
-          </ion-card>
-  
-          <ion-card :disabled="formData.areAllSelected">
-            <ion-item lines="none"> 
-              <ion-label>{{ translate("Excluded") }}</ion-label>
-              <ion-button fill="clear" @click="openProductFacilityGroupModal('excluded')">
-                {{ translate("Add") }}
-                <ion-icon :icon="addCircleOutline" slot="end" />
-              </ion-button>
-            </ion-item>
-            <ion-card-content>
-              <ion-chip outline v-for="group in formData.selectedFacilityGroups['excluded']" :key="group.facilityGroupId">
-                {{ group.facilityGroupName }}
-                <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'excluded')" />
-              </ion-chip>
-            </ion-card-content>
-          </ion-card>
-
-          <ion-item class="facility-impact-summary" lines="none">
-            <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllSelected">
-              <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
-              <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
-            </ion-chip>
-            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected" @click="openFacilityImpactModal()">
-              <ion-icon :icon="eyeOutline" slot="start" />
-              {{ translate("Preview impacted facilities") }}
-            </ion-button>
-          </ion-item>
-        </section>
-        <EmptyState
-          v-else
-          variant="compact"
-          :icon="businessOutline"
-          :title="translate('No facility groups yet')"
-          :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
-        >
-          <template #actions>
-            <ion-button @click="createFacilityGroup()">
-              {{ translate("Create facility group") }}
-              <ion-icon slot="end" :icon="addOutline" />
-            </ion-button>
-            <ion-button fill="outline" @click="linkExistingFacilityGroup()">
-              {{ translate("Use an existing group") }}
-              <ion-icon slot="end" :icon="linkOutline" />
-            </ion-button>
-          </template>
-        </EmptyState>
-      </template>
-
-      <template v-else>
-        <section v-if="configFacilities.length">
-          <ion-card v-for="facility in configFacilities" :key="facility.facilityId" @click="toggleFacilitySelection(facility.facilityId)" button :disabled="formData.areAllSelected">
-            <ion-card-header>
-              <div>
-                <ion-card-title>{{ facility.facilityName }}</ion-card-title>
-                <ion-card-subtitle>{{ facility.facilityId }}</ion-card-subtitle>
-              </div>
-              <ion-checkbox :checked="isFacilitySelected(facility.facilityId)" />
-            </ion-card-header>
-          </ion-card>
-        </section>
-        <EmptyState
-          v-else
-          variant="compact"
-          :icon="cloudUploadOutline"
-          :title="translate('No channels yet')"
-          :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')"
-        >
-          <template #actions>
-            <ion-button @click="createChannel()">
-              {{ translate("Create channel") }}
-              <ion-icon slot="end" :icon="addOutline" />
-            </ion-button>
-            <ion-button fill="outline" @click="goToChannels()">
-              {{ translate("Manage channels") }}
-              <ion-icon slot="end" :icon="openOutline" />
-            </ion-button>
-          </template>
-        </EmptyState>
-      </template>
-
-          <!-- Matched products + product filters live in the main flow, below the facility/channel
-               scope, so the page reads top-to-bottom: rule config -> scope -> matched products. -->
-          <div class="rule-preview">
-            <RuleProductPreview
-              :selected-segment="selectedSegment"
-              :selected-facility-groups="formData.selectedFacilityGroups"
-              :selected-config-facilities="formData.selectedConfigFacilites"
-              :are-all-selected="formData.areAllSelected"
-            />
+          <div class="section-header">
+            <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facilities") }} <ion-text
+                color="danger">*</ion-text></h1>
+            <h1 v-else-if="selectedSegment === 'RG_PICKUP_CHANNEL'">{{ translate("Channels") }} <ion-text
+                color="danger">*</ion-text></h1>
           </div>
-        </div>
-      </div>
+
+          <section>
+            <ion-item lines="none">
+              <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_PICKUP_FACILITY" ?
+                translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
+            </ion-item>
+          </section>
+
+          <template v-if="selectedSegment === 'RG_PICKUP_FACILITY'">
+            <section v-if="facilityGroups.length">
+              <ion-card :disabled="formData.areAllSelected">
+                <ion-item lines="none">
+                  <ion-label>{{ translate("Included") }} <ion-text color="danger">*</ion-text></ion-label>
+                  <ion-button fill="clear" @click="openProductFacilityGroupModal('included')">
+                    {{ translate("Add") }}
+                    <ion-icon :icon="addCircleOutline" slot="end" />
+                  </ion-button>
+                </ion-item>
+                <ion-card-content>
+                  <ion-chip outline v-for="group in formData.selectedFacilityGroups['included']"
+                    :key="group.facilityGroupId">
+                    {{ group.facilityGroupName }}
+                    <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'included')" />
+                  </ion-chip>
+                </ion-card-content>
+              </ion-card>
+
+              <ion-card :disabled="formData.areAllSelected">
+                <ion-item lines="none">
+                  <ion-label>{{ translate("Excluded") }}</ion-label>
+                  <ion-button fill="clear" @click="openProductFacilityGroupModal('excluded')">
+                    {{ translate("Add") }}
+                    <ion-icon :icon="addCircleOutline" slot="end" />
+                  </ion-button>
+                </ion-item>
+                <ion-card-content>
+                  <ion-chip outline v-for="group in formData.selectedFacilityGroups['excluded']"
+                    :key="group.facilityGroupId">
+                    {{ group.facilityGroupName }}
+                    <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'excluded')" />
+                  </ion-chip>
+                </ion-card-content>
+              </ion-card>
+
+              <ion-item class="facility-impact-summary" lines="none">
+                <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllSelected">
+                  <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
+                  <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
+                </ion-chip>
+                <ion-button fill="clear" size="small" :disabled="formData.areAllSelected"
+                  @click="openFacilityImpactModal()">
+                  <ion-icon :icon="eyeOutline" slot="start" />
+                  {{ translate("Preview impacted facilities") }}
+                </ion-button>
+              </ion-item>
+            </section>
+            <EmptyState v-else variant="compact" :icon="businessOutline" :title="translate('No facility groups yet')"
+              :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')">
+              <template #actions>
+                <ion-button @click="createFacilityGroup()">
+                  {{ translate("Create facility group") }}
+                  <ion-icon slot="end" :icon="addOutline" />
+                </ion-button>
+                <ion-button fill="outline" @click="linkExistingFacilityGroup()">
+                  {{ translate("Use an existing group") }}
+                  <ion-icon slot="end" :icon="linkOutline" />
+                </ion-button>
+              </template>
+            </EmptyState>
+          </template>
+
+          <template v-else>
+            <section v-if="configFacilities.length">
+              <ion-card v-for="facility in configFacilities" :key="facility.facilityId"
+                @click="toggleFacilitySelection(facility.facilityId)" button :disabled="formData.areAllSelected">
+                <ion-card-header>
+                  <div>
+                    <ion-card-title>{{ facility.facilityName }}</ion-card-title>
+                    <ion-card-subtitle>{{ facility.facilityId }}</ion-card-subtitle>
+                  </div>
+                  <ion-checkbox :checked="isFacilitySelected(facility.facilityId)" />
+                </ion-card-header>
+              </ion-card>
+            </section>
+            <EmptyState v-else variant="compact" :icon="cloudUploadOutline" :title="translate('No channels yet')"
+              :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')">
+              <template #actions>
+                <ion-button @click="createChannel()">
+                  {{ translate("Create channel") }}
+                  <ion-icon slot="end" :icon="addOutline" />
+                </ion-button>
+                <ion-button fill="outline" @click="goToChannels()">
+                  {{ translate("Manage channels") }}
+                  <ion-icon slot="end" :icon="openOutline" />
+                </ion-button>
+              </template>
+            </EmptyState>
+          </template>
+
+          <!-- Product Filters (as in main) -->
+          <ProductFilters />
+
+          <div class="section-header">
+            <h1>{{ translate("Preview") }}</h1>
+          </div>
+
+          <RuleProductPreview :selected-segment="selectedSegment"
+            :selected-facility-groups="formData.selectedFacilityGroups"
+            :selected-config-facilities="formData.selectedConfigFacilites"
+            :are-all-selected="formData.areAllSelected"
+            :is-pickup-allowed="formData.isPickupAllowed" />
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
@@ -168,6 +163,7 @@ import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUpload
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
 import RuleProductPreview from '@/components/RuleProductPreview.vue';
+import ProductFilters from '@/components/ProductFilters.vue';
 import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
@@ -212,7 +208,7 @@ const { hasFacilityGroupSelections, isCounting: isCountingNetFacilities, netFaci
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
   emitter.emit("presentLoader");
-  await Promise.allSettled([productStore.fetchFacilityGroups(), productStore.fetchConfigFacilities()]);
+  await Promise.allSettled([productStore.fetchFacilityGroups(), productStore.fetchConfigFacilities(), productStore.fetchFacilities({ pageSize: 250 })]);
   
   if(props.ruleId) {
     try {
@@ -469,17 +465,7 @@ ion-card-header > ion-checkbox {
   flex-shrink: 0;
 }
 
-.rule-layout {
-  padding-bottom: 80px;
-}
 
-.rule-form {
-  min-width: 0;
-}
-
-.rule-preview {
-  padding-top: var(--spacer-base);
-}
 
 .preview-facilities-action {
   display: flex;

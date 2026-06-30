@@ -450,6 +450,8 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,goodIdentifications,tags,productFeatures'
       });
 
+      query.json.filter.push('isVirtual:false AND (isVariant:true OR productTypeId:MARKETING_PKG OR productTypeId:MARKETING_PKG_AUTO)');
+
       // Count-only callers just need numFound — skip fetching documents.
       if (payload.countOnly) query.json.params.rows = 0;
 

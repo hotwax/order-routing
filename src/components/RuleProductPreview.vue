@@ -1,17 +1,25 @@
 <template>
   <ion-card class="preview-card">
-    <ion-card-header>
-      <div class="preview-head">
-        <div>
-          <ion-card-title>{{ translate("Matched products") }}</ion-card-title>
-          <ion-card-subtitle>{{ translate("Products this rule will apply to") }}</ion-card-subtitle>
-        </div>
+    <div class="search-container">
+      <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="400"
+        @ionInput="updateSearchQuery($event)" />
+    </div>
+
+    <div class="preview-controls-row">
+      <div class="products-count">
         <ion-note v-if="!isLoading">{{ translate("products found", { count: total }) }}</ion-note>
       </div>
-    </ion-card-header>
 
-    <div class="preview-toolbar">
-      <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="400" @ionInput="updateSearchQuery($event)" />
+      <div class="facility-select" v-if="availableFacilities.length">
+        <ion-select v-model="selectedFacilityId" label-placement="start" :label="translate('Preview facility:')"
+          interface="popover" placeholder="Select Facility">
+          <ion-select-option v-for="facility in availableFacilities" :key="facility.facilityId"
+            :value="facility.facilityId">
+            {{ facility.facilityName || facility.facilityId }}
+          </ion-select-option>
+        </ion-select>
+      </div>
+
       <div class="pagination" v-if="total > pageSize">
         <ion-button fill="clear" size="small" :disabled="pageIndex === 0 || isLoading" @click="goToPreviousPage">
           <ion-icon slot="icon-only" :icon="caretBackOutline" />
@@ -22,102 +30,84 @@
         </ion-button>
       </div>
     </div>
-
-    <MatchedProductFilters />
-
-    <div class="facility-select-container" v-if="availableFacilities.length">
-      <ion-item lines="none">
-        <ion-select v-model="selectedFacilityId" :label="translate('Preview facility')" interface="popover" placeholder="Select Facility">
-          <ion-select-option v-for="facility in availableFacilities" :key="facility.facilityId" :value="facility.facilityId">
-            {{ facility.facilityName || facility.facilityId }}
-          </ion-select-option>
-        </ion-select>
-      </ion-item>
-    </div>
-
-    <ion-card-content class="preview-body">
-      <div class="empty-state" v-if="isLoading">
-        <ion-spinner name="crescent" />
-      </div>
-      <template v-else-if="products.length">
-        <div class="list-item" v-for="product in products" :key="product.productId">
-          <div class="product-cell">
-            <ion-item lines="none">
-              <ion-thumbnail slot="start">
-                <DxpShopifyImg :src="product.mainImageUrl" />
-              </ion-thumbnail>
-              <ion-label>
-                {{ getPrimaryProductIdentifier(productIdentificationPref, product) }}
-                <p>{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</p>
-              </ion-label>
-            </ion-item>
-            <!-- Why each product matched: its Solr tags and product features (capped, scan-friendly) -->
-            <div class="row-meta" v-if="toArray(product.tags).length || toArray(product.productFeatures).length">
-              <div class="meta-line" v-if="toArray(product.tags).length">
-                <ion-icon class="meta-icon" :icon="pricetagOutline" :aria-label="translate('Tags')" />
-                <ion-chip class="meta-chip" v-for="tag in visibleItems(product.tags)" :key="tag">{{ tag }}</ion-chip>
-                <ion-note class="meta-more" v-if="extraCount(product.tags)">{{ translate("+ {count} more", { count: extraCount(product.tags) }) }}</ion-note>
-              </div>
-              <div class="meta-line" v-if="toArray(product.productFeatures).length">
-                <ion-icon class="meta-icon" :icon="optionsOutline" :aria-label="translate('Features')" />
-                <ion-chip class="meta-chip" v-for="feature in visibleItems(product.productFeatures)" :key="feature">{{ feature }}</ion-chip>
-                <ion-note class="meta-more" v-if="extraCount(product.productFeatures)">{{ translate("+ {count} more", { count: extraCount(product.productFeatures) }) }}</ion-note>
-              </div>
-            </div>
-          </div>
-          <template v-if="selectedFacilityId">
-            <div v-if="isInventoryLoading" style="grid-column: span 5; display: flex; justify-content: center;">
-              <ion-spinner name="crescent" size="small" />
-            </div>
-            <template v-else-if="inventoryConfigs[product.productId]">
-              <div>
-                <ion-label>
-                  {{ inventoryConfigs[product.productId].computedLastInventoryCount }}
-                  <p>{{ translate("ATP") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  {{ inventoryConfigs[product.productId].lastInventoryCount }}
-                  <p>{{ translate("QOH") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  {{ inventoryConfigs[product.productId].minimumStock || "-" }}
-                  <p>{{ translate("Minimum Stock") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  {{ inventoryConfigs[product.productId].allowPickup || "-" }}
-                  <p>{{ translate("Allow Pickup") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  {{ inventoryConfigs[product.productId].allowBrokering || "-" }}
-                  <p>{{ translate("Allow Brokering") }}</p>
-                </ion-label>
-              </div>
-            </template>
-            <template v-else>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-            </template>
-          </template>
-          <div></div>
-        </div>
-      </template>
-      <div class="empty-state" v-else>
-        <ion-icon :icon="cubeOutline" />
-        <p>{{ translate("No products match these filters yet.") }}</p>
-      </div>
-    </ion-card-content>
   </ion-card>
+  <div class="empty-state" v-if="isLoading">
+    <ion-spinner name="crescent" />
+  </div>
+  <template v-else-if="products.length">
+    <div class="list-item" :class="{ 'has-facility': selectedFacilityId }" v-for="product in products"
+      :key="product.productId">
+      <ion-item lines="none">
+        <ion-thumbnail slot="start">
+          <DxpShopifyImg :src="product.mainImageUrl" />
+        </ion-thumbnail>
+        <ion-label>
+          {{ getPrimaryProductIdentifier(productIdentificationPref, product) }}
+          <p>{{ getSecondaryProductIdentifier(productIdentificationPref, product) }}</p>
+        </ion-label>
+      </ion-item>
+      <div class="product-tags">
+        <div v-if="getHittingTags(product).length">
+          <ion-chip v-for="tag in getHittingTags(product).slice(0, ROW_META_CAP)" :key="tag">
+            <ion-icon :icon="pricetagOutline" :aria-label="translate('Tags')" />
+            <ion-label>{{ tag }}</ion-label>
+          </ion-chip>
+          <ion-note v-if="getHittingTags(product).length > ROW_META_CAP">{{ translate("+ {count} more", {
+            count: getHittingTags(product).length - ROW_META_CAP
+            }) }}</ion-note>
+        </div>
+      </div>
+      <div class="product-features">
+        <div v-if="getHittingFeatures(product).length">
+          <ion-chip v-for="feature in getHittingFeatures(product).slice(0, ROW_META_CAP)" :key="feature">
+            <ion-icon :icon="optionsOutline" :aria-label="translate('Features')" />
+            <ion-label>{{ feature }}</ion-label>
+          </ion-chip>
+          <ion-note v-if="getHittingFeatures(product).length > ROW_META_CAP">{{ translate("+ {count} more", {
+            count: getHittingFeatures(product).length - ROW_META_CAP }) }}</ion-note>
+        </div>
+      </div>
+      <template v-if="selectedFacilityId">
+        <div v-if="isInventoryLoading" class="tablet">
+          <ion-spinner name="crescent" size="small" />
+        </div>
+        <template v-else-if="inventoryConfigs[product.productId]">
+          <div class="tablet">
+            <ion-label>
+              {{ inventoryConfigs[product.productId].computedLastInventoryCount }}
+              <p>{{ translate("ATP") }}</p>
+            </ion-label>
+          </div>
+          <div class="tablet">
+            <ion-label>
+              {{ inventoryConfigs[product.productId].lastInventoryCount }}
+              <p>{{ translate("QOH") }}</p>
+            </ion-label>
+          </div>
+          <div>
+            <ion-label>
+              <div class="transition-container" :class="{ 'val-changed': getAllowPickupTransition(product).isChanged }">
+                <span class="val-old">{{ getAllowPickupTransition(product).oldVal }}</span>
+                <span class="val-arrow">➔</span>
+                <span class="val-new">{{ getAllowPickupTransition(product).newVal }}</span>
+              </div>
+              <p>{{ translate("Allow Pickup") }}</p>
+            </ion-label>
+          </div>
+        </template>
+        <template v-else>
+          <div class="tablet">-</div>
+          <div class="tablet">-</div>
+          <div>-</div>
+        </template>
+      </template>
+      <div></div>
+    </div>
+  </template>
+  <div class="empty-state" v-else>
+    <ion-icon :icon="cubeOutline" />
+    <p>{{ translate("No products match these filters yet.") }}</p>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -142,7 +132,6 @@ import {
 } from "@ionic/vue";
 import { caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
 import { DxpShopifyImg, translate, api, commonUtil } from '@common';
-import MatchedProductFilters from "@/components/MatchedProductFilters.vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
@@ -173,6 +162,7 @@ const props = defineProps<{
   };
   selectedConfigFacilities?: string[];
   areAllSelected?: boolean;
+  isPickupAllowed?: boolean;
 }>();
 
 const productStore = useAtpProductStore();
@@ -203,6 +193,32 @@ function dedupe(list: any[]) {
     if (facility?.facilityId && !seen.has(facility.facilityId)) seen.set(facility.facilityId, facility);
   });
   return Array.from(seen.values()).sort((a, b) => (a.facilityName || a.facilityId).localeCompare(b.facilityName || b.facilityId));
+}
+
+function getAllowPickupTransition(product: any) {
+  const config = inventoryConfigs.value[product.productId];
+  const oldVal = config?.allowPickup || "-";
+  const newVal = props.isPickupAllowed ? "Y" : "N";
+  const isChanged = oldVal !== newVal;
+  return {
+    oldVal,
+    newVal,
+    isChanged
+  };
+}
+
+function getHittingTags(product: any): string[] {
+  const productTags = toArray(product.tags);
+  const filterTags = toArray(appliedFilters.value?.included?.tags);
+  if (!filterTags.length) return [];
+  return productTags.filter(tag => filterTags.includes(tag));
+}
+
+function getHittingFeatures(product: any): string[] {
+  const productFeatures = toArray(product.productFeatures);
+  const filterFeatures = toArray(appliedFilters.value?.included?.productFeatures);
+  if (!filterFeatures.length) return [];
+  return productFeatures.filter(feature => filterFeatures.includes(feature));
 }
 
 let watchId = 0;
@@ -353,32 +369,25 @@ function goToNextPage() {
 </script>
 
 <style scoped>
-.preview-card {
-  margin: 0;
-}
 
-.preview-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacer-xs);
-}
 
-.preview-head ion-note {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
 
-.preview-toolbar {
+.preview-controls-row {
   display: flex;
   align-items: center;
-  gap: var(--spacer-xs);
-  padding-inline: var(--spacer-sm);
+  justify-content: space-between;
+  gap: var(--spacer-sm);
+  padding: var(--spacer-xs) var(--spacer-sm);
+  border-bottom: 1px solid var(--ion-color-light-shade);
 }
 
-.preview-toolbar ion-searchbar {
+.products-count {
   flex: 1;
-  padding: 0;
+}
+
+.facility-select {
+  display: flex;
+  align-items: center;
 }
 
 .pagination {
@@ -396,52 +405,89 @@ function goToNextPage() {
 .list-item {
   border-bottom: 1px solid var(--ion-color-light-shade);
   align-items: center;
-  --columns-desktop: 4;
+  --columns-mobile: 1;
+  --columns-tablet: 4;
+  --columns-desktop: 7;
+}
+
+.list-item.has-facility {
+  --columns-tablet: 9;
+  --columns-desktop: 12;
+}
+
+@media (min-width: 700px) {
+  .list-item > ion-item:first-child {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 991px) {
+  .list-item > ion-item:first-child {
+    grid-column: span 3;
+  }
+  .product-tags,
+  .product-features {
+    grid-column: span 2;
+  }
 }
 
 .list-item:last-child {
   border-bottom: none;
 }
 
-.row-meta {
+/* Spinner container needs to span across all inventory columns */
+.list-item > div:has(ion-spinner) {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 4px;
+  justify-content: center;
 }
 
-.meta-line {
+@media (min-width: 700px) {
+  .list-item.has-facility > div:has(ion-spinner) {
+    grid-column: 5 / -1;
+  }
+}
+
+@media (min-width: 991px) {
+  .list-item.has-facility > div:has(ion-spinner) {
+    grid-column: 8 / -1;
+  }
+}
+
+/* Tags and Features styling in separate columns */
+.product-tags,
+.product-features {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacer-xs) 0;
+}
+
+.product-tags > div,
+.product-features > div {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.meta-icon {
+.product-tags ion-icon,
+.product-features ion-icon {
   font-size: 15px;
   color: var(--ion-color-medium);
   flex-shrink: 0;
 }
 
-.meta-chip {
-  height: 22px;
-  font-size: 11px;
+.product-tags ion-chip,
+.product-features ion-chip {
   margin: 0;
 }
 
-.meta-more {
+.product-tags ion-note,
+.product-features ion-note {
   font-size: 11px;
 }
 
-.facility-select-container {
-  padding-inline: var(--spacer-sm);
-  margin-bottom: var(--spacer-xs);
-}
 
-.facility-select-container ion-item {
-  --background: var(--ion-color-light);
-  border-radius: 8px;
-}
 
 .empty-state {
   display: flex;
@@ -455,5 +501,36 @@ function goToNextPage() {
 
 .empty-state ion-icon {
   font-size: 32px;
+}
+
+.transition-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.val-old {
+  color: var(--ion-color-medium);
+}
+
+.val-arrow {
+  color: var(--ion-color-medium-shade);
+}
+
+.val-new {
+  color: var(--ion-color-dark);
+}
+
+.val-changed .val-new {
+  color: var(--ion-color-primary);
+  font-weight: bold;
+}
+
+.val-changed {
+  background: var(--ion-color-primary-tiny, rgba(56, 128, 255, 0.08));
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px dashed var(--ion-color-primary);
 }
 </style>

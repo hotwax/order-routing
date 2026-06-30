@@ -1,15 +1,9 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Facility groups") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="solid" color="primary" @click="openCreateModal()">
-            {{ translate("New group") }}
-            <ion-icon slot="end" :icon="addOutline" />
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -48,7 +42,7 @@
               <ion-card-subtitle v-if="group.description">{{ group.description }}</ion-card-subtitle>
             </ion-card-header>
 
-            <ion-item lines="none">
+            <ion-item :lines="getFacilityCount(group.facilityGroupId) ? 'none' : 'full'">
               <ion-chip outline>
                 {{ getTypeLabel(group.facilityGroupTypeId) }}
               </ion-chip>
@@ -84,7 +78,7 @@
                 <ion-icon slot="start" :icon="createOutline" />
                 {{ translate("Edit") }}
               </ion-button>
-              <ion-button fill="clear" size="small" color="danger" @click="confirmArchive(group)">
+              <ion-button class="archive-action" fill="clear" size="small" color="danger" @click="confirmArchive(group)">
                 <ion-icon slot="start" :icon="archiveOutline" />
                 {{ translate("Archive") }}
               </ion-button>
@@ -92,6 +86,12 @@
           </ion-card>
         </div>
       </main>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="ion-margin">
+        <ion-fab-button @click="openCreateModal()">
+          <ion-icon :icon="addOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
@@ -100,13 +100,14 @@
 import {
   alertController,
   IonButton,
-  IonButtons,
   IonCard,
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
   IonChip,
   IonContent,
+  IonFab,
+  IonFabButton,
   IonHeader,
   IonIcon,
   IonItem,
@@ -120,7 +121,7 @@ import {
 } from "@ionic/vue";
 import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
-import { computed, onActivated, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import EmptyState from "@/components/EmptyState.vue";
@@ -130,8 +131,7 @@ import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroup
 const facilityGroupStore = useFacilityGroupStore();
 const productStore = useAtpProductStore();
 
-// This view manages brokering facility groups for the selected product store only.
-const BROKERING_GROUP_TYPE = "BROKERING_GROUP";
+const DEFAULT_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
 
@@ -163,13 +163,8 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
-  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
-  if (!productStoreId) {
-    facilityGroupStore.$patch({ groups: [] });
-    return;
-  }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId, facilityGroupTypeId: BROKERING_GROUP_TYPE });
+    await facilityGroupStore.fetchGroups({ productStoreId: productStore.getCurrentProductStore?.productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -178,7 +173,7 @@ async function load() {
 async function openCreateModal() {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
-    componentProps: { defaultTypeId: BROKERING_GROUP_TYPE }
+    componentProps: { defaultTypeId: DEFAULT_GROUP_TYPE }
   });
   modal.onDidDismiss().then((res: any) => {
     if (res?.data?.saved) load();
@@ -190,9 +185,6 @@ async function openEditModal(group: any) {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
     componentProps: { group }
-  });
-  modal.onDidDismiss().then((res: any) => {
-    if (res?.data?.saved) load();
   });
   await modal.present();
 }
@@ -233,7 +225,6 @@ async function confirmArchive(group: any) {
 }
 
 onMounted(load);
-onActivated(load);
 </script>
 
 <style scoped>
@@ -247,11 +238,19 @@ main {
   gap: var(--spacer-base);
 }
 
+.group-grid > ion-card {
+  height: min-content;
+}
+
 .actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  align-items: center;
   padding: var(--spacer-2xs) var(--spacer-xs);
+}
+
+.actions .archive-action {
+  margin-inline-start: auto;
 }
 
 .empty-block {
@@ -260,11 +259,5 @@ main {
   align-items: center;
   gap: var(--spacer-base);
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
-}
-
-@container (max-width: 600px) {
-  .actions {
-    justify-content: stretch;
-  }
 }
 </style>

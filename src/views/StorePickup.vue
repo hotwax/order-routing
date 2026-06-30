@@ -379,7 +379,6 @@ function createStorePickup() {
 
 .pickup-aside {
   position: sticky;
-  top: var(--spacer-base);
 }
 
 /* Keep the rule list centered in its column instead of pinned wide-left. */

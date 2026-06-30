@@ -1,6 +1,6 @@
 <template>
-  <section class="pickup-analytics" v-if="loading || topProducts.length || topFacilities.length">
-    <div class="analytics-section" v-if="loading || topProducts.length">
+  <section class="pickup-analytics">
+    <div class="analytics-section">
       <div class="section-head">
         <h2>{{ translate("Top pickup products") }}</h2>
         <ion-note>{{ translate("Last 30 days") }}</ion-note>
@@ -8,7 +8,7 @@
       <div class="chip-scroll" v-if="loading && !topProducts.length">
         <ion-skeleton-text v-for="n in 5" :key="n" animated class="chip-skeleton" />
       </div>
-      <div class="chip-scroll" v-else>
+      <div class="chip-scroll" v-else-if="topProducts.length">
         <div class="stat-chip" v-for="product in topProducts" :key="product.productId">
           <ion-thumbnail class="chip-thumb">
             <DxpShopifyImg :src="product.imageUrl" />
@@ -25,9 +25,12 @@
           </svg>
         </div>
       </div>
+      <p class="empty-state" v-else>
+        {{ translate("No pickup products ordered") }}
+      </p>
     </div>
 
-    <div class="analytics-section" v-if="loading || topFacilities.length">
+    <div class="analytics-section">
       <div class="section-head">
         <h2>{{ translate("Top pickup facilities") }}</h2>
         <ion-note>{{ translate("Last 30 days") }}</ion-note>
@@ -35,7 +38,7 @@
       <div class="chip-scroll" v-if="loading && !topFacilities.length">
         <ion-skeleton-text v-for="n in 5" :key="n" animated class="chip-skeleton" />
       </div>
-      <div class="chip-scroll" v-else>
+      <div class="chip-scroll" v-else-if="topFacilities.length">
         <div class="stat-chip" v-for="facility in topFacilities" :key="facility.facilityId">
           <div class="chip-body">
             <ion-label class="chip-name">{{ facility.facilityName }}</ion-label>
@@ -49,6 +52,9 @@
           </svg>
         </div>
       </div>
+      <p class="empty-state" v-else>
+        {{ translate("No facilities fulfilled pickup orders") }}
+      </p>
     </div>
   </section>
 </template>

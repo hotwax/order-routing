@@ -42,7 +42,7 @@
               <ion-card-subtitle v-if="group.description">{{ group.description }}</ion-card-subtitle>
             </ion-card-header>
 
-            <ion-item lines="none">
+            <ion-item :lines="getFacilityCount(group.facilityGroupId) ? 'none' : 'full'">
               <ion-chip outline>
                 {{ getTypeLabel(group.facilityGroupTypeId) }}
               </ion-chip>
@@ -245,6 +245,10 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: var(--spacer-base);
+}
+
+.group-grid > ion-card {
+  height: min-content;
 }
 
 .actions {

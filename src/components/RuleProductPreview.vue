@@ -85,12 +85,12 @@
             </ion-label>
           </div>
           <div>
+            <ion-row class="ion-align-items-center ion-justify-content-center">
+              <ion-note color="medium">{{ getAllowPickupTransition(product).oldVal }}</ion-note>
+              <ion-icon :icon="arrowForwardOutline" size="small" />
+              <ion-note :color="getAllowPickupTransition(product).isChanged ? 'primary' : 'dark'">{{ getAllowPickupTransition(product).newVal }}</ion-note>
+            </ion-row>
             <ion-label>
-              <div class="transition-container" :class="{ 'val-changed': getAllowPickupTransition(product).isChanged }">
-                <span class="val-old">{{ getAllowPickupTransition(product).oldVal }}</span>
-                <span class="val-arrow">➔</span>
-                <span class="val-new">{{ getAllowPickupTransition(product).newVal }}</span>
-              </div>
               <p>{{ translate("Allow Pickup") }}</p>
             </ion-label>
           </div>
@@ -128,9 +128,10 @@ import {
   IonSelect,
   IonSelectOption,
   IonSpinner,
+  IonRow,
   IonThumbnail
 } from "@ionic/vue";
-import { caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
+import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
 import { DxpShopifyImg, translate, api, commonUtil } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
@@ -503,34 +504,5 @@ function goToNextPage() {
   font-size: 32px;
 }
 
-.transition-container {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
 
-.val-old {
-  color: var(--ion-color-medium);
-}
-
-.val-arrow {
-  color: var(--ion-color-medium-shade);
-}
-
-.val-new {
-  color: var(--ion-color-dark);
-}
-
-.val-changed .val-new {
-  color: var(--ion-color-primary);
-  font-weight: bold;
-}
-
-.val-changed {
-  background: var(--ion-color-primary-tiny, rgba(56, 128, 255, 0.08));
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px dashed var(--ion-color-primary);
-}
 </style>

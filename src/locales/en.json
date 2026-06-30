@@ -620,6 +620,7 @@
   "Please select a variance reason.": "Please select a variance reason.",
   "Please select atleast one channel.": "Please select atleast one channel.",
   "Preview impacted facilities": "Preview impacted facilities",
+  "View {count} impacted facilities": "View {count} impacted facilities",
   "Preview Product Identifier": "Preview Product Identifier",
   "Primary": "Primary",
   "primary identifier": "primary identifier",

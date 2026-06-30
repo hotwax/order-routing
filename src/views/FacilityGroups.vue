@@ -121,7 +121,7 @@ import {
 } from "@ionic/vue";
 import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
-import { computed, onActivated, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import EmptyState from "@/components/EmptyState.vue";
@@ -233,7 +233,6 @@ async function confirmArchive(group: any) {
 }
 
 onMounted(load);
-onActivated(load);
 </script>
 
 <style scoped>

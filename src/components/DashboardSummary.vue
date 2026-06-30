@@ -140,6 +140,7 @@ import { computed, ref } from "vue";
 import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
 import type { BrokeringState, FacilityOrder } from "@/store/dashboardStore";
+import { DateTime } from "luxon";
 
 const sortMode = ref("orders");
 
@@ -147,7 +148,6 @@ const props = defineProps<{
   brokering: BrokeringState;
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
-  facilityOrdersIsToday: boolean;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
   foundations: { channels: number };
   channels: any[];
@@ -167,6 +167,8 @@ const sortedFacilityOrders = computed(() => {
   }
   return list;
 });
+
+const facilityOrdersIsToday = computed(() => DateTime.now().toFormat("yyyy-MM-dd") === props.facilityOrdersDate)
 
 function barWidth(facility: FacilityOrder) {
   if (facility.maximumOrderLimit != null && facility.maximumOrderLimit > 0) {

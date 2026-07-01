@@ -205,18 +205,24 @@
                 <div class="balance-grid">
                   <div class="balance-cell">
                     <span class="overline">{{ translate("ATP") }}</span>
-                    <span class="balance-flow">
-                      <span>{{ m.raw.lastAvailableToPromise ?? 0 }}</span>
+                    <span class="balance-flow" v-if="m.raw.lastAvailableToPromise != null">
+                      <span>{{ m.raw.lastAvailableToPromise }}</span>
                       <ion-icon :icon="arrowForwardOutline" />
                       <strong>{{ runningTotal(m.raw.lastAvailableToPromise, m.raw.availableToPromiseDiff) }}</strong>
+                    </span>
+                    <span v-else>
+                      <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ signed(m.raw.availableToPromiseDiff) }}</span>
                     </span>
                   </div>
                   <div class="balance-cell">
                     <span class="overline">{{ translate("QOH") }}</span>
-                    <span class="balance-flow">
-                      <span>{{ m.raw.lastQuantityOnHand ?? 0 }}</span>
+                    <span class="balance-flow" v-if="m.raw.lastQuantityOnHand != null">
+                      <span>{{ m.raw.lastQuantityOnHand }}</span>
                       <ion-icon :icon="arrowForwardOutline" />
                       <strong>{{ runningTotal(m.raw.lastQuantityOnHand, m.raw.quantityOnHandDiff) }}</strong>
+                    </span>
+                    <span v-else>
+                      <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ signed(m.raw.quantityOnHandDiff) }}</span>
                     </span>
                   </div>
                   <div class="balance-cell" v-if="m.raw.accountingQuantityDiff !== undefined && m.raw.accountingQuantityDiff !== null">

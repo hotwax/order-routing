@@ -137,4 +137,3 @@ const openThread = (threadId: string) => {
   height: 100%;
 }
 </style>
-

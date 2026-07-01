@@ -16,7 +16,7 @@
         </ion-list-header>
         <ion-item v-for="group in groups" :key="group.routingGroupId" button @click="openGroup(group.routingGroupId)">
           <ion-label>
-            <h2>{{ group.groupName || group.routingGroupId }}</h2>
+            {{ group.groupName || group.routingGroupId }}
             <p>{{ group.routingGroupId }}</p>
           </ion-label>
         </ion-item>

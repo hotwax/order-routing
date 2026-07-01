@@ -93,7 +93,6 @@
           :trend-points="replenishmentMetrics.trendPoints"
           :is-loading="isLoading || isHistoryLoading || replenishmentMetrics.loading"
           :is-saving="isReplenishmentSaving"
-          :restock-href="restockHref"
           @save="saveReplenishmentConfig"
         />
 
@@ -390,7 +389,7 @@ const replenishmentMetricsApi = useReplenishmentMetrics();
 const { metrics: replenishmentMetrics } = replenishmentMetricsApi;
 const inventoryConfig = ref<any>({});
 const isReplenishmentSaving = ref(false);
-const restockHref = computed<string | null>(() => null);
+let isInitializingFacility = false;
 
 // Inventory-history enrichment + filtering state.
 const isHistoryLoading = ref(true); // starts true so the skeleton shows from mount through the first load (no empty-state flash); toggled by loadInventoryHistory thereafter
@@ -527,17 +526,24 @@ function diffClass(value: any) {
 }
 
 onIonViewDidEnter(async () => {
+  isInitializingFacility = true;
   selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
   isLoading.value = true;
-  await productInfoStore().fetchProducts([productId.value]);
-  isLoading.value = false;
-  loadReasonEnums();
-  await fetchInventoryConfig();
-  await loadInventoryHistory();
-  await refreshReplenishmentMetrics();
+  try {
+    await productInfoStore().fetchProducts([productId.value]);
+    loadReasonEnums();
+    await fetchInventoryConfig();
+    await loadInventoryHistory();
+    await refreshReplenishmentMetrics();
+  } finally {
+    isLoading.value = false;
+    isInitializingFacility = false;
+  }
 });
 
 watch(selectedFacilityId, async () => {
+  if (!selectedFacilityId.value || isInitializingFacility) return;
+
   await fetchInventoryConfig();
   await loadInventoryHistory();
   await refreshReplenishmentMetrics();

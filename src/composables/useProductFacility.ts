@@ -59,7 +59,8 @@ export function useProductFacility() {
         data: payload
       })
     } catch(err) {
-      logger.error("Updated product facility records", err)
+      logger.error("Failed to update product facility records", err)
+      throw err
     }
   }
 

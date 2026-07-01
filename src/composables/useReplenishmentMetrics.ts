@@ -76,7 +76,7 @@ export function useReplenishmentMetrics() {
     salesVelocityUnitsPerDay: 0,
     trendPoints: []
   });
-  const orderDetailCache = new Map<string, any>();
+  const orderDetailCache = new Map<string, Promise<any>>();
 
   async function fetchOrderSummaries(orderIds: string[]): Promise<Record<string, OrderSummary>> {
     const ids = [...new Set(orderIds.filter(Boolean))];
@@ -135,16 +135,21 @@ export function useReplenishmentMetrics() {
   }
 
   async function fetchOrderDetail(order: SolrOrderDoc): Promise<any> {
-    if (orderDetailCache.has(order.orderId)) return orderDetailCache.get(order.orderId);
+    const cachedOrderDetail = orderDetailCache.get(order.orderId);
+    if (cachedOrderDetail) return cachedOrderDetail;
 
     const url = order.orderTypeId === "TRANSFER_ORDER"
       ? `oms/transferOrders/${order.orderId}`
       : `oms/purchaseOrders/${order.orderId}`;
-    const response = await api({ url, method: "GET" });
-    const detail = response?.data ?? response;
+    const detailPromise = api({ url, method: "GET" })
+      .then((response) => response?.data ?? response)
+      .catch((err) => {
+        orderDetailCache.delete(order.orderId);
+        throw err;
+      });
 
-    orderDetailCache.set(order.orderId, detail);
-    return detail;
+    orderDetailCache.set(order.orderId, detailPromise);
+    return detailPromise;
   }
 
   async function refreshIncomingUnits(productId: string, facilityId: string) {

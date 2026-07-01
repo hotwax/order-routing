@@ -45,6 +45,7 @@ import { IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, Ion
 import { closeOutline, saveOutline } from "ionicons/icons";
 import { api, commonUtil, logger, translate } from '@common';
 import { onMounted, ref } from "vue";
+import { isValidPositiveNumber } from "@/utils/inputValidation";
 
 const props = defineProps(["selectedProducts", "selectedFacility", "currentConfig"])
 
@@ -64,12 +65,6 @@ onMounted(() => {
 
 function closeModal() {
   modalController.dismiss();
-}
-
-function isValidPositiveNumber(event: KeyboardEvent) {
-  if (event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
-    event.preventDefault();
-  }
 }
 
 async function updateConfig() {

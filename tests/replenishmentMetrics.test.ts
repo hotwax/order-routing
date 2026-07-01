@@ -257,6 +257,7 @@ describe("replenishment metrics", () => {
       url: "admin/runSolrQuery",
       method: "POST"
     }));
+    expect(api.mock.calls[0][0].data.json.filter).not.toContain("facilityId:");
     expect(api).toHaveBeenNthCalledWith(2, {
       url: "oms/purchaseOrders/PO100",
       method: "GET"
@@ -335,5 +336,113 @@ describe("replenishment metrics", () => {
     expect(api.mock.calls.filter(([request]) => request.url === "oms/purchaseOrders/PO100")).toHaveLength(1);
     expect(api.mock.calls.filter(([request]) => request.url === "oms/transferOrders/TO200")).toHaveLength(1);
     expect(metrics.incomingUnits).toBe(9);
+  });
+
+  it("counts transfer orders whose source facility differs from the destination facility", async () => {
+    api
+      .mockResolvedValueOnce({
+        data: {
+          response: {
+            docs: [
+              {
+                orderId: "TO_SOURCE_A",
+                orderTypeId: "TRANSFER_ORDER",
+                facilityId: "SOURCE_WAREHOUSE"
+              }
+            ]
+          }
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          orderItems: [
+            {
+              productId: "M101717",
+              orderFacilityId: "CENTRAL_WAREHOUSE",
+              quantity: "12",
+              totalReceivedQuantity: "4",
+              statusId: "ITEM_PENDING_RECEIPT"
+            }
+          ]
+        }
+      });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+
+    await refreshReplenishmentMetrics({
+      productId: "M101717",
+      facilityId: "CENTRAL_WAREHOUSE",
+      inventoryRows: []
+    });
+
+    expect(api.mock.calls[0][0].data.json.filter).not.toContain("facilityId:");
+    expect(api).toHaveBeenNthCalledWith(2, {
+      url: "oms/transferOrders/TO_SOURCE_A",
+      method: "GET"
+    });
+    expect(metrics.incomingUnits).toBe(8);
+  });
+
+  it("coalesces in-flight order detail requests across concurrent refreshes", async () => {
+    let resolveDetail: (value: any) => void;
+    const detailPromise = new Promise((resolve) => {
+      resolveDetail = resolve;
+    });
+
+    api.mockImplementation((request: any) => {
+      if (request.url === "admin/runSolrQuery") {
+        return Promise.resolve({
+          data: {
+            response: {
+              docs: [
+                {
+                  orderId: "TO200",
+                  orderTypeId: "TRANSFER_ORDER"
+                }
+              ]
+            }
+          }
+        });
+      }
+
+      if (request.url === "oms/transferOrders/TO200") {
+        return detailPromise;
+      }
+
+      return Promise.resolve({ data: {} });
+    });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+    const payload = {
+      productId: "M101717",
+      facilityId: "CENTRAL_WAREHOUSE",
+      inventoryRows: []
+    };
+
+    const firstRefresh = refreshReplenishmentMetrics(payload);
+    const secondRefresh = refreshReplenishmentMetrics(payload);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(api.mock.calls.filter(([request]) => request.url === "oms/transferOrders/TO200")).toHaveLength(1);
+
+    resolveDetail!({
+      data: {
+        orderItems: [
+          {
+            productId: "M101717",
+            orderFacilityId: "CENTRAL_WAREHOUSE",
+            quantity: "8",
+            totalReceivedQuantity: "3",
+            statusId: "ITEM_PENDING_RECEIPT"
+          }
+        ]
+      }
+    });
+
+    await Promise.all([firstRefresh, secondRefresh]);
+
+    expect(api.mock.calls.filter(([request]) => request.url === "oms/transferOrders/TO200")).toHaveLength(1);
+    expect(metrics.incomingUnits).toBe(5);
   });
 });

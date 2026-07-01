@@ -90,7 +90,7 @@
         </template>
       </ion-list>
     </ion-content>
-    <ion-footer v-if="selectMode">
+    <ion-footer v-if="selectMode && selectedProductIds.length">
       <ion-toolbar class="footer-actions">
         <ion-buttons slot="start">
           <ion-button disabled>{{ selectedProductIds.length }} {{ translate("selected") }}</ion-button>
@@ -156,6 +156,7 @@ async function onProductStoreOrConfigChanged() {
     : productStoreFacilities.value?.[0]?.facilityId) || '';
 
   if (selectedFacility.value === facilityId) {
+    exitSelectMode();
     await fetchProductFacility();
   } else {
     selectedFacility.value = facilityId;
@@ -174,7 +175,7 @@ onIonViewDidLeave(() => {
 
 watch(selectedFacility, (facilityId) => {
   productStore().setSelectedInventoryFacilityId(facilityId)
-  selectedProductIds.value = []
+  exitSelectMode()
   fetchProductFacility()
 })
 

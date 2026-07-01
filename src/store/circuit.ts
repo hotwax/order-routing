@@ -9,7 +9,7 @@ export interface CircuitState {
   currentThreadId: string | null;
   messages: any[];
   activeContext: any | null;
-  lastPrompt: any[] | null;
+  lastPrompt: any | null;
 }
 
 export const useCircuitStore = defineStore('circuit', {
@@ -170,6 +170,9 @@ export const useCircuitStore = defineStore('circuit', {
         content: payload,
         threadName: payload.substring(0, 30) || 'New Chat'
       });
+    },
+    setLastPrompt(payload: any) {
+      this.lastPrompt = payload;
     },
     setActiveContext(payload: any) {
       this.activeContext = payload;

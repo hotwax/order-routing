@@ -366,6 +366,13 @@ function parseCronCells(cron: string): { hours: Set<number>; dows: Set<number> }
   return { hours, dows };
 }
 
+function allCronCells() {
+  return {
+    hours: new Set(Array.from({ length: 24 }, (_, i) => i)),
+    dows: new Set([1, 2, 3, 4, 5, 6, 7])
+  };
+}
+
 // Map of day (1-7) -> hour (0-23) -> distinct runs firing in that slot.
 // Reacts to the status filter so the heatmap reflects what's shown.
 const cellMatrix = computed(() => {
@@ -377,8 +384,7 @@ const cellMatrix = computed(() => {
   for (const run of displayedGroups.value) {
     const cron = run.schedule?.cronExpression;
     if (!cron) continue;
-    const parsed = parseCronCells(cron);
-    if (!parsed) continue;
+    const parsed = parseCronCells(cron) || allCronCells();
     for (const d of parsed.dows) {
       for (const h of parsed.hours) {
         if (matrix[d]?.[h]) matrix[d][h].push(run);

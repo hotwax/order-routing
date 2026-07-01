@@ -205,13 +205,23 @@
                 <div class="balance-grid">
                   <div class="balance-cell">
                     <span class="overline">{{ translate("ATP") }}</span>
-                    <span class="balance-flow">
+                    <span class="balance-flow" v-if="m.raw.lastAvailableToPromise != null">
+                      <span>{{ m.raw.lastAvailableToPromise }}</span>
+                      <ion-icon :icon="arrowForwardOutline" />
+                      <strong>{{ runningTotal(m.raw.lastAvailableToPromise, m.raw.availableToPromiseDiff) }}</strong>
+                    </span>
+                    <span v-else>
                       <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ signed(m.raw.availableToPromiseDiff) }}</span>
                     </span>
                   </div>
                   <div class="balance-cell">
                     <span class="overline">{{ translate("QOH") }}</span>
-                    <span class="balance-flow">
+                    <span class="balance-flow" v-if="m.raw.lastQuantityOnHand != null">
+                      <span>{{ m.raw.lastQuantityOnHand }}</span>
+                      <ion-icon :icon="arrowForwardOutline" />
+                      <strong>{{ runningTotal(m.raw.lastQuantityOnHand, m.raw.quantityOnHandDiff) }}</strong>
+                    </span>
+                    <span v-else>
                       <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ signed(m.raw.quantityOnHandDiff) }}</span>
                     </span>
                   </div>
@@ -493,6 +503,10 @@ function facilityName(facilityId: string) {
 function signed(value: any) {
   const num = Number(value) || 0
   return num > 0 ? `+${num}` : `${num}`
+}
+
+function runningTotal(last: any, diff: any) {
+  return (Number(last) || 0) + (Number(diff) || 0)
 }
 
 function diffClass(value: any) {

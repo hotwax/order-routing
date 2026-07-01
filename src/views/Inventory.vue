@@ -27,6 +27,7 @@
         <template v-if="showLoadingState">
           <div class="list-item inventory-skeleton-row" v-for="row in loadingRows" :key="`inventory-skeleton-${row}`">
             <ion-item>
+              <ion-checkbox slot="start" disabled />
               <ion-thumbnail class="inventory-skeleton-thumbnail">
                 <ion-skeleton-text animated />
               </ion-thumbnail>

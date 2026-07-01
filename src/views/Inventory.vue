@@ -57,8 +57,8 @@
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
-              <ion-label>
-                <h2 data-testid="assigned-detail-product-primary-id">{{ product.parentProductName }}</h2>
+              <ion-label data-testid="assigned-detail-product-primary-id">
+                {{ product.parentProductName }}
                 <p data-testid="assigned-detail-product-secondary-id">{{ product.productId }}</p>
               </ion-label>
             </ion-item>

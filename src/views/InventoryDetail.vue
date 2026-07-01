@@ -6,43 +6,29 @@
           <ion-back-button default-href="/inventory" />
         </ion-buttons>
         <ion-title>{{ translate("Inventory Detail") }}</ion-title>
+        <ion-select slot="end" v-model="selectedFacilityId" aria-label="Facility" placeholder="Select Facility" interface="popover">
+          <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
+        </ion-select>
       </ion-toolbar>
     </ion-header>
 
     <ion-content>
-      <div class="detail-page">
-        <!-- Product-first header: product identity plus the facility the data below is scoped to -->
-        <section class="product-header">
-          <div class="product-image">
-            <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="primaryIdentifier" />
-            <ion-skeleton-text v-else-if="isLoading" animated />
-            <ion-icon v-else :icon="cubeOutline" />
-          </div>
-          <div class="product-identity">
-            <template v-if="isLoading">
-              <ion-skeleton-text animated style="width: 50%; height: 22px;" />
-              <ion-skeleton-text animated style="width: 35%; height: 14px; margin-top: 6px;" />
-            </template>
-            <template v-else>
-              <h1>{{ primaryIdentifier }}</h1>
-              <p v-if="secondaryIdentifier">{{ secondaryIdentifier }}</p>
-              <p class="product-name" v-if="productName">{{ productName }}</p>
-            </template>
-          </div>
-          <ion-item class="facility-select" lines="none">
-            <ion-label>
-              <p class="overline">{{ translate("Facility") }}</p>
-              {{ currentFacilityName || translate("Select facility") }}
-            </ion-label>
-            <ion-button slot="end" fill="outline" color="dark" :disabled="!productStoreFacilities.length" @click="openFacilitySwitcher()">
-              {{ translate("Change location") }}
-            </ion-button>
+      <div class="detail-layout">
+        <section class="product-panel">
+          <ion-item lines="none">
+            <div class="product-image" slot="start">
+              <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="productPrimaryIdentifier" />
+              <ion-skeleton-text v-else-if="isLoading" animated />
+            </div>
+            <div class="product-title">
+              <ion-skeleton-text v-if="isLoading" animated style="width: 60%; height: 20px;" />
+              <h1 v-else>{{ productPrimaryIdentifier }}</h1>
+              <ion-skeleton-text v-if="isLoading" animated style="width: 40%; height: 14px; margin-top: 4px;" />
+              <p v-else>{{ productSecondaryIdentifier }}</p>
+            </div>
           </ion-item>
-        </section>
 
-        <!-- Operational summary scoped to the selected facility: Inventory (primary) + Configuration (supporting) -->
-        <section class="summary-cards">
-          <ion-card class="ion-no-margin">
+          <ion-card class="ion-margin-top">
             <div class="card-header">
               <ion-card-header>
                 <ion-card-title>{{ translate("Inventory") }}</ion-card-title>
@@ -53,15 +39,17 @@
             </div>
             <ion-item>
               <ion-label>{{ translate("QOH") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.qoh ?? "-" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.qoh ?? "-" }}</ion-label>
             </ion-item>
-            <ion-item lines="none">
+            <ion-item>
               <ion-label>{{ translate("ATP") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.atp ?? "-" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.atp ?? "-" }}</ion-label>
             </ion-item>
           </ion-card>
+        </section>
 
-          <ion-card class="ion-no-margin">
+        <div class="config-column">
+          <ion-card>
             <div class="card-header">
               <ion-card-header>
                 <ion-card-title>{{ translate("Configuration") }}</ion-card-title>
@@ -72,74 +60,87 @@
             </div>
             <ion-item>
               <ion-label>{{ translate("Allow Brokering") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowBrokering ?? "Y" }}</ion-label>
             </ion-item>
             <ion-item>
               <ion-label>{{ translate("Allow Pickup") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.allowPickup ?? "Y" }}</ion-label>
             </ion-item>
             <ion-item>
               <ion-label>{{ translate("Safety stock") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.minimumStock ?? "-" }}</ion-label>
             </ion-item>
-            <ion-item lines="none">
+            <ion-item>
               <ion-label>{{ translate("Days to Ship") }}</ion-label>
-              <ion-label slot="end">{{ inventoryConfig?.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
+              <ion-label slot="end">{{ inventoryConfig.inventoryConfig?.daysToShip ?? "-" }}</ion-label>
             </ion-item>
           </ion-card>
-        </section>
-
-        <!-- Inventory history: each row reads as a movement (Log / Facility / Comment / ATP / QOH) -->
-        <section class="history-section">
-          <ion-list-header>
-            <ion-label>{{ translate("Inventory history") }}</ion-label>
-          </ion-list-header>
-
-          <div class="history-list" v-if="inventoryLogs.length">
-            <div class="list-item" v-for="(log, index) in inventoryLogs" :key="`${log.inventoryItemId}-${index}`">
-              <ion-item lines="none">
-                <ion-label>
-                  <h2>{{ log.inventoryItemId }}</h2>
-                  <p>{{ formatDateTime(log.effectiveDate) }}</p>
-                </ion-label>
-              </ion-item>
-              <div>
-                <ion-label>
-                  {{ facilityName(log.facilityId) }}
-                  <p>{{ log.locationSeqId || translate("Facility") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  {{ log.description || "-" }}
-                  <p>{{ translate("Comment") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  <span class="movement">
-                    <span :class="diffClass(log.availableToPromiseDiff)">{{ signed(log.availableToPromiseDiff) }}</span>
-                    <ion-icon :icon="arrowForwardOutline" />
-                    <span>{{ runningTotal(log.lastAvailableToPromise, log.availableToPromiseDiff) }}</span>
-                  </span>
-                  <p>{{ translate("ATP") }}</p>
-                </ion-label>
-              </div>
-              <div>
-                <ion-label>
-                  <span class="movement">
-                    <span :class="diffClass(log.quantityOnHandDiff)">{{ signed(log.quantityOnHandDiff) }}</span>
-                    <ion-icon :icon="arrowForwardOutline" />
-                    <span>{{ runningTotal(log.lastQuantityOnHand, log.quantityOnHandDiff) }}</span>
-                  </span>
-                  <p>{{ translate("QOH") }}</p>
-                </ion-label>
-              </div>
-            </div>
+        </div>
+      </div>
+      <div>
+        <section class="ion-margin panel logs-panel">
+          <div class="list-item">
+            <ion-label>
+              <p>{{ "Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Date Time Received" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Facility Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Location Seq Id" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "Comments" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Diff" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "ATP Total" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ "QOH Total" }}</p>
+            </ion-label>
           </div>
 
-          <p v-else class="empty-state">
-            {{ translate("No inventory logs found") }}
+          <div class="list-item" v-for="log in inventoryLogs" :key="log.inventoryItemId">
+            <ion-label>
+              <p>{{ log.inventoryItemId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ formatDateTime(log.effectiveDate) }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.facilityId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.locationSeqId }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.description || "-" }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ log.quantityOnHandDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastAvailableToPromise || 0) + log.availableToPromiseDiff }}</p>
+            </ion-label>
+            <ion-label>
+              <p>{{ (log.lastQuantityOnHand || 0) + log.quantityOnHandDiff }}</p>
+            </ion-label>
+          </div>
+
+          <p v-if="!inventoryLogs.length" class="empty-state">
+            {{ "No inventory logs found" }}
           </p>
         </section>
       </div>
@@ -159,18 +160,17 @@ import {
   IonCardTitle,
   IonContent,
   IonHeader,
-  IonIcon,
   IonItem,
   IonLabel,
-  IonListHeader,
   IonPage,
+  IonSelect,
+  IonSelectOption,
   IonSkeletonText,
   IonTitle,
   IonToolbar,
   modalController,
   onIonViewDidEnter
 } from '@ionic/vue';
-import { arrowForwardOutline, cubeOutline } from 'ionicons/icons';
 import { translate } from '@common';
 import { DateTime } from 'luxon';
 import { useProductFacility } from '@/composables/useProductFacility';
@@ -178,7 +178,6 @@ import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
-import FacilitySwitcherModal from '@/components/FacilitySwitcherModal.vue';
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from '@/utils/productIdentifier';
 
 function formatDateTime(value: any): string {
@@ -196,46 +195,18 @@ const productId = computed(() => String(route.params.productId || ''));
 const product = computed(() => productInfoStore().getProductById(productId.value))
 const selectedFacilityId = ref("");
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
-const facilityMap = computed(() => productStoreFacilities.value.reduce((map: any, facility: any) => {
-  map[facility.facilityId] = facility.facilityName
-  return map
-}, {}))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
-const currentFacilityName = computed(() => facilityMap.value[selectedFacilityId.value] || '')
 
 const { inventoryLogs } = useProductFacility();
 const inventoryConfig = ref<any>({});
 
-// Header identity uses the configured product identifier preference, falling back through product identity fields.
-const primaryIdentifier = computed(() =>
+const productPrimaryIdentifier = computed(() =>
   getPrimaryProductIdentifier(productIdentificationPref.value, product.value)
 );
 
-const secondaryIdentifier = computed(() =>
+const productSecondaryIdentifier = computed(() =>
   getSecondaryProductIdentifier(productIdentificationPref.value, product.value)
 );
-
-const productName = computed(() =>
-  product.value?.internalName || product.value?.productName || product.value?.parentProductName || ''
-);
-
-function facilityName(facilityId: string) {
-  return facilityMap.value[facilityId] || facilityId || '-'
-}
-
-function signed(value: any) {
-  const num = Number(value) || 0
-  return num > 0 ? `+${num}` : `${num}`
-}
-
-function runningTotal(last: any, diff: any) {
-  return (Number(last) || 0) + (Number(diff) || 0)
-}
-
-function diffClass(value: any) {
-  const num = Number(value) || 0
-  return num > 0 ? 'diff-positive' : num < 0 ? 'diff-negative' : ''
-}
 
 onIonViewDidEnter(async () => {
   selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
@@ -253,11 +224,8 @@ watch(selectedFacilityId, async () => {
 
 async function fetchInventoryConfig() {
   const { fetchProductFacility, productFacility } = useProductFacility();
-  // Exact productId (not keyword): keyword fuzzy-matches a virtual product's variants and would
-  // show a variant's inventory for the virtual product. Exact match keeps the detail truthful —
-  // a virtual product has no own inventory — and consistent with the facility switcher.
   await fetchProductFacility({
-    productId: productId.value,
+    keyword: productId.value,
     facilityId: selectedFacilityId.value
   });
   inventoryConfig.value = productFacility.value?.[0] ?? null;
@@ -298,23 +266,6 @@ async function openConfigEditModal() {
   await modal.onDidDismiss();
   await fetchInventoryConfig();
 }
-
-async function openFacilitySwitcher() {
-  const modal = await modalController.create({
-    component: FacilitySwitcherModal,
-    componentProps: {
-      productId: productId.value,
-      currentFacilityId: selectedFacilityId.value,
-      facilities: productStoreFacilities.value
-    }
-  });
-  await modal.present();
-  const { data } = await modal.onDidDismiss();
-  // Selecting a facility updates selectedFacilityId; its watcher refetches config + logs.
-  if (data?.facilityId && data.facilityId !== selectedFacilityId.value) {
-    selectedFacilityId.value = data.facilityId;
-  }
-}
 </script>
 
 <style scoped>
@@ -322,23 +273,36 @@ ion-content {
   --padding-bottom: 80px;
 }
 
-.detail-page {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacer-base, 16px);
   padding: var(--spacer-base, 16px);
+  max-width: 1280px;
+  align-items: start;
+}
+
+.product-panel,
+.config-panel {
+  height: fit-content;
+}
+
+.config-column {
   display: flex;
   flex-direction: column;
   gap: var(--spacer-base, 16px);
 }
 
-/* Product-first header */
-.product-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacer-base, 16px);
-  flex-wrap: wrap;
+.detail-grid {
+  max-width: 1280px;
   padding: var(--spacer-base, 16px);
+}
+
+.summary-row ion-col {
+  display: flex;
+}
+
+.panel {
   border: 1px solid var(--ion-color-step-150, #d7d8da);
   border-radius: 8px;
 }
@@ -346,127 +310,109 @@ ion-content {
 .product-image {
   display: grid;
   place-items: center;
-  flex: 0 0 88px;
-  width: 88px;
-  height: 88px;
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
   overflow: hidden;
   border-radius: 8px;
   background: var(--ion-color-step-100, #f4f5f8);
   color: var(--ion-color-medium);
   font-size: 32px;
+  font-weight: 700;
 }
 
-.product-image img,
+.product-image :deep(img),
 .product-image ion-skeleton-text {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.product-identity {
-  flex: 1 1 240px;
+.product-title {
   min-width: 0;
 }
 
-.product-identity h1 {
-  margin: 0;
+.product-title h1,
+.section-title h2 {
+  margin: 4px 0;
   font-size: 20px;
   line-height: 1.25;
 }
 
-.product-identity p {
-  margin: 2px 0 0;
+.product-title p {
+  margin: 0;
   color: var(--ion-color-medium);
-  font-size: 14px;
 }
 
-.product-identity .product-name {
+.section-title {
+  padding: var(--spacer-base, 16px);
+  border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
+}
+
+ion-item {
+  --min-height: 58px;
+}
+
+ion-note[slot="end"] {
+  max-width: 55%;
   color: var(--ion-color-dark);
+  text-align: end;
+  white-space: normal;
 }
 
-.facility-select {
-  flex: 2 0 375px;
-  --background: transparent;
-  --padding-start: 0;
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
 }
 
-/* Summary cards */
-.summary-cards {
+.logs-panel {
+  margin-top: var(--spacer-base, 16px);
+}
+
+ion-badge {
+  min-width: 48px;
+  text-align: center;
+}
+
+.list-item {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--spacer-base, 16px);
-  align-items: start;
+  align-items: center;
+  justify-items: center;
+  --columns-desktop: 9;
+  --col-calc: var(--columns-desktop);
+  --implicit-columns: calc(var(--col-calc) - 1);
+  grid-template-columns: repeat(var(--implicit-columns), 1fr) max-content;
+  border-bottom: 1px solid var(--ion-color-medium);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
 }
 
-ion-item {
-  --min-height: 52px;
+@media (max-width: 768px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Inventory history */
-.history-section {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Inventory history uses the shared global .list-item row grid (see common/css/theme.css),
-   the same pattern as the Inventory list, so it renders consistently with the rest of the app. */
-.list-item {
-  --columns-desktop: 5;
-  border-bottom: 1px solid var(--ion-color-medium);
-  align-items: center;
-}
-
-.list-item:last-child {
-  border-bottom: none;
-}
-
-.list-item ion-item {
-  width: 100%;
-}
-
-.movement {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.movement ion-icon {
-  font-size: 14px;
-  color: var(--ion-color-medium);
-}
-
-.diff-positive {
-  color: var(--ion-color-success, #2dd36f);
-  font-weight: 600;
-}
-
-.diff-negative {
-  color: var(--ion-color-danger, #eb445a);
-  font-weight: 600;
-}
-
-.empty-state {
-  text-align: center;
-  color: var(--ion-color-medium);
-  padding: var(--spacer-base, 16px);
+@media (min-width: 991px) {
+  .list-item {
+    --col-calc: var(--columns-desktop);
+    padding-block: var(--spacer-sm);
+    padding-inline: var(--spacer-sm);
+  }
 }
 
 @media (max-width: 576px) {
   .product-image {
-    flex-basis: 64px;
-    width: 64px;
-    height: 64px;
-    font-size: 24px;
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
   }
 
-  .facility-select {
-    width: 100%;
+  ion-note[slot="end"] {
+    max-width: 45%;
   }
 }
 </style>

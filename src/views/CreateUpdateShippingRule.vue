@@ -209,7 +209,7 @@ onIonViewDidEnter(async () => {
         currentRule.value = resp.data[0];
 
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+        formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
 
         if(selectedSegment.value === "RG_SHIPPING_FACILITY") {
           const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")

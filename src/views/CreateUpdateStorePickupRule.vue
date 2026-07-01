@@ -31,7 +31,7 @@
       </section>
 
       <div class="section-header">
-        <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facilities") }} <ion-text
+        <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facility Groups") }} <ion-text
             color="danger">*</ion-text></h1>
         <h1 v-else-if="selectedSegment === 'RG_PICKUP_CHANNEL'">{{ translate("Channels") }} <ion-text
             color="danger">*</ion-text></h1>
@@ -40,10 +40,9 @@
       <section>
         <ion-item lines="none">
           <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_PICKUP_FACILITY" ?
-            translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
+            translate("Select all facility groups") : translate("Select all channels") }}</ion-toggle>
         </ion-item>
-        <ion-button fill="clear" size="small" :disabled="formData.areAllSelected || !hasFacilityGroupSelections"
-          @click="openFacilityImpactModal()">
+        <ion-button fill="clear" size="small" @click="openFacilityImpactModal()">
           <ion-icon :icon="eyeOutline" slot="start" />
           <ion-spinner v-if="isCountingNetFacilities" name="crescent" slot="end" />
           <template v-else>{{ translate("View {count} impacted facilities", { count: netFacilityCount }) }}</template>
@@ -211,7 +210,7 @@ onIonViewDidEnter(async () => {
         currentRule.value = resp.data[0];
 
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+        formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
 
         if(selectedSegment.value === "RG_PICKUP_FACILITY") {
           const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")

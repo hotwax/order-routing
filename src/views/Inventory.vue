@@ -72,7 +72,26 @@
             </ion-button>
           </div>
         </ion-item>
-        <p v-if="!products.length" class="empty-state" data-testid="closed-empty-state">
+        <template v-if="showLoadingState">
+          <div class="list-item skeleton-row" v-for="row in loadingRows" :key="`inventory-skeleton-${row}`">
+            <ion-item lines="none">
+              <ion-thumbnail slot="start" class="skeleton-thumbnail">
+                <ion-skeleton-text animated />
+              </ion-thumbnail>
+              <ion-label class="skeleton-copy">
+                <ion-skeleton-text animated class="skeleton-line skeleton-line-primary" />
+                <ion-skeleton-text animated class="skeleton-line skeleton-line-secondary" />
+              </ion-label>
+            </ion-item>
+            <div v-for="column in 5" :key="`inventory-skeleton-${row}-${column}`">
+              <ion-label>
+                <ion-skeleton-text animated class="skeleton-line skeleton-line-metric" />
+                <p><ion-skeleton-text animated class="skeleton-line skeleton-line-label" /></p>
+              </ion-label>
+            </div>
+          </div>
+        </template>
+        <p v-else-if="showEmptyState" class="empty-state" data-testid="closed-empty-state">
           {{ translate("No products found") }}
         </p>
         <template v-else>
@@ -151,7 +170,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCard, IonCardContent, IonCheckbox, IonFooter, IonIcon, IonInput, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { IonButtons, IonButton, IonCard, IonCardContent, IonCheckbox, IonFooter, IonIcon, IonInput, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
 import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
@@ -189,6 +208,9 @@ const productStoreFacilities = computed(() => productStore().productStoreFacilit
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
+const showLoadingState = computed(() => isLoading.value && !products.value?.length);
+const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
+const loadingRows = [1, 2, 3, 4, 5, 6];
 
 const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId))
 const allCurrentPageSelected = computed(() => currentPageProductIds.value.length > 0 && currentPageProductIds.value.every((id: string) => selectedProductIds.value.includes(id)))
@@ -437,6 +459,46 @@ ion-content {
 .list-item > ion-item {
   width: 100%;
   grid-column: span 2;
+}
+
+.skeleton-row {
+  pointer-events: none;
+}
+
+.skeleton-thumbnail ion-skeleton-text {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.skeleton-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  margin: 0;
+}
+
+.skeleton-line-primary {
+  width: 60%;
+  height: 18px;
+}
+
+.skeleton-line-secondary {
+  width: 40%;
+  height: 14px;
+}
+
+.skeleton-line-metric {
+  width: 50%;
+  height: 18px;
+}
+
+.skeleton-line-label {
+  width: 70%;
+  height: 12px;
 }
 
 .filter-card-content {

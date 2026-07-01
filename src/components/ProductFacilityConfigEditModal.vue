@@ -53,6 +53,7 @@ import { api, commonUtil, logger, translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, saveOutline } from "ionicons/icons";
 import { computed, onMounted, ref } from "vue";
+import { isValidPositiveNumber } from "@/utils/inputValidation";
 
 const props = defineProps(["selectedProducts", "selectedFacility", "currentConfig", "scopeType"])
 const isChannelScope = computed(() => props.scopeType === "channel");
@@ -75,12 +76,15 @@ function closeModal() {
   modalController.dismiss();
 }
 
+<<<<<<< HEAD
 function isValidPositiveNumber(event: KeyboardEvent) {
   if(event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
   }
 }
 
+=======
+>>>>>>> 8b7001f (Address replenishment card QA feedback)
 async function updateConfig() {
   const params = {
     facilityId: props.selectedFacility

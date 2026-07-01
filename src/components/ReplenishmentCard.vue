@@ -29,7 +29,7 @@
               type="number"
               min="0"
               inputmode="numeric"
-              :label="translate('Reorder point')"
+              :label="translate('Safety stock')"
               :value="reorderPointValue"
               @ionInput="reorderPointValue = String($event.detail.value ?? '')"
               @keydown="isValidPositiveNumber"
@@ -92,9 +92,6 @@
         </div>
 
         <div class="card-actions">
-          <ion-button fill="outline" :href="restockHref || undefined" :disabled="!restockHref">
-            {{ translate("Restock Inventory") }}
-          </ion-button>
           <ion-button :disabled="!canSave" @click="saveChanges">
             {{ isSaving ? translate("Saving") : translate("Save changes") }}
           </ion-button>
@@ -119,6 +116,7 @@ import {
 } from "@ionic/vue";
 import { translate } from "@common";
 import { computed, ref, watch } from "vue";
+import { isValidPositiveNumber } from "@/utils/inputValidation";
 import { TrendPoint, formatUnitsPerDay, toNumber } from "@/utils/replenishmentMetrics";
 
 const props = defineProps<{
@@ -133,7 +131,6 @@ const props = defineProps<{
   trendPoints: TrendPoint[];
   isLoading: boolean;
   isSaving: boolean;
-  restockHref: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -233,12 +230,6 @@ const currentMarker = computed(() => {
 
 const reorderPointLineY = computed(() => currentMinimumStock.value === null ? null : yFor(currentMinimumStock.value));
 const maximumStockLineY = computed(() => maximumStockNumber.value === null ? null : yFor(maximumStockNumber.value));
-
-function isValidPositiveNumber(event: KeyboardEvent) {
-  if (event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
-    event.preventDefault();
-  }
-}
 
 function saveChanges() {
   const minimumStock = nextMinimumStock.value;

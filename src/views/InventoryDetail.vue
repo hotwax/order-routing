@@ -619,7 +619,6 @@
           :trend-points="replenishmentMetrics.trendPoints"
           :is-loading="isLoading || isHistoryLoading || replenishmentMetrics.loading"
           :is-saving="isReplenishmentSaving"
-          :restock-href="restockHref"
           @save="saveReplenishmentConfig"
         />
 
@@ -1072,7 +1071,7 @@ const { metrics: replenishmentMetrics } = replenishmentMetricsApi;
 >>>>>>> f8f50a8 (Render inventory replenishment card)
 const inventoryConfig = ref<any>({});
 const isReplenishmentSaving = ref(false);
-const restockHref = computed<string | null>(() => null);
+let isInitializingFacility = false;
 
 // The remaining computation steps come from the channel's configuration facility record.
 const channelThresholdValue = computed(() => Number(inventoryConfig.value?.inventoryConfig?.minimumStock) || 0);
@@ -1553,7 +1552,6 @@ async function onProductStoreOrConfigChanged() {
 }
 
 onIonViewDidEnter(async () => {
-<<<<<<< HEAD
   await initializeDetailScope();
   emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
   emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
@@ -1561,18 +1559,11 @@ onIonViewDidEnter(async () => {
 
 onIonViewDidLeave(() => {
   emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
-=======
-  selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
-  isLoading.value = true;
-  await productInfoStore().fetchProducts([productId.value]);
-  isLoading.value = false;
-  loadReasonEnums();
-  await fetchInventoryConfig();
-  await loadInventoryHistory();
-  await refreshReplenishmentMetrics();
 });
 
 watch(selectedFacilityId, async () => {
+  if (!selectedFacilityId.value || isInitializingFacility) return;
+
   await fetchInventoryConfig();
   await loadInventoryHistory();
   await refreshReplenishmentMetrics();

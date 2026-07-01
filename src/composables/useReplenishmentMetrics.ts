@@ -112,7 +112,7 @@ export function useReplenishmentMetrics() {
     }
   }
 
-  async function fetchIncomingCandidates(productId: string, facilityId: string): Promise<SolrOrderDoc[]> {
+  async function fetchIncomingCandidates(productId: string): Promise<SolrOrderDoc[]> {
     const response = await api({
       url: "admin/runSolrQuery",
       method: "POST",
@@ -126,7 +126,7 @@ export function useReplenishmentMetrics() {
             defType: "edismax"
           },
           query: "*:*",
-          filter: `docType: ORDER AND productId: ${quoteSolrValue(productId)} AND facilityId: ${quoteSolrValue(facilityId)} AND (orderTypeId: PURCHASE_ORDER OR orderTypeId: TRANSFER_ORDER) AND -orderStatusId: ORDER_CANCELLED AND -orderStatusId: ORDER_COMPLETED`
+          filter: `docType: ORDER AND productId: ${quoteSolrValue(productId)} AND (orderTypeId: PURCHASE_ORDER OR orderTypeId: TRANSFER_ORDER) AND -orderStatusId: ORDER_CANCELLED AND -orderStatusId: ORDER_COMPLETED`
         }
       }
     });
@@ -157,7 +157,7 @@ export function useReplenishmentMetrics() {
     metrics.incomingUnavailable = false;
 
     try {
-      const incomingCandidates = await fetchIncomingCandidates(productId, facilityId);
+      const incomingCandidates = await fetchIncomingCandidates(productId);
       const uniqueCandidates = Array.from(
         new Map(incomingCandidates.map((candidate) => [candidate.orderId, candidate])).values()
       );

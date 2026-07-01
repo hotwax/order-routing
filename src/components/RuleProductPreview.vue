@@ -115,10 +115,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import {
   IonButton,
   IonCard,
-  IonCardContent,
-  IonCardHeader,
-  IonCardSubtitle,
-  IonCardTitle,
   IonChip,
   IonIcon,
   IonItem,

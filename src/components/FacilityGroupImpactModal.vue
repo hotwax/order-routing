@@ -90,6 +90,7 @@ import { useAtpProductStore } from "@/store/atpProductStore";
 const props = defineProps<{
   includedGroups: any[];
   excludedGroups: any[];
+  areAllSelected?: boolean;
 }>();
 
 const productStore = useAtpProductStore();
@@ -109,13 +110,19 @@ const removedFacilities = computed(() => includedFacilities.value.filter((facili
 
 onMounted(async () => {
   isLoading.value = true;
-  const [included, excluded] = await Promise.all([
-    resolveGroups(props.includedGroups),
-    resolveGroups(props.excludedGroups)
-  ]);
-  includedFacilityCount.value = included.length;
-  includedFacilities.value = dedupe(included);
-  excludedFacilities.value = dedupe(excluded);
+
+  if(props.areAllSelected) {
+    includedFacilities.value = dedupe(productStore.getFacilities)
+  } else {
+    const [included, excluded] = await Promise.all([
+      resolveGroups(props.includedGroups),
+      resolveGroups(props.excludedGroups)
+    ]);
+    includedFacilityCount.value = included.length;
+    includedFacilities.value = dedupe(included);
+    excludedFacilities.value = dedupe(excluded);
+  }
+
   isLoading.value = false;
 });
 

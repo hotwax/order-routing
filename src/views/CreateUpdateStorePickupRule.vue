@@ -310,7 +310,8 @@ async function openFacilityImpactModal() {
     component: FacilityGroupImpactModal,
     componentProps: {
       includedGroups: formData.value.selectedFacilityGroups.included,
-      excludedGroups: formData.value.selectedFacilityGroups.excluded
+      excludedGroups: formData.value.selectedFacilityGroups.excluded,
+      areAllSelected: formData.value.areAllSelected
     }
   })
   modal.present()

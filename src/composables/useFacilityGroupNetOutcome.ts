@@ -48,9 +48,9 @@ export function useFacilityGroupNetOutcome(
   }
 
   async function updateNetFacilityCount() {
-    if(areAllSelected.value || !hasFacilityGroupSelections.value) {
+    if(areAllSelected.value) {
       isCounting.value = false
-      netFacilityCount.value = 0
+      netFacilityCount.value = useAtpProductStore().getFacilities?.length;
       return
     }
 

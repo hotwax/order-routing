@@ -132,7 +132,7 @@ import {
   IonThumbnail
 } from "@ionic/vue";
 import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
-import { DxpShopifyImg, translate, api, commonUtil } from '@common';
+import { DxpShopifyImg, translate, api } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
@@ -145,14 +145,6 @@ function toArray(value: any): string[] {
   if (Array.isArray(value)) return value.filter((entry) => entry != null && entry !== "").map(String);
   if (value == null || value === "") return [];
   return [String(value)];
-}
-
-function visibleItems(value: any): string[] {
-  return toArray(value).slice(0, ROW_META_CAP);
-}
-
-function extraCount(value: any): number {
-  return Math.max(toArray(value).length - ROW_META_CAP, 0);
 }
 
 const props = defineProps<{

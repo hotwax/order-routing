@@ -189,7 +189,6 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       };
     },
     async fetchFacilities(payload: any) {
-      const userStore = useUserStore()
       const params = {
         parentFacilityTypeId: 'VIRTUAL_FACILITY',
         parentFacilityTypeId_not: 'Y',

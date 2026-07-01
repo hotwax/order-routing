@@ -201,7 +201,10 @@ export function calculatePurchaseOrderIncomingUnits(orderDetail: any, productId:
     if (item.statusId && PURCHASE_ITEM_EXCLUDED_STATUSES.has(item.statusId)) return sum;
 
     const quantity = toNumber(item.availableToPromise) ?? toNumber(item.quantity) ?? 0;
-    return quantity > 0 ? sum + quantity : sum;
+    const receivedQuantity = toNumber(item.totalReceivedQuantity) ?? 0;
+    const remainingQuantity = quantity - receivedQuantity;
+
+    return remainingQuantity > 0 ? sum + remainingQuantity : sum;
   }, 0);
 }
 

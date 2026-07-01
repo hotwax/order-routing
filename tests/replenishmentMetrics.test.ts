@@ -197,6 +197,38 @@ describe("replenishment metrics", () => {
     expect(incomingUnits).toBe(10);
   });
 
+  it("nets received quantity from purchase order incoming units", () => {
+    const incomingUnits = calculatePurchaseOrderIncomingUnits(
+      {
+        order: { originFacilityId: "CENTRAL_WAREHOUSE" },
+        orderItems: [
+          {
+            productId: "M101717",
+            availableToPromise: "10",
+            totalReceivedQuantity: "4",
+            statusId: "ITEM_APPROVED"
+          },
+          {
+            productId: "M101717",
+            quantity: "8",
+            totalReceivedQuantity: "3",
+            statusId: "ITEM_APPROVED"
+          },
+          {
+            productId: "M101717",
+            quantity: "2",
+            totalReceivedQuantity: "2",
+            statusId: "ITEM_APPROVED"
+          }
+        ]
+      },
+      "M101717",
+      "CENTRAL_WAREHOUSE"
+    );
+
+    expect(incomingUnits).toBe(11);
+  });
+
   it("marks incoming units unavailable when candidate or detail lookup fails", async () => {
     api
       .mockResolvedValueOnce({

@@ -12,7 +12,7 @@
   
   <ion-content>
     <ion-list>
-      <ion-item v-for="history in (groupHistory)" :key="history.jobRunId">
+      <ion-item v-for="history in groupHistory" :key="history.jobRunId">
         <ion-label>
           {{ commonUtil.getTime(history.startTime) }}
           <p>{{ commonUtil.getDate(history.startTime) }}</p>

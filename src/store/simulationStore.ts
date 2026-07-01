@@ -202,7 +202,7 @@ export const simulationStore = defineStore("simulation", {
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message ?? "Failed to save variation.";
+        this.loadError = err?.message || "";
         return false;
       }
     },
@@ -217,7 +217,7 @@ export const simulationStore = defineStore("simulation", {
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message ?? "Failed to update variation.";
+        this.loadError = err?.message || "";
         return false;
       }
     },

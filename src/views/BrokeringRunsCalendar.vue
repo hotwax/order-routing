@@ -219,7 +219,7 @@ import {
   onIonViewWillLeave
 } from "@ionic/vue";
 import { addOutline } from "ionicons/icons";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { DateTime } from "luxon";
 import cronstrue from "cronstrue";
 import router from "@/router";
@@ -227,10 +227,13 @@ import EmptyState from "@/components/EmptyState.vue";
 import { commonUtil, emitter, translate } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
+import { useUserStore } from "@/store/userStore";
 import { Group } from "@/types";
 
 const utilStore = useUtilStore();
+const userStore = useUserStore();
 const groups = computed(() => orderRoutingStore().getRoutingGroups);
+const timeZone = computed(() => userStore.getUserProfile?.timeZone);
 
 let cronExpressions: Record<string, string> = {};
 try {
@@ -248,17 +251,22 @@ const selectedCell = ref<{ d: number; h: number } | null>(null);
 
 // "Now" / week dates are refreshed on every view enter (the page is kept alive
 // across navigations, so a once-at-setup snapshot would go stale past midnight).
-const nowWeekday = ref(DateTime.now().weekday); // 1 = Monday … 7 = Sunday
-const nowHour = ref(DateTime.now().hour);
+function getNow() {
+  return timeZone.value ? DateTime.now().setZone(timeZone.value) : DateTime.now();
+}
+
+const nowWeekday = ref(getNow().weekday); // 1 = Monday … 7 = Sunday
+const nowHour = ref(getNow().hour);
 const weekDates = ref<number[]>([]);
 function refreshNow() {
-  const n = DateTime.now();
+  const n = getNow();
   nowWeekday.value = n.weekday;
   nowHour.value = n.hour;
   const sow = n.startOf("week");
   weekDates.value = days.map((_, i) => sow.plus({ days: i }).day);
 }
 refreshNow();
+watch(timeZone, refreshNow);
 
 function isActive(group: any) {
   return group.schedule?.paused === "N";

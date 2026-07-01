@@ -14,11 +14,15 @@ interface ProductFacility {
   isChecked: boolean;
 }
 
-const productFacility: Ref<ProductFacility[]> = ref([] as ProductFacility[])
-const inventoryLogs: Ref<any[]> = ref([])
-
 export function useProductFacility() {
-  
+  // Per-instance state. These refs were previously module-level singletons shared across every
+  // caller, so the Inventory detail view (which fetches a single product) overwrote the Inventory
+  // list view's results — returning to the list then showed only that one row. Each consumer now
+  // gets isolated state, so a single component must take both the ref and the fetcher from the
+  // same useProductFacility() call.
+  const productFacility: Ref<ProductFacility[]> = ref([] as ProductFacility[])
+  const inventoryLogs: Ref<any[]> = ref([])
+
   async function fetchProductFacility(payload: any): Promise<number> {
     try {
       const resp = await api({
@@ -27,10 +31,11 @@ export function useProductFacility() {
         params: payload
       }) as any
 
-      productFacility.value = resp.data?.products
+      productFacility.value = resp.data?.products ?? []
       return resp.data?.totalCount ?? 0
     } catch(err) {
       logger.error("Failed to fetch product facility records", err)
+      productFacility.value = []
       return 0
     }
   }
@@ -59,8 +64,6 @@ export function useProductFacility() {
       })
 
       inventoryLogs.value = resp.data
-
-      console.log('inventoryLogs.value', inventoryLogs.value)
     } catch(err) {
       logger.error("Failed to fetch product facility inventory logs", err)
     }

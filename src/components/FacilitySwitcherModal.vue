@@ -14,39 +14,33 @@
   </ion-header>
 
   <ion-content>
-    <div class="empty-state" v-if="isLoading">
-      <ion-item lines="none">
-        <ion-spinner name="crescent" slot="start" />
-        {{ translate("Fetching facilities") }}
-      </ion-item>
-    </div>
-    <ion-list v-else-if="filteredFacilities.length">
-      <ion-item
-        v-for="facility in filteredFacilities"
-        :key="facility.facilityId"
-        button
-        lines="full"
-        :color="facility.facilityId === currentFacilityId ? 'light' : undefined"
-        @click="selectFacility(facility)"
-      >
-        <ion-label>
-          {{ facility.facilityName || facility.facilityId }}
-          <p>
-            {{ facility.facilityId }}
-            <span v-if="facility.facilityId === currentFacilityId"> · {{ translate("Current") }}</span>
-          </p>
-        </ion-label>
-        <div slot="end" class="facility-inv">
-          <div class="stat">
-            <span class="stat-value">{{ facility.qoh }}</span>
-            <span class="stat-label">{{ translate("QOH") }}</span>
+    <ion-list v-if="filteredFacilities.length">
+      <ion-radio-group :value="currentFacilityId">
+        <ion-item
+          v-for="facility in filteredFacilities"
+          :key="facility.facilityId"
+          v-lazy-inventory="facility.facilityId"
+          lines="full"
+          @click="selectFacility(facility)"
+        >
+          <ion-radio :value="facility.facilityId" label-placement="end" justify="start">
+            <ion-label>
+              {{ facility.facilityName || facility.facilityId }}
+              <p>{{ facility.facilityId }}</p>
+            </ion-label>
+          </ion-radio>
+          <div slot="end" class="facility-inv">
+            <div class="stat">
+              <span class="stat-value">{{ facility.qoh }}</span>
+              <span class="stat-label">{{ translate("QOH") }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value">{{ facility.atp }}</span>
+              <span class="stat-label">{{ translate("ATP") }}</span>
+            </div>
           </div>
-          <div class="stat">
-            <span class="stat-value">{{ facility.atp }}</span>
-            <span class="stat-label">{{ translate("ATP") }}</span>
-          </div>
-        </div>
-      </ion-item>
+        </ion-item>
+      </ion-radio-group>
     </ion-list>
     <EmptyState
       v-else
@@ -68,15 +62,16 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonRadio,
+  IonRadioGroup,
   IonSearchbar,
-  IonSpinner,
   IonTitle,
   IonToolbar,
   modalController
 } from "@ionic/vue";
 import { closeOutline, searchOutline } from "ionicons/icons";
 import { api, commonUtil, logger, translate } from "@common";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, ref, type ObjectDirective } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
 
 const props = defineProps<{
@@ -86,11 +81,11 @@ const props = defineProps<{
 }>();
 
 const queryString = ref("");
-const isLoading = ref(false);
 const inventoryByFacility = ref<Record<string, { qoh: any; atp: any }>>({});
+const pendingFacilityIds = new Set<string>();
+const observedFacilityIds = new WeakMap<Element, string>();
+let inventoryObserver: IntersectionObserver | undefined;
 
-// Base list = the product store's facilities (these carry the names); QOH/ATP are joined from
-// a single batched inventory lookup so the user sees stock per facility without selecting each one.
 const facilitiesWithInventory = computed(() =>
   (props.facilities || []).map((facility: any) => {
     const inv = inventoryByFacility.value[facility.facilityId];
@@ -114,44 +109,89 @@ function selectFacility(facility: any) {
   modalController.dismiss({ facilityId: facility.facilityId });
 }
 
-async function fetchInventoryAcrossFacilities() {
-  isLoading.value = true;
+async function fetchInventoryForFacility(facilityId: string) {
+  if (!facilityId || inventoryByFacility.value[facilityId] || pendingFacilityIds.has(facilityId)) return;
+
+  pendingFacilityIds.add(facilityId);
   try {
-    // The search endpoint requires a facilityId (keyword alone 400s), so fan out one lookup per
-    // facility in parallel — mirroring the detail page's own fetch (keyword: productId + facilityId)
-    // so each row's QOH/ATP matches exactly what the detail page shows for that facility. Batched
-    // up front when the modal opens, so the user never has to select a facility to see its stock.
-    const results = await Promise.all(
-      (props.facilities || []).map(async (facility: any) => {
-        try {
-          const resp = await api({
-            url: "oms/productFacilities/search",
-            method: "GET",
-            // Exact productId, NOT keyword: keyword fuzzy-matches a virtual product's variants and
-            // would surface a variant's inventory as if it were this product's. A virtual product
-            // has no inventory of its own, so exact match correctly yields nothing (shown as "-").
-            params: { productId: props.productId, facilityId: facility.facilityId, pageSize: 1 }
-          }) as any;
-          if (resp && !commonUtil.hasError(resp)) {
-            const record = resp.data?.products?.[0];
-            return { facilityId: facility.facilityId, qoh: record?.inventoryConfig?.qoh ?? "-", atp: record?.inventoryConfig?.atp ?? "-" };
-          }
-        } catch (err) {
-          logger.error("Failed to fetch inventory for facility", facility.facilityId, err);
-        }
-        return { facilityId: facility.facilityId, qoh: "-", atp: "-" };
-      })
-    );
-    const map: Record<string, { qoh: any; atp: any }> = {};
-    results.forEach((row) => { map[row.facilityId] = { qoh: row.qoh, atp: row.atp }; });
-    inventoryByFacility.value = map;
+    const resp = await api({
+      url: "oms/productFacilities/search",
+      method: "GET",
+      params: { productId: props.productId, facilityId, pageSize: 1 }
+    }) as any;
+    const record = resp && !commonUtil.hasError(resp) ? resp.data?.products?.[0] : undefined;
+    inventoryByFacility.value = {
+      ...inventoryByFacility.value,
+      [facilityId]: {
+        qoh: record?.inventoryConfig?.qoh ?? "-",
+        atp: record?.inventoryConfig?.atp ?? "-"
+      }
+    };
   } catch (err) {
-    logger.error("Failed to fetch inventory across facilities", err);
+    logger.error("Failed to fetch inventory for facility", facilityId, err);
+    inventoryByFacility.value = {
+      ...inventoryByFacility.value,
+      [facilityId]: { qoh: "-", atp: "-" }
+    };
+  } finally {
+    pendingFacilityIds.delete(facilityId);
   }
-  isLoading.value = false;
 }
 
-onMounted(fetchInventoryAcrossFacilities);
+function getInventoryObserver() {
+  if (inventoryObserver) return inventoryObserver;
+  if (typeof IntersectionObserver === "undefined") return undefined;
+
+  inventoryObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      const facilityId = observedFacilityIds.get(entry.target);
+      if (!facilityId) return;
+      fetchInventoryForFacility(facilityId);
+      observer.unobserve(entry.target);
+      observedFacilityIds.delete(entry.target);
+    });
+  });
+
+  return inventoryObserver;
+}
+
+function observeFacilityRow(el: Element, facilityId: string) {
+  if (!facilityId || inventoryByFacility.value[facilityId] || pendingFacilityIds.has(facilityId)) return;
+
+  const observer = getInventoryObserver();
+  if (!observer) {
+    fetchInventoryForFacility(facilityId);
+    return;
+  }
+
+  observedFacilityIds.set(el, facilityId);
+  observer.observe(el);
+}
+
+function unobserveFacilityRow(el: Element) {
+  inventoryObserver?.unobserve(el);
+  observedFacilityIds.delete(el);
+}
+
+const vLazyInventory: ObjectDirective<HTMLElement, string> = {
+  mounted(el, binding) {
+    observeFacilityRow(el, binding.value);
+  },
+  updated(el, binding) {
+    if (binding.value === binding.oldValue) return;
+    unobserveFacilityRow(el);
+    observeFacilityRow(el, binding.value);
+  },
+  beforeUnmount(el) {
+    unobserveFacilityRow(el);
+  }
+};
+
+onBeforeUnmount(() => {
+  inventoryObserver?.disconnect();
+  inventoryObserver = undefined;
+});
 </script>
 
 <style scoped>
@@ -171,16 +211,5 @@ onMounted(fetchInventoryAcrossFacilities);
   flex-direction: column;
   align-items: flex-end;
   min-width: 40px;
-}
-
-.stat-value {
-  font-weight: 600;
-}
-
-.stat-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--ion-color-medium);
 }
 </style>

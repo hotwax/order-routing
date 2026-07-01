@@ -834,6 +834,61 @@ export const orderRoutingStore = defineStore('orderRouting', {
         errorMessage
       }
     },
+    // Resolve a set of internal orderIds → human order name + type/status in one grouped Solr query.
+    // Used to (a) show order names in the Inventory history and (b) classify each movement's source
+    // (SALES_ORDER vs TRANSFER_ORDER vs PURCHASE_ORDER). Returns a map keyed by orderId; ids not
+    // found in the ORDER index are simply absent (callers fall back to the raw orderId).
+    async fetchOrderSummaries(orderIds: Array<string>): Promise<Record<string, any>> {
+      const ids = [...new Set((orderIds || []).filter(Boolean))]
+      const summaries: Record<string, any> = {}
+      if (!ids.length) return summaries
+
+      const payload = {
+        "json": {
+          "params": {
+            "rows": ids.length,
+            "group": true,
+            "group.field": "orderId",
+            "group.limit": 1,
+            "group.ngroups": true,
+            "q.op": "AND",
+            "start": 0,
+            "fl": "orderId,orderName,orderTypeId,orderStatusId,orderStatusDesc",
+            "defType": "edismax"
+          },
+          "query": "*:*",
+          "filter": `docType: ORDER AND orderId: (${ids.map((id: string) => `"${id}"`).join(" OR ")})`
+        }
+      }
+
+      try {
+        const resp = await api({
+          url: "solr-query",
+          method: "post",
+          baseURL: commonUtil.getOmsURL(),
+          data: payload
+        });
+
+        if (!commonUtil.hasError(resp) && resp.data?.grouped?.orderId?.groups?.length) {
+          resp.data.grouped.orderId.groups.forEach((group: any) => {
+            const doc = group.doclist?.docs?.[0]
+            if (doc?.orderId) {
+              summaries[doc.orderId] = {
+                orderId: doc.orderId,
+                orderName: doc.orderName,
+                orderTypeId: doc.orderTypeId,
+                orderStatusId: doc.orderStatusId,
+                orderStatusDesc: doc.orderStatusDesc
+              }
+            }
+          })
+        }
+      } catch (err) {
+        logger.error("Failed to fetch order summaries", err)
+      }
+
+      return summaries
+    },
     async brokerOrder(payload: any): Promise<any> {
       return api({
         url: `order-routing/groups/${payload.routingGroupId}/run`,

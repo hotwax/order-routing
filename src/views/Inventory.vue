@@ -6,7 +6,6 @@
       </ion-toolbar>
     </ion-header>
     <ion-content data-testid="closed-content">
-      <ion-list data-testid="closed-list">
         <ion-card>
           <ion-card-content class="filter-card-content">
             <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="300" @ionInput="updateSearchQuery($event)" data-testid="inventory-search-bar"/>
@@ -54,6 +53,8 @@
                 </ion-select>
               </ion-item>
             </div>
+          </ion-card-content>
+        </ion-card>
 
         <ion-item lines="none">
           <ion-checkbox slot="start" v-if="selectMode" :checked="allCurrentPageSelected" :indeterminate="someCurrentPageSelected && !allCurrentPageSelected" @ionChange="toggleCurrentPageSelection($event.detail.checked)"></ion-checkbox>
@@ -117,6 +118,9 @@
                   <p>{{ translate("Allow Brokering") }}</p>
                 </ion-label>
               </div>
+              <div>
+                <!-- placeholder -->
+              </div>
             </template>
             <template v-else>
               <div></div>
@@ -129,9 +133,6 @@
             </template>
           </div>
         </template>
-          </ion-card-content>
-        </ion-card>
-      </ion-list>
     </ion-content>
     <ion-footer v-if="selectMode">
       <ion-toolbar class="footer-actions">
@@ -166,7 +167,10 @@ const pageIndex = ref(0);
 const total = ref(0);
 const isLoading = ref(false);
 
-const { productFacility: products } = useProductFacility();
+// Use a single composable instance so the reactive `products` ref and fetchProductFacility() below
+// share the same per-instance state (see useProductFacility for why the singleton was removed).
+const productFacilityApi = useProductFacility();
+const { productFacility: products } = productFacilityApi;
 
 const searchQuery = ref("");
 const selectedFacility = ref("");
@@ -320,7 +324,7 @@ async function fetchProductFacility() {
     params["orderByField"] = orderByField;
   }
 
-  total.value = await useProductFacility().fetchProductFacility(params);
+  total.value = await productFacilityApi.fetchProductFacility(params);
 
   // Hydrate product info (image URLs, names) for the returned product ids so row thumbnails render.
   // productFacilities/search does not return image data, so without this the product info store has
@@ -424,7 +428,7 @@ ion-content {
 }
 
 .list-item {
-  --columns-desktop: 6;
+  --columns-desktop: 8;
   border-bottom : 1px solid var(--ion-color-medium);
   align-items: center;
   padding-inline-end: var(--spacer-base, 16px);
@@ -432,6 +436,7 @@ ion-content {
 
 .list-item > ion-item {
   width: 100%;
+  grid-column: span 2;
 }
 
 .filter-card-content {

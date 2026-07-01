@@ -17,7 +17,7 @@
         <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
-              <h1>{{ routing.routingName }}</h1>
+              {{ routing.routingName }}
             </ion-label>
             <ion-chip slot="end" outline>
               {{ getRouteIndex() }}
@@ -68,7 +68,7 @@
           <ion-list>
             <ion-item class="rule-item" lines="full" v-for="rule in routing.rules" :key="rule.routingRuleId">
               <ion-label>
-                <h2>{{ rule.ruleName }}</h2>
+                {{ rule.ruleName }}
                 <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
               </ion-label>
             </ion-item>

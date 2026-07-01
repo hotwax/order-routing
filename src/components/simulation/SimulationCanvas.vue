@@ -98,7 +98,7 @@
         <ion-item class="title" lines="none">
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
-            <h1>{{ activeRouting?.routingName }}</h1>
+            {{ activeRouting?.routingName }}
           </ion-label>
         </ion-item>
         <ion-item class="status" lines="none">
@@ -247,7 +247,7 @@
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="ruleKey(rule)" :disabled="isReordering" :color="ruleKey(rule) === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
+                  {{ rule.ruleName }}
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
@@ -274,7 +274,7 @@
           <ion-item class="title" lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              <h1>{{ selectedRoutingRule.ruleName }}</h1>
+              {{ selectedRoutingRule.ruleName }}
             </ion-label>
           </ion-item>
           <ion-item lines="none" class="status">
@@ -291,7 +291,7 @@
             <ion-item lines="none">
               <ion-icon slot="start" :icon="filterOutline"/>
               <ion-label>
-                <h2>{{ translate("Filters") }}</h2>
+                {{ translate("Filters") }}
               </ion-label>
               <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
@@ -360,7 +360,7 @@
             <ion-item lines="none">
               <ion-icon slot="start" :icon="swapVerticalOutline"/>
               <ion-label>
-                <h2>{{ translate("Sort") }}</h2>
+                {{ translate("Sort") }}
               </ion-label>
               <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>

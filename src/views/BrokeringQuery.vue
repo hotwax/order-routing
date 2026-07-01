@@ -13,7 +13,7 @@
         <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
-              <h1 v-show="!isRouteNameUpdating || isTestEnabled">{{ currentRouting.routingName }}</h1>
+              <template v-if="!isRouteNameUpdating || isTestEnabled">{{ currentRouting.routingName }}</template>
               <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
               <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
             </ion-label>
@@ -225,7 +225,7 @@
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isTestEnabled">
                 <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
-                    <h2>{{ rule.ruleName }}</h2>
+                    {{ rule.ruleName }}
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                   </ion-label>
                   <!-- Don't display reordering option when there is a single rule -->
@@ -248,7 +248,7 @@
                 <ion-item lines="none">
                   <ion-label>
                     <p>{{ getRuleIndex() }}</p>
-                    <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+                    <template v-if="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</template>
                   </ion-label>
                   <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
                   <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
@@ -285,7 +285,7 @@
                   <ion-card>
                     <ion-item>
                       <ion-icon slot="start" :icon="filterOutline"/>
-                      <h4>{{ translate("Filters") }}</h4>
+                      <ion-label>{{ translate("Filters") }}</ion-label>
                       <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
@@ -358,7 +358,7 @@
                   <ion-card>
                     <ion-item>
                       <ion-icon slot="start" :icon="swapVerticalOutline"/>
-                      <h4>{{ translate("Sort") }}</h4>
+                      <ion-label>{{ translate("Sort") }}</ion-label>
                       <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>

@@ -19,7 +19,7 @@
       <div class="order-test-header">
         <ion-item lines="none">
           <ion-label slot="start">
-            <h1>{{ testRoutingInfo.currentOrder.orderName }}</h1>
+            {{ testRoutingInfo.currentOrder.orderName }}
             <p>{{ testRoutingInfo.currentOrder.orderId }}</p>
           </ion-label>
         </ion-item>

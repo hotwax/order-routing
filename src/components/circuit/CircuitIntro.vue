@@ -10,7 +10,7 @@
       <div class="circuit-mini intro-container">
         <ion-item lines="none">
           <ion-label>
-            <h1>{{ translate("Get to know Circuit") }}</h1>
+            {{ translate("Get to know Circuit") }}
             <p>{{ translate("Before Circuit starts helping you build routing rules, it'll ask you a few questions about how you envision omnichannel order routing working for you.") }}</p>
             <p>{{ translate("Your answers will help it understand which tools to use when assisting you with routing configuration.") }}</p>
             <ion-button fill="clear">{{ translate("Data privacy") }}</ion-button>
@@ -58,4 +58,3 @@ const getStarted = () => {
   height: 100%;
 }
 </style>
-

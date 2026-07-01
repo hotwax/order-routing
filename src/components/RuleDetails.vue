@@ -18,7 +18,7 @@
           <ion-item lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              <h1>{{ rule.ruleName }}</h1>
+              {{ rule.ruleName }}
             </ion-label>
           </ion-item>
           <ion-item lines="none">
@@ -31,7 +31,7 @@
           <ion-card>
             <ion-item>
               <ion-icon slot="start" :icon="filterOutline"/>
-              <h4>{{ translate("Filters") }}</h4>
+              <ion-label>{{ translate("Filters") }}</ion-label>
             </ion-item>
             <InlineHint v-if="!isInventoryRuleFiltersApplied()" :icon="optionsOutline">
               {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
@@ -66,7 +66,7 @@
           <ion-card>
             <ion-item>
               <ion-icon slot="start" :icon="swapVerticalOutline"/>
-              <h4>{{ translate("Sort") }}</h4>
+              <ion-label>{{ translate("Sort") }}</ion-label>
             </ion-item>
             <InlineHint v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions)?.length" :icon="swapVerticalOutline">
               {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}

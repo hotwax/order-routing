@@ -137,7 +137,7 @@
         <ion-item class="title" lines="none">
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
-            <h1 v-show="!isRouteNameUpdating">{{ activeRouting?.routingName }}</h1>
+            <template v-if="!isRouteNameUpdating">{{ activeRouting?.routingName }}</template>
             <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
           </ion-label>
         </ion-item>
@@ -304,7 +304,7 @@
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :disabled="isReordering" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
+                  {{ rule.ruleName }}
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
@@ -331,7 +331,7 @@
           <ion-item class="title" lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
+              <template v-if="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</template>
             </ion-label>
             <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
             <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
@@ -356,7 +356,7 @@
             <ion-item lines="none">
               <ion-icon slot="start" :icon="filterOutline"/>
               <ion-label>
-                <h2>{{ translate("Filters") }}</h2>
+                {{ translate("Filters") }}
               </ion-label>
               <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
@@ -425,7 +425,7 @@
             <ion-item lines="none">
               <ion-icon slot="start" :icon="swapVerticalOutline"/>
               <ion-label>
-                <h2>{{ translate("Sort") }}</h2>
+                {{ translate("Sort") }}
               </ion-label>
               <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>

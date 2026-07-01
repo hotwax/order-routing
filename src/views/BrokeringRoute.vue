@@ -61,7 +61,7 @@
             <div>
               <ion-card>
                 <ion-item lines="none">
-                  <h2>{{ translate("Description") }}</h2>
+                  <ion-label>{{ translate("Description") }}</ion-label>
                   <ion-button v-if="description || isDescUpdating" fill="clear" slot="end" @click="isDescUpdating ? updateGroupDescription() : editGroupDescription()">
                     {{ translate(isDescUpdating ? "Save" : "Edit") }}
                   </ion-button>
@@ -79,7 +79,7 @@
               </ion-card>
               <ion-card v-if="!userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
                 <ion-item lines="none">
-                  <h2>{{ translate("Test drive") }}</h2>
+                  <ion-label>{{ translate("Test drive") }}</ion-label>
                 </ion-item>
                 <ion-item lines="none">
                   <ion-label>
@@ -102,7 +102,7 @@
             <div>
               <ion-card>
                 <ion-item lines="none">
-                  <h2>{{ translate("Scheduler") }}</h2>
+                  <ion-label>{{ translate("Scheduler") }}</ion-label>
                   <!-- When the group is in draft status, do not display the time delta badge -->
                   <ion-badge slot="end" v-if="job.paused === 'N'">{{ timeTillJob(job.nextExecutionDateTime) }}</ion-badge>
                 </ion-item>
@@ -129,13 +129,13 @@
               </ion-card>
               <ion-card>
                 <ion-item lines="none">
-                  <h2>{{ translate("Execution history") }}</h2>
+                  <ion-label>{{ translate("Execution history") }}</ion-label>
                   <ion-button v-if="groupHistory.length" fill="clear" @click="showGroupHistory" slot="end">{{ translate("View All") }}</ion-button>
                 </ion-item>
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
+                    {{ commonUtil.getTime(groupHistory[0].startTime) }}
                     <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
                   <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.getRelativeTime(groupHistory[0].endTime) }}</ion-badge>
@@ -158,7 +158,7 @@
                 <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
-                      <h1>{{ routing.routingName }}</h1>
+                      {{ routing.routingName }}
                     </ion-label>
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">

@@ -39,7 +39,7 @@
         <ion-item v-for="facility in netFacilities" :key="facility.facilityId">
           <ion-icon :icon="storefrontOutline" slot="start" />
           <ion-label>
-            <h2>{{ facility.facilityName || facility.facilityId }}</h2>
+            {{ facility.facilityName || facility.facilityId }}
             <p>{{ facility.facilityId }}</p>
           </ion-label>
         </ion-item>
@@ -56,7 +56,7 @@
         <ion-item v-for="facility in removedFacilities" :key="facility.facilityId">
           <ion-icon :icon="closeCircleOutline" color="danger" slot="start" />
           <ion-label>
-            <h2>{{ facility.facilityName || facility.facilityId }}</h2>
+            {{ facility.facilityName || facility.facilityId }}
             <p>{{ facility.facilityId }}</p>
           </ion-label>
         </ion-item>

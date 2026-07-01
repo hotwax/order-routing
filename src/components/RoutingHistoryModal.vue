@@ -14,7 +14,7 @@
     <ion-list>
       <ion-item lines="full">
         <ion-label>
-          <h1>{{ routingName }}</h1>
+          {{ routingName }}
           <p>{{ groupName }}</p>
         </ion-label>
         <ion-label slot="end">

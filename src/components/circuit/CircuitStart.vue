@@ -15,8 +15,8 @@
     <ion-content>
       <div class="circuit-mini start-container">
         <ion-item lines="none">
-          <ion-label>
-            <h1 class="ion-text-wrap">{{ translate("Ask Circuit to build") }}</h1>
+          <ion-label class="ion-text-wrap">
+            {{ translate("Ask Circuit to build") }}
           </ion-label>
         </ion-item>
 
@@ -137,4 +137,3 @@ const openThread = (threadId: string) => {
   height: 100%;
 }
 </style>
-

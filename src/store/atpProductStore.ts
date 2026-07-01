@@ -373,7 +373,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             return map;
           }, {} as Record<string, number>);
         } else {
-          throw resp.data;
+          throw resp?.data || new Error("Failed to fetch product facet counts");
         }
       } catch (error) {
         logger.error(error);

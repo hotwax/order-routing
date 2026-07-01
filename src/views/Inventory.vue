@@ -138,7 +138,7 @@ const productById = computed(() => (productId: string) => productInfoStore().get
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
 
-const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId))
+const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId).filter(Boolean))
 const allCurrentPageSelected = computed(() => currentPageProductIds.value.length > 0 && currentPageProductIds.value.every((id: string) => selectedProductIds.value.includes(id)))
 const someCurrentPageSelected = computed(() => currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id)))
 const selectedProducts = computed(() => products.value.filter((product: any) => selectedProductIds.value.includes(product.productId)))

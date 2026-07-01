@@ -34,7 +34,7 @@ interface SolrOrderDoc extends OrderSummary {
 }
 
 function quoteSolrValue(value: string): string {
-  return `"${String(value).replace(/"/g, '\\"')}"`;
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 function extractSolrDocs(response: any): SolrOrderDoc[] {
@@ -153,17 +153,20 @@ export function useReplenishmentMetrics() {
 
     try {
       const incomingCandidates = await fetchIncomingCandidates(productId);
+      const uniqueCandidates = Array.from(
+        new Map(incomingCandidates.map((candidate) => [candidate.orderId, candidate])).values()
+      );
+      const details = await Promise.all(uniqueCandidates.map((order) => fetchOrderDetail(order)));
       let incomingUnits = 0;
 
-      for (const order of incomingCandidates) {
-        const detail = await fetchOrderDetail(order);
-
+      uniqueCandidates.forEach((order, index) => {
+        const detail = details[index];
         if (order.orderTypeId === "PURCHASE_ORDER") {
           incomingUnits += calculatePurchaseOrderIncomingUnits(detail, productId, facilityId);
         } else if (order.orderTypeId === "TRANSFER_ORDER") {
           incomingUnits += calculateTransferOrderIncomingUnits(detail, productId, facilityId);
         }
-      }
+      });
 
       metrics.incomingUnits = incomingUnits;
     } catch (err) {
@@ -199,6 +202,8 @@ export function useReplenishmentMetrics() {
       );
 
       await refreshIncomingUnits(payload.productId, payload.facilityId);
+    } catch (err) {
+      logger.error("Failed to refresh replenishment metrics", err);
     } finally {
       metrics.loading = false;
     }

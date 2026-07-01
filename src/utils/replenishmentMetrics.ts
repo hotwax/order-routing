@@ -85,12 +85,15 @@ export function buildTrendPoints(rows: InventoryDetailRow[] = []): TrendPoint[] 
     .sort((left, right) => left.timestamp - right.timestamp);
 }
 
-function getOrderSummary(orderSummaries: Record<string, OrderSummary | undefined> | OrderSummary[], orderId: string): OrderSummary | undefined {
+function buildOrderSummaryMap(orderSummaries: Record<string, OrderSummary | undefined> | OrderSummary[]): Record<string, OrderSummary | undefined> {
   if (Array.isArray(orderSummaries)) {
-    return orderSummaries.find((summary) => summary.orderId === orderId);
+    return orderSummaries.reduce((summaryMap, summary) => {
+      if (summary.orderId) summaryMap[summary.orderId] = summary;
+      return summaryMap;
+    }, {} as Record<string, OrderSummary>);
   }
 
-  return orderSummaries[orderId];
+  return orderSummaries;
 }
 
 export function calculateSalesVelocity(
@@ -104,6 +107,7 @@ export function calculateSalesVelocity(
   const nowTimestamp = typeof now === "number" ? now : Date.parse(now);
   if (!Number.isFinite(nowTimestamp)) return 0;
 
+  const summaryMap = buildOrderSummaryMap(orderSummaries);
   const windowStart = nowTimestamp - (days * 24 * 60 * 60 * 1000);
   const totalUnits = rows.reduce((sum, row) => {
     const timestamp = toTimestamp(row.effectiveDate);
@@ -115,7 +119,7 @@ export function calculateSalesVelocity(
     const orderId = String(row.orderId ?? "").trim();
     if (!orderId) return sum;
 
-    const orderSummary = getOrderSummary(orderSummaries, orderId);
+    const orderSummary = summaryMap[orderId];
     if (orderSummary?.orderTypeId !== "SALES_ORDER") return sum;
 
     return sum + Math.abs(availableToPromiseDiff);
@@ -154,7 +158,12 @@ function getOrderItems(orderDetail: any): IncomingOrderItem[] {
     order?.orderItem
   ];
 
-  return [...rootCandidates, ...nestedCandidates].flatMap(toArray);
+  for (const candidate of [...rootCandidates, ...nestedCandidates]) {
+    const items = toArray(candidate);
+    if (items.length) return items;
+  }
+
+  return [];
 }
 
 function getShipGroups(orderDetail: any): IncomingShipGroup[] {
@@ -168,7 +177,12 @@ function getShipGroups(orderDetail: any): IncomingShipGroup[] {
     order?.shipGroup
   ];
 
-  return [...rootCandidates, ...nestedCandidates].flatMap(toArray);
+  for (const candidate of [...rootCandidates, ...nestedCandidates]) {
+    const shipGroups = toArray(candidate);
+    if (shipGroups.length) return shipGroups;
+  }
+
+  return [];
 }
 
 function findShipGroup(orderDetail: any, item: IncomingOrderItem): IncomingShipGroup | undefined {

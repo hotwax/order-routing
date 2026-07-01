@@ -124,6 +124,49 @@ describe("replenishment metrics", () => {
     expect(incomingUnits).toBe(7);
   });
 
+  it("uses the first populated transfer item and ship group collections to avoid double counting", () => {
+    const incomingUnits = calculateTransferOrderIncomingUnits(
+      {
+        orderItems: [
+          {
+            productId: "M101717",
+            shipGroupSeqId: "00001",
+            quantity: "6",
+            totalReceivedQuantity: "1",
+            statusId: "ITEM_APPROVED"
+          }
+        ],
+        order: {
+          orderItems: [
+            {
+              productId: "M101717",
+              shipGroupSeqId: "00001",
+              quantity: "6",
+              totalReceivedQuantity: "1",
+              statusId: "ITEM_APPROVED"
+            }
+          ],
+          shipGroups: [
+            {
+              shipGroupSeqId: "00001",
+              orderFacilityId: "CENTRAL_WAREHOUSE"
+            }
+          ]
+        },
+        shipGroups: [
+          {
+            shipGroupSeqId: "00001",
+            orderFacilityId: "CENTRAL_WAREHOUSE"
+          }
+        ]
+      },
+      "M101717",
+      "CENTRAL_WAREHOUSE"
+    );
+
+    expect(incomingUnits).toBe(5);
+  });
+
   it("calculates incoming purchase quantity from availableToPromise with quantity fallback", () => {
     const incomingUnits = calculatePurchaseOrderIncomingUnits(
       {
@@ -190,5 +233,75 @@ describe("replenishment metrics", () => {
     expect(metrics.incomingUnavailable).toBe(true);
     expect(metrics.incomingUnits).toBe(0);
     expect(metrics.loading).toBe(false);
+  });
+
+  it("deduplicates incoming candidates and fetches order details in parallel", async () => {
+    api
+      .mockResolvedValueOnce({
+        data: {
+          response: {
+            docs: [
+              {
+                orderId: "PO100",
+                orderTypeId: "PURCHASE_ORDER"
+              },
+              {
+                orderId: "PO100",
+                orderTypeId: "PURCHASE_ORDER"
+              },
+              {
+                orderId: "TO200",
+                orderTypeId: "TRANSFER_ORDER"
+              }
+            ]
+          }
+        }
+      })
+      .mockImplementation((request: any) => {
+        if (request.url === "oms/purchaseOrders/PO100") {
+          return Promise.resolve({
+            data: {
+              order: { originFacilityId: "CENTRAL_WAREHOUSE" },
+              orderItems: [
+                {
+                  productId: "M101717",
+                  availableToPromise: "4",
+                  statusId: "ITEM_APPROVED"
+                }
+              ]
+            }
+          });
+        }
+
+        if (request.url === "oms/transferOrders/TO200") {
+          return Promise.resolve({
+            data: {
+              orderItems: [
+                {
+                  productId: "M101717",
+                  orderFacilityId: "CENTRAL_WAREHOUSE",
+                  quantity: "8",
+                  totalReceivedQuantity: "3",
+                  statusId: "ITEM_PENDING_RECEIPT"
+                }
+              ]
+            }
+          });
+        }
+
+        return Promise.resolve({ data: { response: { docs: [] } } });
+      });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+
+    await refreshReplenishmentMetrics({
+      productId: "M101717",
+      facilityId: "CENTRAL_WAREHOUSE",
+      inventoryRows: []
+    });
+
+    expect(api.mock.calls.filter(([request]) => request.url === "oms/purchaseOrders/PO100")).toHaveLength(1);
+    expect(api.mock.calls.filter(([request]) => request.url === "oms/transferOrders/TO200")).toHaveLength(1);
+    expect(metrics.incomingUnits).toBe(9);
   });
 });

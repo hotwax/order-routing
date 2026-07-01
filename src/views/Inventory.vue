@@ -24,7 +24,27 @@
             <ion-icon :icon="caretForwardOutline" />
           </ion-button>
         </div>
-        <p v-if="!products?.length" class="empty-state" data-testid="closed-empty-state">
+        <template v-if="showLoadingState">
+          <div class="list-item inventory-skeleton-row" v-for="row in loadingRows" :key="`inventory-skeleton-${row}`">
+            <ion-item>
+              <ion-checkbox slot="start" disabled />
+              <ion-thumbnail class="inventory-skeleton-thumbnail">
+                <ion-skeleton-text animated />
+              </ion-thumbnail>
+              <ion-label class="inventory-skeleton-copy">
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-primary" />
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-secondary" />
+              </ion-label>
+            </ion-item>
+            <div v-for="column in 5" :key="`inventory-skeleton-${row}-${column}`">
+              <ion-label>
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-metric" />
+                <p><ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-label" /></p>
+              </ion-label>
+            </div>
+          </div>
+        </template>
+        <p v-else-if="showEmptyState" class="empty-state" data-testid="closed-empty-state">
           {{ translate("No products found") }}
         </p>
         <template v-else>
@@ -101,7 +121,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
 import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
@@ -124,6 +144,9 @@ const selectedFacility = ref("");
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
+const showLoadingState = computed(() => isLoading.value && !products.value?.length);
+const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
+const loadingRows = [1, 2, 3, 4, 5, 6];
 
 const isAnyProductSelected = computed(() => products.value.some((product: any) => product.isChecked))
 const allSelected = computed(() => products.value.every((product: any) => product.isChecked))
@@ -258,6 +281,46 @@ ion-content {
 
 .list-item > ion-item {
   width: 100%;
+}
+
+.inventory-skeleton-row {
+  pointer-events: none;
+}
+
+.inventory-skeleton-thumbnail ion-skeleton-text {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.inventory-skeleton-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inventory-skeleton-line {
+  margin: 0;
+}
+
+.inventory-skeleton-line-primary {
+  width: 60%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-secondary {
+  width: 40%;
+  height: 14px;
+}
+
+.inventory-skeleton-line-metric {
+  width: 50%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-label {
+  width: 70%;
+  height: 12px;
 }
 
 .filters {

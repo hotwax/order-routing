@@ -98,7 +98,7 @@
         <ion-item class="title" lines="none">
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
-            {{ activeRouting?.routingName }}
+            <h1>{{ activeRouting?.routingName }}</h1>
           </ion-label>
         </ion-item>
         <ion-item class="status" lines="none">
@@ -276,7 +276,7 @@
           <ion-item class="title" lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              {{ selectedRoutingRule.ruleName }}
+              <h1>{{ selectedRoutingRule.ruleName }}</h1>
             </ion-label>
           </ion-item>
           <ion-item lines="none" class="status">

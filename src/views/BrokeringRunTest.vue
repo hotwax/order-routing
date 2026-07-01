@@ -51,7 +51,7 @@
               <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
                   <ion-label>
-                    {{ routing.routingName }}
+                    <h1>{{ routing.routingName }}</h1>
                   </ion-label>
                   {{ `${Number(index) + 1}/${group.routings.length}` }}
                 </ion-item>

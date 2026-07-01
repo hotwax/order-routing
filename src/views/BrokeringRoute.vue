@@ -158,7 +158,7 @@
                 <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
-                      {{ routing.routingName }}
+                      <h1>{{ routing.routingName }}</h1>
                     </ion-label>
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">

@@ -63,7 +63,7 @@
             <ion-card class="pointer" v-for="group in displayedGroups" :key="group.routingGroupId" @click="redirect(group)">
               <ion-item>
                 <ion-label>
-                  {{ group.groupName }}
+                  <h1>{{ group.groupName }}</h1>
                   <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
                 </ion-label>
               </ion-item>

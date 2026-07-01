@@ -18,7 +18,7 @@
           <ion-item lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              {{ rule.ruleName }}
+              <h1>{{ rule.ruleName }}</h1>
             </ion-label>
           </ion-item>
           <ion-item lines="none">

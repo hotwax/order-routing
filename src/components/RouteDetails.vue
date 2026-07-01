@@ -17,7 +17,7 @@
         <section id="order-filters" class="menu ion-padding-top">
           <ion-item lines="none">
             <ion-label>
-              {{ routing.routingName }}
+              <h1>{{ routing.routingName }}</h1>
             </ion-label>
             <ion-chip slot="end" outline>
               {{ getRouteIndex() }}

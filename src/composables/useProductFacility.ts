@@ -1,17 +1,28 @@
 import { api, logger } from "@common"
 import { Ref, ref } from "vue"
 
+interface ProductFacilityConfig {
+  allowBrokering?: string | null;
+  allowPickup?: string | null;
+  atp?: string | number | null;
+  qoh?: string | number | null;
+  minimumStock?: string | number | null;
+  daysToShip?: string | number | null;
+  computedLastInventoryCount?: string | number | null;
+  lastInventoryCount?: string | number | null;
+  inventoryItemId?: string | null;
+  maximumStock?: string | number | null;
+  reorderQuantity?: string | number | null;
+}
+
 interface ProductFacility {
   productId: string;
   facilityId: string;
-  allowBrokering: string;
-  allowPickup: string;
-  minimumStock: string;
-  computedLastInventoryCount: string;
-  lastInventoryCount: string;
-  maximumStock: string;
-  inventoryItemId: string;
-  isChecked: boolean;
+  inventoryConfig?: ProductFacilityConfig | null;
+  inventoryItemId?: string | null;
+  lastInventoryCount?: string | number | null;
+  computedLastInventoryCount?: string | number | null;
+  isChecked?: boolean;
 }
 
 export function useProductFacility() {

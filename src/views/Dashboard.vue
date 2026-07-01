@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Dashboard") }}</ion-title>
@@ -19,7 +19,6 @@
         :brokering="brokering"
         :facility-orders="facilityOrders"
         :facility-orders-date="facilityOrdersDate"
-        :facility-orders-is-today="facilityOrdersIsToday"
         :sourcing="sourcing"
         :foundations="foundations"
         :channels="channels"
@@ -50,7 +49,6 @@ const sourcing = computed(() => dashboardStore.getSourcing);
 const brokering = computed(() => dashboardStore.getBrokering);
 const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
 const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
-const facilityOrdersIsToday = computed(() => dashboardStore.getFacilityOrdersIsToday);
 const foundations = computed(() => dashboardStore.getFoundations);
 const channels = computed(() => dashboardStore.getChannels);
 const channelJobs = computed(() => dashboardStore.getChannelJobs);

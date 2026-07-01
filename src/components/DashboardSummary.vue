@@ -113,23 +113,6 @@
       </ion-list>
     </ion-card>
 
-    <!-- Facility groups -->
-    <ion-card button @click="emit('navigate', '/facility-groups')">
-      <ion-card-header>
-        <div class="card-head">
-          <ion-card-title>{{ translate("Facility groups") }}</ion-card-title>
-        </div>
-      </ion-card-header>
-      <ion-card-content>
-        <h1 class="metric">{{ foundations.facilityGroups }}</h1>
-        <div class="chips">
-          <ion-chip outline v-for="group in facilityGroups" :key="group.facilityGroupId" @click.stop="openManageFacilities(group)">
-            <ion-label>{{ group.facilityGroupName || group.facilityGroupId }}</ion-label>
-          </ion-chip>
-        </div>
-      </ion-card-content>
-    </ion-card>
-
     <!-- Inventory channels + publish jobs -->
     <ion-card button @click="emit('navigate', '/inventory-channels')">
       <ion-card-header>
@@ -152,14 +135,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText, modalController } from "@ionic/vue";
+import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText } from "@ionic/vue";
 import { computed, ref } from "vue";
 import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
-import { productStore } from "@/store/productStore";
-import ManageFacilityGroupFacilitiesModal from "@/components/ManageFacilityGroupFacilitiesModal.vue";
-
 import type { BrokeringState, FacilityOrder } from "@/store/dashboardStore";
+import { DateTime } from "luxon";
 
 const sortMode = ref("orders");
 
@@ -167,9 +148,8 @@ const props = defineProps<{
   brokering: BrokeringState;
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
-  facilityOrdersIsToday: boolean;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
-  foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
+  foundations: { channels: number };
   channels: any[];
   channelJobs: any[];
   totalSourcing: number;
@@ -188,6 +168,8 @@ const sortedFacilityOrders = computed(() => {
   return list;
 });
 
+const facilityOrdersIsToday = computed(() => DateTime.now().toFormat("yyyy-MM-dd") === props.facilityOrdersDate)
+
 function barWidth(facility: FacilityOrder) {
   if (facility.maximumOrderLimit != null && facility.maximumOrderLimit > 0) {
     return Math.min(100, facility.utilization);
@@ -197,8 +179,6 @@ function barWidth(facility: FacilityOrder) {
 }
 
 const emit = defineEmits<{ (e: "navigate", path: string): void }>();
-
-const facilityGroups = computed(() => Object.values(productStore().getFacilityGroups));
 
 const lastGroupRunBrokerRate = computed(() => {
   const run = props.brokering.lastGroupRun;
@@ -249,13 +229,6 @@ function getJobRuntimeData(job: any) {
   }
 }
 
-async function openManageFacilities(group: any) {
-  const modal = await modalController.create({
-    component: ManageFacilityGroupFacilitiesModal,
-    componentProps: { group }
-  });
-  await modal.present();
-}
 </script>
 
 <style scoped>

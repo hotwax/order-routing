@@ -137,7 +137,7 @@
         <ion-item class="title" lines="none">
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
-            <template v-if="!isRouteNameUpdating">{{ activeRouting?.routingName }}</template>
+            <h1 v-show="!isRouteNameUpdating">{{ activeRouting?.routingName }}</h1>
             <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
           </ion-label>
         </ion-item>
@@ -333,7 +333,7 @@
           <ion-item class="title" lines="none">
             <ion-label>
               <p>{{ getRuleIndex() }}</p>
-              <template v-if="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</template>
+              <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
             </ion-label>
             <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
             <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>

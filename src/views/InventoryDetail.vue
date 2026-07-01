@@ -124,6 +124,7 @@
                 {{ configurationValue("allowPickup", "Y") }}
               </ion-label>
             </ion-item>
+<<<<<<< HEAD
             <ion-item>
               <ion-label>{{ translate(isChannelScope ? "Threshold" : "Safety stock") }}</ion-label>
               <ion-label slot="end">
@@ -131,6 +132,9 @@
               </ion-label>
             </ion-item>
             <ion-item v-if="!isChannelScope" lines="none">
+=======
+            <ion-item lines="none">
+>>>>>>> f8f50a8 (Render inventory replenishment card)
               <ion-label>{{ translate("Days to Ship") }}</ion-label>
               <ion-label slot="end">
                 {{ inventoryConfig?.inventoryConfig?.daysToShip ?? "-" }}
@@ -603,6 +607,22 @@
           </template>
         </section>
 
+        <ReplenishmentCard
+          :product-id="productId"
+          :facility-id="selectedFacilityId"
+          :minimum-stock="inventoryConfig?.inventoryConfig?.minimumStock"
+          :maximum-stock="inventoryConfig?.inventoryConfig?.maximumStock"
+          :reorder-quantity="inventoryConfig?.inventoryConfig?.reorderQuantity"
+          :sales-velocity-units-per-day="replenishmentMetrics.salesVelocityUnitsPerDay"
+          :incoming-units="replenishmentMetrics.incomingUnits"
+          :incoming-unavailable="replenishmentMetrics.incomingUnavailable"
+          :trend-points="replenishmentMetrics.trendPoints"
+          :is-loading="isLoading || isHistoryLoading || replenishmentMetrics.loading"
+          :is-saving="isReplenishmentSaving"
+          :restock-href="restockHref"
+          @save="saveReplenishmentConfig"
+        />
+
         <!-- Inventory history: each row is a classified movement (the record that impacted stock).
              Collapsed = type + reference + date + ATP/QOH delta; expanded = before→after balances,
              source-record fields, and a deep link into the owning app via Fast Travel. -->
@@ -882,6 +902,7 @@ import {
   IonTitle,
   IonToolbar,
   modalController,
+<<<<<<< HEAD
   onIonViewDidEnter,
   onIonViewDidLeave
 } from "@ionic/vue";
@@ -906,6 +927,24 @@ import { MOVEMENT_TYPE_ORDER, classifyMovement, movementTypeColor, movementTypeI
 import { type InventoryScope, inventoryScopeErrorMessage, inventoryScopeQuery, parseInventoryScope } from "@/utils/inventoryScope";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
+=======
+  onIonViewDidEnter
+} from '@ionic/vue';
+import { arrowForwardOutline, chevronBackOutline, chevronForwardOutline, cubeOutline, openOutline, layersOutline } from 'ionicons/icons';
+import { api, commonUtil, logger, translate } from '@common';
+import { DateTime } from 'luxon';
+import { useProductFacility } from '@/composables/useProductFacility';
+import { useReplenishmentMetrics } from '@/composables/useReplenishmentMetrics';
+import { productStore } from '@/store/productStore';
+import { productStore as productInfoStore } from '@/store/product';
+import { orderRoutingStore } from '@/store/orderRoutingStore';
+import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
+import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+import FacilitySwitcherModal from '@/components/FacilitySwitcherModal.vue';
+import ReplenishmentCard from '@/components/ReplenishmentCard.vue';
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from '@/utils/productIdentifier';
+import { classifyMovement, MOVEMENT_TYPE_ORDER, movementTypeLabel, movementTypeIcon, movementTypeColor } from '@/utils/inventoryMovement';
+>>>>>>> f8f50a8 (Render inventory replenishment card)
 
 // Inventory-log effectiveDate arrives as either epoch millis or an ISO string; normalise to a
 // luxon DateTime so both display and date-range filtering share one parse.
@@ -1002,6 +1041,7 @@ const inventoryListHref = computed(() => router.resolve({
 // Single composable instance shared by fetchInventoryConfig/fetchInventoryLogs below so they read
 // and write the same per-instance state (see useProductFacility for why the singleton was removed).
 const productFacilityApi = useProductFacility();
+<<<<<<< HEAD
 const { clearInventoryLogs, inventoryLogs } = productFacilityApi;
 const channelInventoryApi = useChannelInventory();
 const {
@@ -1025,7 +1065,14 @@ const {
   virtualQueueDemand,
   virtualQueueDemandState,
 } = channelInventoryApi;
+=======
+const { inventoryLogs } = productFacilityApi;
+const replenishmentMetricsApi = useReplenishmentMetrics();
+const { metrics: replenishmentMetrics } = replenishmentMetricsApi;
+>>>>>>> f8f50a8 (Render inventory replenishment card)
 const inventoryConfig = ref<any>({});
+const isReplenishmentSaving = ref(false);
+const restockHref = computed<string | null>(() => null);
 
 // The remaining computation steps come from the channel's configuration facility record.
 const channelThresholdValue = computed(() => Number(inventoryConfig.value?.inventoryConfig?.minimumStock) || 0);
@@ -1506,6 +1553,7 @@ async function onProductStoreOrConfigChanged() {
 }
 
 onIonViewDidEnter(async () => {
+<<<<<<< HEAD
   await initializeDetailScope();
   emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
   emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
@@ -1513,6 +1561,22 @@ onIonViewDidEnter(async () => {
 
 onIonViewDidLeave(() => {
   emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+=======
+  selectedFacilityId.value = productStore().selectedInventoryFacilityId || productStoreFacilities.value[0]?.facilityId || '';
+  isLoading.value = true;
+  await productInfoStore().fetchProducts([productId.value]);
+  isLoading.value = false;
+  loadReasonEnums();
+  await fetchInventoryConfig();
+  await loadInventoryHistory();
+  await refreshReplenishmentMetrics();
+});
+
+watch(selectedFacilityId, async () => {
+  await fetchInventoryConfig();
+  await loadInventoryHistory();
+  await refreshReplenishmentMetrics();
+>>>>>>> f8f50a8 (Render inventory replenishment card)
 });
 
 watch(productId, async (newProductId) => {
@@ -1672,6 +1736,7 @@ async function loadInventoryHistory() {
   }
 }
 
+<<<<<<< HEAD
 // Lazy business-impact resolution: only fetch when a row is expanded (ionChange fires with the
 // currently-open accordion value[s]); results are cached per row so re-opening is free.
 function isEnrichable(m: any): boolean {
@@ -1786,6 +1851,14 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
   return null;
 }
 
+async function refreshReplenishmentMetrics() {
+  await replenishmentMetricsApi.refreshReplenishmentMetrics({
+    productId: productId.value,
+    facilityId: selectedFacilityId.value,
+    inventoryRows: inventoryLogs.value
+  });
+}
+
 // IID_REASON enum descriptions (e.g. VAR_EXT_RESET → "External reset") for cycle-count/adjustment
 // rows. Fetched once per view; failures fall back to the raw enumId / row description.
 let reasonsLoaded = false;
@@ -1821,6 +1894,8 @@ async function openInventoryEditModal() {
   await modal.present();
   await modal.onDidDismiss();
   await fetchInventoryConfig();
+  await loadInventoryHistory();
+  await refreshReplenishmentMetrics();
 }
 
 async function openConfigEditModal() {
@@ -1838,6 +1913,30 @@ async function openConfigEditModal() {
   await modal.present();
   await modal.onDidDismiss();
   await loadScopeData();
+  await refreshReplenishmentMetrics();
+}
+
+async function saveReplenishmentConfig(payload: { minimumStock: number }) {
+  isReplenishmentSaving.value = true;
+
+  try {
+    await productFacilityApi.updateProductFacility([
+      {
+        productId: productId.value,
+        facilityId: selectedFacilityId.value,
+        minimumStock: payload.minimumStock
+      }
+    ]);
+    await fetchInventoryConfig();
+    await refreshReplenishmentMetrics();
+    commonUtil.showToast(translate("Replenishment settings saved"));
+  } catch (err) {
+    logger.error("Failed to save replenishment settings", err);
+    commonUtil.showToast(translate("Replenishment settings could not be saved"));
+  } finally {
+    isReplenishmentSaving.value = false;
+  }
+}
 }
 
 async function openFacilitySwitcher() {

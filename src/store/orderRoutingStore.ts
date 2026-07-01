@@ -792,9 +792,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
       try {
         const resp = await api({
-          url: "solr-query",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
+          url: "admin/runSolrQuery",
+          method: "POST",
           data: payload
         });
 
@@ -863,9 +862,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
       try {
         const resp = await api({
-          url: "solr-query",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
+          url: "admin/runSolrQuery",
+          method: "POST",
           data: payload
         });
 

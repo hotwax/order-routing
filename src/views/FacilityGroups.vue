@@ -195,8 +195,6 @@ async function openManageFacilities(group: any) {
   await modal.present();
 }
 
-}
-
 onMounted(load);
 </script>
 

@@ -3,6 +3,7 @@ import { logger, commonUtil, api } from '@common'
 import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
+import { DateTime } from 'luxon'
 
 export const useUtilStore = defineStore('util', {
   state: () => {
@@ -200,14 +201,13 @@ export const useUtilStore = defineStore('util', {
 
       try {
         const resp = await api({
-          url: "oms/entityData",
-          method: "POST",
-          baseURL: commonUtil.getMaargURL(),
-          data: payload
+          url: "admin/user/sessions",
+          method: "GET",
+          params: payload
         });
 
-        if(resp.data && resp.data.entityValueList?.length) {
-          userTestingSession = resp.data.entityValueList[0]
+        if(resp.data && resp.data?.length) {
+          userTestingSession = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now())[0]
         }
       } catch(err) {
         logger.error("Failed to get user session", err)
@@ -220,14 +220,13 @@ export const useUtilStore = defineStore('util', {
 
       try {
         const resp = await api({
-          url: "oms/entityData",
-          method: "POST",
-          baseURL: commonUtil.getMaargURL(),
-          data: payload
+          url: "admin/user/sessions",
+          method: "GET",
+          params: payload
         });
 
-        if(resp.data && resp.data.entityValueList?.length) {
-          testingSessions = resp.data.entityValueList
+        if(resp.data && resp.data.length) {
+          testingSessions = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now())
         }
       } catch(err) {
         logger.error("Failed to get testing sessions", err)

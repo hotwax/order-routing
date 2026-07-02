@@ -373,14 +373,10 @@ function getEligibleRoutesForBrokering(routing: any) {
 
 async function getUserTestSession() {
   userTestingSession.value = await useUtilStore().getUserSession({
-    customParametersMap: {
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      userId: userProfile.value.userId,
-      productStoreId: currentEComStore.value.productStoreId
-    },
-    selectedEntity: "co.hotwax.user.UserSession",
-    pageLimit: 100,
-    filterByDate: true
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    pageNoLimit: "true"
   });
 }
 

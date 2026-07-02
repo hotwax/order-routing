@@ -145,7 +145,7 @@ async function save() {
       await facilityGroupStore.createGroup({
         facilityGroupId: form.value.facilityGroupId,
         facilityGroupName: form.value.facilityGroupName,
-        facilityGroupTypeId: form.value.facilityGroupTypeId || "FACILITY_GROUP",
+        facilityGroupTypeId: form.value.facilityGroupTypeId || "BROKERING_GROUP",
         description: form.value.description
       });
       commonUtil.showToast(translate("Facility group created."));

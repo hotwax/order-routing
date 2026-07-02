@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/shipping" />
         <ion-title>{{ ruleId ? translate("Edit shipping rule") : translate("New shipping rule") }}</ion-title>
@@ -31,14 +31,19 @@
       </section>
 
       <div class="section-header">
-        <h1 v-if="selectedSegment === 'RG_SHIPPING_FACILITY'">{{ translate("Facilities") }} <ion-text color="danger">*</ion-text></h1>
+        <h1 v-if="selectedSegment === 'RG_SHIPPING_FACILITY'">{{ translate("Facility Groups") }} <ion-text color="danger">*</ion-text></h1>
         <h1 v-else-if="selectedSegment === 'RG_SHIPPING_CHANNEL'">{{ translate("Channels") }} <ion-text color="danger">*</ion-text></h1>
       </div>
 
       <section>
         <ion-item lines="none">
-          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_SHIPPING_FACILITY" ? translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
+          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_SHIPPING_FACILITY" ? translate("Select all facility groups") : translate("Select all channels") }}</ion-toggle>
         </ion-item>
+        <ion-button fill="clear" size="small" @click="openFacilityImpactModal()">
+          <ion-icon :icon="eyeOutline" slot="start" />
+          <ion-spinner v-if="isCountingNetFacilities" name="crescent" slot="end" />
+          <template v-else>{{ translate("View {count} impacted facilities", { count: netFacilityCount }) }}</template>
+        </ion-button>
       </section>
 
       <template v-if="selectedSegment === 'RG_SHIPPING_FACILITY'">
@@ -75,16 +80,6 @@
             </ion-card-content>
           </ion-card>
 
-          <ion-item class="facility-impact-summary" lines="none">
-            <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllSelected">
-              <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
-              <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
-            </ion-chip>
-            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected" @click="openFacilityImpactModal()">
-              <ion-icon :icon="eyeOutline" slot="start" />
-              {{ translate("Preview impacted facilities") }}
-            </ion-button>
-          </ion-item>
         </section>
         <EmptyState
           v-else
@@ -195,7 +190,7 @@ const formData = ref({
 }) as any;
 
 const facilityGroupsSelection = computed(() => formData.value.selectedFacilityGroups)
-const { hasFacilityGroupSelections, isCounting: isCountingNetFacilities, netFacilityCount } = useFacilityGroupNetOutcome(facilityGroupsSelection, computed(() => formData.value.areAllSelected))
+const { isCounting: isCountingNetFacilities, netFacilityCount } = useFacilityGroupNetOutcome(facilityGroupsSelection, computed(() => formData.value.areAllSelected))
 
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
@@ -209,7 +204,7 @@ onIonViewDidEnter(async () => {
         currentRule.value = resp.data[0];
 
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+        formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
 
         if(selectedSegment.value === "RG_SHIPPING_FACILITY") {
           const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")
@@ -294,7 +289,8 @@ async function openFacilityImpactModal() {
     component: FacilityGroupImpactModal,
     componentProps: {
       includedGroups: formData.value.selectedFacilityGroups.included,
-      excludedGroups: formData.value.selectedFacilityGroups.excluded
+      excludedGroups: formData.value.selectedFacilityGroups.excluded,
+      areAllSelected: formData.value.areAllSelected
     }
   })
   modal.present()

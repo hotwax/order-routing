@@ -201,7 +201,6 @@ export interface DashboardState {
   brokering: BrokeringState;
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
-  facilityOrdersIsToday: boolean;
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
   channels: any[];
   jobs: { total: number; running: number };
@@ -216,7 +215,6 @@ export const useDashboardStore = defineStore("dashboard", {
     brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
     facilityOrders: [],
     facilityOrdersDate: null,
-    facilityOrdersIsToday: false,
     foundations: { facilityGroups: 0, facilityGroupsByType: {}, channels: 0 },
     channels: [],
     jobs: { total: 0, running: 0 },
@@ -227,7 +225,6 @@ export const useDashboardStore = defineStore("dashboard", {
     getBrokering: (state) => state.brokering,
     getFacilityOrders: (state) => state.facilityOrders,
     getFacilityOrdersDate: (state) => state.facilityOrdersDate,
-    getFacilityOrdersIsToday: (state) => state.facilityOrdersIsToday,
     getFoundations: (state) => state.foundations,
     getChannels: (state) => state.channels,
     getJobs: (state) => state.jobs,
@@ -365,13 +362,11 @@ export const useDashboardStore = defineStore("dashboard", {
     async loadFacilityOrders() {
       let facilityOrders: FacilityOrder[] = [];
       let facilityOrdersDate: string | null = null;
-      let facilityOrdersIsToday = false;
       try {
         const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
         if (!productStoreId) {
           this.facilityOrders = [];
           this.facilityOrdersDate = null;
-          this.facilityOrdersIsToday = false;
           return;
         }
         const resp = await api({
@@ -389,7 +384,6 @@ export const useDashboardStore = defineStore("dashboard", {
         if (commonUtil.hasError(resp) || !resp.data?.length) {
           this.facilityOrders = [];
           this.facilityOrdersDate = null;
-          this.facilityOrdersIsToday = false;
           return;
         }
         const facilities = resp.data;
@@ -397,44 +391,26 @@ export const useDashboardStore = defineStore("dashboard", {
         for (const f of facilities) facilityMap[f.facilityId] = f;
         const facilityIds = Object.keys(facilityMap);
 
-        const today = DateTime.now().toFormat("yyyy-MM-dd");
         let countMap: Record<string, number> = {};
 
-        const todayResp = await api({
+        const dateResp = await api({
           url: "admin/facilities/orderCount",
           method: "GET",
-          params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: today }
+          params: { facilityId: facilityIds.join(","), facilityId_op: "in", orderByField: "-entryDate", pageSize: 1 }
         }) as any;
-        if (!commonUtil.hasError(todayResp) && todayResp.data?.length) {
-          for (const entry of todayResp.data) {
-            const count = Number(entry.lastOrderCount) || 0;
-            if (count > 0) countMap[entry.facilityId] = count;
-          }
-        }
-
-        if (Object.keys(countMap).length > 0) {
-          facilityOrdersDate = today;
-          facilityOrdersIsToday = true;
-        } else {
-          const fallbackResp = await api({
+        if (!commonUtil.hasError(dateResp) && dateResp.data?.length) {
+          const latestEntry = dateResp.data[0];
+          const latestDate = DateTime.fromMillis(Number(latestEntry.entryDate)).toFormat("yyyy-MM-dd");
+          facilityOrdersDate = latestDate;
+          const facilityCountsResp = await api({
             url: "admin/facilities/orderCount",
             method: "GET",
-            params: { facilityId: facilityIds.join(","), facilityId_op: "in", orderByField: "-entryDate", pageSize: 1 }
+            params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: latestDate, pageSize: facilityIds.length }
           }) as any;
-          if (!commonUtil.hasError(fallbackResp) && fallbackResp.data?.length) {
-            const latestEntry = fallbackResp.data[0];
-            const latestDate = DateTime.fromMillis(Number(latestEntry.entryDate)).toFormat("yyyy-MM-dd");
-            facilityOrdersDate = latestDate;
-            const dateResp = await api({
-              url: "admin/facilities/orderCount",
-              method: "GET",
-              params: { facilityId: facilityIds.join(","), facilityId_op: "in", entryDate: latestDate }
-            }) as any;
-            if (!commonUtil.hasError(dateResp) && dateResp.data?.length) {
-              for (const entry of dateResp.data) {
-                const count = Number(entry.lastOrderCount) || 0;
-                if (count > 0) countMap[entry.facilityId] = count;
-              }
+          if (!commonUtil.hasError(facilityCountsResp) && facilityCountsResp.data?.length) {
+            for (const entry of facilityCountsResp.data) {
+              const count = Number(entry.lastOrderCount) || 0;
+              if (count > 0) countMap[entry.facilityId] = count;
             }
           }
         }
@@ -459,7 +435,6 @@ export const useDashboardStore = defineStore("dashboard", {
       }
       this.facilityOrders = facilityOrders;
       this.facilityOrdersDate = facilityOrdersDate;
-      this.facilityOrdersIsToday = facilityOrdersIsToday;
     },
     async loadFoundations() {
       const foundations = { facilityGroups: 0, facilityGroupsByType: {} as Record<string, number>, channels: 0 };

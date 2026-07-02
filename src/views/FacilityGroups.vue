@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Facility groups") }}</ion-title>
@@ -42,7 +42,7 @@
               <ion-card-subtitle v-if="group.description">{{ group.description }}</ion-card-subtitle>
             </ion-card-header>
 
-            <ion-item lines="none">
+            <ion-item :lines="getFacilityCount(group.facilityGroupId) ? 'none' : 'full'">
               <ion-chip outline>
                 {{ getTypeLabel(group.facilityGroupTypeId) }}
               </ion-chip>
@@ -121,7 +121,7 @@ import {
 } from "@ionic/vue";
 import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
-import { computed, onActivated, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import EmptyState from "@/components/EmptyState.vue";
@@ -163,13 +163,8 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
-  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
-  if (!productStoreId) {
-    facilityGroupStore.$patch({ groups: [] });
-    return;
-  }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId });
+    await facilityGroupStore.fetchGroups({ productStoreId: productStore.getCurrentProductStore?.productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -190,9 +185,6 @@ async function openEditModal(group: any) {
   const modal = await modalController.create({
     component: CreateUpdateFacilityGroupModal,
     componentProps: { group }
-  });
-  modal.onDidDismiss().then((res: any) => {
-    if (res?.data?.saved) load();
   });
   await modal.present();
 }
@@ -233,7 +225,6 @@ async function confirmArchive(group: any) {
 }
 
 onMounted(load);
-onActivated(load);
 </script>
 
 <style scoped>
@@ -245,6 +236,10 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: var(--spacer-base);
+}
+
+.group-grid > ion-card {
+  height: min-content;
 }
 
 .actions {

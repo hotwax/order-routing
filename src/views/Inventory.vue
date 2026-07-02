@@ -7,78 +7,57 @@
     </ion-header>
     <ion-content data-testid="closed-content">
       <ion-list data-testid="closed-list">
-        <ion-card>
-          <ion-card-content class="filter-card-content">
-            <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="300" @ionInput="updateSearchQuery($event)" data-testid="inventory-search-bar"/>
-            <div class="filter-controls">
-              <ion-item lines="none">
-                <ion-select v-model="selectedFacility" :label="translate('Facility')" interface="popover">
-                  <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-              <ion-item lines="none">
-              <ion-select v-model="allowPickupFilter" :label="translate('Allow Pickup')" interface="popover" @ionChange="applyServerFilters">
-                  <ion-select-option value="all">{{ translate("All") }}</ion-select-option>
-                  <ion-select-option value="Y">{{ "Y" }}</ion-select-option>
-                  <ion-select-option value="N">{{ "N" }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-              <ion-item lines="none">
-              <ion-select v-model="allowBrokeringFilter" :label="translate('Allow Brokering')" interface="popover" @ionChange="applyServerFilters">
-                  <ion-select-option value="all">{{ translate("All") }}</ion-select-option>
-                  <ion-select-option value="Y">{{ "Y" }}</ion-select-option>
-                  <ion-select-option value="N">{{ "N" }}</ion-select-option>
-                </ion-select>
-              </ion-item>
-              <ion-item lines="none" class="safety-stock-filter">
-                <ion-select v-model="safetyStockOperator" :label="translate('Safety stock')" aria-label="Safety stock comparison" interface="popover" @ionChange="applyServerFilters">
-                  <ion-select-option value="all">{{ translate("All") }}</ion-select-option>
-                  <ion-select-option value="lessThan">Less than</ion-select-option>
-                  <ion-select-option value="equals">Equals</ion-select-option>
-                  <ion-select-option value="greaterThan">Greater than</ion-select-option>
-                </ion-select>
-                <ion-note v-if="safetyStockOperator !== 'all'">Qty</ion-note>
-                <ion-input v-if="safetyStockOperator !== 'all'" v-model="safetyStockValue" type="number" min="0" inputmode="numeric" :debounce="300" aria-label="Safety stock quantity" @ionInput="applyServerFilters" />
-              </ion-item>
-              <ion-item lines="none">
-              <ion-select v-model="sortBy" :label="translate('Sort')" interface="popover" @ionChange="applyServerFilters">
-                  <ion-select-option value="default">Default</ion-select-option>
-                  <ion-select-option value="productAsc">Product A-Z</ion-select-option>
-                  <ion-select-option value="productDesc">Product Z-A</ion-select-option>
-                  <ion-select-option value="atpAsc">ATP low to high</ion-select-option>
-                  <ion-select-option value="atpDesc">ATP high to low</ion-select-option>
-                  <ion-select-option value="qohAsc">QOH low to high</ion-select-option>
-                  <ion-select-option value="qohDesc">QOH high to low</ion-select-option>
-                  <ion-select-option value="safetyStockAsc">Safety stock low to high</ion-select-option>
-                  <ion-select-option value="safetyStockDesc">Safety stock high to low</ion-select-option>
-                </ion-select>
-              </ion-item>
+        <div class="filters">
+          <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="300" @ionInput="updateSearchQuery($event)" data-testid="inventory-search-bar"/>
+          <ion-item>
+            <ion-select v-model="selectedFacility" :label="translate('Facility')" interface="popover">
+              <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">{{ facility.facilityName }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+        </div>
+        <div class="pagination">
+          <ion-button fill="clear" slot="icon-only" :disabled="pageIndex === 0 || isLoading" @click="goToPreviousPage">
+            <ion-icon :icon="caretBackOutline" />
+          </ion-button>
+          <ion-note color="medium">{{ pageIndex + 1 }} / {{ pageCount }}</ion-note>
+          <ion-button fill="clear" slot="icon-only" :disabled="pageIndex >= pageCount - 1 || isLoading" @click="goToNextPage">
+            <ion-icon :icon="caretForwardOutline" />
+          </ion-button>
+          <ion-button v-if="products?.length" class="select-toggle" fill="clear" size="small" @click="toggleSelectMode">
+            {{ selectMode ? translate("Done") : translate("Select") }}
+          </ion-button>
+        </div>
+        <template v-if="showLoadingState">
+          <div class="list-item inventory-skeleton-row" v-for="row in loadingRows" :key="`inventory-skeleton-${row}`">
+            <ion-item>
+              <ion-checkbox slot="start" disabled />
+              <ion-thumbnail class="inventory-skeleton-thumbnail">
+                <ion-skeleton-text animated />
+              </ion-thumbnail>
+              <ion-label class="inventory-skeleton-copy">
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-primary" />
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-secondary" />
+              </ion-label>
+            </ion-item>
+            <div v-for="column in 5" :key="`inventory-skeleton-${row}-${column}`">
+              <ion-label>
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-metric" />
+                <p><ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-label" /></p>
+              </ion-label>
             </div>
-
-        <ion-item lines="none">
-          <ion-checkbox slot="start" v-if="selectMode" :checked="allCurrentPageSelected" :indeterminate="someCurrentPageSelected && !allCurrentPageSelected" @ionChange="toggleCurrentPageSelection($event.detail.checked)"></ion-checkbox>
-          <ion-label>{{ translate("products found", { count: total }) }}</ion-label>
-          <div slot="end" class="pagination">
-            <ion-button fill="clear" slot="icon-only" :disabled="pageIndex === 0 || isLoading" @click="goToPreviousPage">
-              <ion-icon :icon="caretBackOutline" />
-            </ion-button>
-            <ion-note color="medium">{{ pageIndex + 1 }} / {{ pageCount }}</ion-note>
-            <ion-button fill="clear" slot="icon-only" :disabled="pageIndex >= pageCount - 1 || isLoading" @click="goToNextPage">
-              <ion-icon :icon="caretForwardOutline" />
-            </ion-button>
-            <ion-button v-if="products.length" fill="clear" size="small" @click="toggleSelectMode">
-              {{ selectMode ? translate("Done") : translate("Select") }}
-            </ion-button>
           </div>
-        </ion-item>
-        <p v-if="!products.length" class="empty-state" data-testid="closed-empty-state">
+        </template>
+        <p v-else-if="showEmptyState" class="empty-state" data-testid="closed-empty-state">
           {{ translate("No products found") }}
         </p>
         <template v-else>
+          <ion-item v-if="selectMode" lines="none">
+            <ion-checkbox :checked="allCurrentPageSelected" :indeterminate="someCurrentPageSelected && !allCurrentPageSelected" label-placement="end" @ionChange="toggleCurrentPageSelection($event.detail.checked)">{{ translate("Select all") }}</ion-checkbox>
+          </ion-item>
           <div class="list-item" v-for="product in products" :key="product.productId" @click="onRowClick(product.productId)">
-            <ion-item lines="none">
+            <ion-item>
               <ion-checkbox v-if="selectMode" :checked="isSelected(product.productId)" slot="start" @click.stop="toggleProductSelection(product.productId)"></ion-checkbox>
-              <ion-thumbnail slot="start" data-testid="assigned-detail-product-thumbnail">
+              <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
               <ion-label>
@@ -129,11 +108,9 @@
             </template>
           </div>
         </template>
-          </ion-card-content>
-        </ion-card>
       </ion-list>
     </ion-content>
-    <ion-footer v-if="selectMode">
+    <ion-footer v-if="selectMode && selectedProductIds.length">
       <ion-toolbar class="footer-actions">
         <ion-buttons slot="start">
           <ion-button disabled>{{ selectedProductIds.length }} {{ translate("selected") }}</ion-button>
@@ -150,7 +127,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCard, IonCardContent, IonCheckbox, IonFooter, IonIcon, IonInput, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
 import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
@@ -170,11 +147,6 @@ const { productFacility: products } = useProductFacility();
 
 const searchQuery = ref("");
 const selectedFacility = ref("");
-const allowPickupFilter = ref("all");
-const allowBrokeringFilter = ref("all");
-const safetyStockOperator = ref("all");
-const safetyStockValue = ref("");
-const sortBy = ref("default");
 
 // Select mode: rows browse by default and only become selectable after the user enters select mode.
 // Selection is tracked by stable product id, not by mutating row objects (#448).
@@ -185,8 +157,11 @@ const productStoreFacilities = computed(() => productStore().productStoreFacilit
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
+const showLoadingState = computed(() => isLoading.value && !products.value?.length);
+const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
+const loadingRows = [1, 2, 3, 4, 5, 6];
 
-const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId))
+const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId).filter(Boolean))
 const allCurrentPageSelected = computed(() => currentPageProductIds.value.length > 0 && currentPageProductIds.value.every((id: string) => selectedProductIds.value.includes(id)))
 const someCurrentPageSelected = computed(() => currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id)))
 const selectedProducts = computed(() => products.value.filter((product: any) => selectedProductIds.value.includes(product.productId)))
@@ -204,6 +179,7 @@ async function onProductStoreOrConfigChanged() {
     : productStoreFacilities.value?.[0]?.facilityId) || '';
 
   if (selectedFacility.value === facilityId) {
+    exitSelectMode();
     await fetchProductFacility();
   } else {
     selectedFacility.value = facilityId;
@@ -222,8 +198,7 @@ onIonViewDidLeave(() => {
 
 watch(selectedFacility, (facilityId) => {
   productStore().setSelectedInventoryFacilityId(facilityId)
-  selectedProductIds.value = []
-  pageIndex.value = 0
+  exitSelectMode()
   fetchProductFacility()
 })
 
@@ -267,24 +242,6 @@ function onRowClick(productId: string) {
   selectMode.value ? toggleProductSelection(productId) : viewInventoryDetail(productId)
 }
 
-function applyServerFilters() {
-  pageIndex.value = 0
-  selectedProductIds.value = []
-  fetchProductFacility()
-}
-
-function getOrderByField() {
-  if (sortBy.value === "productAsc") return "productId";
-  if (sortBy.value === "productDesc") return "-productId";
-  if (sortBy.value === "atpAsc") return "atp";
-  if (sortBy.value === "atpDesc") return "-atp";
-  if (sortBy.value === "qohAsc") return "qoh";
-  if (sortBy.value === "qohDesc") return "-qoh";
-  if (sortBy.value === "safetyStockAsc") return "minimumStock";
-  if (sortBy.value === "safetyStockDesc") return "-minimumStock";
-  return "";
-}
-
 async function fetchProductFacility() {
   if (!selectedFacility.value) return;
 
@@ -300,24 +257,6 @@ async function fetchProductFacility() {
 
   if(selectedFacility.value) {
     params["facilityId"] = selectedFacility.value;
-  }
-
-  if(allowPickupFilter.value !== "all") {
-    params["allowPickup"] = allowPickupFilter.value;
-  }
-
-  if(allowBrokeringFilter.value !== "all") {
-    params["allowBrokering"] = allowBrokeringFilter.value;
-  }
-
-  if(safetyStockOperator.value !== "all" && safetyStockValue.value !== "") {
-    params["minimumStock"] = safetyStockValue.value;
-    params["minimumStock_op"] = safetyStockOperator.value;
-  }
-
-  const orderByField = getOrderByField();
-  if(orderByField) {
-    params["orderByField"] = orderByField;
   }
 
   total.value = await useProductFacility().fetchProductFacility(params);
@@ -434,60 +373,64 @@ ion-content {
   width: 100%;
 }
 
-.filter-card-content {
+.inventory-skeleton-row {
+  pointer-events: none;
+}
+
+.inventory-skeleton-thumbnail ion-skeleton-text {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.inventory-skeleton-copy {
   display: flex;
   flex-direction: column;
-  gap: var(--spacer-xs);
+  gap: 8px;
 }
 
-.filter-card-content ion-searchbar {
-  padding: 0;
+.inventory-skeleton-line {
+  margin: 0;
 }
 
-.filter-controls {
+.inventory-skeleton-line-primary {
+  width: 60%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-secondary {
+  width: 40%;
+  height: 14px;
+}
+
+.inventory-skeleton-line-metric {
+  width: 50%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-label {
+  width: 70%;
+  height: 12px;
+}
+
+.filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacer-xs);
 }
 
-.filter-controls ion-item {
-  flex: 1 1 220px;
-  min-width: 0;
+.filters > * {
+  flex: 1;
 }
 
-.filter-controls ion-input {
-  max-width: 120px;
-}
-
-.filter-controls ion-item.safety-stock-filter {
-  flex: 2 1 360px;
-}
-
-.safety-stock-filter ion-select {
-  min-width: 140px;
-}
-
-.safety-stock-filter ion-label {
-  flex: 0 0 auto;
-  margin-inline-end: var(--spacer-xs);
-  white-space: nowrap;
-}
-
-.safety-stock-filter ion-input {
-  flex: 0 0 88px;
-  max-width: 88px;
-  margin-inline-start: var(--spacer-xs);
-}
-
-.safety-stock-filter ion-note {
-  margin-inline-start: var(--spacer-xs);
+.filters ion-button {
+  flex: unset;
+  margin-inline-start: var(--spacer-sm);
 }
 
 .pagination {
   display: flex;
+  justify-content: flex-start;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .pagination .select-toggle {

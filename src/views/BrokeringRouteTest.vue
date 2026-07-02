@@ -59,8 +59,8 @@
                 <Image :src="getProduct(item.productId).mainImageUrl"/>
               </ion-thumbnail>
               <ion-label>
-                {{ getPrimaryProductDisplay(item.productId) }}
-                <p>{{ getSecondaryProductDisplay(item.productId) }}</p>
+                {{ getPrimaryProductIdentifier(productIdentificationPref, { productId: item.productId, ...getProduct(item.productId) }) }}
+                <p>{{ getSecondaryProductIdentifier(productIdentificationPref, { productId: item.productId, ...getProduct(item.productId) }) }}</p>
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
               <ion-badge slot="end" :color="commonUtil.getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
@@ -133,16 +133,6 @@ const getProductStock = computed(() => (productId: string, facilityId: string) =
 const shippingMethods = computed(() => productStore().getShippingMethods)
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
-
-function getPrimaryProductDisplay(productId: string) {
-  const product = getProduct.value(productId);
-  return getPrimaryProductIdentifier(productIdentificationPref.value, { productId, ...product });
-}
-
-function getSecondaryProductDisplay(productId: string) {
-  const product = getProduct.value(productId);
-  return getSecondaryProductIdentifier(productIdentificationPref.value, { productId, ...product });
-}
 
 async function searchOrders(orderId = "") {
   const searchedQuery = orderId ? orderId : queryString.value.trim()

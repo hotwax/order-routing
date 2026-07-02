@@ -1,15 +1,13 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/store-pickup" />
         <ion-title>{{ ruleId ? translate("Edit store pickup rule") : translate("New store pickup rule") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     
-    <ion-content>
-      <div class="rule-layout">
-        <div class="rule-form">
+   <ion-content>
       <section>
         <div class="rule-config">
           <ion-card>
@@ -24,7 +22,7 @@
                 </ion-input>
               </ion-item>
               <ion-item>
-                <ion-icon slot="start" :icon="storefrontOutline"/>
+                <ion-icon slot="start" :icon="storefrontOutline" />
                 <ion-toggle v-model="formData.isPickupAllowed">{{ translate("Store pickup") }}</ion-toggle>
               </ion-item>
             </div>
@@ -33,14 +31,22 @@
       </section>
 
       <div class="section-header">
-        <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facilities") }} <ion-text color="danger">*</ion-text></h1>
-        <h1 v-else-if="selectedSegment === 'RG_PICKUP_CHANNEL'">{{ translate("Channels") }} <ion-text color="danger">*</ion-text></h1>
+        <h1 v-if="selectedSegment === 'RG_PICKUP_FACILITY'">{{ translate("Facility Groups") }} <ion-text
+            color="danger">*</ion-text></h1>
+        <h1 v-else-if="selectedSegment === 'RG_PICKUP_CHANNEL'">{{ translate("Channels") }} <ion-text
+            color="danger">*</ion-text></h1>
       </div>
 
       <section>
         <ion-item lines="none">
-          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_PICKUP_FACILITY" ? translate("Select all facilities") : translate("Select all channels") }}</ion-toggle>
+          <ion-toggle v-model="formData.areAllSelected">{{ selectedSegment === "RG_PICKUP_FACILITY" ?
+            translate("Select all facility groups") : translate("Select all channels") }}</ion-toggle>
         </ion-item>
+        <ion-button fill="clear" size="small" @click="openFacilityImpactModal()">
+          <ion-icon :icon="eyeOutline" slot="start" />
+          <ion-spinner v-if="isCountingNetFacilities" name="crescent" slot="end" />
+          <template v-else>{{ translate("View {count} impacted facilities", { count: netFacilityCount }) }}</template>
+        </ion-button>
       </section>
 
       <template v-if="selectedSegment === 'RG_PICKUP_FACILITY'">
@@ -54,15 +60,16 @@
               </ion-button>
             </ion-item>
             <ion-card-content>
-              <ion-chip outline v-for="group in formData.selectedFacilityGroups['included']" :key="group.facilityGroupId">
+              <ion-chip outline v-for="group in formData.selectedFacilityGroups['included']"
+                :key="group.facilityGroupId">
                 {{ group.facilityGroupName }}
                 <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'included')" />
               </ion-chip>
             </ion-card-content>
           </ion-card>
-  
+
           <ion-card :disabled="formData.areAllSelected">
-            <ion-item lines="none"> 
+            <ion-item lines="none">
               <ion-label>{{ translate("Excluded") }}</ion-label>
               <ion-button fill="clear" @click="openProductFacilityGroupModal('excluded')">
                 {{ translate("Add") }}
@@ -70,31 +77,16 @@
               </ion-button>
             </ion-item>
             <ion-card-content>
-              <ion-chip outline v-for="group in formData.selectedFacilityGroups['excluded']" :key="group.facilityGroupId">
+              <ion-chip outline v-for="group in formData.selectedFacilityGroups['excluded']"
+                :key="group.facilityGroupId">
                 {{ group.facilityGroupName }}
                 <ion-icon :icon="closeCircle" @click="removeFacilityGroups(group.facilityGroupId, 'excluded')" />
               </ion-chip>
             </ion-card-content>
           </ion-card>
-
-          <ion-item class="facility-impact-summary" lines="none">
-            <ion-chip outline color="success" v-if="hasFacilityGroupSelections && !formData.areAllSelected">
-              <ion-spinner v-if="isCountingNetFacilities" name="crescent" />
-              <ion-label v-else>{{ translate("net facilities", { count: netFacilityCount }) }}</ion-label>
-            </ion-chip>
-            <ion-button fill="clear" size="small" :disabled="formData.areAllSelected" @click="openFacilityImpactModal()">
-              <ion-icon :icon="eyeOutline" slot="start" />
-              {{ translate("Preview impacted facilities") }}
-            </ion-button>
-          </ion-item>
         </section>
-        <EmptyState
-          v-else
-          variant="compact"
-          :icon="businessOutline"
-          :title="translate('No facility groups yet')"
-          :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')"
-        >
+        <EmptyState v-else variant="compact" :icon="businessOutline" :title="translate('No facility groups yet')"
+          :message="translate('Facility groups organize the facilities this rule applies to. Create one, or use a group that already exists.')">
           <template #actions>
             <ion-button @click="createFacilityGroup()">
               {{ translate("Create facility group") }}
@@ -110,7 +102,8 @@
 
       <template v-else>
         <section v-if="configFacilities.length">
-          <ion-card v-for="facility in configFacilities" :key="facility.facilityId" @click="toggleFacilitySelection(facility.facilityId)" button :disabled="formData.areAllSelected">
+          <ion-card v-for="facility in configFacilities" :key="facility.facilityId"
+            @click="toggleFacilitySelection(facility.facilityId)" button :disabled="formData.areAllSelected">
             <ion-card-header>
               <div>
                 <ion-card-title>{{ facility.facilityName }}</ion-card-title>
@@ -120,13 +113,8 @@
             </ion-card-header>
           </ion-card>
         </section>
-        <EmptyState
-          v-else
-          variant="compact"
-          :icon="cloudUploadOutline"
-          :title="translate('No channels yet')"
-          :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')"
-        >
+        <EmptyState v-else variant="compact" :icon="cloudUploadOutline" :title="translate('No channels yet')"
+          :message="translate('This product store has no inventory channels. Create one to choose where this rule applies.')">
           <template #actions>
             <ion-button @click="createChannel()">
               {{ translate("Create channel") }}
@@ -140,18 +128,17 @@
         </EmptyState>
       </template>
 
-          <ProductFilters />
-        </div>
+      <!-- Product Filters (as in main) -->
+      <ProductFilters />
 
-        <aside class="rule-preview">
-          <RuleProductPreview
-            :selected-segment="selectedSegment"
-            :selected-facility-groups="formData.selectedFacilityGroups"
-            :selected-config-facilities="formData.selectedConfigFacilites"
-            :are-all-selected="formData.areAllSelected"
-          />
-        </aside>
+      <div class="section-header">
+        <h1>{{ translate("Preview") }}</h1>
       </div>
+
+      <RuleProductPreview :selected-segment="selectedSegment"
+        :selected-facility-groups="formData.selectedFacilityGroups"
+        :selected-config-facilities="formData.selectedConfigFacilites" :are-all-selected="formData.areAllSelected"
+        :is-pickup-allowed="formData.isPickupAllowed" />
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
@@ -167,8 +154,8 @@ import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCa
 import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
-import ProductFilters from '@/components/ProductFilters.vue';
 import RuleProductPreview from '@/components/RuleProductPreview.vue';
+import ProductFilters from '@/components/ProductFilters.vue';
 import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
@@ -189,6 +176,7 @@ const props = defineProps(["ruleId"]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
 const appliedFilters = computed(() => productStore.getAppliedFilters)
+const appliedFiltersOperator = computed(() => productStore.getAppliedFiltersOperator)
 const rules = computed(() => ruleStore.getRules);
 const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
@@ -212,7 +200,7 @@ const { hasFacilityGroupSelections, isCounting: isCountingNetFacilities, netFaci
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
   emitter.emit("presentLoader");
-  await Promise.allSettled([productStore.fetchFacilityGroups(), productStore.fetchConfigFacilities()]);
+  await Promise.allSettled([productStore.fetchFacilityGroups(), productStore.fetchConfigFacilities(), productStore.fetchFacilities({ pageSize: 250 })]);
   
   if(props.ruleId) {
     try {
@@ -222,7 +210,7 @@ onIonViewDidEnter(async () => {
         currentRule.value = resp.data[0];
 
         formData.value.ruleName = currentRule.value.ruleName;
-        formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y" ? true : false;
+        formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
 
         if(selectedSegment.value === "RG_PICKUP_FACILITY") {
           const includedGroups = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS" && condition.operator === "in")
@@ -242,16 +230,20 @@ onIonViewDidEnter(async () => {
         }
         
         const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters.value))
+        const currentAppliedFiltersOperator = JSON.parse(JSON.stringify(appliedFiltersOperator.value))
         currentRule.value.ruleConditions.map((condition: any) => {
           if(condition.conditionTypeEnumId === "ENTCT_ATP_FILTER") {
             if(condition.operator === "contains") {
               currentAppliedFilters["included"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
+              currentAppliedFiltersOperator["included"][condition.fieldName] = condition.joinOperator || ""
             } else {
               currentAppliedFilters["excluded"][condition.fieldName] = condition.fieldValue ? condition.fieldValue.split(",") : []
+              currentAppliedFiltersOperator["excluded"][condition.fieldName] = condition.joinOperator || ""
             }
           }
         })
         await productStore.updateAppliedFilters(currentAppliedFilters)
+        await productStore.updateAppliedFiltersOperator(currentAppliedFiltersOperator)
       } else {
         throw resp.data
       }
@@ -273,6 +265,7 @@ onIonViewWillLeave(() => {
     selectedConfigFacilites: []
   }
   productStore.clearAppliedFilters()
+  productStore.clearAppliedFiltersOperator()
   emitter.off("productStoreOrConfigChanged", redirectLink);
 })
 
@@ -317,7 +310,8 @@ async function openFacilityImpactModal() {
     component: FacilityGroupImpactModal,
     componentProps: {
       includedGroups: formData.value.selectedFacilityGroups.included,
-      excludedGroups: formData.value.selectedFacilityGroups.excluded
+      excludedGroups: formData.value.selectedFacilityGroups.excluded,
+      areAllSelected: formData.value.areAllSelected
     }
   })
   modal.present()
@@ -379,13 +373,14 @@ async function createRule() {
     const rule = await ruleStore.createRule(params)
     await ruleStore.updateRuleApi({
       ...params,
-      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected),
+      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value),
       "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_PICKUP", formData.value.isPickupAllowed, false, [])
     }, rule.ruleId);
 
     commonUtil.showToast(translate("Rule created successfully."))
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push("/store-pickup");
   } catch(err: any) {
     logger.error(err);
@@ -398,7 +393,7 @@ async function updateRule() {
   if(!isRuleValid()) return;
 
   const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
+  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value);
 
   updatedRuleConditions.map((updatedCondition: any) => {
     const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
@@ -422,6 +417,7 @@ async function updateRule() {
 
     ruleStore.clearRuleState()
     productStore.clearAppliedFilters()
+    productStore.clearAppliedFiltersOperator()
     router.push('/store-pickup');
   } catch(err: any) {
     logger.error(err);
@@ -462,23 +458,7 @@ ion-card-header > ion-checkbox {
   flex-shrink: 0;
 }
 
-.rule-layout {
-  display: grid;
-  grid-template-columns: minmax(300px, 1fr) 4fr;
-  gap: var(--spacer-base);
-  align-items: start;
-  padding-bottom: 80px;
-}
 
-.rule-form {
-  min-width: 0;
-}
-
-.rule-preview {
-  position: sticky;
-  top: var(--spacer-base);
-  padding-top: var(--spacer-base);
-}
 
 .preview-facilities-action {
   display: flex;
@@ -486,28 +466,4 @@ ion-card-header > ion-checkbox {
   padding-inline: var(--spacer-sm);
 }
 
-.facility-impact-summary {
-  grid-column: span 2;
-}
-
-.facility-impact-summary ion-chip {
-  flex-shrink: 0;
-}
-
-@media (max-width: 767px) {
-  .facility-impact-summary {
-    grid-column: 1 / -1;
-  }
-}
-
-/* Stack the preview under the form on narrow screens. */
-@media (max-width: 991px) {
-  .rule-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .rule-preview {
-    position: static;
-  }
-}
 </style>

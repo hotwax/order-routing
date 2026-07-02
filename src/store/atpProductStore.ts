@@ -189,7 +189,6 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       };
     },
     async fetchFacilities(payload: any) {
-      const userStore = useUserStore()
       const params = {
         parentFacilityTypeId: 'VIRTUAL_FACILITY',
         parentFacilityTypeId_not: 'Y',
@@ -373,7 +372,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             return map;
           }, {} as Record<string, number>);
         } else {
-          throw resp.data;
+          throw resp?.data || new Error("Failed to fetch product facet counts");
         }
       } catch (error) {
         logger.error(error);
@@ -446,8 +445,11 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         viewSize: payload.viewSize || 25,
         viewIndex: payload.viewIndex || 0,
         keyword: payload.keyword,
-        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,goodIdentifications'
+        // tags / productFeatures are requested so preview rows can show why a product matched.
+        fieldsToSelect: 'productId,productName,parentProductName,internalName,mainImageUrl,goodIdentifications,tags,productFeatures'
       });
+
+      query.json.filter.push('isVirtual:false AND (isVariant:true OR productTypeId:MARKETING_PKG OR productTypeId:MARKETING_PKG_AUTO)');
 
       // Count-only callers just need numFound — skip fetching documents.
       if (payload.countOnly) query.json.params.rows = 0;

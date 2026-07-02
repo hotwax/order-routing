@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title slot="start">{{ translate("Store pickup") }}</ion-title>
@@ -379,7 +379,7 @@ function createStorePickup() {
 
 .pickup-aside {
   position: sticky;
-  top: var(--spacer-base);
+  top: 0;
 }
 
 /* Keep the rule list centered in its column instead of pinned wide-left. */

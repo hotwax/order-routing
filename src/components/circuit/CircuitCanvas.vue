@@ -695,6 +695,12 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   }
 
   const manifest = await buildCircuitDraftManifest();
+  circuitStore.setLastPrompt({
+    prompt,
+    conversationHistory,
+    pageCapabilityManifest: manifest,
+    outputContract: manifest.outputContract
+  });
   const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
   const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)

@@ -140,6 +140,7 @@ async function runServiceNow(job: any) {
     'jobFields': {
       'productStoreId': job.status === "SERVICE_PENDING" ? job.productStoreId : currentProductStore.value.productStoreId,
       'systemJobEnumId': job.systemJobEnumId,
+      'instanceOfProductId': job.systemJobEnumId,
       'tempExprId': job.jobStatus, // Need to remove this as we are passing frequency in SERVICE_TEMP_EXPR, currently kept it for backward compatibility
       'parentJobId': job.parentJobId,
       'recurrenceTimeZone': userStore.current.timeZone,

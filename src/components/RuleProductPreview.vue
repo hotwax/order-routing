@@ -128,7 +128,7 @@ import {
   IonThumbnail
 } from "@ionic/vue";
 import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
-import { DxpShopifyImg, translate, api } from '@common';
+import { DxpShopifyImg, translate, api, commonUtil } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
@@ -176,14 +176,6 @@ const selectedFacilityId = ref("");
 const inventoryConfigs = ref<Record<string, any>>({});
 const isInventoryLoading = ref(false);
 
-function dedupe(list: any[]) {
-  const seen = new Map<string, any>();
-  list.forEach((facility: any) => {
-    if (facility?.facilityId && !seen.has(facility.facilityId)) seen.set(facility.facilityId, facility);
-  });
-  return Array.from(seen.values()).sort((a, b) => (a.facilityName || a.facilityId).localeCompare(b.facilityName || b.facilityId));
-}
-
 function getAllowPickupTransition(product: any) {
   const config = inventoryConfigs.value[product.productId];
   const oldVal = config?.allowPickup || "-";
@@ -223,15 +215,15 @@ watch(
   async () => {
     const currentId = ++watchId;
     if (props.areAllSelected) {
-      if (props.selectedSegment === 'RG_PICKUP_FACILITY') {
-        availableFacilities.value = dedupe(facilities.value);
+      if (props.selectedSegment === 'RG_PICKUP_FACILITY' || props.selectedSegment === 'SAFETY_STOCK') {
+        availableFacilities.value = commonUtil.dedupeFacilities(facilities.value);
       } else if (props.selectedSegment === 'RG_PICKUP_CHANNEL') {
-        availableFacilities.value = dedupe(configFacilities.value);
+        availableFacilities.value = commonUtil.dedupeFacilities(configFacilities.value);
       } else {
         availableFacilities.value = [];
       }
     } else {
-      if (props.selectedSegment === 'RG_PICKUP_FACILITY') {
+      if (props.selectedSegment === 'RG_PICKUP_FACILITY' || props.selectedSegment === 'SAFETY_STOCK') {
         const included = props.selectedFacilityGroups?.included || [];
         const excluded = props.selectedFacilityGroups?.excluded || [];
 
@@ -239,7 +231,7 @@ watch(
           included.map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
         );
         if (currentId !== watchId) return;
-        const resolvedIncluded = dedupe(includedResults.flat());
+        const resolvedIncluded = commonUtil.dedupeFacilities(includedResults.flat());
 
         const excludedResults = await Promise.all(
           excluded.map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
@@ -250,7 +242,7 @@ watch(
         availableFacilities.value = resolvedIncluded.filter((f: any) => !excludedIds.has(f.facilityId));
       } else if (props.selectedSegment === 'RG_PICKUP_CHANNEL') {
         const selectedIds = props.selectedConfigFacilities || [];
-        availableFacilities.value = dedupe(
+        availableFacilities.value = commonUtil.dedupeFacilities(
           configFacilities.value.filter((f: any) => selectedIds.includes(f.facilityId))
         );
       } else {

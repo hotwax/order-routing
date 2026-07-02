@@ -84,7 +84,7 @@ import {
   modalController
 } from "@ionic/vue";
 import { checkmarkCircleOutline, closeCircleOutline, closeOutline, storefrontOutline } from 'ionicons/icons';
-import { translate } from '@common';
+import { commonUtil, translate } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 
 const props = defineProps<{
@@ -112,15 +112,15 @@ onMounted(async () => {
   isLoading.value = true;
 
   if(props.areAllSelected) {
-    includedFacilities.value = dedupe(productStore.getFacilities)
+    includedFacilities.value = commonUtil.dedupeFacilities(productStore.getFacilities)
   } else {
     const [included, excluded] = await Promise.all([
       resolveGroups(props.includedGroups),
       resolveGroups(props.excludedGroups)
     ]);
     includedFacilityCount.value = included.length;
-    includedFacilities.value = dedupe(included);
-    excludedFacilities.value = dedupe(excluded);
+    includedFacilities.value = commonUtil.dedupeFacilities(included);
+    excludedFacilities.value = commonUtil.dedupeFacilities(excluded);
   }
 
   isLoading.value = false;
@@ -134,14 +134,6 @@ async function resolveGroups(groups: any[]) {
       .map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
   );
   return results.flat();
-}
-
-function dedupe(facilities: any[]) {
-  const seen = new Map<string, any>();
-  facilities.forEach((facility: any) => {
-    if (facility?.facilityId && !seen.has(facility.facilityId)) seen.set(facility.facilityId, facility);
-  });
-  return Array.from(seen.values()).sort((a, b) => (a.facilityName || a.facilityId).localeCompare(b.facilityName || b.facilityId));
 }
 
 function closeModal() {

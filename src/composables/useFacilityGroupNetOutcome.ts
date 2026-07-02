@@ -1,5 +1,6 @@
 import { computed, ref, watch, type Ref } from "vue"
 import { useAtpProductStore } from "@/store/atpProductStore"
+import { commonUtil } from "@common"
 
 interface FacilityGroupSelection {
   included: any[]
@@ -38,15 +39,6 @@ export function useFacilityGroupNetOutcome(
     return facilities
   }
 
-  function dedupeFacilities(facilities: any[]) {
-    const seen = new Set<string>();
-    return facilities.filter((facility: any) => {
-      if(!facility?.facilityId || seen.has(facility.facilityId)) return false
-      seen.add(facility.facilityId)
-      return true
-    })
-  }
-
   async function updateNetFacilityCount() {
     if(areAllSelected.value) {
       isCounting.value = false
@@ -65,10 +57,10 @@ export function useFacilityGroupNetOutcome(
     if(currentRequestId !== requestId) return;
 
     const includedIds = new Set(
-      dedupeFacilities(includedFacilities).map((facility: any) => facility.facilityId)
+      commonUtil.dedupeFacilities(includedFacilities).map((facility: any) => facility.facilityId)
     )
     const excludedIds = new Set(
-      dedupeFacilities(excludedFacilities).map((facility: any) => facility.facilityId)
+      commonUtil.dedupeFacilities(excludedFacilities).map((facility: any) => facility.facilityId)
     )
 
     netFacilityCount.value = [...includedIds].filter((id) => !excludedIds.has(id)).length

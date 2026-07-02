@@ -384,7 +384,7 @@ async function createUserTestSession() {
   await getUserTestSession();
 
   // If a test session already exists for the user do not create a new one
-  if(userTestingSession.value.userSessionId) {
+  if(userTestingSession.value?.userSessionId) {
     return;
   }
 

@@ -207,7 +207,7 @@ export const useUtilStore = defineStore('util', {
         });
 
         if(resp.data && resp.data?.length) {
-          userTestingSession = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now())[0]
+          userTestingSession = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now().toMillis())[0]
         }
       } catch(err) {
         logger.error("Failed to get user session", err)
@@ -226,7 +226,7 @@ export const useUtilStore = defineStore('util', {
         });
 
         if(resp.data && resp.data.length) {
-          testingSessions = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now())
+          testingSessions = resp.data.filter((session: any) => !session.thruDate || session.thruDate > DateTime.now().toMillis())
         }
       } catch(err) {
         logger.error("Failed to get testing sessions", err)

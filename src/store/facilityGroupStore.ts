@@ -13,15 +13,11 @@ export interface FacilityGroupState {
 // Optional, friendlier labels for type IDs that are well-known across HotWax apps.
 // Anything else falls through to its raw ID.
 const TYPE_LABELS: Record<string, string> = {
-  FACILITY_GROUP: "Generic",
   BROKERING_GROUP: "Brokering",
   CHANNEL_FAC_GROUP: "Inventory channel",
   PICKUP: "Store pickup",
-  SHIPPING: "Shipping",
-  WAREHOUSE: "Warehouse",
   FULFILLMENT: "Fulfillment",
   AUTO_CANCEL_CONFIG: "Auto cancel",
-  SHOPIFY_GROUP_FAC: "Shopify group",
   SHIPPING_LABEL: "Shipping label"
 };
 

@@ -202,7 +202,7 @@ export const simulationStore = defineStore("simulation", {
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message ?? "Failed to save variation.";
+        this.loadError = err?.message || "";
         return false;
       }
     },
@@ -217,7 +217,7 @@ export const simulationStore = defineStore("simulation", {
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message ?? "Failed to update variation.";
+        this.loadError = err?.message || "";
         return false;
       }
     },
@@ -225,14 +225,18 @@ export const simulationStore = defineStore("simulation", {
     async loadVariation(id: string) {
       const v = this.variations.find((x) => x.id === id);
       if (!v) return;
-      this.activeVariationId = id;
+      const previousActiveVariationId = this.activeVariationId;
       try {
         if (!v.group && v.serverVid) {
           const tree = await VariationService.getVariation(v.serverVid);
           v.group = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         }
-        if (v.group) this.working = deepClone(v.group);
+        if (v.group) {
+          this.activeVariationId = id;
+          this.working = deepClone(v.group);
+        }
       } catch (err: any) {
+        this.activeVariationId = previousActiveVariationId;
         logger.error(err);
         const message = err?.message ?? "Failed to load variation.";
         this.loadError = message;

@@ -59,7 +59,8 @@
                 <Image :src="getProduct(item.productId).mainImageUrl"/>
               </ion-thumbnail>
               <ion-label>
-                {{ getProduct(item.productId).productName }}
+                {{ getPrimaryProductIdentifier(productIdentificationPref, { productId: item.productId, ...getProduct(item.productId) }) }}
+                <p>{{ getSecondaryProductIdentifier(productIdentificationPref, { productId: item.productId, ...getProduct(item.productId) }) }}</p>
                 <p v-if="testRoutingInfo.isOrderBrokered">{{ getProductStock(item.productId, item.facilityId).availableToPromiseTotal || "-" }} {{ translate("ATP") }}{{ " | " }}{{ getProductStock(item.productId, item.facilityId).quantityOnHandTotal || "-" }} {{ translate("QOH") }}</p>
               </ion-label>
               <ion-badge slot="end" :color="commonUtil.getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
@@ -85,6 +86,7 @@ import { arrowUndoOutline, compassOutline, searchOutline } from "ionicons/icons"
 import { computed, onMounted, ref } from "vue";
 import { logger, emitter, translate, commonUtil } from "@common";
 import Image from "@/components/Image.vue"
+import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 const props = defineProps({
   routingRuleId: {
@@ -130,6 +132,7 @@ const getProduct = computed(() => (id: string) => useProduct().getProductById(id
 const getProductStock = computed(() => (productId: string, facilityId: string) => useProduct().getProductStock(productId, facilityId)) as any
 const shippingMethods = computed(() => productStore().getShippingMethods)
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
+const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 
 async function searchOrders(orderId = "") {
   const searchedQuery = orderId ? orderId : queryString.value.trim()

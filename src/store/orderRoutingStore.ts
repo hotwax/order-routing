@@ -424,6 +424,19 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async deleteRoutingFilters(payload: any) {
       let hasAllFiltersDeletedSuccessfully = true;
       try {
+        for (const filter of payload.filters) {
+          // Filters not yet persisted on the server (no conditionSeqId) only need to be removed locally
+          if (!filter.conditionSeqId) continue;
+          const resp = await api({
+            url: `order-routing/routings/${payload.orderRoutingId}/orderFilters`,
+            method: "DELETE",
+            data: { conditionSeqId: filter.conditionSeqId }
+          });
+          if (commonUtil.hasError(resp)) {
+            hasAllFiltersDeletedSuccessfully = false
+          }
+        }
+
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
         const routing = currentGroup.routings?.find((r: any) => r.orderRoutingId === payload.orderRoutingId)
         if (routing && routing.orderFilters) {
@@ -519,6 +532,19 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async deleteRuleConditions(payload: any) {
       let hasAllConditionsDeletedSuccessfully = true;
       try {
+        for (const condition of payload.conditions) {
+          // Conditions not yet persisted on the server (no conditionSeqId) only need to be removed locally
+          if (!condition.conditionSeqId) continue;
+          const resp = await api({
+            url: `order-routing/rules/${payload.routingRuleId}/inventoryFilters`,
+            method: "DELETE",
+            data: { conditionSeqId: condition.conditionSeqId }
+          });
+          if (commonUtil.hasError(resp)) {
+            hasAllConditionsDeletedSuccessfully = false
+          }
+        }
+
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
         const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
         const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
@@ -541,6 +567,19 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async deleteRuleActions(payload: any) {
       let hasAllActionsDeletedSuccessfully = true;
       try {
+        for (const action of payload.actions) {
+          // Actions not yet persisted on the server (no actionSeqId) only need to be removed locally
+          if (!action.actionSeqId) continue;
+          const resp = await api({
+            url: `order-routing/rules/${payload.routingRuleId}/actions`,
+            method: "DELETE",
+            data: { actionSeqId: action.actionSeqId }
+          });
+          if (commonUtil.hasError(resp)) {
+            hasAllActionsDeletedSuccessfully = false
+          }
+        }
+
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
         const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
         const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)

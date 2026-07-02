@@ -328,7 +328,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `admin/productStores/${payload.productStoreId}/shippingMethods`,
+          url: `admin/productStores/${productStoreId}/shippingMethods`,
           method: "GET",
           params: fetchPayload
         });
@@ -364,7 +364,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `admin/productStores/${payload.productStoreId}/facilityGroups`,
+          url: `admin/productStores/${productStoreId}/facilityGroups`,
           method: "GET",
           params: fetchPayload
         });

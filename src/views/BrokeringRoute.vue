@@ -631,6 +631,17 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
 
 async function saveRoutingGroup() {
   await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value)
+
+  // Re-sync local state from the freshly persisted group, as save can assign server-side ids
+  // (e.g. for newly created routings) that differ from the temporary ids used locally.
+  job.value = currentRoutingGroup.value["schedule"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"] : {}
+  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+  description.value = currentRoutingGroup.value["description"] ? currentRoutingGroup.value["description"] : ""
+  groupName.value = currentRoutingGroup.value["groupName"] ? currentRoutingGroup.value["groupName"] : ""
+
+  if(orderRoutings.value.length) {
+    initializeOrderRoutings();
+  }
 }
 
 async function showGroupHistory() {

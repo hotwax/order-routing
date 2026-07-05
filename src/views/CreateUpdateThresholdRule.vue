@@ -131,8 +131,16 @@ onIonViewDidEnter(async () => {
         formData.value.threshold = currentRule.value.ruleActions[0]?.fieldValue ? currentRule.value.ruleActions[0].fieldValue : ''
 
         const facilityCondition = currentRule.value.ruleConditions.find((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_FACILITIES")
-        if(facilityCondition?.fieldValue === "ALL") formData.value.areAllChannelsSelected = true
-        else formData.value.selectedConfigFacilites = facilityCondition?.fieldValue ? facilityCondition.fieldValue?.split(",") : [];
+        if(facilityCondition?.fieldValue === "ALL") {
+          if (configFacilities.value.length <= 1) {
+            formData.value.areAllChannelsSelected = false;
+            formData.value.selectedConfigFacilites = configFacilities.value.map((facility: any) => facility.facilityId);
+          } else {
+            formData.value.areAllChannelsSelected = true;
+          }
+        } else {
+          formData.value.selectedConfigFacilites = facilityCondition?.fieldValue ? facilityCondition.fieldValue?.split(",") : [];
+        }
 
         const currentAppliedFilters = JSON.parse(JSON.stringify(appliedFilters.value))
         const currentAppliedFiltersOperator = JSON.parse(JSON.stringify(appliedFiltersOperator.value))
@@ -194,7 +202,7 @@ function toggleFacilitySelection(facilityId: any) {
 }
 
 function isFacilitySelected(facilityId: any) {
-  return formData.value.areAllChannelsSelected || formData.value.selectedConfigFacilites?.includes(facilityId)
+  return !!(formData.value.areAllChannelsSelected || formData.value.selectedConfigFacilites?.includes(facilityId))
 }
 
 async function createThresholdRule() {

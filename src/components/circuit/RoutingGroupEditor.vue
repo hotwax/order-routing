@@ -569,12 +569,8 @@
         </section>
       </div>
     </div>
-    <!-- Live mode persists via this FAB; in sandbox the Variations rail owns saving the variation. -->
-    <ion-fab v-if="!isSandbox" vertical="bottom" horizontal="end" slot="fixed">
-      <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
-        <ion-icon :icon="saveOutline" />
-      </ion-fab-button>
-    </ion-fab>
+    <!-- Live save is triggered on demand from the page header (RoutingDetailCanvas); variations save
+         via the Variations rail. No floating FAB. -->
   </div>
 
   <!-- Empty State -->
@@ -691,6 +687,10 @@ const props = defineProps({
     default: false
   }
 })
+
+// Emitted so the host (RoutingDetailCanvas) can drive an explicit Save button in the page header
+// and reflect the unsaved-changes state. Live-mode only; variations save via the Variations rail.
+const emit = defineEmits(["dirtyChange"]);
 
 const circuitStore = useCircuitStore();
 const routingStore = orderRoutingStore();
@@ -1010,7 +1010,8 @@ function getRoutingStatusDraftRef() {
 
 defineExpose({
   prepareDraftProposal,
-  applyDraftProposal
+  applyDraftProposal,
+  save
 });
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
@@ -1094,6 +1095,8 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
 
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
+// Surface dirty state to the host header (live mode only — variations manage their own save state).
+watch(hasUnsavedChanges, (v) => { if (!isSandbox.value) emit("dirtyChange", v) }, { immediate: true })
 const ruleNameRef = ref()
 
 onMounted(async () => {
@@ -2064,24 +2067,26 @@ async function save() {
     }
   }
 
-  // Refresh current routing and touched rule information
-  await routingStore.fetchCurrentOrderRouting(activeRouting.value.orderRoutingId)
-  for(const rule of rulesDiff) {
-    rulesInformation.value[rule.routingRuleId] = await routingStore.fetchInventoryRuleInformation(rule.routingRuleId)
-    initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
+  // The granular flush above kept the in-memory group (routingStore.currentGroup) in sync with every
+  // editor change. THIS is the explicit, on-demand commit — POST the whole group to the backend.
+  // (Until now nothing on this page reached the server; edits only accumulated as a local draft.)
+  try {
+    await routingStore.saveRoutingGroupRaw({ ...currentRoutingGroup.value })
+  } catch (err) {
+    logger.error(err)
+    emitter.emit("dismissLoader")
+    commonUtil.showToast(translate("Failed to save changes"))
+    return
   }
-  initialRulesInformation.value = {
-    ...initialRulesInformation.value,
-    ...JSON.parse(JSON.stringify(rulesInformation.value))
-  }
-  if(activeRule.value?.routingRuleId && rulesInformation.value[activeRule.value.routingRuleId]) {
-    initializeInventoryRule(rulesInformation.value[activeRule.value.routingRuleId]);
-  }
-  activeRouting.value["rules"] = JSON.parse(JSON.stringify(inventoryRules.value))
-  initialActiveRouting.value = JSON.parse(JSON.stringify(activeRouting.value))
-  initializeInventoryRules()
 
+  // saveRoutingGroupRaw refetched the saved group and cleared the store dirty flag. Re-bind the editor
+  // from the fresh backend data (new server ids for created rules), keeping the routing selection.
+  const prevRoutingId = activeRoutingId.value
   hasUnsavedChanges.value = false
+  await fetchRoutingGroupInformation()
+  const prevRouting = group.value.routings?.find((r: any) => r.orderRoutingId === prevRoutingId)
+  if (prevRouting) selectRouting(prevRouting)
+
   emitter.emit("dismissLoader")
   commonUtil.showToast(translate("Changes saved successfully"))
 }

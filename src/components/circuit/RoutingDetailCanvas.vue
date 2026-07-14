@@ -4,9 +4,28 @@
       <ion-toolbar>
         <ion-buttons slot="start">
           <ion-back-button default-href="/order-routing" />
+          <ion-button
+            :aria-label="chatVisible ? translate('Hide chat') : translate('Show chat')"
+            :color="chatVisible ? 'primary' : 'medium'"
+            @click="chatVisible = !chatVisible"
+          >
+            <ion-icon slot="icon-only" :icon="chatboxEllipsesOutline" />
+          </ion-button>
         </ion-buttons>
         <ion-title>{{ translate("Order Routing Detail") }}</ion-title>
         <ion-buttons slot="end">
+          <!-- Explicit, on-demand Save for the live routing group. Variations save via the rail, so
+               this is hidden while a variation is active. Enabled only when there are unsaved edits. -->
+          <ion-button
+            v-if="!activeVariationId"
+            :disabled="!editorDirty"
+            :color="editorDirty ? 'primary' : undefined"
+            :aria-label="editorDirty ? translate('Save changes') : translate('No unsaved changes')"
+            @click="saveEditor"
+          >
+            <ion-icon slot="start" :icon="saveOutline" />
+            {{ editorDirty ? translate("Save") : translate("Saved") }}
+          </ion-button>
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
@@ -36,7 +55,7 @@
     <ion-content>
       <div class="chat-canvas-container">
         <!-- Chat Section -->
-        <div class="chat-section">
+        <div v-show="chatVisible" class="chat-section">
           <ion-list class="chat-history">
             <template v-for="message in messages" :key="message.id">
               <ion-item lines="none" :class="message.role === 'user' ? 'prompt-item' : 'response-item'">
@@ -66,7 +85,7 @@
         </div>
 
         <!-- Divider -->
-        <div class="divider"></div>
+        <div v-show="chatVisible" class="divider"></div>
 
         <!-- Canvas Section: ONE canvas. sandbox=true binds it to the active variation's working copy;
              sandbox=false binds it to the live routing group. Keyed so switching live <-> variation (and
@@ -77,6 +96,7 @@
             ref="editorRef"
             :routingGroupId="routingGroupId"
             :sandbox="!!activeVariationId"
+            @dirty-change="editorDirty = $event"
           />
         </div>
       </div>
@@ -162,9 +182,11 @@ import type { KnowledgeFeedbackMessage } from '@/types/circuit';
 import {
   addOutline,
   bulbOutline,
+  chatboxEllipsesOutline,
   chatbubblesOutline,
   checkmarkCircleOutline,
   closeCircleOutline,
+  saveOutline,
   terminalOutline,
   trashOutline
 } from 'ionicons/icons';
@@ -205,6 +227,7 @@ type CircuitDraftProposal = DraftProposal & {
 const editorRef = ref<{
   prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
   applyDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
+  save: () => Promise<void>;
 } | null>(null);
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
 const pendingDiscardFeedbackProposal = ref<CircuitDraftProposal | null>(null);
@@ -222,6 +245,13 @@ const activeVariationId = computed(() => sim.activeVariationId);
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
 const showFeedbackModal = ref(false);
+// The chat panel can be collapsed to give the editor full width. v-show (not v-if) keeps the
+// chat mounted so its thread/messages state survives toggling.
+const chatVisible = ref(true);
+// Live editor unsaved-changes state, surfaced by RoutingGroupEditor via @dirty-change, powering the
+// header Save button. (Variations save through the rail, so the header Save is hidden for them.)
+const editorDirty = ref(false);
+const saveEditor = () => editorRef.value?.save?.();
 
 const canSendFeedback = computed(() => messages.value.length > 0);
 

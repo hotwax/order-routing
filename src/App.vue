@@ -112,7 +112,7 @@
       <ion-router-outlet id="main-content" />
     </ion-split-pane>
     <!-- Fast Travel: Cmd/Ctrl+K app switcher + deep-link router across the HotWax suite -->
-    <FastTravel current-app="order-routing" />
+    <FastTravel v-if="useAuth().isAuthenticated" current-app="order-routing" />
   </ion-app>
 </template>
 

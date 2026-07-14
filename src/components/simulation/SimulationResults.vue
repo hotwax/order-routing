@@ -18,7 +18,7 @@
         <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
         <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
           <ion-label>
-            <h3>{{ row.routingName }}</h3>
+            {{ row.routingName }}
             <div class="cmp">
               <span class="metric"><span class="lbl">{{ translate("Eligible") }}</span><span class="val">{{ n(row.parent?.eligibleEntryCount) }} → <strong>{{ n(row.variation?.eligibleEntryCount) }}</strong></span></span>
               <span class="metric"><span class="lbl">{{ translate("Brokered") }}</span><span class="val">{{ n(row.parent?.brokeredItemCount) }} → {{ n(row.variation?.brokeredItemCount) }}</span></span>

@@ -4,6 +4,11 @@
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Brokering runs calendar") }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button :aria-label="translate('Open brokering runs assistant')" @click="openAssistant">
+            <ion-icon slot="icon-only" :icon="sparklesOutline" />
+          </ion-button>
+        </ion-buttons>
         <ion-segment v-if="brokeringGroups.length" slot="end" v-model="selectedFilter" class="cal-filter">
           <ion-segment-button value="all">
             <ion-label>{{ translate("All") }}</ion-label>
@@ -168,13 +173,16 @@
             :debounce="150"
           />
           <ion-list v-if="filteredRuns.length" lines="full" class="cal-cadence">
-            <ion-item v-for="run in filteredRuns" :key="run.routingGroupId" button :detail="true" @click="redirect(run)">
+            <ion-item v-for="run in filteredRuns" :key="run.routingGroupId" button @click="redirect(run)">
               <ion-label>
                 {{ run.groupName }}
                 <p>{{ cadenceLabel(run) }}</p>
               </ion-label>
               <ion-badge v-if="isActive(run)" slot="end" color="dark">{{ nextRunLabel(run) }}</ion-badge>
               <ion-badge v-else slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
+              <ion-button slot="end" fill="clear" color="medium" :aria-label="translate('Run actions')" @click.stop="groupActionsPopover(run, $event)">
+                <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
+              </ion-button>
             </ion-item>
           </ion-list>
           <ion-list v-else lines="none">
@@ -187,6 +195,8 @@
         </ion-card>
       </div>
     </ion-content>
+
+    <BrokeringRunsAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
@@ -214,39 +224,45 @@ import {
   IonSpinner,
   IonTitle,
   IonToolbar,
-  alertController,
   onIonViewWillEnter,
-  onIonViewWillLeave
+  onIonViewWillLeave,
+  popoverController
 } from "@ionic/vue";
-import { addOutline } from "ionicons/icons";
+import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/icons";
 import { computed, ref, watch } from "vue";
 import { DateTime } from "luxon";
-import cronstrue from "cronstrue";
-import router from "@/router";
 import EmptyState from "@/components/EmptyState.vue";
+import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
+import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import { commonUtil, emitter, translate } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
-import { useUtilStore } from "@/store/utilStore";
 import { useUserStore } from "@/store/userStore";
+import { useBrokeringRuns } from "@/composables/useBrokeringRuns";
 import { Group } from "@/types";
 
-const utilStore = useUtilStore();
 const userStore = useUserStore();
-const groups = computed(() => orderRoutingStore().getRoutingGroups);
 const timeZone = computed(() => userStore.getUserProfile?.timeZone);
 
-let cronExpressions: Record<string, string> = {};
-try {
-  cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS || "{}");
-} catch {
-  cronExpressions = {};
+const isAssistantOpen = ref(false);
+function openAssistant() {
+  isAssistantOpen.value = true;
 }
+
+const {
+  isLoading,
+  brokeringGroups,
+  selectedFilter,
+  displayedGroups,
+  isActive,
+  getScheduleFrequency,
+  refreshBrokeringGroups,
+  addNewRun,
+  redirect
+} = useBrokeringRuns();
+
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const brokeringRunsEmptyImage = new URL("../assets/images/BrokeringRunsEmptyState.png", import.meta.url).href;
 
-const isLoading = ref(false);
-const brokeringGroups = ref<any[]>([]);
-const selectedFilter = ref("all");
 const selectedCell = ref<{ d: number; h: number } | null>(null);
 
 // "Now" / week dates are refreshed on every view enter (the page is kept alive
@@ -267,27 +283,6 @@ function refreshNow() {
 }
 refreshNow();
 watch(timeZone, refreshNow);
-
-function isActive(group: any) {
-  return group.schedule?.paused === "N";
-}
-
-// Active runs first, then alphabetical — matches the runs list sort.
-function sortGroups(list: any[]) {
-  return [...list].sort((a: any, b: any) => {
-    const aActive = isActive(a);
-    const bActive = isActive(b);
-    if (aActive !== bActive) return aActive ? -1 : 1;
-    return (a.groupName || "").localeCompare(b.groupName || "");
-  });
-}
-
-const displayedGroups = computed(() => {
-  let list = brokeringGroups.value;
-  if (selectedFilter.value === "active") list = list.filter(isActive);
-  else if (selectedFilter.value === "draft") list = list.filter((g: any) => !isActive(g));
-  return sortGroups(list);
-});
 
 // Runs list narrowed by the local keyword search. Kept separate from
 // displayedGroups so the search only filters the list, not the heatmap/stats.
@@ -470,14 +465,6 @@ function cellAria(d: number, h: number) {
   return `${translate(days[d - 1])} ${axisLabelLong(h)}, ${c} ${c === 1 ? translate("run") : translate("runs")}${isNow ? `, ${translate("current hour")}` : ""}`;
 }
 
-function getScheduleFrequency(schedule: any) {
-  let description: any = Object.keys(cronExpressions).find((key) => cronExpressions[key] === schedule?.cronExpression);
-  if (!description && schedule?.cronExpression) {
-    description = cronstrue.toString(schedule.cronExpression);
-    if (/^[a-z]/.test(description)) description = description.charAt(0).toUpperCase() + description.slice(1);
-  }
-  return description || "-";
-}
 function cadenceLabel(run: any) {
   if (!run.schedule?.cronExpression) return translate("No schedule");
   return getScheduleFrequency(run.schedule);
@@ -491,13 +478,26 @@ function nextRunLabel(run: any) {
 
 async function fetchRuns() {
   refreshNow();
-  isLoading.value = true;
-  await orderRoutingStore().fetchOrderRoutingGroups();
-  isLoading.value = false;
-  brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
-  utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
+  // Clear the cached current group on entry (as the former list page did) so returning
+  // here and reopening a run forces a fresh detail/schedule fetch instead of a stale cache hit.
+  await refreshBrokeringGroups(() => orderRoutingStore().clearCurrentGroup());
   // Default the drill panel to the current hour so the panel isn't empty on open.
   if (!selectedCell.value) selectedCell.value = { d: nowWeekday.value, h: nowHour.value };
+}
+
+// Per-run quick actions (Run now / Activate / Move to Draft), mirroring the former list page.
+async function groupActionsPopover(group: Group, event: Event) {
+  const popover = await popoverController.create({
+    component: GroupActionsPopover,
+    event,
+    showBackdrop: false,
+    componentProps: { group }
+  });
+  popover.present();
+  const result = await popover.onDidDismiss();
+  if (result.data && result.data.routingGroups) {
+    brokeringGroups.value = result.data.routingGroups;
+  }
 }
 
 onIonViewWillEnter(async () => {
@@ -507,37 +507,6 @@ onIonViewWillEnter(async () => {
 onIonViewWillLeave(() => {
   emitter.off("productStoreOrConfigChanged", fetchRuns);
 });
-
-async function addNewRun() {
-  const newRunAlert = await alertController.create({
-    header: translate("New Run"),
-    buttons: [
-      { text: translate("Cancel"), role: "cancel" },
-      {
-        text: translate("Save"),
-        handler: (data) => {
-          if (!data.runName?.trim().length) {
-            commonUtil.showToast(translate("Please enter a valid name"));
-            return false;
-          }
-        }
-      }
-    ],
-    inputs: [{ name: "runName", placeholder: translate("run name") }]
-  });
-  newRunAlert.onDidDismiss().then(async (result: any) => {
-    if (result.role) return;
-    if (result.data?.values?.runName.trim()) {
-      await orderRoutingStore().createRoutingGroup(result.data.values.runName.trim());
-      brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
-    }
-  });
-  return newRunAlert.present();
-}
-
-function redirect(group: Group) {
-  router.push(`brokering/${group.routingGroupId}/routes`);
-}
 </script>
 
 <style scoped>

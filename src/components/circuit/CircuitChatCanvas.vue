@@ -2,7 +2,10 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ translate("Circuit") }}</ion-title>
+        <ion-buttons slot="start">
+          <ion-back-button default-href="/brokering-calendar" />
+        </ion-buttons>
+        <ion-title>{{ translate("Routing") }}</ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
@@ -45,13 +48,10 @@
             </template>
           </ion-list>
 
-          <CircuitPromptArea 
-            v-model="prompt" 
-            :selectedContext="selectedContext"
+          <CircuitPromptArea
+            v-model="prompt"
             :disabled="isApplyingDraft"
-            @send="onSend" 
-            @add-context="addContext" 
-            @remove-context="removeContext"
+            @send="onSend"
           />
           <ion-item v-if="pendingDraftProposal" lines="none">
             <ion-button :disabled="isApplyingDraft" @click="approvePendingProposal">
@@ -68,9 +68,16 @@
         <!-- Divider -->
         <div class="divider"></div>
 
-        <!-- Canvas Section -->
+        <!-- Canvas Section: ONE canvas. sandbox=true binds it to the active variation's working copy;
+             sandbox=false binds it to the live routing group. Keyed so switching live <-> variation (and
+             between variations) remounts the editor for a clean re-bind. -->
         <div class="canvas-section">
-          <CircuitCanvas ref="circuitCanvasRef" :routingGroupId="routingGroupId" />
+          <CircuitCanvas
+            :key="activeVariationId || 'live'"
+            ref="circuitCanvasRef"
+            :routingGroupId="routingGroupId"
+            :sandbox="!!activeVariationId"
+          />
         </div>
       </div>
     </ion-content>
@@ -126,28 +133,31 @@
       :context="feedbackContext"
       @dismiss="showFeedbackModal = false"
     />
+    <VariationRail />
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { 
-  IonButton, 
-  IonButtons, 
-  IonContent, 
+import {
+  IonBackButton,
+  IonButton,
+  IonButtons,
+  IonContent,
   IonHeader, 
   IonIcon, 
   IonItem, 
   IonLabel, 
   IonList, 
   IonModal,
-  IonPage, 
-  IonTitle, 
-  IonToolbar 
+  IonPage,
+  IonTitle,
+  IonToolbar
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
+import VariationRail from '@/components/simulation/VariationRail.vue';
+import { simulationStore } from '@/store/simulationStore';
 import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue';
-import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import type { KnowledgeFeedbackMessage } from '@/types/circuit';
 import {
   addOutline,
@@ -164,7 +174,6 @@ import { useCircuitStore } from '@/store/circuit';
 import { usePreferencesStore } from '@/store/preferences';
 import { storeToRefs } from 'pinia';
 import { DateTime } from 'luxon';
-import { modalController } from '@ionic/vue';
 import type { DraftConversationMessage, DraftProposal } from '@/types/draft';
 import {
   buildDiscardFeedbackPrompt,
@@ -205,6 +214,11 @@ onMounted(() => {
 });
 
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
+// When a simulation variation is active, the single CircuitCanvas runs in sandbox mode and edits
+// that variation's working copy; otherwise it edits the live routing group. Either way it exposes
+// the same draft interface, so the chat's circuitCanvasRef works unchanged.
+const sim = simulationStore();
+const activeVariationId = computed(() => sim.activeVariationId);
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
 const showFeedbackModal = ref(false);
@@ -274,7 +288,7 @@ const onSend = async () => {
       return;
     }
 
-    await addCircuitMessage(translate("Select a routing context before asking Circuit to draft changes."));
+    await addCircuitMessage(translate("Select a routing before drafting changes."));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : translate('Failed to apply draft changes');
     await addCircuitMessage(errorMessage);
@@ -402,26 +416,7 @@ const buildConversationHistory = (): DraftConversationMessage[] => {
     .slice(-12);
 }
 
-const addContext = async () => {
-  const modal = await modalController.create({
-    component: RoutingRuleSelectionModal,
-  });
-  
-  modal.onDidDismiss().then((result) => {
-    if (result.data) {
-      circuitStore.setActiveContext(result.data);
-    }
-  });
-
-  return modal.present();
-}
-
-const removeContext = () => {
-  circuitStore.setActiveContext(null);
-}
-
 const createNewChat = () => {
-  console.log('createNewChat called');
   circuitStore.setChatStarted(false);
   circuitStore.switchThread(null);
 }

@@ -152,6 +152,8 @@ import router from "@/router";
 const userStore = useUserStore();
 const atpProductStore = useAtpProductStore();
 const loader = ref<any>(null);
+// Guards the presentLoader/dismissLoader async-create race (see presentLoader).
+let loaderRequested = false;
 
 const userProfile = computed(() => userStore.getUserProfile);
 const currentProductStore = computed(() => atpProductStore.getCurrentProductStore);
@@ -192,6 +194,12 @@ function isSelected(page: { url: string; childRoutes: string[] }) {
 async function presentLoader(options = { message: "", backdropDismiss: true }) {
   if (options.message && loader.value) dismissLoader();
 
+  // Track intent so a dismiss that arrives while `create`/`present` is still awaiting isn't
+  // lost. Two races existed: (1) dismissLoader runs while `create` is pending (loader.value
+  // still null, so the dismiss is a no-op) and (2) dismissLoader runs while `present()` is
+  // still animating in (Ionic ignores a dismiss mid-present). Either left a stuck,
+  // page-blocking overlay. We await both steps and reconcile against loaderRequested after.
+  loaderRequested = true;
   if (!loader.value) {
     loader.value = await loadingController.create({
       message: options.message ? translate(options.message) : translate("Click the backdrop to dismiss."),
@@ -199,10 +207,18 @@ async function presentLoader(options = { message: "", backdropDismiss: true }) {
       backdropDismiss: options.backdropDismiss
     });
   }
-  loader.value.present();
+  const current = loader.value;
+  await current.present();
+  // If a dismiss was requested at any point during create/present, honour it now that the
+  // present animation has settled (a dismiss issued mid-present would otherwise be ignored).
+  if (!loaderRequested) {
+    await current.dismiss();
+    if (loader.value === current) loader.value = null;
+  }
 }
 
 function dismissLoader() {
+  loaderRequested = false;
   if (loader.value) {
     loader.value.dismiss();
     loader.value = null;

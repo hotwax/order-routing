@@ -7,7 +7,7 @@ import { simBaseURL } from '@/utils/simConfig'
 // sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
 // groups / shipping methods / sales channels must come from — and stay scoped to — the sim instance.
 // Keeping this data here (instead of the shared productStore/utilStore) is what guarantees the two
-// backends never share in-memory state. SimulationCanvas is the only consumer.
+// backends never share in-memory state. The sandbox-mode CircuitCanvas is the only consumer.
 export const useSimReferenceStore = defineStore('simReference', {
   state: () => {
     return {

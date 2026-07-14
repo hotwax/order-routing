@@ -6,7 +6,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button :default-href="'/tabs/brokering/'+routingGroupId+'/routes'" />
+          <ion-back-button :default-href="'/brokering/'+routingGroupId+'/routes'" />
         </ion-buttons>
         <ion-title>{{ translate("Test drive") }}</ion-title>
       </ion-toolbar>

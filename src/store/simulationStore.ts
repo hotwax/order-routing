@@ -18,6 +18,15 @@ import { SimulationStorage } from "../services/simulationStorage";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
 
+// Registered by the active simulation editor (CircuitCanvas in sandbox mode) so that variation saves
+// triggered from OTHER components (e.g. the Variations sheet) still flush the editor's
+// in-memory local state into `working` before it is snapshotted. Memory-only, no network.
+// Null whenever no editor is mounted; the save then just uses `working` as-is.
+let workingFlushHook: (() => void) | null = null;
+export function registerWorkingFlushHook(fn: (() => void) | null) {
+  workingFlushHook = fn;
+}
+
 const zeroedBatch = (batchIndex: number): BatchProgress => ({
   batchIndex, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
   ordersInScope: 0, ordersProcessed: 0, brokered: 0, queued: 0, events: [],
@@ -193,10 +202,12 @@ export const simulationStore = defineStore("simulation", {
     // callers only report success when the save actually reached the backend.
     async saveAsVariation(label: string): Promise<boolean> {
       try {
+        workingFlushHook?.();
         const vid = await VariationService.createVariation(this.routingGroupId, label);
         const tree = await VariationService.replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
         const group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: vid };
         this.variations.push({ id: vid, label: label || tree?.variationName || vid, group, serverVid: vid });
+        this.clearRunResults(); // new variation becomes active — don't attribute a prior run's results to it
         this.activeVariationId = vid;
         this.working = deepClone(group);
         return true;
@@ -208,6 +219,7 @@ export const simulationStore = defineStore("simulation", {
     },
     // Overwrite an existing H2 variation with the current working copy. Returns true on success.
     async updateVariation(id: string): Promise<boolean> {
+      workingFlushHook?.();
       const v = this.variations.find((x) => x.id === id);
       if (!v?.serverVid) return false;
       try {
@@ -232,6 +244,7 @@ export const simulationStore = defineStore("simulation", {
           v.group = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         }
         if (v.group) {
+          if (id !== previousActiveVariationId) this.clearRunResults();
           this.activeVariationId = id;
           this.working = deepClone(v.group);
         }
@@ -276,6 +289,21 @@ export const simulationStore = defineStore("simulation", {
     resetWorkingToBaseline() {
       this.working = deepClone(this.baseline);
       this.activeVariationId = "";
+      this.clearRunResults();
+    },
+    // Run results (variationRunResult/runCompareError/lastSimulationId) belong to ONE variation's
+    // last run; clear them whenever the active variation changes so the rail's "View results" modal
+    // can't show a different variation's numbers. parentRunByGroupId is a per-group cache — keep it.
+    clearRunResults() {
+      this.variationRunResult = null;
+      this.runCompareError = null;
+      this.lastSimulationId = null;
+    },
+    // Flush the active editor's in-memory local state into `working` (via the registered
+    // hook) so callers outside the editor — e.g. the Variations sheet's dirty check — see
+    // an accurate `working`/`isDirty` before deciding to discard it.
+    flushWorkingCopy() {
+      workingFlushHook?.();
     },
     renameVariation(id: string, label: string) {
       const v = this.variations.find((x) => x.id === id);

@@ -150,7 +150,7 @@ async function loadContext() {
 function buildManifest(): PageCapabilityManifest {
   const snapshot = buildBrokeringAgentSnapshot();
   return buildBrokeringRunsListManifest({
-    pageRoute: "/tabs/brokering",
+    pageRoute: "/brokering-calendar",
     productStoreId: product.getCurrentEComStore?.productStoreId || "",
     groups: routingStore.getRoutingGroups || [],
     ruleEnums,

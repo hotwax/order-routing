@@ -1,5 +1,8 @@
 <template>
-  <div class="circuit-canvas" v-if="group?.routingGroupId">
+  <div v-if="isLoadingGroup && !group?.routingGroupId" class="canvas-loading">
+    <ion-spinner name="crescent" />
+  </div>
+  <div class="circuit-canvas" v-else-if="group?.routingGroupId">
     <!-- Routing Group Column -->
     <div class="routing-group">
       <ion-card class="info">
@@ -8,7 +11,8 @@
             <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
             <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
             <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
-            <p v-if="group.description" class="group-description">{{ group.description }}</p>
+            <p v-show="!isDescUpdating && group.description" class="group-description">{{ group.description }}</p>
+            <ion-textarea v-show="isDescUpdating" ref="descRef" class="group-description-input" aria-label="description" :auto-grow="true" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription()"></ion-textarea>
           </ion-card-header>
           <div class="ion-padding">
             <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
@@ -19,7 +23,15 @@
               <ion-icon slot="start" :icon="saveOutline" />
               {{ translate("Save") }}
             </ion-button>
-            <ion-button fill="outline" size="small" @click="cloneGroup()">
+            <ion-button v-show="!isDescUpdating" fill="outline" size="small" @click="editGroupDescription()">
+              <ion-icon slot="start" :icon="group.description ? pencilOutline : addCircleOutline" />
+              {{ group.description ? translate("Edit description") : translate("Add description") }}
+            </ion-button>
+            <ion-button v-show="isDescUpdating" fill="outline" size="small" @click="updateGroupDescription()">
+              <ion-icon slot="start" :icon="saveOutline" />
+              {{ translate("Save description") }}
+            </ion-button>
+            <ion-button v-if="!isSandbox" fill="outline" size="small" @click="cloneGroup()">
               <ion-icon slot="start" :icon="copyOutline" />
               {{ translate("Clone") }}
             </ion-button>
@@ -34,7 +46,7 @@
             <ion-label>{{ translate("Updated at") }}</ion-label>
             <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
           </ion-item>
-          <ion-item lines="none">
+          <ion-item v-if="!isSandbox" lines="none">
             <ion-icon slot="start" :icon="pulseOutline" />
             <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
               <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
@@ -44,7 +56,7 @@
         </div>
       </ion-card>
 
-      <ion-card>
+      <ion-card v-if="!isSandbox">
         <ion-card-header>
           <div class="header">
             <div>
@@ -70,9 +82,24 @@
         </ion-item>
       </ion-card>
 
+      <ion-card v-if="!isSandbox && !userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+        <ion-card-header>
+          <ion-card-subtitle>{{ translate("Test drive") }}</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
+        </ion-card-content>
+        <ion-item lines="none">
+          <ion-button fill="outline" expand="block" :disabled="hasUnsavedChanges" @click="router.push(`/brokering/${group.routingGroupId}/routes/test`)">
+            <ion-icon slot="start" :icon="speedometerOutline" />
+            {{ translate("Test drive") }}
+          </ion-button>
+        </ion-item>
+      </ion-card>
+
       <ion-list-header>
         <ion-label>{{ translate("Routings") }}</ion-label>
-        <ion-button fill="clear" color="primary" @click="createNewRouting()">
+        <ion-button v-if="!isSandbox" fill="clear" color="primary" @click="createNewRouting()">
           <ion-icon slot="start" :icon="addCircleOutline" />
           {{ translate("New") }}
         </ion-button>
@@ -124,7 +151,7 @@
       </ion-list>
       <div v-else class="empty-state">
         <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
-        <ion-button @click="createNewRouting()" fill="outline">
+        <ion-button v-if="!isSandbox" @click="createNewRouting()" fill="outline">
           <ion-icon :icon="addOutline" slot="start" />
           {{ translate("Create order batch") }}
         </ion-button>
@@ -146,12 +173,12 @@
             <ion-icon slot="start" :icon="isRouteNameUpdating ? saveOutline : pencilOutline" />
             <ion-label>{{ isRouteNameUpdating ? translate("Save") : translate("Rename") }}</ion-label>
           </ion-button>
-          <ion-button size="small" color="medium" fill="outline" @click="cloneRouting(activeRouting)">
+          <ion-button v-if="!isSandbox" size="small" color="medium" fill="outline" @click="cloneRouting(activeRouting)">
             <ion-icon slot="start" :icon="copyOutline" />
             <ion-label>{{ translate("Clone") }}</ion-label>
           </ion-button>
         </div>
-        <ion-item class="history" button @click="openRoutingHistoryModal(activeRoutingId, activeRouting?.routingName)">
+        <ion-item v-if="!isSandbox" class="history" button @click="openRoutingHistoryModal(activeRoutingId, activeRouting?.routingName)">
           <ion-icon :icon="timeOutline" slot="start"></ion-icon>
           <ion-label>{{ translate("Last run") }}</ion-label>
           <ion-chip slot="end">
@@ -183,6 +210,23 @@
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')">
+              <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY', true)">
+                <div slot="label">
+                  {{ translate("Product Category") }}
+                </div>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
+              <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY_EXCLUDED', true)">
+                <div slot="label">
+                  <ion-label>{{ translate("Product Category") }}</ion-label>
+                  <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+                </div>
+                <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
+              </ion-select>
+            </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <div slot="label">
@@ -237,6 +281,19 @@
                 <ion-select-option value="MEDIUM">{{ translate("Medium") }}</ion-select-option>
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
+            </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
+              <ion-label>{{ translate("Promise date") }}</ion-label>
+              <ion-chip outline @click="selectPromiseFilterValue($event)">
+                {{ getPromiseDateValue() }}
+              </ion-chip>
+            </ion-item>
+            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+              <ion-label>{{ translate("Promise date") }}</ion-label>
+              <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
+              <ion-chip outline @click="selectPromiseFilterValue($event, 'excluded')">
+                {{ getPromiseDateValue() }}
+              </ion-chip>
             </ion-item>
             <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
@@ -302,7 +359,7 @@
             </ion-list-header>
               
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :disabled="isReordering" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
+              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="ruleKey(rule)" :disabled="isReordering" :color="ruleKey(rule) === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
                   <h2>{{ rule.ruleName }}</h2>
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
@@ -420,6 +477,10 @@
               <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('SHIP_THRESHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue : "-" }}</ion-chip>
             </ion-item>
+            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'WOS')">
+              <ion-label>{{ translate('Week of Supply') }}</ion-label>
+              <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
+            </ion-item>
           </ion-card>
           <ion-card class="sort">
             <ion-item lines="none">
@@ -508,7 +569,8 @@
         </section>
       </div>
     </div>
-    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <!-- Live mode persists via this FAB; in sandbox the Variations rail owns saving the variation. -->
+    <ion-fab v-if="!isSandbox" vertical="bottom" horizontal="end" slot="fixed">
       <ion-fab-button :disabled="!hasUnsavedChanges" @click="save">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
@@ -522,12 +584,12 @@
         <div class="icon-container">
           <ion-icon :icon="gitNetworkOutline" />
         </div>
-        <h2>{{ translate("Select a Routing Context") }}</h2>
+        <h2>{{ translate("No routing selected") }}</h2>
         <p class="description">{{ translate("Select a routing from the list to view its details and manage inventory rules.") }}</p>
 
         <div class="action-prompt">
           <ion-icon :icon="sparklesOutline" />
-          <p>{{ translate("Ask Circuit to help you create or modify rules") }}</p>
+          <p>{{ translate("Ask the assistant to help you create or modify rules") }}</p>
         </div>
       </div>
     </div>
@@ -561,7 +623,9 @@ import {
   IonToggle,
   IonFab,
   IonFabButton,
+  IonSpinner,
   modalController,
+  popoverController,
   alertController
 } from '@ionic/vue';
 import { 
@@ -585,7 +649,8 @@ import {
   reorderTwoOutline,
   archiveOutline,
   addOutline,
-  listOutline
+  listOutline,
+  speedometerOutline
 } from 'ionicons/icons';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
@@ -593,8 +658,11 @@ import { orderRoutingStore } from '@/store/orderRoutingStore';
 import { productStore } from '@/store/productStore';
 import { useUserStore } from '@/store/userStore';
 import { useUtilStore } from '@/store/utilStore';
+import { simulationStore, registerWorkingFlushHook } from '@/store/simulationStore';
 import { translate, emitter, logger, commonUtil } from '@common';
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
+import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
+import router from "@/router";
 import { Rule } from "@/types";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
 import cronstrue from "cronstrue"
@@ -614,6 +682,13 @@ const props = defineProps({
   routingGroupId: {
     type: String,
     required: false
+  },
+  // Sandbox mode: edit the in-memory simulation working copy (simulationStore.working) with
+  // NO backend writes, instead of the live routing group. Set true when editing a variation
+  // (or on the Simulation page). All live-persistence sites are guarded on !isSandbox.
+  sandbox: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -622,6 +697,11 @@ const routingStore = orderRoutingStore();
 const product = productStore();
 const userStore = useUserStore();
 const utilStore = useUtilStore();
+const sim = simulationStore();
+
+// Single source of truth for "should edits stay in the in-memory working copy instead of
+// persisting to the live backend". Every backend-write site is guarded on !isSandbox.value.
+const isSandbox = computed(() => props.sandbox);
 
 const routingGroupId = computed(() => props.routingGroupId || null);
 const group = ref({}) as any;
@@ -644,6 +724,9 @@ const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
 const initialRulesInformation = ref({}) as any;
+// Sandbox only: monotonic counter backing the client _tempId of rules/routings added to a
+// variation working copy (persisted entities use their backend id; new ones need a stable key).
+let tempIdCounter = 0;
 const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || '{}');
 const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || '{}');
 const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || '{}');
@@ -651,6 +734,10 @@ const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as st
 const groupName = ref("");
 const isGroupNameUpdating = ref(false);
 const groupNameRef = ref();
+const description = ref("");
+const isDescUpdating = ref(false);
+const descRef = ref();
+const isLoadingGroup = ref(false);
 const isReordering = ref(false);
 const job = ref({}) as any;
 const groupHistory = ref([]) as any;
@@ -690,7 +777,7 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   if (!activeRouting.value?.orderRoutingId) {
     return {
       proposal: null,
-      message: translate("Select a routing context before asking Circuit to draft changes.")
+      message: translate("Select a routing before drafting changes.")
     };
   }
 
@@ -748,7 +835,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
   if (!activeRouting.value?.orderRoutingId) {
     return {
       appliedCount: 0,
-      message: translate("Select a routing context before asking Circuit to draft changes.")
+      message: translate("Select a routing before drafting changes.")
     };
   }
 
@@ -756,6 +843,9 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
 
   const result = await DraftAssistantService.applyDraftProposal(proposal, manifest, {
     createSiblingRouting: async (name: string) => {
+      // Sandbox: a variation can't spawn a new live routing; signal "not created" so the draft
+      // apply skips the sibling and only applies rule/filter/action edits to the working copy.
+      if (isSandbox.value) return "";
       const existing = group.value?.routings || [];
       const tail = existing[existing.length - 1];
       const sequenceNum = tail?.sequenceNum >= 0 ? tail.sequenceNum + 5 : 0;
@@ -771,7 +861,8 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
       return newId || "";
     },
     selectRouting: (id: string) => {
-      group.value = routingStore.currentGroup;
+      // Sandbox: resolve against the working copy, not live routingStore.currentGroup.
+      group.value = isSandbox.value ? sim.working : routingStore.currentGroup;
       const created = group.value.routings?.find((r: any) => r.orderRoutingId === id);
       if (created) selectRouting(created);
     },
@@ -859,7 +950,7 @@ async function buildCircuitDraftManifest() {
     utilStore.fetchStatusInformation()
   ])
   return buildBrokeringRulesManifest({
-    pageRoute: "/tabs/circuit",
+    pageRoute: "/circuit",
     orderRoutingId: activeRouting.value?.orderRoutingId || "",
     routingName: routeName.value,
     routingStatus: activeRouting.value?.statusId || "",
@@ -972,6 +1063,35 @@ function getPromiseDateValue() {
   return promiseDateFilter?.fieldValue || '-'
 }
 
+// Product categories for the PROD_CATEGORY(/_EXCLUDED) order filter select.
+const catalogCategories = computed((): any => utilStore.getCatalogCategories)
+
+// Promise-date filter uses a duration popover (past durations stored as a negative value).
+async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
+  const key = type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE"
+  const popover = await popoverController.create({
+    component: PromiseFilterPopover,
+    componentProps: {
+      value: getFilterValue(orderRoutingFilterOptions.value, ruleEnums, key).fieldValue
+    },
+    event: ev,
+    translucent: true,
+    showBackdrop: true
+  })
+
+  popover.onDidDismiss().then((result: any) => {
+    if (result.data?.duration || result.data?.duration == 0) {
+      getFilterValue(orderRoutingFilterOptions.value, ruleEnums, key).fieldValue = result.data?.isPastDuration ? `-${result.data?.duration}` : result.data?.duration
+      // Applying a promise-date filter forces partial allocation to MULTI.
+      updatePartialAllocation(true)
+      hasUnsavedChanges.value = true
+    }
+    getFilterValue(orderRoutingFilterOptions.value, ruleEnums, key).operator = "less-equals"
+  })
+
+  return popover.present()
+}
+
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
 const ruleNameRef = ref()
@@ -980,21 +1100,35 @@ onMounted(async () => {
   window.addEventListener('pointerup', resetReordering);
   window.addEventListener('touchend', resetReordering);
   window.addEventListener('mouseup', resetReordering);
-  await fetchRoutingGroupInformation();
+  // In sandbox mode, register the working-flush hook so variation saves (from the rail) capture
+  // this editor's pending edits, and bind to the in-memory working copy instead of fetching.
+  registerWorkingFlushHook(flushWorking);
+  if (isSandbox.value) {
+    await initializeFromWorking();
+  } else {
+    await fetchRoutingGroupInformation();
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('pointerup', resetReordering);
   window.removeEventListener('touchend', resetReordering);
   window.removeEventListener('mouseup', resetReordering);
+  registerWorkingFlushHook(null);
 });
 
 function resetReordering() {
   isReordering.value = false;
 }
 
+// Live: re-load from backend when the routing group id changes.
 watch(routingGroupId, async () => {
-  await fetchRoutingGroupInformation();
+  if (!isSandbox.value) await fetchRoutingGroupInformation();
+});
+
+// Sandbox: re-bind when the store swaps the working copy (load variation / reset to baseline).
+watch(() => sim.working, async () => {
+  if (isSandbox.value) await initializeFromWorking();
 });
 
 async function fetchRoutingGroupInformation() {
@@ -1010,12 +1144,16 @@ async function fetchRoutingGroupInformation() {
     return;
   }
 
-  emitter.emit("presentLoader", { message: translate("Fetching information"), backdropDismiss: false })
+  // Local loading state (not the global App.vue singleton loader): this fetch runs on mount
+  // and can overlap other flows on the detail page (e.g. the simulation store loading), and the
+  // shared singleton loader can't safely handle concurrent callers. A local spinner is isolated.
+  isLoadingGroup.value = true
   try {
     await routingStore.fetchCurrentRoutingGroup(routingGroupId.value || "");
     if(Object.keys(currentRoutingGroup.value).length) {
       group.value = currentRoutingGroup.value
       groupName.value = group.value.groupName || ""
+      description.value = group.value.description || ""
 
       await Promise.all([
         fetchGroupHistory(),
@@ -1023,6 +1161,9 @@ async function fetchRoutingGroupInformation() {
         product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
         utilStore.fetchStatusInformation()
       ])
+      // Categories back the PROD_CATEGORY(/_EXCLUDED) filter select options; they aren't
+      // needed for initial paint, so load them without blocking the group load.
+      utilStore.fetchCategories()
 
       if(group.value.routings?.length) {
         selectRouting(group.value.routings[0]);
@@ -1031,7 +1172,7 @@ async function fetchRoutingGroupInformation() {
   } catch(err) {
     logger.error(err);
   }
-  emitter.emit("dismissLoader")
+  isLoadingGroup.value = false
 }
 
 async function fetchRoutingsInformation() {
@@ -1041,6 +1182,7 @@ async function fetchRoutingsInformation() {
 
 const { promptCreateRouting } = useCreateRouting();
 function createNewRouting() {
+  if (isSandbox.value) return; // adding a routing to a variation isn't supported (matches the sim flow)
   if (!routingGroupId.value) return;
   return promptCreateRouting({
     routingGroupId: routingGroupId.value,
@@ -1055,6 +1197,12 @@ function createNewRouting() {
 }
 
 const selectRouting = (routing: any) => {
+  // Sandbox: flush edits of the routing we're leaving back into the working copy before switching,
+  // so edits across multiple routings all persist into the variation snapshot (not just the last).
+  if (isSandbox.value) {
+    syncActiveRuleDraft();
+    syncWorkingFromLocalState();
+  }
   activeRoutingId.value = routing.orderRoutingId;
   activeRouting.value = routing;
   initialActiveRouting.value = JSON.parse(JSON.stringify(routing));
@@ -1063,9 +1211,10 @@ const selectRouting = (routing: any) => {
   rulesInformation.value = {};
   initialRulesInformation.value = {};
 
-  // Sync store-side currentRouteId so getCurrentRule / fetchInventoryRuleInformation
-  // resolve correctly (BrokeringQuery does the equivalent via fetchCurrentOrderRouting).
-  routingStore.setCurrentOrderRouting(routing.orderRoutingId);
+  // Live only: sync store-side currentRouteId so getCurrentRule / fetchInventoryRuleInformation
+  // resolve correctly. In sandbox the working copy is not in routingStore.currentGroup, so this
+  // would both leak into live state and be pointless.
+  if (!isSandbox.value) routingStore.setCurrentOrderRouting(routing.orderRoutingId);
 
   routeName.value = routing.routingName || ""
   isRouteNameUpdating.value = false
@@ -1081,6 +1230,21 @@ const selectRouting = (routing: any) => {
 };
 
 const selectRule = async (rule: any) => {
+  // Sandbox: read the rule straight from the in-memory working copy — no backend fetch. Flush the
+  // previously-open rule first (keyed by ruleKey so client-added _tempId rules are handled).
+  if (isSandbox.value) {
+    syncActiveRuleDraft();
+    const key = ruleKey(rule);
+    activeRuleId.value = key;
+    if (!rulesInformation.value[key]) {
+      rulesInformation.value[key] = JSON.parse(JSON.stringify(rule));
+      initialRulesInformation.value[key] = JSON.parse(JSON.stringify(rule));
+    }
+    activeRule.value = rulesInformation.value[key];
+    initializeInventoryRule(activeRule.value);
+    return;
+  }
+
   activeRuleId.value = rule.routingRuleId;
 
   // Fetch full rule information including actions and filters
@@ -1101,12 +1265,91 @@ const selectRule = async (rule: any) => {
   initializeInventoryRule(activeRule.value);
 };
 
-function initializeInventoryRule(rule: any) {
-  const inventoryRuleFilters = rule["inventoryFilters"] ? rule["inventoryFilters"] : {}
+// --- Sandbox (variation working-copy) helpers, ported from SimulationCanvas ---
+// A rule's stable key: persisted rules have routingRuleId; rules added in-sandbox have only
+// a client _tempId (so the diff/save treats them as new).
+function ruleKey(rule: any) {
+  return rule?.routingRuleId || rule?._tempId || "";
+}
+// The variation working copy stores a rule's conditions/actions as FLAT ARRAYS; the editor
+// controls consume keyed-by-code maps. These adapt flat -> keyed.
+function buildOptionMap(conditions: any[] | undefined, conditionTypeEnumId: string) {
+  return (conditions || [])
+    .filter((c: any) => c.conditionTypeEnumId === conditionTypeEnumId)
+    .reduce((map: any, c: any) => { map[c.fieldName] = { ...c }; return map; }, {});
+}
+function buildActionMap(actions: any[] | undefined) {
+  return (actions || []).reduce((map: any, a: any) => {
+    const id = a.routingActionTypeId || a.actionTypeEnumId;
+    if (id) map[id] = { ...a, routingActionTypeId: id };
+    return map;
+  }, {});
+}
+// Flush the active routing's order filters + rules array back into the working copy (which is
+// group.value === sim.working by reference, so this mutates the store's copy in place).
+function syncWorkingFromLocalState() {
+  if (!activeRouting.value) return
+  activeRouting.value.orderFilters = [
+    ...Object.values(orderRoutingFilterOptions.value || {}),
+    ...Object.values(orderRoutingSortOptions.value || {})
+  ].map((c: any) => ({ ...c }))
+  activeRouting.value.rules = JSON.parse(JSON.stringify(inventoryRules.value))
+}
+// Commit all pending local editor state into the working copy. Registered as the store's
+// working-flush hook (see onMounted) so variation saves from the Variations sheet capture edits.
+// No-op in live mode (live persistence goes through save()/per-action writes, not the flush).
+function flushWorking() {
+  if (!isSandbox.value) return
+  syncActiveRuleDraft()
+  syncWorkingFromLocalState()
+}
 
-  inventoryRuleActions.value = rule["actions"] || {}
-  inventoryRuleFilterOptions.value = inventoryRuleFilters["ENTCT_FILTER"] ? inventoryRuleFilters["ENTCT_FILTER"] : {}
-  inventoryRuleSortOptions.value = inventoryRuleFilters["ENTCT_SORT_BY"] ? inventoryRuleFilters["ENTCT_SORT_BY"] : {}
+// Sandbox load: bind the editor to the in-memory simulation working copy (no backend fetch).
+// group.value is pointed AT sim.working by reference so edits propagate into the store copy.
+async function initializeFromWorking() {
+  if (!sim.working || !sim.working.routingGroupId) {
+    group.value = {};
+    activeRoutingId.value = '';
+    activeRuleId.value = '';
+    activeRouting.value = null;
+    initialActiveRouting.value = null;
+    activeRule.value = null;
+    inventoryRules.value = [];
+    rulesForReorder.value = [];
+    return;
+  }
+  group.value = sim.working;
+  groupName.value = group.value.groupName || "";
+  description.value = group.value.description || "";
+  try {
+    await Promise.all([
+      product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
+      utilStore.fetchStatusInformation()
+    ]);
+    utilStore.fetchCategories();
+  } catch (err) {
+    logger.error(err);
+  }
+  if (group.value.routings?.length) {
+    selectRouting(group.value.routings[0]);
+  }
+}
+
+function initializeInventoryRule(rule: any) {
+  const inventoryFilters = rule["inventoryFilters"]
+
+  // Dual-shape: working-copy rules store a FLAT ARRAY of conditions; live rules store the
+  // keyed { ENTCT_FILTER, ENTCT_SORT_BY } structure.
+  if (Array.isArray(inventoryFilters)) {
+    inventoryRuleFilterOptions.value = buildOptionMap(inventoryFilters, "ENTCT_FILTER")
+    inventoryRuleSortOptions.value = buildOptionMap(inventoryFilters, "ENTCT_SORT_BY")
+  } else {
+    const filters = inventoryFilters || {}
+    inventoryRuleFilterOptions.value = filters["ENTCT_FILTER"] ? filters["ENTCT_FILTER"] : {}
+    inventoryRuleSortOptions.value = filters["ENTCT_SORT_BY"] ? filters["ENTCT_SORT_BY"] : {}
+  }
+
+  inventoryRuleActions.value = Array.isArray(rule["actions"]) ? buildActionMap(rule["actions"]) : (rule["actions"] || {})
 
   const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
   ruleActionType.value = Object.keys(inventoryRuleActions.value).find((actionId: string) => {
@@ -1187,7 +1430,35 @@ async function updateGroupName() {
   isGroupNameUpdating.value = false
 }
 
+async function editGroupDescription() {
+  isDescUpdating.value = !isDescUpdating.value
+  await nextTick()
+  descRef.value?.$el?.setFocus()
+}
+
+async function updateGroupDescription() {
+  const next = (description.value || "").trim()
+  const current = (group.value.description || "").trim()
+  // Only persist when the value actually changed (avoids a needless write when opening/closing the editor).
+  if (next !== current) {
+    const resultId = await updateRoutingGroup({ routingGroupId: routingGroupId.value || "", productStoreId: group.value.productStoreId, description: next })
+    if (resultId) {
+      group.value.description = next
+    } else {
+      description.value = current
+    }
+  }
+  isDescUpdating.value = false
+}
+
 async function updateRoutingGroup(payload: any) {
+  if (isSandbox.value) {
+    // Sandbox: mutate the in-memory working copy (group.value === sim.working); no backend write.
+    if (payload.groupName !== undefined) group.value.groupName = payload.groupName
+    if (payload.description !== undefined) group.value.description = payload.description
+    hasUnsavedChanges.value = true
+    return payload.routingGroupId || group.value.routingGroupId || "sandbox"
+  }
   emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
   let rGId = ''
   try {
@@ -1205,6 +1476,7 @@ async function updateRoutingGroup(payload: any) {
 }
 
 async function cloneGroup() {
+  if (isSandbox.value) return // group-level live action; not applicable to a sandboxed variation
   const payload = {
     routingGroupId: group.value.routingGroupId,
     newGroupName: `${group.value.groupName} copy`
@@ -1237,6 +1509,7 @@ async function openScheduleModal() {
 }
 
 async function saveSchedule() {
+  if (isSandbox.value) return // scheduling is a live group action; not applicable to a variation
   if (!job.value.cronExpression) {
     commonUtil.showToast(translate("Please select a scheduling for job"))
     return;
@@ -1261,6 +1534,7 @@ async function saveSchedule() {
 }
 
 async function updateGroupStatus(event: CustomEvent) {
+  if (isSandbox.value) return // live group status; not applicable to a variation
   job.value.paused = event.detail.value
 
   const payload = {
@@ -1282,6 +1556,7 @@ async function updateGroupStatus(event: CustomEvent) {
 }
 
 async function runNow() {
+  if (isSandbox.value) return // live run; variations are run via the Variations rail
   const scheduleAlert = await alertController.create({
     header: translate("Run now"),
     message: translate("Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action."),
@@ -1373,7 +1648,7 @@ async function editRuleName() {
 }
 
 async function updateRuleName(routingRuleId: string) {
-  if (activeRule.value.ruleName.trim()) {
+  if (activeRule.value.ruleName.trim() && !isSandbox.value) {
     emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
 
     let ruleId = await routingStore.updateRule({
@@ -1385,11 +1660,15 @@ async function updateRuleName(routingRuleId: string) {
       commonUtil.showToast(translate("Inventory rule information updated"))
     }
     emitter.emit("dismissLoader")
+  } else if (isSandbox.value) {
+    // Sandbox: the rename already mutated activeRule.value.ruleName via v-model; just mark dirty.
+    hasUnsavedChanges.value = true
   }
   isRuleNameUpdating.value = false
 }
 
 async function cloneRule(rule: any) {
+  if (isSandbox.value) return // clone-rule is a live action; not supported for a sandboxed variation
   emitter.emit("presentLoader", { message: translate("Cloning rule"), backdropDismiss: false })
   const resp = await routingStore.cloneRule({
     routingRuleId: rule.routingRuleId,
@@ -1613,12 +1892,37 @@ async function addInventoryRule() {
   newRuleAlert.onDidDismiss().then(async (result: any) => {
     const ruleName = result.data?.values?.ruleName;
     if(!result.role && ruleName) {
+      const sequenceNum = inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0
+
+      // Sandbox: keep the added rule in-memory only. It must NOT get a routingRuleId so the
+      // variation diff treats it as an ADD_RULE; a client _tempId gives it a stable :key.
+      // Conditions/actions use the flat-array working-copy shape.
+      if (isSandbox.value) {
+        const newRule = {
+          _tempId: `temp-rule-${++tempIdCounter}`,
+          orderRoutingId: activeRouting.value.orderRoutingId,
+          ruleName,
+          statusId: "RULE_DRAFT",
+          sequenceNum,
+          assignmentEnumId: "ORA_SINGLE",
+          createdDate: DateTime.now().toMillis(),
+          inventoryFilters: [],
+          actions: [{ actionTypeEnumId: "ORA_NEXT_RULE", actionValue: "" }]
+        }
+        inventoryRules.value.push(newRule)
+        hasUnsavedChanges.value = true
+        initializeInventoryRules()
+        const created = rulesForReorder.value.find((r: any) => r._tempId === newRule._tempId)
+        if (created) selectRule(created)
+        return
+      }
+
       const payload = {
         routingRuleId: "",
         orderRoutingId: activeRouting.value.orderRoutingId,
         ruleName,
         statusId: "RULE_DRAFT",
-        sequenceNum: inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0,
+        sequenceNum,
         assignmentEnumId: "ORA_SINGLE",
         createdDate: DateTime.now().toMillis()
       }
@@ -1651,7 +1955,9 @@ async function openArchivedRuleModal() {
   })
 
   archivedRuleModal.onDidDismiss().then(() => {
-    fetchRoutingGroupInformation();
+    // Sandbox: re-bind from the in-memory working copy instead of hitting the backend.
+    if (isSandbox.value) initializeFromWorking();
+    else fetchRoutingGroupInformation();
   })
 
   await archivedRuleModal.present();
@@ -1659,6 +1965,12 @@ async function openArchivedRuleModal() {
 
 
 async function save() {
+  // Sandbox: never persist to the live backend. Edits are captured into the variation working
+  // copy via the flush hook; the Variations rail owns saving a variation. Flush and stop.
+  if (isSandbox.value) {
+    flushWorking()
+    return
+  }
   emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
   syncActiveRuleDraft()
   const localRulesPersisted = await persistLocalInventoryRules()
@@ -1775,6 +2087,30 @@ async function save() {
 }
 
 function syncActiveRuleDraft() {
+  if (isSandbox.value) {
+    // Sandbox: serialize the open rule's edits to FLAT ARRAYS (working-copy shape), keyed by
+    // ruleKey so client-added (_tempId) rules are handled, and mirror back into inventoryRules.
+    const key = activeRuleId.value
+    if (!key || !activeRule.value) return
+    const inventoryFilters = [
+      ...Object.values(inventoryRuleFilterOptions.value || {}),
+      ...Object.values(inventoryRuleSortOptions.value || {})
+    ].map((c: any) => ({ ...c }))
+    const actions = Object.values(inventoryRuleActions.value || {}).map((a: any) => ({
+      actionTypeEnumId: a.routingActionTypeId || a.actionTypeEnumId,
+      actionValue: a.actionValue,
+      ...(a.routingRuleId ? { routingRuleId: a.routingRuleId } : {})
+    }))
+    activeRule.value.inventoryFilters = inventoryFilters
+    activeRule.value.actions = actions
+    rulesInformation.value[key] = activeRule.value
+    const idx = inventoryRules.value.findIndex((r: any) => ruleKey(r) === key)
+    if (idx >= 0) {
+      inventoryRules.value[idx] = { ...inventoryRules.value[idx], ...activeRule.value, inventoryFilters, actions }
+    }
+    return
+  }
+
   const ruleId = activeRule.value?.routingRuleId
   if(!ruleId) return
 
@@ -2086,6 +2422,13 @@ async function editRouteName() {
 
 async function updateRouteName() {
   if(routeName.value.trim() && routeName.value.trim() !== activeRouting.value.routingName.trim()) {
+    // Sandbox: rename the in-memory routing only; the variation diff persists it on save.
+    if (isSandbox.value) {
+      activeRouting.value.routingName = routeName.value
+      hasUnsavedChanges.value = true
+      isRouteNameUpdating.value = false
+      return
+    }
     emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
     const payload = {
       orderRoutingId: activeRouting.value.orderRoutingId,
@@ -2107,6 +2450,7 @@ async function updateRouteName() {
 }
 
 async function cloneRouting(routing: any) {
+  if (isSandbox.value) return; // cloning a routing into a variation isn't supported (matches the sim flow)
   emitter.emit("presentLoader", { message: translate("Cloning route"), backdropDismiss: false })
   const orderRoutingId = await routingStore.cloneOrderRouting({
     orderRoutingId: routing.orderRoutingId,
@@ -2121,6 +2465,12 @@ async function cloneRouting(routing: any) {
 }
 
 async function updateRoutingStatus(statusId: string) {
+  // Sandbox: flip the status on the in-memory routing only; the variation diff persists it later.
+  if (isSandbox.value) {
+    if (activeRouting.value) activeRouting.value.statusId = statusId
+    hasUnsavedChanges.value = true
+    return
+  }
   const payload = {
     orderRoutingId: activeRoutingId.value,
     statusId: statusId
@@ -2234,9 +2584,10 @@ function doReorder(event: CustomEvent) {
 
   rulesForReorder.value = updatedSeq
   
-  // Update original inventoryRules to maintain state
+  // Update original inventoryRules to maintain state. Match by ruleKey so client-added rules
+  // (which have only a _tempId, no routingRuleId) don't all collide on undefined === undefined.
   inventoryRules.value.forEach((rule: any) => {
-    const updatedRule = updatedSeq.find((seq: any) => seq.routingRuleId === rule.routingRuleId)
+    const updatedRule = updatedSeq.find((seq: any) => ruleKey(seq) === ruleKey(rule))
     if(updatedRule) {
       rule.sequenceNum = updatedRule.sequenceNum
     }
@@ -2245,6 +2596,10 @@ function doReorder(event: CustomEvent) {
   isReordering.value = false
 }
 async function openRoutingHistoryModal(orderRoutingId: string, routingName: string) {
+  // History is a live read that populates shared routingStore.routingHistory (which the live editor
+  // binds to); a variation has no run history, so don't touch live state in sandbox mode. The
+  // template trigger is also hidden via v-if="!isSandbox"; this is the defense-in-depth guard.
+  if (isSandbox.value) return;
   await routingStore.fetchRoutingHistory(routingGroupId.value || "")
   const routingHistoryModal = await modalController.create({
     component: RoutingHistoryModal,
@@ -2261,7 +2616,9 @@ async function openArchivedRoutingModal() {
       archivedRoutings: group.value?.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || [],
       saveRoutings: (routings: any) => {
         if(routings) {
-          fetchRoutingGroupInformation()
+          // Sandbox: re-bind from the working copy instead of hitting the backend.
+          if (isSandbox.value) initializeFromWorking()
+          else fetchRoutingGroupInformation()
         }
       }
     }

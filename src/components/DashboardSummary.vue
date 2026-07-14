@@ -1,7 +1,7 @@
 <template>
   <main class="dashboard">
     <!-- Routing performance -->
-    <ion-card class="brokering-stats" button router-link="/brokering">
+    <ion-card class="brokering-stats" button router-link="/brokering-calendar">
       <ion-card-header>
         <div class="card-head">
           <ion-card-title>{{ translate("Routing") }}</ion-card-title>

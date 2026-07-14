@@ -2,12 +2,17 @@
   <div class="ion-padding">
     <SimulationProgress v-if="sim.isRunning" />
 
-    <ion-button fill="clear" @click="sim.view = 'editor'">
+    <!-- "Back to editor" only applies to the standalone editor/results view toggle. When embedded
+         (e.g. in the Variations rail's results modal or the past-run detail page), the host owns
+         its own close/back affordance, so hide it. -->
+    <ion-button v-if="!embedded" fill="clear" @click="sim.view = 'editor'">
       <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}
     </ion-button>
 
-    <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare. -->
-    <template v-if="sim.variationRunResult || sim.isRunningVariationRun">
+    <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare.
+         runCompareError is included so a failed run shows its error (the note below) instead of a blank
+         pane — otherwise, on error (no result, not running) this whole block would render nothing. -->
+    <template v-if="sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError">
       <div v-if="sim.isRunningVariationRun" class="vrun-progress">
         <ion-label>{{ translate("Simulating variation") }} — {{ translate("this can take 25–150s") }}</ion-label>
         <ion-progress-bar type="indeterminate" />
@@ -108,6 +113,10 @@ import FulfillmentMixPanel from "./FulfillmentMixPanel.vue";
 import CompositeScorePanel from "./CompositeScorePanel.vue";
 import AdvancedDetails from "./AdvancedDetails.vue";
 import RoutingRunDetailModal from "./RoutingRunDetailModal.vue";
+
+/* eslint-disable no-undef */
+defineProps<{ embedded?: boolean }>();
+/* eslint-enable no-undef */
 
 const sim = simulationStore();
 const router = useRouter();

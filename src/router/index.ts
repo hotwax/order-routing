@@ -13,8 +13,6 @@ import {
   pulseOutline,
   sendOutline,
   settingsOutline,
-  shuffleOutline,
-  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 
@@ -44,7 +42,7 @@ const authGuard = async (to: any, _from: any, next: any) => {
 // Same as authGuard, but first redirects away when the simulation feature is disabled for this
 // deployment (VITE_SIMULATION_ENABLED="false"), so /simulate* can't be reached by URL/bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
-  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering");
+  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering-calendar");
 
 const routes: Array<RouteRecordRaw> = [
   { path: "/", redirect: "/dashboard" },
@@ -199,33 +197,21 @@ const routes: Array<RouteRecordRaw> = [
 
   // -------------------- Routing (Brokering) --------------------
   {
-    path: "/brokering",
-    name: "Brokering",
-    component: () => import("@/views/BrokeringRuns.vue"),
+    path: "/brokering-calendar",
+    name: "Brokering calendar",
+    component: () => import("@/views/BrokeringRunsCalendar.vue"),
     beforeEnter: authGuard,
     meta: {
       title: "Brokering",
-      icon: shuffleOutline,
+      icon: calendarOutline,
       section: "routing",
       menuIndex: 10,
       childRoutes: ["/brokering/"]
     }
   },
   {
-    path: "/brokering-calendar",
-    name: "Brokering calendar",
-    component: () => import("@/views/BrokeringRunsCalendar.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Brokering calendar",
-      icon: calendarOutline,
-      section: "routing",
-      menuIndex: 11
-    }
-  },
-  {
     path: "/brokering/:routingGroupId/routes",
-    component: () => import("@/views/BrokeringRoute.vue"),
+    component: () => import("@/views/RoutingDetail.vue"),
     beforeEnter: authGuard,
     props: true
   },
@@ -236,30 +222,20 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
   {
-    path: "/brokering/:routingGroupId/:orderRoutingId/rules",
-    component: () => import("@/views/BrokeringQuery.vue"),
-    beforeEnter: authGuard,
-    props: true
-  },
-  {
+    // Simulating a routing group now happens on its detail page (the Variations rail); this route is
+    // the cross-group archive of past simulation runs. Editing at /simulate/:id was removed.
     path: "/simulate",
-    name: "Simulate",
+    name: "Simulation history",
     component: () => import("@/views/SimulationHome.vue"),
     beforeEnter: simulateGuard,
     meta: {
-      title: "Simulate",
+      title: "Simulation history",
       icon: flaskOutline,
       section: "routing",
       menuIndex: 11,
       childRoutes: ["/simulate/"],
       featureFlag: "simulation"
     }
-  },
-  {
-    path: "/simulate/:routingGroupId",
-    component: () => import("@/views/Simulation.vue"),
-    beforeEnter: simulateGuard,
-    props: true
   },
   {
     path: "/simulate/history/:simulationId",
@@ -281,18 +257,6 @@ const routes: Array<RouteRecordRaw> = [
       menuIndex: 11
     }
   },
-  {
-    path: "/circuit",
-    name: "Circuit",
-    component: () => import("@/views/Circuit.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Circuit",
-      icon: sparklesOutline,
-      section: "routing",
-      menuIndex: 12
-    }
-  },
 
   // -------------------- Settings & auth --------------------
   {
@@ -312,28 +276,6 @@ const routes: Array<RouteRecordRaw> = [
     component: Login
   },
 
-  // -------------------- Legacy /tabs/* redirects --------------------
-  { path: "/tabs", redirect: "/brokering" },
-  { path: "/tabs/brokering", redirect: "/brokering" },
-  { path: "/tabs/settings", redirect: "/settings" },
-  { path: "/tabs/simulate", redirect: "/simulate" },
-  {
-    path: "/tabs/simulate/:routingGroupId",
-    redirect: (to) => `/simulate/${to.params.routingGroupId}`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/routes",
-    redirect: (to) => `/brokering/${to.params.routingGroupId}/routes`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/routes/test",
-    redirect: (to) => `/brokering/${to.params.routingGroupId}/routes/test`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/:orderRoutingId/rules",
-    redirect: (to) =>
-      `/brokering/${to.params.routingGroupId}/${to.params.orderRoutingId}/rules`
-  }
 ];
 
 const router = createRouter({

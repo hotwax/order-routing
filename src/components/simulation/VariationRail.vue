@@ -36,7 +36,7 @@
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <ion-radio-group :value="sim.activeVariationId" @ionChange="selectVariation($event.detail.value)">
+      <ion-radio-group :value="radioSelected" @ionChange="selectVariation($event.detail.value)">
         <ion-item>
           <ion-radio value="" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
         </ion-item>
@@ -46,6 +46,49 @@
         </ion-item>
       </ion-radio-group>
 
+      <!-- Editing status + save-changes workflow: update the active variation, or save the current
+           working copy as a brand-new variation named inline. Replaces the old inline canvas card. -->
+      <div class="save-section">
+        <ion-chip :color="sim.activeVariationId ? 'primary' : 'medium'" :outline="true">
+          <ion-label>
+            <template v-if="sim.activeVariationId">{{ translate("Editing:") }} {{ sim.activeVariation?.label }}</template>
+            <template v-else>{{ translate("New variation (from Baseline)") }}</template>
+            <template v-if="sim.isDirty"> — {{ translate("unsaved changes") }}</template>
+          </ion-label>
+        </ion-chip>
+
+        <ion-button
+          v-if="sim.activeVariationId"
+          expand="block"
+          size="small"
+          color="primary"
+          :disabled="isSaving"
+          @click="updateActive()"
+        >
+          <ion-icon slot="start" :icon="saveOutline" />
+          {{ translate("Update") }} {{ sim.activeVariation?.label }}
+        </ion-button>
+
+        <div class="create-row">
+          <ion-input
+            v-model="newVariationName"
+            :placeholder="translate('New variation name')"
+            :disabled="isSaving"
+            @keyup.enter="saveAsNew()"
+          />
+          <ion-button
+            size="small"
+            :fill="sim.activeVariationId ? 'outline' : 'solid'"
+            color="primary"
+            :disabled="isSaving"
+            @click="saveAsNew()"
+          >
+            <ion-icon slot="start" :icon="addCircleOutline" />
+            {{ translate("Save as new") }}
+          </ion-button>
+        </div>
+      </div>
+
       <!-- Select a variation above, then act on it from this row. -->
       <div class="actions">
         <div class="action">
@@ -54,6 +97,12 @@
             <ion-icon v-else :icon="playOutline" />
           </ion-fab-button>
           <ion-note>{{ sim.isRunningVariationRun ? translate("Running…") : translate("Run") }}</ion-note>
+        </div>
+        <div class="action">
+          <ion-fab-button size="small" :disabled="!hasResults" :aria-label="translate('View results')" @click="showResults = true">
+            <ion-icon :icon="barChartOutline" />
+          </ion-fab-button>
+          <ion-note>{{ translate("Results") }}</ion-note>
         </div>
         <div class="action">
           <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Rename')" @click="renameActive()">
@@ -68,7 +117,7 @@
           <ion-note>{{ translate("Delete") }}</ion-note>
         </div>
         <div class="action">
-          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Reset to baseline')" @click="sim.resetWorkingToBaseline()">
+          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
             <ion-icon :icon="refreshOutline" />
           </ion-fab-button>
           <ion-note>{{ translate("Reset") }}</ion-note>
@@ -76,16 +125,45 @@
       </div>
     </ion-content>
   </ion-modal>
+
+  <!-- Results of running the active variation (parent-vs-variation compare). On the canonical detail
+       page there is no editor/results view toggle, so the rail surfaces results in its own modal,
+       reusing SimulationResults in embedded mode. -->
+  <ion-modal :is-open="showResults" @didDismiss="showResults = false">
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ translate("Simulation results") }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button @click="showResults = false">{{ translate("Close") }}</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+      <SimulationResults :embedded="true" />
+    </ion-content>
+  </ion-modal>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { translate } from "@common";
-import { alertController, IonButton, IonButtons, IonContent, IonFabButton, IonHeader, IonIcon, IonItem, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
-import { chevronDownOutline, chevronUpOutline, pencilOutline, playOutline, refreshOutline, trashOutline } from "ionicons/icons";
+import { computed, ref, watch } from "vue";
+import { commonUtil, translate } from "@common";
+import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
+import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, pencilOutline, playOutline, refreshOutline, saveOutline, trashOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
+import SimulationResults from "@/components/simulation/SimulationResults.vue";
 
 const sim = simulationStore();
+
+const newVariationName = ref("");
+const isSaving = ref(false);
+// Results modal for the active variation's run (compare vs. live parent). Enabled once a run has
+// been kicked off — while running, on success, or on error — so the user can open it to watch/read.
+const showResults = ref(false);
+const hasResults = computed(() => !!(sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError));
+// Local mirror of the selected radio so a cancelled discard can visually revert it
+// (binding directly to sim.activeVariationId wouldn't re-patch when it's unchanged).
+const radioSelected = ref(sim.activeVariationId || "");
+watch(() => sim.activeVariationId, (v) => { radioSelected.value = v || ""; });
 
 // Sheet stops: tucked-away sliver, half, and full. Lowest is > 0 so the sheet never dismisses.
 const MIN_BP = 0.08;
@@ -108,9 +186,64 @@ const expand = () => setBreakpoint(MAX_BP);
 const minimize = () => setBreakpoint(MIN_BP);
 
 // Empty value is the baseline; anything else is a saved variation id.
-function selectVariation(id: string) {
+// Switching discards the current working copy, so flush the editor's pending edits
+// into `working` first (so the dirty check is accurate), then guard on unsaved changes.
+async function selectVariation(id: string) {
+  radioSelected.value = id;
+  if (id === (sim.activeVariationId || "")) return;
+  sim.flushWorkingCopy();
+  if (sim.isDirty && !(await confirmDiscard())) {
+    radioSelected.value = sim.activeVariationId || ""; // revert the radio to the still-active variation
+    return;
+  }
   if (id) sim.loadVariation(id);
   else sim.resetWorkingToBaseline();
+}
+
+// Reset also discards the working copy; same flush-then-guard.
+async function resetToBaseline() {
+  sim.flushWorkingCopy();
+  if (sim.isDirty && !(await confirmDiscard())) return;
+  sim.resetWorkingToBaseline();
+}
+
+async function confirmDiscard(): Promise<boolean> {
+  const alert = await alertController.create({
+    header: translate("Discard unsaved changes?"),
+    message: translate("Switching variation will discard the unsaved changes in the current editor."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      { text: translate("Discard"), role: "destructive" }
+    ]
+  });
+  await alert.present();
+  const { role } = await alert.onDidDismiss();
+  return role === "destructive";
+}
+
+// Save the current working copy as a brand-new variation, named inline in this sheet.
+async function saveAsNew() {
+  if (isSaving.value) return;
+  isSaving.value = true;
+  try {
+    const isSaved = await sim.saveAsVariation(newVariationName.value.trim());
+    commonUtil.showToast(isSaved ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
+    if (isSaved) newVariationName.value = "";
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+// Overwrite the active variation with the current working copy.
+async function updateActive() {
+  if (!sim.activeVariationId || isSaving.value) return;
+  isSaving.value = true;
+  try {
+    const isUpdated = await sim.updateVariation(sim.activeVariationId);
+    commonUtil.showToast(isUpdated ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 function renameActive() {

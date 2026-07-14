@@ -13,7 +13,7 @@
         <ion-text color="danger">{{ sim.detailError }}</ion-text>
         <ion-button fill="outline" size="small" @click="load">{{ translate("Retry") }}</ion-button>
       </div>
-      <SimulationResults v-else />
+      <SimulationResults v-else :embedded="true" />
     </ion-content>
   </ion-page>
 </template>

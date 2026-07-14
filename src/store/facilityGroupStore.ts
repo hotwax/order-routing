@@ -13,15 +13,11 @@ export interface FacilityGroupState {
 // Optional, friendlier labels for type IDs that are well-known across HotWax apps.
 // Anything else falls through to its raw ID.
 const TYPE_LABELS: Record<string, string> = {
-  FACILITY_GROUP: "Generic",
   BROKERING_GROUP: "Brokering",
   CHANNEL_FAC_GROUP: "Inventory channel",
   PICKUP: "Store pickup",
-  SHIPPING: "Shipping",
-  WAREHOUSE: "Warehouse",
   FULFILLMENT: "Fulfillment",
   AUTO_CANCEL_CONFIG: "Auto cancel",
-  SHOPIFY_GROUP_FAC: "Shopify group",
   SHIPPING_LABEL: "Shipping label"
 };
 
@@ -157,20 +153,6 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       const idx = this.groups.findIndex((g: any) => g.facilityGroupId === payload.facilityGroupId);
       if (idx >= 0) this.groups[idx] = { ...this.groups[idx], ...payload };
       return resp.data;
-    },
-    async archiveGroup(group: any) {
-      const thruDate = DateTime.now().toMillis();
-      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
-
-      const resp = await api({
-        url: `admin/productStores/${productStoreId}/facilityGroups/${group.facilityGroupId}/association`,
-        method: "POST",
-        data: { productStoreId, facilityGroupId: group.facilityGroupId, fromDate: group.fromDate, thruDate }
-      }) as any;
-      if (commonUtil.hasError(resp)) throw resp.data;
-      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== group.facilityGroupId);
-      delete this.facilitiesByGroup[group.facilityGroupId];
-      this.deriveGroupTypes();
     },
     async addFacility(facilityGroupId: string, facilityId: string) {
       const resp = await api({

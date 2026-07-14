@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { logger, commonUtil, api } from '@common'
+import { logger, commonUtil, api, translate } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 
@@ -28,7 +28,10 @@ export const productStore = defineStore('productStore', {
           productIdentificationPref: {
             primaryId: 'SKU',
             secondaryId: 'productId'
-          }
+          },
+          productIdentificationOptions: [] as any[],
+          sampleProducts: [] as any[],
+          currentSampleProduct: null as any
         }
       } as any
     }
@@ -78,6 +81,12 @@ export const productStore = defineStore('productStore', {
     },
     getProductIdentificationPref(state) {
       return state.settings.productIdentifier.productIdentificationPref
+    },
+    getProductIdentificationOptions(state) {
+      return state.settings.productIdentifier.productIdentificationOptions
+    },
+    getCurrentSampleProduct(state) {
+      return state.settings.productIdentifier.currentSampleProduct
     }
   },
   actions: {
@@ -115,26 +124,24 @@ export const productStore = defineStore('productStore', {
       const productStoreSettings = {} as any
 
       if (productStoreId) {
-        const payload = {
-          productStoreId,
-          settingTypeEnumId: ["PRDT_IDEN_PREF"],
-          settingTypeEnumId_op: "in",
-          pageIndex: 0,
-          pageSize: 50
-        }
         try {
+          // Read via the admin ProductStoreSetting REST endpoint (same family as the write path in
+          // setProductStoreSetting). The "ProductStoreSetting" dataDocument is not registered on the OMS,
+          // so the previous POST /oms/dataDocumentView returned 400 ("No DataDocument found") and the
+          // identifier preference silently fell back to defaults (#454).
           const resp = await api({
-            url: `/oms/dataDocumentView`,
-            method: "POST",
-            data: {
-              dataDocumentId: "ProductStoreSetting",
-              customParametersMap: payload
-            }
+            url: `admin/productStores/${productStoreId}/settings`,
+            method: "GET",
+            params: { settingTypeEnumId: "PRDT_IDEN_PREF" }
           }) as any
 
-          resp?.data?.entityValueList?.forEach((productSetting: any) => {
-            productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
-          })
+          if (resp && !commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+            resp.data.forEach((productSetting: any) => {
+              if (productSetting?.settingTypeEnumId) {
+                productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+              }
+            })
+          }
         } catch (error) {
           logger.error("Failed to fetch settings", error)
         }
@@ -177,6 +184,88 @@ export const productStore = defineStore('productStore', {
           }
         }
       })
+    },
+    async prepareProductIdentifierOptions() {
+      const productIdentificationOptions = [
+        { goodIdentificationTypeId: "productId", description: "Product ID" },
+        { goodIdentificationTypeId: "internalName", description: "Internal Name" },
+        { goodIdentificationTypeId: "parentProductName", description: "Parent Product Name" },
+        { goodIdentificationTypeId: "title", description: "Title" }
+      ]
+      let fetchedGoodIdentificationOptions = []
+      try {
+        const resp: any = await api({
+          url: "oms/goodIdentificationTypes",
+          method: "get",
+          params: {
+            parentTypeId: "HC_GOOD_ID_TYPE",
+            pageSize: 50
+          }
+        });
+        if(!commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+          fetchedGoodIdentificationOptions = resp.data
+        }
+      } catch(error) {
+        logger.error("Failed to fetch good identification types", error)
+      }
+      this.settings.productIdentifier.productIdentificationOptions = [...productIdentificationOptions, ...fetchedGoodIdentificationOptions]
+    },
+    async fetchSampleProducts() {
+      try {
+        const resp: any = await api({
+          url: "admin/runSolrQuery",
+          method: "POST",
+          data: {
+            json: {
+              query: "*:*",
+              filter: "docType: PRODUCT AND productTypeId: FINISHED_GOOD AND isVirtual: false",
+              params: { rows: 10 }
+            }
+          }
+        })
+        this.settings.productIdentifier.sampleProducts = resp?.data?.response?.docs || []
+        this.shuffleProduct()
+      } catch(error) {
+        logger.error("Failed to fetch sample products", error)
+      }
+    },
+    shuffleProduct() {
+      const sampleProducts = this.settings.productIdentifier.sampleProducts
+      if(sampleProducts.length) {
+        const randomIndex = Math.floor(Math.random() * sampleProducts.length)
+        this.settings.productIdentifier.currentSampleProduct = sampleProducts[randomIndex]
+      } else {
+        this.settings.productIdentifier.currentSampleProduct = null
+      }
+    },
+    async setProductStoreSetting(productStoreId: string, settingTypeEnumId: string, settingValue: any) {
+      if(!productStoreId) {
+        logger.error("Product Store ID is missing")
+        return;
+      }
+      try {
+        const payloadSettingValue = typeof settingValue === "object" ? JSON.stringify(settingValue) : settingValue;
+        const resp = await api({
+          url: `admin/productStores/${productStoreId}/settings`,
+          method: "POST",
+          data: {
+            productStoreId,
+            settingTypeEnumId,
+            settingValue: payloadSettingValue
+          }
+        })
+        if(!commonUtil.hasError(resp)) {
+          if(settingTypeEnumId === "PRDT_IDEN_PREF") {
+            this.settings.productIdentifier.productIdentificationPref = settingValue
+          }
+          commonUtil.showToast(translate("Product Store setting updated successfully."))
+        } else {
+          throw resp
+        }
+      } catch(err) {
+        commonUtil.showToast(translate("Failed to update Product Store setting."))
+        logger.error(err)
+      }
     },
     async fetchFacilities() {
       let facilities = JSON.parse(JSON.stringify(this.facilities))

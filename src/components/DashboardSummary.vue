@@ -84,7 +84,7 @@
             <ion-progress-bar :value="barWidth(facility) / 100" :color="facility.utilization >= 100 ? 'danger' : 'primary'" class="bar-progress" />
             <ion-note class="bar-value">
               <template v-if="facility.maximumOrderLimit != null">{{ facility.orderCount }}/{{ facility.maximumOrderLimit }}</template>
-              <template v-else>{{ facility.orderCount }}</template>
+              <template v-else>{{ facility.orderCount }}/{{ "∞" }}</template>
             </ion-note>
           </div>
         </div>

@@ -78,10 +78,6 @@
                 <ion-icon slot="start" :icon="createOutline" />
                 {{ translate("Edit") }}
               </ion-button>
-              <ion-button class="archive-action" fill="clear" size="small" color="danger" @click="confirmArchive(group)">
-                <ion-icon slot="start" :icon="archiveOutline" />
-                {{ translate("Archive") }}
-              </ion-button>
             </div>
           </ion-card>
         </div>
@@ -98,7 +94,6 @@
 
 <script setup lang="ts">
 import {
-  alertController,
   IonButton,
   IonCard,
   IonCardHeader,
@@ -119,7 +114,7 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
+import { addOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
 import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
@@ -200,30 +195,6 @@ async function openManageFacilities(group: any) {
   await modal.present();
 }
 
-async function confirmArchive(group: any) {
-  const alert = await alertController.create({
-    header: translate("Archive facility group?"),
-    message: translate("This will hide the group from rule selectors. The group's data is preserved server-side."),
-    buttons: [
-      { text: translate("Cancel"), role: "cancel" },
-      {
-        text: translate("Archive"),
-        role: "destructive",
-        handler: async () => {
-          try {
-            await facilityGroupStore.archiveGroup(group);
-            commonUtil.showToast(translate("Facility group archived."));
-          } catch (err) {
-            logger.error("Failed to archive facility group", err);
-            commonUtil.showToast(translate("Failed to archive facility group."));
-          }
-        }
-      }
-    ]
-  });
-  await alert.present();
-}
-
 onMounted(load);
 </script>
 
@@ -249,9 +220,6 @@ main {
   padding: var(--spacer-2xs) var(--spacer-xs);
 }
 
-.actions .archive-action {
-  margin-inline-start: auto;
-}
 
 .empty-block {
   display: flex;

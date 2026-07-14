@@ -722,13 +722,9 @@ async function toggleReservation(event: CustomEvent) {
 async function getTestSessions() {
   activeTestSessions.value = 0
   const testSessions = await useUtilStore().getTestSessions({
-    customParametersMap: {
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      productStoreId: currentEComStore.value.productStoreId
-    },
-    selectedEntity: "co.hotwax.user.UserSession",
-    pageLimit: 100,
-    filterByDate: true
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    productStoreId: currentEComStore.value.productStoreId,
+    pageNoLimit: "true",
   });
   activeTestSessions.value = testSessions.length
 }

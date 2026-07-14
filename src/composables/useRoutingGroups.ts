@@ -7,11 +7,11 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { Group } from "@/types";
 
-// Shared logic for the brokering runs pages (list + calendar). Each caller gets
+// Shared logic for the routing groups pages (list + calendar). Each caller gets
 // its own reactive state (function-scoped refs) so the two pages don't share a
 // single instance. Page-specific concerns (heatmap math, store selector,
 // assistant modal, group-actions popover, etc.) stay in the page components.
-export function useBrokeringRuns() {
+export function useRoutingGroups() {
   const utilStore = useUtilStore();
   const groups = computed(() => orderRoutingStore().getRoutingGroups);
 
@@ -23,7 +23,7 @@ export function useBrokeringRuns() {
   }
 
   const isLoading = ref(false);
-  const brokeringGroups = ref<any[]>([]);
+  const routingGroups = ref<any[]>([]);
   const selectedFilter = ref("all");
 
   function isActive(group: any) {
@@ -42,7 +42,7 @@ export function useBrokeringRuns() {
 
   // Status filter ("all" | "active" | "draft") + sorting applied to the list.
   const displayedGroups = computed(() => {
-    let list = brokeringGroups.value;
+    let list = routingGroups.value;
     if (selectedFilter.value === "active") list = list.filter((group: any) => isActive(group));
     else if (selectedFilter.value === "draft") list = list.filter((group: any) => !isActive(group));
     return sortGroups(list);
@@ -62,18 +62,18 @@ export function useBrokeringRuns() {
   // Shared fetch + local snapshot. `beforeFetch` lets a page inject page-specific
   // work (e.g. clearing the current group) after the loader shows but before the
   // fetch, preserving each page's original ordering.
-  async function refreshBrokeringGroups(beforeFetch?: () => Promise<void> | void) {
+  async function refreshRoutingGroups(beforeFetch?: () => Promise<void> | void) {
     isLoading.value = true;
     if (beforeFetch) await beforeFetch();
     await orderRoutingStore().fetchOrderRoutingGroups();
     isLoading.value = false;
-    brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
+    routingGroups.value = JSON.parse(JSON.stringify(groups.value));
     utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
   }
 
-  async function addNewRun() {
+  async function addRoutingGroup() {
     const newRunAlert = await alertController.create({
-      header: translate("New Run"),
+      header: translate("New routing group"),
       buttons: [
         { text: translate("Cancel"), role: "cancel" },
         {
@@ -86,14 +86,14 @@ export function useBrokeringRuns() {
           }
         }
       ],
-      inputs: [{ name: "runName", placeholder: translate("run name") }]
+      inputs: [{ name: "runName", placeholder: translate("routing group name") }]
     });
 
     newRunAlert.onDidDismiss().then(async (result: any) => {
       if (result.role) return;
       if (result.data?.values?.runName.trim()) {
         await orderRoutingStore().createRoutingGroup(result.data.values.runName.trim());
-        brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
+        routingGroups.value = JSON.parse(JSON.stringify(groups.value));
       }
     });
 
@@ -101,20 +101,20 @@ export function useBrokeringRuns() {
   }
 
   function redirect(group: Group) {
-    router.push(`brokering/${group.routingGroupId}/routes`);
+    router.push(`/order-routing/${group.routingGroupId}`);
   }
 
   return {
     groups,
     isLoading,
-    brokeringGroups,
+    routingGroups,
     selectedFilter,
     isActive,
     sortGroups,
     displayedGroups,
     getScheduleFrequency,
-    refreshBrokeringGroups,
-    addNewRun,
+    refreshRoutingGroups,
+    addRoutingGroup,
     redirect
   };
 }

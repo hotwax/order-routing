@@ -3,9 +3,9 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/brokering-calendar" />
+          <ion-back-button default-href="/order-routing" />
         </ion-buttons>
-        <ion-title>{{ translate("Routing") }}</ion-title>
+        <ion-title>{{ translate("Order Routing Detail") }}</ion-title>
         <ion-buttons slot="end">
           <ion-button v-if="isChatStarted" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
@@ -72,9 +72,9 @@
              sandbox=false binds it to the live routing group. Keyed so switching live <-> variation (and
              between variations) remounts the editor for a clean re-bind. -->
         <div class="canvas-section">
-          <CircuitCanvas
+          <RoutingGroupEditor
             :key="activeVariationId || 'live'"
-            ref="circuitCanvasRef"
+            ref="editorRef"
             :routingGroupId="routingGroupId"
             :sandbox="!!activeVariationId"
           />
@@ -154,7 +154,7 @@ import {
   IonToolbar
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
-import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
+import RoutingGroupEditor from '@/components/circuit/RoutingGroupEditor.vue';
 import VariationRail from '@/components/simulation/VariationRail.vue';
 import { simulationStore } from '@/store/simulationStore';
 import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue';
@@ -202,9 +202,9 @@ type CircuitDraftProposal = DraftProposal & {
   createdAt: number;
 };
 
-const circuitCanvasRef = ref<{
-  prepareCircuitDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
-  applyCircuitDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
+const editorRef = ref<{
+  prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
+  applyDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
 } | null>(null);
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
 const pendingDiscardFeedbackProposal = ref<CircuitDraftProposal | null>(null);
@@ -214,9 +214,9 @@ onMounted(() => {
 });
 
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
-// When a simulation variation is active, the single CircuitCanvas runs in sandbox mode and edits
+// When a simulation variation is active, the single RoutingGroupEditor runs in sandbox mode and edits
 // that variation's working copy; otherwise it edits the live routing group. Either way it exposes
-// the same draft interface, so the chat's circuitCanvasRef works unchanged.
+// the same draft interface, so the chat's editorRef works unchanged.
 const sim = simulationStore();
 const activeVariationId = computed(() => sim.activeVariationId);
 const showThreadMenu = ref(false);
@@ -265,7 +265,7 @@ const onSend = async () => {
       return;
     }
 
-    if (selectedContext.value && circuitCanvasRef.value) {
+    if (selectedContext.value && editorRef.value) {
       if (pendingDraftProposal.value) {
         if (isApprovalMessage(message)) {
           await applyPendingDraftProposal(message);
@@ -273,7 +273,7 @@ const onSend = async () => {
         }
 
         const currentProposal = pendingDraftProposal.value;
-        const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(message, conversationHistory);
+        const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
         if (result.intent !== 'inquiry') {
           await saveDraftFeedbackForProposal('revision_requested', message, currentProposal);
           pendingDraftProposal.value = result.proposal;
@@ -282,7 +282,7 @@ const onSend = async () => {
         return;
       }
 
-      const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(message, conversationHistory);
+      const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
       pendingDraftProposal.value = result.proposal;
       await addCircuitMessage(result.message);
       return;
@@ -335,13 +335,13 @@ const discardPendingProposal = async () => {
 }
 
 async function applyPendingDraftProposal(userFeedback: string) {
-  if (!pendingDraftProposal.value || !circuitCanvasRef.value) {
+  if (!pendingDraftProposal.value || !editorRef.value) {
     return;
   }
 
   const proposal = pendingDraftProposal.value;
   await savePendingDraftFeedback('approved', userFeedback);
-  const result = await circuitCanvasRef.value.applyCircuitDraftProposal(proposal);
+  const result = await editorRef.value.applyDraftProposal(proposal);
   pendingDraftProposal.value = null;
   await addCircuitMessage(result.message);
 }
@@ -363,13 +363,13 @@ async function saveDraftFeedbackForProposal(type: DraftFeedbackType, userFeedbac
 }
 
 async function reviseDiscardedProposal(proposal: CircuitDraftProposal, feedback: string, conversationHistory: DraftConversationMessage[]) {
-  if (!selectedContext.value || !circuitCanvasRef.value) {
+  if (!selectedContext.value || !editorRef.value) {
     await addCircuitMessage(buildFeedbackSavedMessage());
     return;
   }
 
   const revisionPrompt = buildFeedbackRevisionPrompt(proposal.sourcePrompt, feedback, proposal);
-  const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(revisionPrompt, conversationHistory);
+  const result = await editorRef.value.prepareDraftProposal(revisionPrompt, conversationHistory);
   if (result.proposal) {
     result.proposal.sourcePrompt = proposal.sourcePrompt;
   }

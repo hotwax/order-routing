@@ -18,7 +18,7 @@ import { SimulationStorage } from "../services/simulationStorage";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
 
-// Registered by the active simulation editor (CircuitCanvas in sandbox mode) so that variation saves
+// Registered by the active simulation editor (RoutingGroupEditor in sandbox mode) so that variation saves
 // triggered from OTHER components (e.g. the Variations sheet) still flush the editor's
 // in-memory local state into `working` before it is snapshotted. Memory-only, no network.
 // Null whenever no editor is mounted; the save then just uses `working` as-is.

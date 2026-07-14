@@ -1,14 +1,14 @@
 <template>
   <main class="dashboard">
     <!-- Routing performance -->
-    <ion-card class="brokering-stats" button router-link="/brokering-calendar">
+    <ion-card class="routing-stats" button router-link="/order-routing">
       <ion-card-header>
         <div class="card-head">
-          <ion-card-title>{{ translate("Routing") }}</ion-card-title>
-          <ion-note slot="end">{{ brokering.total }} {{ brokering.total === 1 ? translate("group") : translate("groups") }}</ion-note>
+          <ion-card-title>{{ translate("Order Routing") }}</ion-card-title>
+          <ion-note slot="end">{{ routing.total }} {{ routing.total === 1 ? translate("group") : translate("groups") }}</ion-note>
         </div>
       </ion-card-header>
-      <template v-if="brokering.lastGroupRun">
+      <template v-if="routing.lastGroupRun">
         <div class="metric">
           <h1>{{ lastGroupRunBrokerRate }}<span class="metric-unit">%</span></h1>
           <ion-text color="medium"><p class="metric-label">{{ translate("broker rate") }} {{ translate("last run") }}</p></ion-text>
@@ -17,42 +17,42 @@
           <ion-item>
             <ion-label class="ion-text-wrap">
               {{ translate("Items routed") }}
-              <p>{{ brokering.lastGroupRun.groupName }}</p>
+              <p>{{ routing.lastGroupRun.groupName }}</p>
             </ion-label>
-            <ion-label slot="end">{{ brokering.lastGroupRun.brokeredItemCount }}</ion-label>
+            <ion-label slot="end">{{ routing.lastGroupRun.brokeredItemCount }}</ion-label>
           </ion-item>
           <ion-item>
             <ion-label>{{ translate("In queue now") }}</ion-label>
-            <ion-label slot="end">{{ brokering.queueDepth }}</ion-label>
+            <ion-label slot="end">{{ routing.queueDepth }}</ion-label>
           </ion-item>
-          <ion-item v-if="brokering.oldestQueued" lines="none">
+          <ion-item v-if="routing.oldestQueued" lines="none">
             <ion-label class="ion-text-wrap">
               {{ translate("Oldest queued order") }}
-              <p>{{ brokering.oldestQueued.orderName }} · {{ brokering.oldestQueued.customerName }}</p>
-              <p>{{ brokering.oldestQueued.facilityName }}<template v-if="brokering.oldestQueued.salesChannelDesc"> · {{ brokering.oldestQueued.salesChannelDesc }}</template></p>
-              <p>{{ commonUtil.getDateAndTime(brokering.oldestQueued.orderDate) }}</p>
+              <p>{{ routing.oldestQueued.orderName }} · {{ routing.oldestQueued.customerName }}</p>
+              <p>{{ routing.oldestQueued.facilityName }}<template v-if="routing.oldestQueued.salesChannelDesc"> · {{ routing.oldestQueued.salesChannelDesc }}</template></p>
+              <p>{{ commonUtil.getDateAndTime(routing.oldestQueued.orderDate) }}</p>
             </ion-label>
             <ion-note slot="end" color="danger">{{ oldestQueuedAge }}</ion-note>
           </ion-item>
         </ion-list>
         <div class="groups">
-          <ion-chip outline color="success" v-if="brokering.scheduled"><ion-label>{{ translate("{count} scheduled", { count: brokering.scheduled }) }}</ion-label></ion-chip>
-          <ion-chip outline color="medium" v-if="brokering.paused"><ion-label>{{ translate("{count} paused", { count: brokering.paused }) }}</ion-label></ion-chip>
-          <ion-chip outline color="medium" v-if="brokering.draft"><ion-label>{{ translate("{count} draft", { count: brokering.draft }) }}</ion-label></ion-chip>
+          <ion-chip outline color="success" v-if="routing.scheduled"><ion-label>{{ translate("{count} scheduled", { count: routing.scheduled }) }}</ion-label></ion-chip>
+          <ion-chip outline color="medium" v-if="routing.paused"><ion-label>{{ translate("{count} paused", { count: routing.paused }) }}</ion-label></ion-chip>
+          <ion-chip outline color="medium" v-if="routing.draft"><ion-label>{{ translate("{count} draft", { count: routing.draft }) }}</ion-label></ion-chip>
         </div>
         <ion-item lines="none">
           <ion-icon slot="start" :icon="timeOutline" color="medium" />
-          <ion-label color="medium">{{ translate("Last run {time}", { time: commonUtil.getDateAndTime(brokering.lastGroupRun.startDate) }) }}</ion-label>
+          <ion-label color="medium">{{ translate("Last run {time}", { time: commonUtil.getDateAndTime(routing.lastGroupRun.startDate) }) }}</ion-label>
         </ion-item>
       </template>
       <template v-else>
         <div class="metric">
-          <h1>{{ brokering.total }}</h1>
+          <h1>{{ routing.total }}</h1>
         </div>
         <div class="groups">
-          <ion-chip outline color="success"><ion-label>{{ translate("{count} scheduled", { count: brokering.scheduled }) }}</ion-label></ion-chip>
-          <ion-chip outline color="medium" v-if="brokering.paused"><ion-label>{{ translate("{count} paused", { count: brokering.paused }) }}</ion-label></ion-chip>
-          <ion-chip outline color="medium" v-if="brokering.draft"><ion-label>{{ translate("{count} draft", { count: brokering.draft }) }}</ion-label></ion-chip>
+          <ion-chip outline color="success"><ion-label>{{ translate("{count} scheduled", { count: routing.scheduled }) }}</ion-label></ion-chip>
+          <ion-chip outline color="medium" v-if="routing.paused"><ion-label>{{ translate("{count} paused", { count: routing.paused }) }}</ion-label></ion-chip>
+          <ion-chip outline color="medium" v-if="routing.draft"><ion-label>{{ translate("{count} draft", { count: routing.draft }) }}</ion-label></ion-chip>
         </div>
         <ion-item lines="none">
           <ion-icon slot="start" :icon="timeOutline" color="medium" />
@@ -139,13 +139,13 @@ import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon,
 import { computed, ref } from "vue";
 import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
-import type { BrokeringState, FacilityOrder } from "@/store/dashboardStore";
+import type { RoutingState, FacilityOrder } from "@/store/dashboardStore";
 import { DateTime } from "luxon";
 
 const sortMode = ref("orders");
 
 const props = defineProps<{
-  brokering: BrokeringState;
+  routing: RoutingState;
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
@@ -181,13 +181,13 @@ function barWidth(facility: FacilityOrder) {
 const emit = defineEmits<{ (e: "navigate", path: string): void }>();
 
 const lastGroupRunBrokerRate = computed(() => {
-  const run = props.brokering.lastGroupRun;
+  const run = props.routing.lastGroupRun;
   if (!run || !run.orderItemCount) return 0;
   return Math.round((run.brokeredItemCount / run.orderItemCount) * 100);
 });
 
 const oldestQueuedAge = computed(() => {
-  const orderDate = props.brokering.oldestQueued?.orderDate;
+  const orderDate = props.routing.oldestQueued?.orderDate;
   return orderDate ? commonUtil.getRelativeTime(orderDate) : "";
 });
 
@@ -250,11 +250,11 @@ function getJobRuntimeData(job: any) {
   margin-inline-start: auto;
 }
 
-.brokering-stats .metric {
+.routing-stats .metric {
   padding-inline: var(--spacer-sm);
 }
 
-.brokering-stats .groups {
+.routing-stats .groups {
   padding-inline: var(--spacer-sm);
   
 }

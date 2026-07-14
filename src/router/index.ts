@@ -42,7 +42,7 @@ const authGuard = async (to: any, _from: any, next: any) => {
 // Same as authGuard, but first redirects away when the simulation feature is disabled for this
 // deployment (VITE_SIMULATION_ENABLED="false"), so /simulate* can't be reached by URL/bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
-  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering-calendar");
+  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
 
 const routes: Array<RouteRecordRaw> = [
   { path: "/", redirect: "/dashboard" },
@@ -195,32 +195,36 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
 
-  // -------------------- Routing (Brokering) --------------------
+  // -------------------- Order Routing --------------------
   {
-    path: "/brokering-calendar",
-    name: "Brokering calendar",
-    component: () => import("@/views/BrokeringRunsCalendar.vue"),
+    path: "/order-routing",
+    name: "Order Routing",
+    component: () => import("@/views/OrderRoutingList.vue"),
     beforeEnter: authGuard,
     meta: {
-      title: "Brokering",
+      title: "Order Routing",
       icon: calendarOutline,
       section: "routing",
       menuIndex: 10,
-      childRoutes: ["/brokering/"]
+      childRoutes: ["/order-routing/"]
     }
   },
   {
-    path: "/brokering/:routingGroupId/routes",
+    path: "/order-routing/:routingGroupId",
     component: () => import("@/views/RoutingDetail.vue"),
     beforeEnter: authGuard,
     props: true
   },
   {
-    path: "/brokering/:routingGroupId/routes/test",
-    component: () => import("@/views/BrokeringRunTest.vue"),
+    path: "/order-routing/:routingGroupId/test",
+    component: () => import("@/views/RoutingGroupTest.vue"),
     beforeEnter: authGuard,
     props: true
   },
+  // Redirect the pre-rename paths so existing bookmarks / deep links keep working.
+  { path: "/brokering-calendar", redirect: "/order-routing" },
+  { path: "/brokering/:routingGroupId/routes", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/brokering/:routingGroupId/routes/test", redirect: (to) => `/order-routing/${to.params.routingGroupId}/test` },
   {
     // Simulating a routing group now happens on its detail page (the Variations rail); this route is
     // the cross-group archive of past simulation runs. Editing at /simulate/:id was removed.

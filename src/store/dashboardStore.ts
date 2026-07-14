@@ -42,7 +42,7 @@ function escapeSolrValue(value: string) {
   return String(value).replace(/([+\-&|!(){}\[\]^"~*?:\\/])/g, "\\$1");
 }
 
-export interface BrokeringRun {
+export interface RoutingRun {
   routingRunId: string;
   routingGroupId: string;
   orderRoutingId: string;
@@ -56,7 +56,7 @@ export interface BrokeringRun {
   groupName?: string;
 }
 
-export interface BrokeringGroupRun {
+export interface RoutingGroupRun {
   routingGroupId: string;
   groupName: string;
   routingBatchId: string;
@@ -76,23 +76,23 @@ export interface OldestQueuedOrder {
   salesChannelDesc: string;
 }
 
-export interface BrokeringState {
+export interface RoutingState {
   total: number;
   scheduled: number;
   paused: number;
   draft: number;
   nextRun: number | null;
   errorCount: number;
-  runs: BrokeringRun[];
+  runs: RoutingRun[];
   queueDepth: number;
   oldestQueued: OldestQueuedOrder | null;
   totalAttempted: number;
   totalBrokered: number;
-  lastRun: BrokeringRun | null;
-  lastGroupRun: BrokeringGroupRun | null;
+  lastRun: RoutingRun | null;
+  lastGroupRun: RoutingGroupRun | null;
 }
 
-function buildLatestGroupRun(runs: BrokeringRun[]): BrokeringGroupRun | null {
+function buildLatestGroupRun(runs: RoutingRun[]): RoutingGroupRun | null {
   const latestRun = runs[0];
   if (!latestRun) return null;
 
@@ -100,7 +100,7 @@ function buildLatestGroupRun(runs: BrokeringRun[]): BrokeringGroupRun | null {
     ? runs.filter(run => run.routingGroupId === latestRun.routingGroupId && run.routingBatchId === latestRun.routingBatchId)
     : [latestRun];
 
-  return relatedRuns.reduce<BrokeringGroupRun>((summary, run) => {
+  return relatedRuns.reduce<RoutingGroupRun>((summary, run) => {
     summary.startDate = Math.min(summary.startDate, Number(run.startDate) || summary.startDate);
     summary.endDate = Math.max(summary.endDate, Number(run.endDate) || summary.endDate);
     summary.orderItemCount += Number(run.orderItemCount) || 0;
@@ -117,7 +117,7 @@ function buildLatestGroupRun(runs: BrokeringRun[]): BrokeringGroupRun | null {
   });
 }
 
-// Facilities that hold sales-order items still awaiting (or stuck in) brokering — the
+// Facilities that hold sales-order items still awaiting (or stuck in) routing — the
 // "queue". Mirrors the OMS Find Order facility filter (Brokering Queue, Unfillable
 // Parking, Rejected Item Parking, Released Order Parking, Unfillable Hold Parking),
 // referenced by facility id rather than name.
@@ -198,7 +198,7 @@ export interface DashboardState {
   loading: boolean;
   loadedAt: number | null;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
-  brokering: BrokeringState;
+  routing: RoutingState;
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
   foundations: { facilityGroups: number; facilityGroupsByType: Record<string, number>; channels: number };
@@ -212,7 +212,7 @@ export const useDashboardStore = defineStore("dashboard", {
     loading: false,
     loadedAt: null,
     sourcing: [],
-    brokering: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
+    routing: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
     facilityOrders: [],
     facilityOrdersDate: null,
     foundations: { facilityGroups: 0, facilityGroupsByType: {}, channels: 0 },
@@ -222,7 +222,7 @@ export const useDashboardStore = defineStore("dashboard", {
   }),
   getters: {
     getSourcing: (state) => state.sourcing,
-    getBrokering: (state) => state.brokering,
+    getRouting: (state) => state.routing,
     getFacilityOrders: (state) => state.facilityOrders,
     getFacilityOrdersDate: (state) => state.facilityOrdersDate,
     getFoundations: (state) => state.foundations,
@@ -237,7 +237,7 @@ export const useDashboardStore = defineStore("dashboard", {
     // so one failing endpoint never blanks the whole dashboard.
     async loadDashboard() {
       this.loading = true;
-      await Promise.allSettled([this.loadSourcing(), this.loadBrokering(), this.loadFacilityOrders(), this.loadFoundations(), this.loadJobs()]);
+      await Promise.allSettled([this.loadSourcing(), this.loadRouting(), this.loadFacilityOrders(), this.loadFoundations(), this.loadJobs()]);
       this.loadedAt = Date.now();
       this.loading = false;
     },
@@ -295,31 +295,31 @@ export const useDashboardStore = defineStore("dashboard", {
       }
       this.sourcing = result;
     },
-    async loadBrokering() {
+    async loadRouting() {
       const routingStore = orderRoutingStore();
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
-      const brokering: BrokeringState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null };
+      const routing: RoutingState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null };
       try {
         await routingStore.fetchOrderRoutingGroups();
         const routingGroups = routingStore.getRoutingGroups || [];
-        brokering.total = routingGroups.length;
+        routing.total = routingGroups.length;
         const now = Date.now();
         for (const routingGroup of routingGroups) {
           const schedule = (routingGroup as any).schedule;
           if (!schedule) {
-            brokering.draft++;
+            routing.draft++;
           } else if (isTruthyFlag(schedule.paused)) {
-            brokering.paused++;
+            routing.paused++;
           } else {
-            brokering.scheduled++;
+            routing.scheduled++;
             const runTime = Number((routingGroup as any).runTime || schedule.nextExecutionDateTime);
-            if (runTime && runTime > now && (brokering.nextRun === null || runTime < brokering.nextRun)) {
-              brokering.nextRun = runTime;
+            if (runTime && runTime > now && (routing.nextRun === null || runTime < routing.nextRun)) {
+              routing.nextRun = runTime;
             }
           }
         }
         // Fetch recent runs per group (pageSize 50) for performance metrics.
-        const allRuns: BrokeringRun[] = [];
+        const allRuns: RoutingRun[] = [];
         const runResponses = await fetchInBatches(
           routingGroups,
           (routingGroup: any) =>
@@ -338,26 +338,26 @@ export const useDashboardStore = defineStore("dashboard", {
                 ...run,
                 groupName: routingGroup.groupName || run.routingGroupId
               });
-              if (isTruthyFlag(run.hasError)) brokering.errorCount++;
+              if (isTruthyFlag(run.hasError)) routing.errorCount++;
             }
           }
         });
         allRuns.sort((a, b) => b.startDate - a.startDate);
-        brokering.runs = allRuns;
-        brokering.lastRun = allRuns[0] || null;
-        brokering.lastGroupRun = buildLatestGroupRun(allRuns);
-        brokering.totalAttempted = allRuns.reduce((sum, r) => sum + (r.orderItemCount || 0), 0);
-        brokering.totalBrokered = allRuns.reduce((sum, r) => sum + (r.brokeredItemCount || 0), 0);
+        routing.runs = allRuns;
+        routing.lastRun = allRuns[0] || null;
+        routing.lastGroupRun = buildLatestGroupRun(allRuns);
+        routing.totalAttempted = allRuns.reduce((sum, r) => sum + (r.orderItemCount || 0), 0);
+        routing.totalBrokered = allRuns.reduce((sum, r) => sum + (r.brokeredItemCount || 0), 0);
 
         if (productStoreId) {
           const queueSummary = await fetchQueueSummary(productStoreId);
-          brokering.queueDepth = queueSummary.count;
-          brokering.oldestQueued = queueSummary.oldest;
+          routing.queueDepth = queueSummary.count;
+          routing.oldestQueued = queueSummary.oldest;
         }
       } catch (err) {
-        logger.error("dashboard: failed to load brokering runs", err);
+        logger.error("dashboard: failed to load routing groups", err);
       }
-      this.brokering = brokering;
+      this.routing = routing;
     },
     async loadFacilityOrders() {
       let facilityOrders: FacilityOrder[] = [];

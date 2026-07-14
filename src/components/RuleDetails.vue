@@ -53,7 +53,7 @@
               <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }} {{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "MEASUREMENT_SYSTEM").fieldValue ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "MEASUREMENT_SYSTEM").fieldValue === "IMPERIAL" ? "miles" : "kms" : "" }}</ion-label>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
-              <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
+              <ion-label>{{ translate("Safety stock") }}</ion-label>
               <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-label>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
@@ -86,7 +86,7 @@
                 </ion-card-title>
               </ion-card-header>
               <ion-card-content>
-                {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
+                {{ translate("Select if partial allocation should be allowed in this routing rule") }}
               </ion-card-content>
               <ion-item lines="none">
                 <ion-toggle disabled :checked="rule.assignmentEnumId === 'ORA_MULTI'">{{ translate("Allow partial allocation") }}</ion-toggle>

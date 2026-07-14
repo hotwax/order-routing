@@ -78,9 +78,9 @@ export function createDraftOutputContract(): PageCapabilityManifest["outputContr
       op: "set",
       target: "one target path from editableTargets",
       value: "value matching the target valueType and options",
-      ruleKey: "optional inventory rule key for rule-scoped operations; existing routingRuleId or new:* local draft key",
-      ruleName: "optional inventory rule name for new local draft rules",
-      ruleSequence: "optional inventory rule sequence for new local draft rules",
+      ruleKey: "optional routing rule key for rule-scoped operations; existing routingRuleId or new:* local draft key",
+      ruleName: "optional routing rule name for new local draft rules",
+      ruleSequence: "optional routing rule sequence for new local draft rules",
       reason: "{ kind: 'explicit_user_request' | 'manifest_dependency', promptText: exact latest-user phrase or dependency phrase, explanation: short reason, dependencyTarget?: target that requires this operation }"
     },
     responseShape: {
@@ -804,14 +804,14 @@ function getDraftOperationSection(operation: DraftOperation) {
   if (operation.ruleKey) {
     return {
       key: `inventoryRule.${operation.ruleKey}`,
-      title: `Inventory rule: ${operation.ruleName || operation.ruleKey}`
+      title: `Routing rule: ${operation.ruleName || operation.ruleKey}`
     };
   }
 
   if (operation.target.startsWith("selectedRule.")) {
     return {
       key: "selectedRule",
-      title: "Selected inventory rule"
+      title: "Selected routing rule"
     };
   }
 

@@ -30,7 +30,7 @@ export type ConditionOption = {
   [key: string]: unknown;
 };
 
-export type BrokeringRulesDraftRefs = {
+export type RoutingRulesDraftRefs = {
   orderRoutingId: string;
   selectedRoutingRule: any;
   routingStatus: { value: string };
@@ -164,7 +164,7 @@ const inventorySortDefinitions: SortDefinition[] = [
   { key: "CUSTOMER_SEQ", label: "Customer sequence sort" }
 ];
 
-export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilityManifest {
+export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityManifest {
   const hasSelectedRule = Boolean(input.selectedRoutingRule?.routingRuleId);
   const selectedRuleDisabledReason = hasSelectedRule
     ? input.isTestEnabled ? "Test mode is active." : ""
@@ -185,7 +185,7 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
     buildDraftTarget({
       target: "selectedRule.statusId",
       label: "Selected rule status",
-      description: "Changes the visible status control for the selected inventory rule.",
+      description: "Changes the visible status control for the selected routing rule.",
       entity: "selectedRule",
       valueType: "enum",
       currentValue: input.selectedRoutingRule?.statusId,
@@ -362,7 +362,7 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
           statusId: r.statusId,
           sequenceNum: r.sequenceNum
         })),
-        note: "This is the currently open Circuit brokering run/routing group. Use this groupName when answering questions about the current brokering run."
+        note: "This is the currently open Circuit routing group/routing group. Use this groupName when answering questions about the current routing group."
       },
       route: {
         orderRoutingId: input.orderRoutingId,
@@ -378,7 +378,7 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
           canCreateInventoryRules: true,
           canCreateSiblingRoutings: true,
           canRenameInventoryRules: false,
-          note: "Circuit can draft changes across existing inventory rules and can create new local draft inventory rules. New rules and edits are persisted only when the user saves the route."
+          note: "Circuit can draft changes across existing routing rules and can create new local draft routing rules. New rules and edits are persisted only when the user saves the route."
         }
       },
       selectedRule: hasSelectedRule ? {
@@ -404,7 +404,7 @@ export function buildBrokeringRulesManifest(input: ManifestInput): PageCapabilit
   };
 }
 
-export function buildBrokeringRulesBindings(draft: BrokeringRulesDraftRefs): DraftTargetBindings {
+export function buildRoutingRulesBindings(draft: RoutingRulesDraftRefs): DraftTargetBindings {
   const targets = [
     "route.statusId",
     "selectedRule.statusId",
@@ -422,7 +422,7 @@ export function buildBrokeringRulesBindings(draft: BrokeringRulesDraftRefs): Dra
 
   return createDraftTargetBindings(targets.map((target) => ({
     target,
-    setValue: (value, operation) => applyBrokeringRulesOperation({ ...operation, op: "set", target, value }, draft),
+    setValue: (value, operation) => applyRoutingRulesOperation({ ...operation, op: "set", target, value }, draft),
     afterApply: () => {
       draft.hasUnsavedChanges.value = true;
       refreshDraftRefs(draft);
@@ -430,7 +430,7 @@ export function buildBrokeringRulesBindings(draft: BrokeringRulesDraftRefs): Dra
   })));
 }
 
-function applyBrokeringRulesOperation(operation: DraftOperation, draft: BrokeringRulesDraftRefs): boolean {
+function applyRoutingRulesOperation(operation: DraftOperation, draft: RoutingRulesDraftRefs): boolean {
   if (operation.ruleKey && operation.target.startsWith("selectedRule.")) {
     return applyScopedRuleOperation(operation, draft);
   }
@@ -438,7 +438,7 @@ function applyBrokeringRulesOperation(operation: DraftOperation, draft: Brokerin
   return applyActiveRuleOperation(operation, draft);
 }
 
-function applyScopedRuleOperation(operation: DraftOperation, draft: BrokeringRulesDraftRefs): boolean {
+function applyScopedRuleOperation(operation: DraftOperation, draft: RoutingRulesDraftRefs): boolean {
   const previousRuleId = draft.selectedRoutingRule.value?.routingRuleId || "";
   if (previousRuleId) {
     updateCurrentRuleDraft(draft);
@@ -462,7 +462,7 @@ function applyScopedRuleOperation(operation: DraftOperation, draft: BrokeringRul
   }
 }
 
-function applyActiveRuleOperation(operation: DraftOperation, draft: BrokeringRulesDraftRefs): boolean {
+function applyActiveRuleOperation(operation: DraftOperation, draft: RoutingRulesDraftRefs): boolean {
   if (operation.target === "route.statusId") {
     draft.routingStatus.value = String(operation.value);
     return true;
@@ -545,7 +545,7 @@ function applyActiveRuleOperation(operation: DraftOperation, draft: BrokeringRul
   return false;
 }
 
-function ensureLocalRuleDraft(operation: DraftOperation, draft: BrokeringRulesDraftRefs) {
+function ensureLocalRuleDraft(operation: DraftOperation, draft: RoutingRulesDraftRefs) {
   const ruleId = String(operation.ruleKey || "").trim();
   if (!ruleId) {
     return "";
@@ -579,7 +579,7 @@ function ensureLocalRuleDraft(operation: DraftOperation, draft: BrokeringRulesDr
   return ruleId;
 }
 
-function loadRuleDraft(ruleId: string, draft: BrokeringRulesDraftRefs) {
+function loadRuleDraft(ruleId: string, draft: RoutingRulesDraftRefs) {
   const ruleInfo = draft.rulesInformation.value[ruleId] || draft.inventoryRules.value.find((rule: any) => rule.routingRuleId === ruleId);
   if (!ruleInfo) {
     clearActiveRuleDraft(draft);
@@ -595,7 +595,7 @@ function loadRuleDraft(ruleId: string, draft: BrokeringRulesDraftRefs) {
   draft.ruleActionType && (draft.ruleActionType.value = findRuleActionType(actions, draft));
 }
 
-function clearActiveRuleDraft(draft: BrokeringRulesDraftRefs) {
+function clearActiveRuleDraft(draft: RoutingRulesDraftRefs) {
   draft.selectedRoutingRule.value = {};
   draft.inventoryRuleFilterOptions.value = {};
   draft.inventoryRuleSortOptions.value = {};
@@ -603,7 +603,7 @@ function clearActiveRuleDraft(draft: BrokeringRulesDraftRefs) {
   draft.ruleActionType && (draft.ruleActionType.value = "");
 }
 
-function defaultRuleActions(ruleId: string, draft: BrokeringRulesDraftRefs) {
+function defaultRuleActions(ruleId: string, draft: RoutingRulesDraftRefs) {
   const nextRuleActionId = draft.actionEnums.NEXT_RULE?.id;
   if (!nextRuleActionId) {
     return {};
@@ -619,7 +619,7 @@ function defaultRuleActions(ruleId: string, draft: BrokeringRulesDraftRefs) {
   };
 }
 
-function findRuleActionType(actions: Record<string, any>, draft: BrokeringRulesDraftRefs) {
+function findRuleActionType(actions: Record<string, any>, draft: RoutingRulesDraftRefs) {
   const actionTypes = [draft.actionEnums.NEXT_RULE?.id, draft.actionEnums.MOVE_TO_QUEUE?.id].filter(Boolean);
   return Object.keys(actions || {}).find((actionId) => actionTypes.includes(actionId)) || "";
 }
@@ -707,7 +707,7 @@ function nextSequenceNum(options: Record<string, ConditionOption>): number {
   return sequenceNums.length ? Math.max(...sequenceNums) + 5 : 0;
 }
 
-function setSelectedRuleStatus(statusId: string, draft: BrokeringRulesDraftRefs) {
+function setSelectedRuleStatus(statusId: string, draft: RoutingRulesDraftRefs) {
   const routingRuleId = draft.selectedRoutingRule.value.routingRuleId;
   draft.selectedRoutingRule.value.statusId = statusId;
   draft.inventoryRules.value.forEach((rule) => {
@@ -723,13 +723,13 @@ function setSelectedRuleStatus(statusId: string, draft: BrokeringRulesDraftRefs)
   refreshRuleList(draft);
 }
 
-function applyPromiseDatePartialAllocation(key: string, draft: BrokeringRulesDraftRefs) {
+function applyPromiseDatePartialAllocation(key: string, draft: RoutingRulesDraftRefs) {
   if (key === "PROMISE_DATE" || key === "PROMISE_DATE_EXCLUDED") {
     setPartialAllocation(true, draft);
   }
 }
 
-function setPartialAllocation(enabled: boolean, draft: BrokeringRulesDraftRefs) {
+function setPartialAllocation(enabled: boolean, draft: RoutingRulesDraftRefs) {
   const assignmentEnumId = enabled ? "ORA_MULTI" : "ORA_SINGLE";
   const routingRuleId = draft.selectedRoutingRule.value.routingRuleId;
   draft.selectedRoutingRule.value.assignmentEnumId = assignmentEnumId;
@@ -743,12 +743,12 @@ function setPartialAllocation(enabled: boolean, draft: BrokeringRulesDraftRefs) 
   updateCurrentRuleDraft(draft);
 }
 
-function setGroupedItemPartialAllocation(enabled: boolean, draft: BrokeringRulesDraftRefs) {
+function setGroupedItemPartialAllocation(enabled: boolean, draft: RoutingRulesDraftRefs) {
   setConditionOption(draft.inventoryRuleFilterOptions.value, draft.conditionFilterEnums, "SPLIT_ITEM_GROUP", enabled, "ENTCT_FILTER", draft.selectedRoutingRule.value.routingRuleId, "routingRuleId");
   updateCurrentRuleDraft(draft);
 }
 
-function setUnavailableItemsAction(actionTypeEnumId: string, draft: BrokeringRulesDraftRefs) {
+function setUnavailableItemsAction(actionTypeEnumId: string, draft: RoutingRulesDraftRefs) {
   const nextRuleId = draft.actionEnums.NEXT_RULE.id;
   const moveToQueueId = draft.actionEnums.MOVE_TO_QUEUE.id;
   const routingRuleId = draft.selectedRoutingRule.value.routingRuleId;
@@ -768,7 +768,7 @@ function setUnavailableItemsAction(actionTypeEnumId: string, draft: BrokeringRul
   };
 }
 
-function setUnavailableItemsQueue(queueId: string, draft: BrokeringRulesDraftRefs) {
+function setUnavailableItemsQueue(queueId: string, draft: RoutingRulesDraftRefs) {
   const moveToQueueId = draft.actionEnums.MOVE_TO_QUEUE.id;
   if (draft.ruleActionType?.value !== moveToQueueId) {
     setUnavailableItemsAction(moveToQueueId, draft);
@@ -783,7 +783,7 @@ function setUnavailableItemsQueue(queueId: string, draft: BrokeringRulesDraftRef
   };
 }
 
-function setRuleAction(draft: BrokeringRulesDraftRefs, actionKey: "RM_AUTO_CANCEL_DATE" | "AUTO_CANCEL_DAYS", actionValue: string | number | boolean) {
+function setRuleAction(draft: RoutingRulesDraftRefs, actionKey: "RM_AUTO_CANCEL_DATE" | "AUTO_CANCEL_DAYS", actionValue: string | number | boolean) {
   const actionTypeEnumId = draft.actionEnums[actionKey].id;
   draft.inventoryRuleActions.value[actionTypeEnumId] = {
     ...(draft.inventoryRuleActions.value[actionTypeEnumId] || {}),
@@ -794,7 +794,7 @@ function setRuleAction(draft: BrokeringRulesDraftRefs, actionKey: "RM_AUTO_CANCE
   };
 }
 
-function updateCurrentRuleDraft(draft: BrokeringRulesDraftRefs) {
+function updateCurrentRuleDraft(draft: RoutingRulesDraftRefs) {
   const routingRuleId = draft.selectedRoutingRule.value.routingRuleId;
   if (!routingRuleId) {
     return;
@@ -811,7 +811,7 @@ function updateCurrentRuleDraft(draft: BrokeringRulesDraftRefs) {
   };
 }
 
-function refreshDraftRefs(draft: BrokeringRulesDraftRefs) {
+function refreshDraftRefs(draft: RoutingRulesDraftRefs) {
   draft.orderRoutingFilterOptions.value = { ...draft.orderRoutingFilterOptions.value };
   draft.orderRoutingSortOptions.value = { ...draft.orderRoutingSortOptions.value };
   draft.inventoryRuleFilterOptions.value = { ...draft.inventoryRuleFilterOptions.value };
@@ -827,7 +827,7 @@ function refreshDraftRefs(draft: BrokeringRulesDraftRefs) {
   refreshRuleList(draft);
 }
 
-function refreshRuleList(draft: BrokeringRulesDraftRefs) {
+function refreshRuleList(draft: RoutingRulesDraftRefs) {
   if (!draft.rulesForReorder) {
     return;
   }

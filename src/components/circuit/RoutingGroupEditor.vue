@@ -2,7 +2,7 @@
   <div v-if="isLoadingGroup && !group?.routingGroupId" class="canvas-loading">
     <ion-spinner name="crescent" />
   </div>
-  <div class="circuit-canvas" v-else-if="group?.routingGroupId">
+  <div class="routing-group-editor" v-else-if="group?.routingGroupId">
     <!-- Routing Group Column -->
     <div class="routing-group">
       <ion-card class="info">
@@ -87,10 +87,10 @@
           <ion-card-subtitle>{{ translate("Test drive") }}</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
-          {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
+          {{ translate("Test drive your routing group to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
         </ion-card-content>
         <ion-item lines="none">
-          <ion-button fill="outline" expand="block" :disabled="hasUnsavedChanges" @click="router.push(`/brokering/${group.routingGroupId}/routes/test`)">
+          <ion-button fill="outline" expand="block" :disabled="hasUnsavedChanges" @click="router.push(`/order-routing/${group.routingGroupId}/test`)">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate("Test drive") }}
           </ion-button>
@@ -150,10 +150,10 @@
         </ion-item>
       </ion-list>
       <div v-else class="empty-state">
-        <p>{{ translate("Create order batches for this Brokering Run to execute.") }}</p>
+        <p>{{ translate("Create routings for this Routing group to execute.") }}</p>
         <ion-button v-if="!isSandbox" @click="createNewRouting()" fill="outline">
           <ion-icon :icon="addOutline" slot="start" />
-          {{ translate("Create order batch") }}
+          {{ translate("Create routing") }}
         </ion-button>
       </div>
     </div>
@@ -374,7 +374,7 @@
             </ion-item>
           </ion-list>
           <ion-button fill="outline" @click="addInventoryRule()">
-            {{ translate("Add inventory rule") }}
+            {{ translate("Add routing rule") }}
             <ion-icon :icon="addCircleOutline" slot="end"/>
           </ion-button>
         </section>
@@ -420,7 +420,7 @@
               </ion-button>
             </ion-item>
             <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
-              {{ translate("All facilities enabled for online fulfillment will be attempted for brokering if no filter is applied.") }}<br /><br />
+              {{ translate("All facilities enabled for online fulfillment will be attempted for routing if no filter is applied.") }}<br /><br />
               <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
               <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 {{ translate("Add filters") }}
@@ -454,7 +454,7 @@
               </div>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
-              <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
+              <ion-label>{{ translate("Safety stock") }}</ion-label>
               <div>
                 <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
                   <ion-select @click.stop ref="operatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK').operator" @ionChange="updateOperator($event)">
@@ -513,7 +513,7 @@
               </ion-card-title>
             </ion-card-header>
             <ion-card-content>
-              {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
+              {{ translate("Select if partial allocation should be allowed in this routing rule") }}
             </ion-card-content>
             <ion-item lines="none">
               <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="activeRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
@@ -585,7 +585,7 @@
           <ion-icon :icon="gitNetworkOutline" />
         </div>
         <h2>{{ translate("No routing selected") }}</h2>
-        <p class="description">{{ translate("Select a routing from the list to view its details and manage inventory rules.") }}</p>
+        <p class="description">{{ translate("Select a routing from the list to view its details and manage routing rules.") }}</p>
 
         <div class="action-prompt">
           <ion-icon :icon="sparklesOutline" />
@@ -674,8 +674,8 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
-import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/utils/brokeringRulesManifest";
-import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
+import { buildRoutingRulesBindings, buildRoutingRulesManifest } from "@/utils/routingRulesManifest";
+import { buildRoutingAgentSnapshot } from "@/composables/useRoutingAgentSnapshot";
 import { useCreateRouting } from "@/composables/useCreateRouting";
 
 const props = defineProps({
@@ -773,7 +773,7 @@ type CircuitDraftProposal = DraftProposal & {
   createdAt: number;
 };
 
-async function prepareCircuitDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
+async function prepareDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
   if (!activeRouting.value?.orderRoutingId) {
     return {
       proposal: null,
@@ -831,7 +831,7 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   };
 }
 
-async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
+async function applyDraftProposal(proposal: CircuitDraftProposal) {
   if (!activeRouting.value?.orderRoutingId) {
     return {
       appliedCount: 0,
@@ -889,7 +889,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
 }
 
 function buildCircuitDraftBindings() {
-  return buildBrokeringRulesBindings({
+  return buildRoutingRulesBindings({
     orderRoutingId: activeRouting.value.orderRoutingId,
     selectedRoutingRule: getSelectedRuleDraftRef(),
     routingStatus: getRoutingStatusDraftRef(),
@@ -949,7 +949,7 @@ async function buildCircuitDraftManifest() {
     utilStore.fetchEnums({ productStoreId: group.value.productStoreId }),
     utilStore.fetchStatusInformation()
   ])
-  return buildBrokeringRulesManifest({
+  return buildRoutingRulesManifest({
     pageRoute: "/circuit",
     orderRoutingId: activeRouting.value?.orderRoutingId || "",
     routingName: routeName.value,
@@ -980,7 +980,7 @@ async function buildCircuitDraftManifest() {
     conditionFilterEnums,
     conditionSortEnums,
     actionEnums,
-    ...buildBrokeringAgentSnapshot()
+    ...buildRoutingAgentSnapshot()
   });
 }
 
@@ -1009,8 +1009,8 @@ function getRoutingStatusDraftRef() {
 }
 
 defineExpose({
-  prepareCircuitDraftProposal,
-  applyCircuitDraftProposal
+  prepareDraftProposal,
+  applyDraftProposal
 });
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
@@ -1211,7 +1211,7 @@ const selectRouting = (routing: any) => {
   rulesInformation.value = {};
   initialRulesInformation.value = {};
 
-  // Live only: sync store-side currentRouteId so getCurrentRule / fetchInventoryRuleInformation
+  // Live only: sync store-side currentRoutingId so getCurrentRule / fetchInventoryRuleInformation
   // resolve correctly. In sandbox the working copy is not in routingStore.currentGroup, so this
   // would both leak into live state and be pointless.
   if (!isSandbox.value) routingStore.setCurrentOrderRouting(routing.orderRoutingId);
@@ -1252,7 +1252,7 @@ const selectRule = async (rule: any) => {
     if(!rulesInformation.value[rule.routingRuleId]) {
       const formatted = await routingStore.fetchInventoryRuleInformation(rule.routingRuleId)
       // fetchInventoryRuleInformation returns {} if the store can't resolve the rule
-      // (e.g. currentRouteId mismatch). Fall back to the raw rule object so the
+      // (e.g. currentRoutingId mismatch). Fall back to the raw rule object so the
       // detail panel still renders something usable.
       rulesInformation.value[rule.routingRuleId] = (formatted && formatted.routingRuleId) ? formatted : rule
       initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
@@ -1484,10 +1484,10 @@ async function cloneGroup() {
   try {
     const resp = await routingStore.cloneGroup(payload)
     if (!commonUtil.hasError(resp)) {
-      commonUtil.showToast(translate("Brokering run cloned"))
+      commonUtil.showToast(translate("Routing group cloned"))
     }
   } catch (err) {
-    commonUtil.showToast(translate("Failed to clone brokering run"))
+    commonUtil.showToast(translate("Failed to clone routing group"))
     logger.error(err)
   }
 }
@@ -1657,7 +1657,7 @@ async function updateRuleName(routingRuleId: string) {
     })
 
     if (ruleId) {
-      commonUtil.showToast(translate("Inventory rule information updated"))
+      commonUtil.showToast(translate("Routing rule information updated"))
     }
     emitter.emit("dismissLoader")
   } else if (isSandbox.value) {
@@ -1870,7 +1870,7 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
 
 async function addInventoryRule() {
   const newRuleAlert = await alertController.create({
-    header: translate("New Inventory Rule"),
+    header: translate("New Routing Rule"),
     buttons: [{
       text: translate("Cancel"),
       role: "cancel"
@@ -1971,7 +1971,7 @@ async function save() {
     flushWorking()
     return
   }
-  emitter.emit("presentLoader", { message: "Updating inventory rules and filters", backdropDismiss: false })
+  emitter.emit("presentLoader", { message: "Updating routing rules and filters", backdropDismiss: false })
   syncActiveRuleDraft()
   const localRulesPersisted = await persistLocalInventoryRules()
   if(!localRulesPersisted) {
@@ -2012,7 +2012,7 @@ async function save() {
   const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
   const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
 
-  // As we have explicitely added the options for exclude filter for inventory rules, we will remove the _excluded from the fieldName parameter before updating the same
+  // As we have explicitely added the options for exclude filter for routing rules, we will remove the _excluded from the fieldName parameter before updating the same
   Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
     if(key.includes("_excluded")) {
       value["fieldName"] = value["fieldName"].split("_")[0]
@@ -2138,7 +2138,7 @@ async function persistLocalInventoryRules() {
     }
     const persistedRuleId = await routingStore.createRoutingRule(payload)
     if(!persistedRuleId) {
-      commonUtil.showToast(translate("Failed to create inventory rule"))
+      commonUtil.showToast(translate("Failed to create routing rule"))
       return false
     }
 
@@ -2564,9 +2564,9 @@ function getInventoryRules(ruleId: string) {
   // In the context of Circuit, we might want to show actions or other related rules
   // For now, let's just return an empty array if not implemented, or use activeRule info
   if (activeRule.value && activeRule.value.routingRuleId === ruleId) {
-    // If we have inventory rules within the rule, we could return them.
+    // If we have routing rules within the rule, we could return them.
     // Based on BrokeringQuery.vue, inventoryRules are separate.
-    // For this UI, we'll just show the active rule as the "Inventory Rule" or related data
+    // For this UI, we'll just show the active rule as the "Routing Rule" or related data
     return [activeRule.value];
   }
   return [];
@@ -2639,7 +2639,7 @@ ion-chip > ion-select {
   min-height: unset;
 }
 
-.circuit-canvas {
+.routing-group-editor {
   display: grid;
   grid-template-columns: repeat(6, 350px);
   column-gap: var(--spacer-base);

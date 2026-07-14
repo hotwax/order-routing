@@ -1,14 +1,14 @@
 <template>
-  <CircuitChatCanvas />
+  <RoutingDetailCanvas />
 </template>
 
 <script setup lang="ts">
 // Canonical routing-group detail page: the canvas experience (group/routing/rule
-// editor + AI chat) reached at /brokering/:routingGroupId/routes. Replaces the old
-// BrokeringRoute.vue. It reuses CircuitChatCanvas but seeds the group context from the
+// editor + AI chat) reached at /order-routing/:routingGroupId. Replaces the old
+// BrokeringRoute.vue. It reuses RoutingDetailCanvas but seeds the group context from the
 // route param instead of the manual "add context" picker.
 import { onMounted, watch } from "vue";
-import CircuitChatCanvas from "@/components/circuit/CircuitChatCanvas.vue";
+import RoutingDetailCanvas from "@/components/circuit/RoutingDetailCanvas.vue";
 import { useCircuitStore } from "@/store/circuit";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { simulationStore } from "@/store/simulationStore";

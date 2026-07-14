@@ -3,13 +3,13 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <ion-menu-button slot="start" />
-        <ion-title>{{ translate("Brokering runs calendar") }}</ion-title>
+        <ion-title>{{ translate("Order Routing List") }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button :aria-label="translate('Open brokering runs assistant')" @click="openAssistant">
+          <ion-button :aria-label="translate('Open Circuit')" @click="openAssistant">
             <ion-icon slot="icon-only" :icon="sparklesOutline" />
           </ion-button>
         </ion-buttons>
-        <ion-segment v-if="brokeringGroups.length" slot="end" v-model="selectedFilter" class="cal-filter">
+        <ion-segment v-if="routingGroups.length" slot="end" v-model="selectedFilter" class="cal-filter">
           <ion-segment-button value="all">
             <ion-label>{{ translate("All") }}</ion-label>
           </ion-segment-button>
@@ -28,15 +28,15 @@
         <ion-spinner name="crescent" />
       </div>
 
-      <div v-else-if="!brokeringGroups.length" class="cal-empty">
+      <div v-else-if="!routingGroups.length" class="cal-empty">
         <EmptyState
-          :image="brokeringRunsEmptyImage"
-          :title="translate('No routing runs yet')"
-          :message="translate('Create your first brokering run to define how orders are routed across facilities and inventory rules.')"
+          :image="routingListEmptyImage"
+          :title="translate('No routing groups yet')"
+          :message="translate('Create your first routing group to define how orders are routed across facilities and routing rules.')"
         >
           <template #actions>
-            <ion-button @click="addNewRun">
-              {{ translate("Create brokering run") }}
+            <ion-button @click="addRoutingGroup">
+              {{ translate("Create routing group") }}
               <ion-icon slot="end" :icon="addOutline" />
             </ion-button>
           </template>
@@ -122,7 +122,7 @@
             <ion-item class="cal-stat" lines="none">
               <ion-label class="ion-text-wrap">
                 <ion-note>{{ translate("Active") }}</ion-note>
-                <span class="cal-stat-v">{{ activeCount }} / {{ brokeringGroups.length }}</span>
+                <span class="cal-stat-v">{{ activeCount }} / {{ routingGroups.length }}</span>
               </ion-label>
             </ion-item>
           </div>
@@ -133,11 +133,11 @@
               <ion-item-divider color="light">
                 <ion-label>{{ selectedCell ? slotTitle : translate("Schedule detail") }}</ion-label>
                 <ion-note v-if="selectedCell" slot="end">
-                  {{ selectedRuns.length }} {{ selectedRuns.length === 1 ? translate("run") : translate("runs") }}
+                  {{ selectedGroups.length }} {{ selectedGroups.length === 1 ? translate("run") : translate("runs") }}
                 </ion-note>
               </ion-item-divider>
               <ion-item
-                v-for="run in selectedRuns"
+                v-for="run in selectedGroups"
                 :key="run.routingGroupId"
                 button
                 :detail="true"
@@ -148,7 +148,7 @@
                   {{ isActive(run) ? translate("Active") : translate("Draft") }}
                 </ion-badge>
               </ion-item>
-              <ion-item v-if="!selectedRuns.length" lines="none">
+              <ion-item v-if="!selectedGroups.length" lines="none">
                 <ion-label color="medium">
                   {{ selectedCell ? translate("No runs scheduled in this hour.") : translate("Select a cell to see which runs fire then.") }}
                 </ion-label>
@@ -160,27 +160,27 @@
         <!-- Runs list -->
         <ion-card class="cal-card">
           <ion-card-header class="cal-card-head">
-            <ion-card-title>{{ filteredRuns.length }} {{ translate("Runs") }}</ion-card-title>
-            <ion-button fill="clear" size="small" class="cal-add-run" @click="addNewRun">
+            <ion-card-title>{{ filteredGroups.length }} {{ translate("Routing groups") }}</ion-card-title>
+            <ion-button fill="clear" size="small" class="cal-add-run" @click="addRoutingGroup">
               <ion-icon slot="start" :icon="addOutline" />
-              {{ translate("New Run") }}
+              {{ translate("New routing group") }}
             </ion-button>
           </ion-card-header>
           <ion-searchbar
             v-if="displayedGroups.length"
             v-model="searchQuery"
-            :placeholder="translate('Search runs')"
+            :placeholder="translate('Search routing groups')"
             :debounce="150"
           />
-          <ion-list v-if="filteredRuns.length" lines="full" class="cal-cadence">
-            <ion-item v-for="run in filteredRuns" :key="run.routingGroupId" button @click="redirect(run)">
+          <ion-list v-if="filteredGroups.length" lines="full" class="cal-cadence">
+            <ion-item v-for="run in filteredGroups" :key="run.routingGroupId" button @click="redirect(run)">
               <ion-label>
                 {{ run.groupName }}
                 <p>{{ cadenceLabel(run) }}</p>
               </ion-label>
               <ion-badge v-if="isActive(run)" slot="end" color="dark">{{ nextRunLabel(run) }}</ion-badge>
               <ion-badge v-else slot="end" color="medium">{{ translate("Draft") }}</ion-badge>
-              <ion-button slot="end" fill="clear" color="medium" :aria-label="translate('Run actions')" @click.stop="groupActionsPopover(run, $event)">
+              <ion-button slot="end" fill="clear" color="medium" :aria-label="translate('Routing group actions')" @click.stop="groupActionsPopover(run, $event)">
                 <ion-icon slot="icon-only" :icon="ellipsisVerticalOutline" />
               </ion-button>
             </ion-item>
@@ -188,7 +188,7 @@
           <ion-list v-else lines="none">
             <ion-item lines="none">
               <ion-label color="medium">
-                {{ searchQuery.trim() ? translate("No runs match your search.") : translate("No {filter} runs.", { filter: selectedFilter }) }}
+                {{ searchQuery.trim() ? translate("No routing groups match your search.") : translate("No {filter} routing groups.", { filter: selectedFilter }) }}
               </ion-label>
             </ion-item>
           </ion-list>
@@ -196,7 +196,7 @@
       </div>
     </ion-content>
 
-    <BrokeringRunsAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
+    <RoutingAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
@@ -232,12 +232,12 @@ import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/i
 import { computed, ref, watch } from "vue";
 import { DateTime } from "luxon";
 import EmptyState from "@/components/EmptyState.vue";
-import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
+import RoutingAssistantModal from "@/components/RoutingAssistantModal.vue";
 import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import { commonUtil, emitter, translate } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
-import { useBrokeringRuns } from "@/composables/useBrokeringRuns";
+import { useRoutingGroups } from "@/composables/useRoutingGroups";
 import { Group } from "@/types";
 
 const userStore = useUserStore();
@@ -250,18 +250,18 @@ function openAssistant() {
 
 const {
   isLoading,
-  brokeringGroups,
+  routingGroups,
   selectedFilter,
   displayedGroups,
   isActive,
   getScheduleFrequency,
-  refreshBrokeringGroups,
-  addNewRun,
+  refreshRoutingGroups,
+  addRoutingGroup,
   redirect
-} = useBrokeringRuns();
+} = useRoutingGroups();
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const brokeringRunsEmptyImage = new URL("../assets/images/BrokeringRunsEmptyState.png", import.meta.url).href;
+const routingListEmptyImage = new URL("../assets/images/OrderRoutingListEmptyState.png", import.meta.url).href;
 
 const selectedCell = ref<{ d: number; h: number } | null>(null);
 
@@ -287,13 +287,13 @@ watch(timeZone, refreshNow);
 // Runs list narrowed by the local keyword search. Kept separate from
 // displayedGroups so the search only filters the list, not the heatmap/stats.
 const searchQuery = ref("");
-const filteredRuns = computed(() => {
+const filteredGroups = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return displayedGroups.value;
   return displayedGroups.value.filter((g: any) => (g.groupName || "").toLowerCase().includes(q));
 });
 
-const activeCount = computed(() => brokeringGroups.value.filter(isActive).length);
+const activeCount = computed(() => routingGroups.value.filter(isActive).length);
 
 // Quartz day-of-week numbering (1=SUN..7=SAT) and name aliases.
 const DOW_NAMES: Record<string, number> = { SUN: 1, MON: 2, TUE: 3, WED: 4, THU: 5, FRI: 6, SAT: 7 };
@@ -435,7 +435,7 @@ const gapHours = computed(() => {
   return gaps;
 });
 
-const selectedRuns = computed(() => {
+const selectedGroups = computed(() => {
   if (!selectedCell.value) return [];
   return cellMatrix.value[selectedCell.value.d]?.[selectedCell.value.h] || [];
 });
@@ -476,11 +476,11 @@ function nextRunLabel(run: any) {
   return t ? commonUtil.getRelativeTime(t) : "-";
 }
 
-async function fetchRuns() {
+async function fetchRoutingGroups() {
   refreshNow();
   // Clear the cached current group on entry (as the former list page did) so returning
   // here and reopening a run forces a fresh detail/schedule fetch instead of a stale cache hit.
-  await refreshBrokeringGroups(() => orderRoutingStore().clearCurrentGroup());
+  await refreshRoutingGroups(() => orderRoutingStore().clearCurrentGroup());
   // Default the drill panel to the current hour so the panel isn't empty on open.
   if (!selectedCell.value) selectedCell.value = { d: nowWeekday.value, h: nowHour.value };
 }
@@ -496,16 +496,16 @@ async function groupActionsPopover(group: Group, event: Event) {
   popover.present();
   const result = await popover.onDidDismiss();
   if (result.data && result.data.routingGroups) {
-    brokeringGroups.value = result.data.routingGroups;
+    routingGroups.value = result.data.routingGroups;
   }
 }
 
 onIonViewWillEnter(async () => {
-  await fetchRuns();
-  emitter.on("productStoreOrConfigChanged", fetchRuns);
+  await fetchRoutingGroups();
+  emitter.on("productStoreOrConfigChanged", fetchRoutingGroups);
 });
 onIonViewWillLeave(() => {
-  emitter.off("productStoreOrConfigChanged", fetchRuns);
+  emitter.off("productStoreOrConfigChanged", fetchRoutingGroups);
 });
 </script>
 

@@ -180,8 +180,8 @@ const router = useRouter();
 const isActive = computed(() => {
   const path = router.currentRoute.value.path;
   return props.routingGroupId
-    ? path === `/brokering/${props.routingGroupId}/routes`
-    : /^\/brokering\/[^/]+\/routes$/.test(path);
+    ? path === `/order-routing/${props.routingGroupId}`
+    : /^\/order-routing\/[^/]+$/.test(path);
 });
 
 // When this page stops being the current route, force the (teleported) results modal shut so it

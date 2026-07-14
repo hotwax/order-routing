@@ -2,7 +2,7 @@
   <ion-modal :is-open="isOpen" @didDismiss="onDismiss">
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ translate("Brokering Runs Assistant") }}</ion-title>
+        <ion-title>{{ translate("Circuit") }}</ion-title>
         <ion-buttons slot="end">
           <ion-button :disabled="isSending" @click="clearChat">
             <ion-icon slot="icon-only" :icon="trashOutline" />
@@ -19,10 +19,10 @@
             <ion-label class="ion-text-wrap">
               <p class="role-label">{{ translate("Context") }}</p>
               <p v-if="isLoadingContext">
-                <ion-spinner name="dots" /> {{ translate("Loading brokering run details…") }}
+                <ion-spinner name="dots" /> {{ translate("Loading routing group details…") }}
               </p>
               <p v-else>
-                {{ translate("Connected to") }} {{ brokeringRunCount }} {{ brokeringRunCount === 1 ? translate("brokering run") : translate("brokering runs") }}.
+                {{ translate("Connected to") }} {{ routingGroupCount }} {{ routingGroupCount === 1 ? translate("routing group") : translate("routing groups") }}.
               </p>
             </ion-label>
           </ion-item>
@@ -42,7 +42,7 @@
           </ion-item>
           <ion-item v-if="!messages.length && !isLoadingContext" lines="none">
             <ion-label color="medium">
-              <p>{{ translate("Ask about any brokering run on this page — run config, order group filters, inventory rules, schedule, queues, allocation behavior, and more.") }}</p>
+              <p>{{ translate("Ask about any routing group on this page — run config, order group filters, routing rules, schedule, queues, allocation behavior, and more.") }}</p>
             </ion-label>
           </ion-item>
           <ion-item v-if="isSending" lines="none">
@@ -56,7 +56,7 @@
         <div class="prompt-area">
           <ion-textarea
             v-model="prompt"
-            :placeholder="translate('Ask about your brokering runs')"
+            :placeholder="translate('Ask about your routing groups')"
             :auto-grow="true"
             :disabled="isSending || isLoadingContext"
             rows="2"
@@ -93,8 +93,8 @@ import { translate, commonUtil } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
-import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
-import { buildBrokeringRunsListManifest } from "@/utils/brokeringRunsManifest";
+import { buildRoutingAgentSnapshot } from "@/composables/useRoutingAgentSnapshot";
+import { buildRoutingGroupsListManifest } from "@/utils/routingGroupsManifest";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, PageCapabilityManifest } from "@/types/draft";
 
@@ -117,7 +117,7 @@ const messages = ref<ChatMessage[]>([]);
 const isSending = ref(false);
 const isLoadingContext = ref(false);
 const cachedManifest = ref<PageCapabilityManifest | null>(null);
-const brokeringRunCount = ref(0);
+const routingGroupCount = ref(0);
 
 const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || "{}");
 const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || "{}");
@@ -138,9 +138,9 @@ async function loadContext() {
   try {
     await routingStore.fetchOrderRoutingGroupsDetails();
     cachedManifest.value = buildManifest();
-    brokeringRunCount.value = (cachedManifest.value.visibleEntities as any)?.brokeringRuns?.length || 0;
+    routingGroupCount.value = (cachedManifest.value.visibleEntities as any)?.brokeringRuns?.length || 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : translate("Failed to load brokering run details");
+    const message = error instanceof Error ? error.message : translate("Failed to load routing group details");
     commonUtil.showToast(message);
   } finally {
     isLoadingContext.value = false;
@@ -148,9 +148,9 @@ async function loadContext() {
 }
 
 function buildManifest(): PageCapabilityManifest {
-  const snapshot = buildBrokeringAgentSnapshot();
-  return buildBrokeringRunsListManifest({
-    pageRoute: "/brokering-calendar",
+  const snapshot = buildRoutingAgentSnapshot();
+  return buildRoutingGroupsListManifest({
+    pageRoute: "/order-routing",
     productStoreId: product.getCurrentEComStore?.productStoreId || "",
     groups: routingStore.getRoutingGroups || [],
     ruleEnums,

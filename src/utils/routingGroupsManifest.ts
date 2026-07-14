@@ -78,7 +78,7 @@ export type RunsListManifestInput = {
 // Inquiry-only manifest. No editableTargets are populated — the page is read-only
 // for the assistant, and the validator schema still requires the field, so we
 // pass an empty array plus a minimal output contract describing the response shape.
-export function buildBrokeringRunsListManifest(input: RunsListManifestInput): PageCapabilityManifest {
+export function buildRoutingGroupsListManifest(input: RunsListManifestInput): PageCapabilityManifest {
   const codeToKey = {
     orderFilter: invertEnums(input.ruleEnums),
     inventoryFilter: invertEnums(input.conditionFilterEnums),
@@ -101,7 +101,7 @@ export function buildBrokeringRunsListManifest(input: RunsListManifestInput): Pa
         activeRuns: brokeringRuns.filter((run: any) => run.schedule?.paused === "N").length,
         draftRuns: brokeringRuns.filter((run: any) => run.schedule?.paused !== "N").length
       },
-      note: "These are all brokering runs visible on the Brokering Runs list page for the current product store. Read-only inquiry context — do not propose edits."
+      note: "These are all routing groups visible on the Routing groups list page for the current product store. Read-only inquiry context — do not propose edits."
     },
     editableTargets: [],
     outputContract: {

@@ -12,7 +12,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     return {
       groups: [] as Array<any>,
       currentGroup: {} as any,
-      currentRouteId: "",
+      currentRoutingId: "",
       routingHistory: {} as any,
       currentRuleId: "",
       testRouting: {
@@ -39,7 +39,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       return state.groups
     },
     getRulesInformation(state) {
-      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId);
+      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRoutingId);
       const rules = currentRouting?.rules || [];
       return rules.reduce((acc: any, rule: any) => {
         acc[rule.routingRuleId] = rule;
@@ -50,7 +50,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       return state.currentGroup
     },
     getCurrentOrderRouting(state) {
-      return state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId) || {}
+      return state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRoutingId) || {}
     },
     getRoutingHistory(state) {
       return state.routingHistory
@@ -59,7 +59,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       return state.currentRuleId
     },
     getCurrentRule(state) {
-      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRouteId);
+      const currentRouting = state.currentGroup?.routings?.find((routing: any) => routing.orderRoutingId === state.currentRoutingId);
       return currentRouting?.rules?.find((rule: any) => rule.routingRuleId === state.currentRuleId) || {};
     },
     getTestRoutingInfo(state) {
@@ -133,7 +133,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       this.groups = commonUtil.sortSequence(this.groups, "runTime")
     },
     // Fetches the raw routings/rules/filters for every group in state.groups that
-    // is missing them. Used by the Brokering Runs assistant to give the agent full
+    // is missing them. Used by the Routing groups assistant to give the agent full
     // detail visibility across all listed runs without forcing the user to open each one.
     async fetchOrderRoutingGroupsDetails() {
       const groupsNeedingDetail = this.groups.filter((group: any) => !group.isNew && !Array.isArray(group.routings));
@@ -179,7 +179,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
         //   data: payload
         // })
         // if(!commonUtil.hasError(resp)) {
-        //   commonUtil.showToast(translate("Brokering run created"))
+        //   commonUtil.showToast(translate("Routing group created"))
         //   await this.fetchOrderRoutingGroups()
         // } else {
         //   throw resp.data
@@ -187,7 +187,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
         this.groups.push(payload);
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create brokering run"))
+        commonUtil.showToast(translate("Failed to create routing group"))
         logger.error(err)
       }
     },
@@ -239,7 +239,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
             schedule.routingGroupId = routingGroupId;
             const scheduleResp = await this.scheduleBrokering(schedule);
             if (!scheduleResp.data?.jobName) {
-              commonUtil.showToast(translate("Failed to schedule brokering run."));
+              commonUtil.showToast(translate("Failed to schedule routing group."));
             }
           }
 
@@ -256,10 +256,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
           if (Object.keys(getResp?.data).length) {
             this.setCurrentGroup(getResp.data, false);
           } else {
-            throw "Error getting saved brokering run";
+            throw "Error getting saved routing group";
           }
         } else {
-          throw "Error saving brokering run"
+          throw "Error saving routing group"
         }
       } catch (err) {
         logger.error(err);
@@ -354,7 +354,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
         await this.setCurrentGroup(currentGroup)
         commonUtil.showToast(translate("New routing created"))
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create order routing"))
+        commonUtil.showToast(translate("Failed to create routing"))
         logger.error(err)
       }
       return orderRoutingId;
@@ -381,13 +381,13 @@ export const orderRoutingStore = defineStore('orderRouting', {
           commonUtil.showToast(translate("Routing cloned"))
         }
       } catch(err) {
-        commonUtil.showToast(translate("Failed to clone order routing"))
+        commonUtil.showToast(translate("Failed to clone routing"))
         logger.error(err)
       }
       return orderRoutingId;
     },
     async setCurrentOrderRouting(orderRoutingId: string) {
-      this.currentRouteId = orderRoutingId;
+      this.currentRoutingId = orderRoutingId;
     },
     async fetchCurrentOrderRouting(orderRoutingId: string) {
       this.setCurrentOrderRouting(orderRoutingId)
@@ -495,7 +495,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       const routingRuleId = uuidv4()
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRoutingId)
         if (currentRoute) {
           if (!currentRoute.rules) {
             currentRoute.rules = []
@@ -508,10 +508,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
           })
           currentRoute.rules = commonUtil.sortSequence(currentRoute.rules)
           await this.setCurrentGroup(currentGroup)
-          commonUtil.showToast(translate("Inventory rule created successfully"))
+          commonUtil.showToast(translate("Routing rule created successfully"))
         }
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create inventory rule"))
+        commonUtil.showToast(translate("Failed to create routing rule"))
         logger.error(err)
       }
       return routingRuleId;
@@ -520,7 +520,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       let hasAllConditionsDeletedSuccessfully = true;
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRoutingId)
         const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
         if (currentRule && currentRule.inventoryFilters) {
           const conditionSeqIdsToDelete = payload.conditions.map((c: any) => c.conditionSeqId).filter(Boolean)
@@ -542,7 +542,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       let hasAllActionsDeletedSuccessfully = true;
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRoutingId)
         const currentRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
         if (currentRule && currentRule.actions) {
           const actionSeqIdsToDelete = payload.actions.map((a: any) => a.actionSeqId).filter(Boolean)
@@ -590,7 +590,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       const routingRuleId = payload.routingRuleId
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRoutingId)
         const currentRuleIndex = currentRoute?.rules?.findIndex((r: any) => r.routingRuleId === routingRuleId)
         if (currentRoute && currentRuleIndex !== undefined && currentRuleIndex !== -1) {
           const rule = currentRoute.rules[currentRuleIndex]
@@ -640,7 +640,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async clearRouting() {
       this.groups = []
       this.currentGroup = {}
-      this.currentRouteId = ""
+      this.currentRoutingId = ""
       this.currentRuleId = ""
       this.routingHistory = {}
     },
@@ -650,7 +650,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       this.routingHistory = {}
     },
     async clearCurrentRoutingAndRule() {
-      this.currentRouteId = "";
+      this.currentRoutingId = "";
       this.clearRules();
     },
     async clearRules() {
@@ -706,7 +706,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async cloneRule(payload: any): Promise<any> {
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
-        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRouteId)
+        const currentRoute = currentGroup.routings?.find((r: any) => r.orderRoutingId === this.currentRoutingId)
         const sourceRule = currentRoute?.rules?.find((r: any) => r.routingRuleId === payload.routingRuleId)
         
         if (currentRoute && sourceRule) {

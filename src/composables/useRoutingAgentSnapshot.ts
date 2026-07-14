@@ -1,7 +1,7 @@
 import { useUtilStore } from "@/store/utilStore";
 import { productStore } from "@/store/productStore";
 
-export type BrokeringAgentSnapshot = {
+export type RoutingAgentSnapshot = {
   facilities: Record<string, any>;
   shippingMethods: Record<string, any>;
   salesChannels: Record<string, any>;
@@ -16,12 +16,12 @@ export type BrokeringAgentSnapshot = {
 // `refData` overrides the shared-store reads for pages whose reference data comes from a different
 // backend: the Simulate tab passes its simReferenceStore maps so the agent manifest offers the same
 // option IDs as the selects beside it (the sim instance's), never the login OMS's.
-export function buildBrokeringAgentSnapshot(refData?: {
+export function buildRoutingAgentSnapshot(refData?: {
   facilities: Record<string, any>;
   shippingMethods: Record<string, any>;
   salesChannels: Record<string, any>;
   facilityGroups: Record<string, any>;
-}): BrokeringAgentSnapshot {
+}): RoutingAgentSnapshot {
   if (refData) {
     return { ...refData, brokeringFacilityGroups: refData.facilityGroups };
   }

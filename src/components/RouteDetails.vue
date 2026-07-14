@@ -79,7 +79,7 @@
           variant="compact"
           :icon="layersOutline"
           :title="translate('No rules yet')"
-          :message="translate('This batch has no inventory rules.')"
+          :message="translate('This batch has no routing rules.')"
         />
       </main>
     </ion-content>

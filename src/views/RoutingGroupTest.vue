@@ -6,7 +6,7 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button :default-href="'/brokering/'+routingGroupId+'/routes'" />
+          <ion-back-button :default-href="'/order-routing/'+routingGroupId" />
         </ion-buttons>
         <ion-title>{{ translate("Test drive") }}</ion-title>
       </ion-toolbar>
@@ -44,7 +44,7 @@
                 </ion-item>
               </div>
             </ion-card>
-            <BrokeringRouteTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group" :userTestingSession="userTestingSession"/>
+            <RoutingTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group" :userTestingSession="userTestingSession"/>
           </section>
           <section class="routings activate-scroll">
             <ion-list v-if="group.routings?.length">
@@ -105,7 +105,7 @@ import { Group } from "@/types";
 import { api, logger, emitter, translate, commonUtil } from "@common";
 import RouteDetails from "@/components/RouteDetails.vue"
 import RuleDetails from "@/components/RuleDetails.vue"
-import BrokeringRouteTest from "./BrokeringRouteTest.vue";
+import RoutingTest from "./RoutingTest.vue";
 import { DateTime } from "luxon";
 import router from "@/router";
 

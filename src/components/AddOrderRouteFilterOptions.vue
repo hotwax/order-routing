@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ translate("Order Rule {label}", { label: props.label }) }}</ion-title>
+        <ion-title>{{ translate("Order {label}", { label: props.label }) }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="closeModal()">{{ translate("Close") }}</ion-button>
         </ion-buttons>

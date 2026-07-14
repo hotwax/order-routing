@@ -132,6 +132,7 @@
   "Choose a routing group to simulate": "Choose a routing group to simulate",
   "Choose a routing rule from the list to edit its filters, sort order, and actions.": "Choose a routing rule from the list to edit its filters, sort order, and actions.",
   "Choosing a product identifier allows you to view products with your preferred identifiers.": "Choosing a product identifier allows you to view products with your preferred identifiers.",
+  "Circuit can only edit the live routing. Exit the variation to draft changes.": "Circuit can only edit the live routing. Exit the variation to draft changes.",
   "Circuit did not propose any edits. Refine or discard.": "Circuit did not propose any edits. Refine or discard.",
   "Clear All": "Clear All",
   "Clear auto cancel days": "Clear auto cancel days",

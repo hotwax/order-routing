@@ -84,7 +84,7 @@
           />
           <!-- The proposal is already applied live to the canvas (preview). Accept keeps it in the
                working copy; Reject reverts the canvas to the pre-proposal state. -->
-          <ion-item v-if="pendingDraftProposal" lines="none">
+          <ion-item v-if="pendingDraftProposal && !activeVariationId" lines="none">
             <ion-button :disabled="isApplyingDraft" @click="acceptPendingProposal">
               <ion-icon slot="start" :icon="checkmarkCircleOutline" />
               {{ translate("Accept") }}
@@ -206,7 +206,7 @@ import {
   trashOutline
 } from 'ionicons/icons';
 import { translate } from '@common';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
 import { usePreferencesStore } from '@/store/preferences';
 import { storeToRefs } from 'pinia';
@@ -244,7 +244,7 @@ const editorRef = ref<{
   previewDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
   acceptDraftProposal: () => void;
   rejectDraftProposal: () => void;
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
   discardChanges: () => void;
 } | null>(null);
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
@@ -260,6 +260,10 @@ const routingGroupId = computed(() => selectedContext.value?.routingGroupId || n
 // the same draft interface, so the chat's editorRef works unchanged.
 const sim = simulationStore();
 const activeVariationId = computed(() => sim.activeVariationId);
+// Entering (or switching) a variation remounts the editor and drops its proposal snapshot; clear any
+// pending host proposal state so a stale Accept/Reject row can't survive the switch (the editor's
+// onBeforeUnmount reverts the live working copy). clearPendingProposalState is hoisted (fn decl).
+watch(activeVariationId, (id) => { if (id) clearPendingProposalState(); });
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
 const showFeedbackModal = ref(false);
@@ -269,7 +273,21 @@ const chatVisible = ref(true);
 // Live editor unsaved-changes state, surfaced by RoutingGroupEditor via @dirty-change, powering the
 // header Save button. (Variations save through the rail, so the header Save is hidden for them.)
 const editorDirty = ref(false);
-const saveEditor = () => editorRef.value?.save?.();
+
+// A header Save (commit) or Discard (reset-to-baseline) resolves the whole working copy, which
+// subsumes any undecided Circuit proposal. Clear the host-owned proposal refs too so the Accept/Reject
+// row can't linger and act on a snapshot the editor already dropped.
+function clearPendingProposalState() {
+  pendingDraftProposal.value = null;
+  pendingDiscardFeedbackProposal.value = null;
+}
+
+const saveEditor = async () => {
+  // Only clear the pending proposal once the commit actually succeeded — on a failed save nothing was
+  // committed, so the proposal is still live and the Accept/Reject row must stay.
+  const ok = await editorRef.value?.save?.();
+  if (ok) clearPendingProposalState();
+};
 
 // Discard the live working copy back to the last-saved state (with a confirm).
 const discardEditor = async () => {
@@ -278,7 +296,7 @@ const discardEditor = async () => {
     message: translate("This resets the routing group to its last saved version. Unsaved edits will be lost."),
     buttons: [
       { text: translate("Cancel"), role: "cancel" },
-      { text: translate("Discard"), role: "destructive", handler: () => editorRef.value?.discardChanges?.() }
+      { text: translate("Discard"), role: "destructive", handler: () => { editorRef.value?.discardChanges?.(); clearPendingProposalState(); } }
     ]
   });
   await alert.present();
@@ -340,6 +358,19 @@ const onSend = async () => {
       pendingDiscardFeedbackProposal.value = null;
       await saveDraftFeedbackForProposal('rejected', message, proposal);
       await reviseDiscardedProposal(proposal, message, conversationHistory);
+      return;
+    }
+
+    // Circuit drafting mutates the LIVE working copy, so proposals are live-only (previewDraftProposal
+    // no-ops in a variation). In a variation, still answer inquiries (Q&A) but never produce or show a
+    // draft proposal — otherwise the chat offers an Accept/Reject that can never apply anything.
+    if (activeVariationId.value && selectedContext.value && editorRef.value) {
+      const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
+      if (result.proposal) {
+        await addCircuitMessage(translate("Circuit can only edit the live routing. Exit the variation to draft changes."));
+      } else {
+        await addCircuitMessage(result.message);
+      }
       return;
     }
 

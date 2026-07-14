@@ -290,7 +290,13 @@ export const orderRoutingStore = defineStore('orderRouting', {
       } catch(err) {
         logger.error(err);
       }
-      this.setCurrentGroup(currentGroup, false);
+      // Do NOT setCurrentGroup(..., false) here. This runs on every editor mount (via
+      // fetchGroupSchedule) and the payload's currentGroup is the LIVE store working copy by
+      // reference — clearing the flag + recapturing the baseline would silently absorb an unsaved
+      // draft into the baseline (Discard could no longer restore the server state) and mark it
+      // "Saved". The schedule is mutated in place above (reactive on the live object). The genuine
+      // backend-load caller (fetchCurrentRoutingGroup) does its own setCurrentGroup(..., false) right
+      // after this returns, so a fresh load still captures the baseline correctly.
     },
     async fetchRoutingGroupDetail(routingGroupId: string): Promise<any> {
       let group = (this.groups || []).find((g: any) => g.routingGroupId === routingGroupId);

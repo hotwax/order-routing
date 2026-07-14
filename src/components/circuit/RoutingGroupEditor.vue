@@ -648,7 +648,7 @@ import {
   listOutline,
   speedometerOutline
 } from 'ionicons/icons';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
 import { orderRoutingStore } from '@/store/orderRoutingStore';
 import { productStore } from '@/store/productStore';
@@ -907,6 +907,10 @@ function captureProposalSnapshot() {
     // be removed on reject).
     currentGroup: cloneSnapshotValue(routingStore.currentGroup),
     hadUnsavedChanges: hasUnsavedChanges.value,
+    // The store's active-routing pointer. A newRouting proposal creates a sibling routing and selects
+    // it, which moves routingStore.currentRoutingId; store rule mutations (create/update/clone/delete)
+    // resolve their target routing through it, so it must be reverted in lockstep on reject.
+    currentRoutingId: routingStore.currentRoutingId,
     // Editor-local selection + the refs the draft bindings write to.
     activeRoutingId: activeRoutingId.value,
     activeRuleId: activeRuleId.value,
@@ -934,6 +938,9 @@ function restoreProposalSnapshot() {
   // the apply created and never disturbs the last-saved baseline.
   routingStore.setCurrentGroup(snap.currentGroup, true);
   routingStore.setHasUnsavedChanges(snap.hadUnsavedChanges);
+  // Revert the store's active-routing pointer in lockstep so it can't dangle at a now-removed sibling
+  // routing (which would silently break subsequent add/update/clone rule store actions).
+  routingStore.setCurrentOrderRouting(snap.currentRoutingId || snap.activeRoutingId || "");
   group.value = currentRoutingGroup.value;
   // Restore editor-local refs verbatim. activeRouting/activeRule are re-pointed INTO the restored
   // group/rulesInformation so later edits alias the working copy correctly.
@@ -1237,7 +1244,20 @@ onMounted(async () => {
     await initializeFromWorking();
   } else {
     await fetchRoutingGroupInformation();
+    // Reflect a persisted/surviving dirty working copy (the same group reopened after a reload or a
+    // live<->variation remount) into the editor's dirty signal. The store->editor mirror watch only
+    // fires on a CHANGE to true, so an already-true flag present at mount would otherwise never reach
+    // the header Save/Discard or the nav guard — leaving an unsaved draft looking "Saved".
+    hasUnsavedChanges.value = !!routingStore.getCurrentRoutingGroup?.hasUnsavedChanges;
   }
+});
+
+onBeforeUnmount(() => {
+  // If a Circuit proposal is still undecided when this editor unmounts (the detail page is keyed by
+  // activeVariationId, so opening a variation remounts it), auto-reject it: the snapshot lives only on
+  // this instance, so leaving it applied would strand the un-accepted change in the working copy with
+  // no way back. restoreProposalSnapshot reverts the store working copy before teardown.
+  if (!isSandbox.value && proposalSnapshot.value) restoreProposalSnapshot();
 });
 
 onUnmounted(() => {
@@ -1800,16 +1820,24 @@ async function updateRuleName(routingRuleId: string) {
 async function cloneRule(rule: any) {
   if (isSandbox.value) return // clone-rule is a live action; not supported for a sandboxed variation
   emitter.emit("presentLoader", { message: translate("Cloning rule"), backdropDismiss: false })
-  const resp = await routingStore.cloneRule({
-    routingRuleId: rule.routingRuleId,
-    ruleName: rule.ruleName,
-    orderRoutingId: activeRouting.value.orderRoutingId
-  })
-  if(!commonUtil.hasError(resp)) {
-    // If needed, refresh routing information
-    commonUtil.showToast(translate("Rule cloned successfully"))
+  // try/finally so the non-dismissable loader always clears even if the store action rejects (it does
+  // when the store's currentRoutingId can't resolve a routing) — otherwise the spinner sticks forever.
+  try {
+    const resp = await routingStore.cloneRule({
+      routingRuleId: rule.routingRuleId,
+      ruleName: rule.ruleName,
+      orderRoutingId: activeRouting.value.orderRoutingId
+    })
+    if(!commonUtil.hasError(resp)) {
+      // If needed, refresh routing information
+      commonUtil.showToast(translate("Rule cloned successfully"))
+    }
+  } catch (err) {
+    logger.error(err)
+    commonUtil.showToast(translate("Failed to clone rule"))
+  } finally {
+    emitter.emit("dismissLoader")
   }
-  emitter.emit("dismissLoader")
 }
 
 
@@ -2069,6 +2097,11 @@ async function addInventoryRule() {
           }]
         })
         await routingStore.fetchCurrentOrderRouting(activeRouting.value.orderRoutingId)
+        // createRoutingRule/updateRule replaced store.currentGroup with fresh clones, so activeRouting
+        // now aliases a stale object WITHOUT the new rule. Re-point at the current store copy before
+        // reading its rules, else the just-added rule is missing from the list until Save/refetch.
+        group.value = currentRoutingGroup.value
+        activeRouting.value = (group.value.routings || []).find((r: any) => r.orderRoutingId === activeRoutingId.value) || activeRouting.value
         inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(activeRouting.value["rules"])))
         initializeInventoryRules()
       }
@@ -2099,14 +2132,14 @@ async function save() {
   // copy via the flush hook; the Variations rail owns saving a variation. Flush and stop.
   if (isSandbox.value) {
     flushWorking()
-    return
+    return false // not a live commit; the host Save is live-only, so this path is defensive
   }
   emitter.emit("presentLoader", { message: "Updating routing rules and filters", backdropDismiss: false })
   syncActiveRuleDraft()
   const localRulesPersisted = await persistLocalInventoryRules()
   if(!localRulesPersisted) {
     emitter.emit("dismissLoader")
-    return
+    return false
   }
 
   const orderRouting = {
@@ -2203,7 +2236,7 @@ async function save() {
     logger.error(err)
     emitter.emit("dismissLoader")
     commonUtil.showToast(translate("Failed to save changes"))
-    return
+    return false
   }
 
   // A Save commits everything in the working copy, including any undecided Circuit proposal — drop
@@ -2219,6 +2252,7 @@ async function save() {
 
   emitter.emit("dismissLoader")
   commonUtil.showToast(translate("Changes saved successfully"))
+  return true
 }
 
 function syncActiveRuleDraft() {
@@ -2656,6 +2690,10 @@ function doRouteSortReorder(event: CustomEvent) {
 }
 
 function doRoutingReorder(event: CustomEvent) {
+  // A prior live store mutation (status/rename/rule edit) may have replaced store.currentGroup with a
+  // fresh clone, leaving group.value aliasing the stale object. Re-point at the current store copy so
+  // this reorder mutates the object Save actually posts (otherwise the reorder is dropped on Save).
+  if (!isSandbox.value) group.value = currentRoutingGroup.value
   const previousSeq = JSON.parse(JSON.stringify(group.value.routings))
   const updatedSeq = event.detail.complete(JSON.parse(JSON.stringify(group.value.routings)));
 

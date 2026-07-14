@@ -1008,10 +1008,20 @@ function getRoutingStatusDraftRef() {
   };
 }
 
+// Throw away the working copy's uncommitted edits and re-bind the editor to the server-pristine
+// baseline. Exposed so the host header's Discard control can trigger it. Live mode only.
+async function discardChanges() {
+  if (isSandbox.value) return;
+  routingStore.discardChanges();
+  await fetchRoutingGroupInformation();
+  hasUnsavedChanges.value = false;
+}
+
 defineExpose({
   prepareDraftProposal,
   applyDraftProposal,
-  save
+  save,
+  discardChanges
 });
 
 function isFacilityGroupSelected(facilityGroupId: string, type: string) {
@@ -1095,7 +1105,13 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
 
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
-// Surface dirty state to the host header (live mode only — variations manage their own save state).
+// Make `hasUnsavedChanges` reflect EVERY kind of live edit so it's the one display signal (header
+// Save/Discard + test-drive disable). Editor-local edits (filters/sorts/actions) already set it
+// directly; store-mutation edits (status/add/clone/rename/name) set currentGroup.hasUnsavedChanges,
+// which we mirror in here. And mirror it back onto the store working copy so the no-clobber guard in
+// clearCurrentGroup also covers editor-local edits.
+watch(() => routingStore.getCurrentRoutingGroup?.hasUnsavedChanges, (v) => { if (!isSandbox.value && v) hasUnsavedChanges.value = true })
+watch(hasUnsavedChanges, (v) => { if (!isSandbox.value && v) routingStore.setHasUnsavedChanges(true) })
 watch(hasUnsavedChanges, (v) => { if (!isSandbox.value) emit("dirtyChange", v) }, { immediate: true })
 const ruleNameRef = ref()
 

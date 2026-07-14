@@ -11,7 +11,12 @@ export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
     return {
       groups: [] as Array<any>,
+      // The editable working copy for the detail editor.
       currentGroup: {} as any,
+      // Server-pristine snapshot the working copy diverges from. Captured on a fresh load / after a
+      // successful save; used to compute dirty and to power Discard (reset the working copy to this).
+      // Persisted alongside currentGroup so an in-progress draft + its baseline survive reload.
+      baseline: {} as any,
       currentRoutingId: "",
       routingHistory: {} as any,
       currentRuleId: "",
@@ -326,6 +331,11 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async setCurrentGroup(currentGroup: any, hasUnsavedChanges = true) {
       this.currentGroup = { ...currentGroup, hasUnsavedChanges };
+      // hasUnsavedChanges=false marks server-pristine state (fresh load or post-save refetch): that
+      // snapshot becomes the baseline the working copy diverges from (dirty detection + Discard).
+      if (!hasUnsavedChanges) {
+        this.baseline = JSON.parse(JSON.stringify(this.currentGroup));
+      }
       const groupIndex = this.groups.findIndex((group: any) => group.routingGroupId === currentGroup.routingGroupId)
       if (groupIndex !== -1) {
         this.groups[groupIndex] = { ...this.groups[groupIndex], ...currentGroup, hasUnsavedChanges }
@@ -645,9 +655,19 @@ export const orderRoutingStore = defineStore('orderRouting', {
       this.routingHistory = {}
     },
     async clearCurrentGroup() {
+      // Don't silently wipe a working copy that has unsaved edits — leaving the detail page must not
+      // lose the draft. Callers (e.g. the list page) skip the reset when the working copy is dirty;
+      // the detail page's own navigation guard prompts the user to Save/Discard first.
+      if (this.currentGroup?.hasUnsavedChanges) return;
       this.currentGroup = {};
+      this.baseline = {};
       this.clearCurrentRoutingAndRule();
       this.routingHistory = {}
+    },
+    // Discard the working copy's uncommitted edits by resetting it to the server-pristine baseline.
+    discardChanges() {
+      if (!this.baseline?.routingGroupId) return;
+      this.setCurrentGroup(JSON.parse(JSON.stringify(this.baseline)), false);
     },
     async clearCurrentRoutingAndRule() {
       this.currentRoutingId = "";
@@ -738,7 +758,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
         if (groupIndex !== -1) {
           this.groups[groupIndex] = { ...this.groups[groupIndex], ...payload };
           if (this.currentGroup?.routingGroupId === payload.routingGroupId) {
-            this.currentGroup = { ...this.currentGroup, ...payload };
+            // Mark the working copy dirty — this is a working-copy edit (name/description), committed
+            // to the backend only on Save. (Unlike the other mutations, this one bypasses setCurrentGroup.)
+            this.currentGroup = { ...this.currentGroup, ...payload, hasUnsavedChanges: true };
           }
           return payload.routingGroupId;
         }

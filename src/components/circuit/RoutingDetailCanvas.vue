@@ -82,14 +82,16 @@
             :disabled="isApplyingDraft"
             @send="onSend"
           />
+          <!-- The proposal is already applied live to the canvas (preview). Accept keeps it in the
+               working copy; Reject reverts the canvas to the pre-proposal state. -->
           <ion-item v-if="pendingDraftProposal" lines="none">
-            <ion-button :disabled="isApplyingDraft" @click="approvePendingProposal">
+            <ion-button :disabled="isApplyingDraft" @click="acceptPendingProposal">
               <ion-icon slot="start" :icon="checkmarkCircleOutline" />
-              {{ translate("Apply") }}
+              {{ translate("Accept") }}
             </ion-button>
-            <ion-button :disabled="isApplyingDraft" fill="clear" @click="discardPendingProposal">
+            <ion-button :disabled="isApplyingDraft" fill="clear" @click="rejectPendingProposal">
               <ion-icon slot="start" :icon="closeCircleOutline" />
-              {{ translate("Discard") }}
+              {{ translate("Reject") }}
             </ion-button>
           </ion-item>
         </div>
@@ -239,7 +241,9 @@ type CircuitDraftProposal = DraftProposal & {
 
 const editorRef = ref<{
   prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
-  applyDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
+  previewDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
+  acceptDraftProposal: () => void;
+  rejectDraftProposal: () => void;
   save: () => Promise<void>;
   discardChanges: () => void;
 } | null>(null);
@@ -342,14 +346,18 @@ const onSend = async () => {
     if (selectedContext.value && editorRef.value) {
       if (pendingDraftProposal.value) {
         if (isApprovalMessage(message)) {
-          await applyPendingDraftProposal(message);
+          await acceptPendingDraftProposal(message);
           return;
         }
 
+        // A non-approval message while a proposal is live = a revision request. Prepare the revised
+        // proposal and apply it live in place of the current one (previewDraftProposal reverts the
+        // current preview first, so revisions never stack).
         const currentProposal = pendingDraftProposal.value;
         const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
         if (result.intent !== 'inquiry') {
           await saveDraftFeedbackForProposal('revision_requested', message, currentProposal);
+          await showProposalLive(result.proposal);
           pendingDraftProposal.value = result.proposal;
         }
         await addCircuitMessage(result.message);
@@ -357,6 +365,7 @@ const onSend = async () => {
       }
 
       const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
+      await showProposalLive(result.proposal);
       pendingDraftProposal.value = result.proposal;
       await addCircuitMessage(result.message);
       return;
@@ -371,17 +380,28 @@ const onSend = async () => {
   }
 }
 
-const approvePendingProposal = async () => {
+// Apply a freshly-prepared proposal live to the canvas (reversible preview). A null proposal (a
+// revision that produced no operations) reverts any currently-live preview back to the manual state.
+async function showProposalLive(proposal: CircuitDraftProposal | null) {
+  if (!editorRef.value) return;
+  if (!proposal) {
+    editorRef.value.rejectDraftProposal();
+    return;
+  }
+  await editorRef.value.previewDraftProposal(proposal);
+}
+
+const acceptPendingProposal = async () => {
   if (!pendingDraftProposal.value || isApplyingDraft.value) return;
 
   isApplyingDraft.value = true;
   try {
     await circuitStore.addLocalMessage({
       role: 'user',
-      content: translate("Apply proposal"),
-      threadName: translate("Apply proposal")
+      content: translate("Accept proposal"),
+      threadName: translate("Accept proposal")
     });
-    await applyPendingDraftProposal(translate("Apply proposal"));
+    await acceptPendingDraftProposal(translate("Accept proposal"));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : translate('Failed to apply draft changes');
     await addCircuitMessage(errorMessage);
@@ -390,16 +410,19 @@ const approvePendingProposal = async () => {
   }
 }
 
-const discardPendingProposal = async () => {
+const rejectPendingProposal = async () => {
   if (!pendingDraftProposal.value || isApplyingDraft.value) return;
 
   isApplyingDraft.value = true;
   try {
     await circuitStore.addLocalMessage({
       role: 'user',
-      content: translate("Discard proposal"),
-      threadName: translate("Discard proposal")
+      content: translate("Reject proposal"),
+      threadName: translate("Reject proposal")
     });
+    // Revert the live preview back to the pre-proposal working state, then collect feedback so the
+    // next message can revise the proposal.
+    editorRef.value?.rejectDraftProposal();
     pendingDiscardFeedbackProposal.value = pendingDraftProposal.value;
     await addCircuitMessage(buildDiscardFeedbackPrompt(pendingDraftProposal.value));
     pendingDraftProposal.value = null;
@@ -408,16 +431,17 @@ const discardPendingProposal = async () => {
   }
 }
 
-async function applyPendingDraftProposal(userFeedback: string) {
+// The proposal is already applied live to the canvas — accepting just keeps it in the working copy
+// (dirty for the header Save/Discard) and drops the reversible stash.
+async function acceptPendingDraftProposal(userFeedback: string) {
   if (!pendingDraftProposal.value || !editorRef.value) {
     return;
   }
 
-  const proposal = pendingDraftProposal.value;
   await savePendingDraftFeedback('approved', userFeedback);
-  const result = await editorRef.value.applyDraftProposal(proposal);
+  editorRef.value.acceptDraftProposal();
   pendingDraftProposal.value = null;
-  await addCircuitMessage(result.message);
+  await addCircuitMessage(translate("Changes accepted. Use Save to keep them, or Discard to revert."));
 }
 
 async function savePendingDraftFeedback(type: DraftFeedbackType, userFeedback: string) {
@@ -448,6 +472,8 @@ async function reviseDiscardedProposal(proposal: CircuitDraftProposal, feedback:
     result.proposal.sourcePrompt = proposal.sourcePrompt;
   }
 
+  // The rejected proposal was already reverted; apply the revised one live in its place.
+  await showProposalLive(result.proposal);
   pendingDraftProposal.value = result.proposal;
   await addCircuitMessage(buildFeedbackRevisionMessage(result.message, Boolean(result.proposal)));
 }

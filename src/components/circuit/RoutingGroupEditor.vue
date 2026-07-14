@@ -888,6 +888,98 @@ async function applyDraftProposal(proposal: CircuitDraftProposal) {
   };
 }
 
+// --- Circuit proposal transaction (stash-and-apply, Stage 3) ---
+// A proposal is applied to the working copy IMMEDIATELY so it previews live in the canvas, but as a
+// reversible transaction: before applying we snapshot every ref the apply can touch, so Reject can
+// restore the pre-proposal working state — preserving the user's own manual edits and reverting ONLY
+// the proposal. Accept simply drops the snapshot (the applied change stays in the working copy and
+// is committed/reverted later via the header Save/Discard). Live mode only — variation drafting is
+// server-gated and out of scope, so proposals are never applied to a sandbox working copy.
+const proposalSnapshot = ref<any>(null);
+
+function cloneSnapshotValue(value: any) {
+  return value === undefined || value === null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function captureProposalSnapshot() {
+  proposalSnapshot.value = {
+    // The store working copy (captures the routings list so a sibling routing the apply creates can
+    // be removed on reject).
+    currentGroup: cloneSnapshotValue(routingStore.currentGroup),
+    hadUnsavedChanges: hasUnsavedChanges.value,
+    // Editor-local selection + the refs the draft bindings write to.
+    activeRoutingId: activeRoutingId.value,
+    activeRuleId: activeRuleId.value,
+    routeName: routeName.value,
+    activeRouting: cloneSnapshotValue(activeRouting.value),
+    initialActiveRouting: cloneSnapshotValue(initialActiveRouting.value),
+    inventoryRules: cloneSnapshotValue(inventoryRules.value),
+    rulesForReorder: cloneSnapshotValue(rulesForReorder.value),
+    rulesInformation: cloneSnapshotValue(rulesInformation.value),
+    initialRulesInformation: cloneSnapshotValue(initialRulesInformation.value),
+    orderRoutingFilterOptions: cloneSnapshotValue(orderRoutingFilterOptions.value),
+    orderRoutingSortOptions: cloneSnapshotValue(orderRoutingSortOptions.value),
+    inventoryRuleFilterOptions: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+    inventoryRuleSortOptions: cloneSnapshotValue(inventoryRuleSortOptions.value),
+    inventoryRuleActions: cloneSnapshotValue(inventoryRuleActions.value),
+    ruleActionType: ruleActionType.value
+  };
+}
+
+function restoreProposalSnapshot() {
+  const snap = proposalSnapshot.value;
+  if (!snap) return;
+  // Restore the store working copy WITHOUT recapturing the baseline (pass hasUnsavedChanges=true),
+  // then set the dirty flag back to what it was before the proposal. This undoes any sibling routing
+  // the apply created and never disturbs the last-saved baseline.
+  routingStore.setCurrentGroup(snap.currentGroup, true);
+  routingStore.setHasUnsavedChanges(snap.hadUnsavedChanges);
+  group.value = currentRoutingGroup.value;
+  // Restore editor-local refs verbatim. activeRouting/activeRule are re-pointed INTO the restored
+  // group/rulesInformation so later edits alias the working copy correctly.
+  activeRoutingId.value = snap.activeRoutingId;
+  activeRuleId.value = snap.activeRuleId;
+  routeName.value = snap.routeName;
+  rulesInformation.value = snap.rulesInformation || {};
+  initialRulesInformation.value = snap.initialRulesInformation || {};
+  inventoryRules.value = snap.inventoryRules || [];
+  rulesForReorder.value = snap.rulesForReorder || [];
+  orderRoutingFilterOptions.value = snap.orderRoutingFilterOptions || {};
+  orderRoutingSortOptions.value = snap.orderRoutingSortOptions || {};
+  inventoryRuleFilterOptions.value = snap.inventoryRuleFilterOptions || {};
+  inventoryRuleSortOptions.value = snap.inventoryRuleSortOptions || {};
+  inventoryRuleActions.value = snap.inventoryRuleActions || {};
+  ruleActionType.value = snap.ruleActionType;
+  activeRouting.value = (group.value.routings || []).find((r: any) => r.orderRoutingId === snap.activeRoutingId) || null;
+  initialActiveRouting.value = snap.initialActiveRouting || null;
+  activeRule.value = snap.activeRuleId ? (rulesInformation.value[snap.activeRuleId] || null) : null;
+  hasUnsavedChanges.value = snap.hadUnsavedChanges;
+  proposalSnapshot.value = null;
+}
+
+// Apply a proposal live to the canvas as a reversible transaction. If a proposal is already live
+// (undecided), revert it first so proposals never stack — each revision applies on top of the
+// user's manual working state, not on top of the previous proposal.
+async function previewDraftProposal(proposal: CircuitDraftProposal) {
+  if (isSandbox.value) {
+    return { appliedCount: 0, message: translate("Select a routing before drafting changes.") };
+  }
+  if (proposalSnapshot.value) restoreProposalSnapshot();
+  captureProposalSnapshot();
+  return applyDraftProposal(proposal);
+}
+
+// Keep the applied proposal in the working copy (stays dirty for the header Save/Discard). Drop the
+// stash so the transaction is committed to the working copy.
+function acceptDraftProposal() {
+  proposalSnapshot.value = null;
+}
+
+// Revert the working copy to the pre-proposal state, discarding only the proposal's changes.
+function rejectDraftProposal() {
+  restoreProposalSnapshot();
+}
+
 function buildCircuitDraftBindings() {
   return buildRoutingRulesBindings({
     orderRoutingId: activeRouting.value.orderRoutingId,
@@ -1012,6 +1104,8 @@ function getRoutingStatusDraftRef() {
 // baseline. Exposed so the host header's Discard control can trigger it. Live mode only.
 function discardChanges() {
   if (isSandbox.value) return;
+  // Any undecided Circuit proposal is subsumed by the full reset — drop its stash.
+  proposalSnapshot.value = null;
   // Restore the server-pristine baseline into the store working copy.
   routingStore.discardChanges();
   // Re-bind the editor's local refs from the restored group WITHOUT re-fetching: the reference
@@ -1034,7 +1128,9 @@ function discardChanges() {
 
 defineExpose({
   prepareDraftProposal,
-  applyDraftProposal,
+  previewDraftProposal,
+  acceptDraftProposal,
+  rejectDraftProposal,
   save,
   discardChanges
 });
@@ -2110,6 +2206,9 @@ async function save() {
     return
   }
 
+  // A Save commits everything in the working copy, including any undecided Circuit proposal — drop
+  // its stash so a later reject can't resurrect the pre-proposal state after it's been persisted.
+  proposalSnapshot.value = null
   // saveRoutingGroupRaw refetched the saved group and cleared the store dirty flag. Re-bind the editor
   // from the fresh backend data (new server ids for created rules), keeping the routing selection.
   const prevRoutingId = activeRoutingId.value

@@ -135,7 +135,7 @@
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
+                    {{ commonUtil.getTime(groupHistory[0].startTime) }}
                     <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
                   <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.getRelativeTime(groupHistory[0].endTime) }}</ion-badge>
@@ -158,7 +158,7 @@
                 <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
-                      <h1>{{ routing.routingName }}</h1>
+                      {{ routing.routingName }}
                     </ion-label>
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">

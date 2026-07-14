@@ -15,7 +15,7 @@
       <template v-for="history in groupHistory" :key="history.jobRunId">
         <ion-item v-if="history.startTime">
           <ion-label>
-            <h3>{{ commonUtil.getTime(history.startTime) }}</h3>
+            {{ commonUtil.getTime(history.startTime) }}
             <p>{{ commonUtil.getDate(history.startTime) }}</p>
           </ion-label>
           <ion-badge color="dark" v-if="history.endTime">{{ commonUtil.getRelativeTime(history.endTime) }}</ion-badge>

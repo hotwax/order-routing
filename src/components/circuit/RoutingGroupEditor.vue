@@ -1010,10 +1010,25 @@ function getRoutingStatusDraftRef() {
 
 // Throw away the working copy's uncommitted edits and re-bind the editor to the server-pristine
 // baseline. Exposed so the host header's Discard control can trigger it. Live mode only.
-async function discardChanges() {
+function discardChanges() {
   if (isSandbox.value) return;
+  // Restore the server-pristine baseline into the store working copy.
   routingStore.discardChanges();
-  await fetchRoutingGroupInformation();
+  // Re-bind the editor's local refs from the restored group WITHOUT re-fetching: the reference
+  // data, group history and schedule were already loaded on mount and don't change on a discard,
+  // and the baseline is already in memory. Keeping this synchronous means the confirm dialog
+  // dismisses immediately and the dirty flag clears at once (no network hang).
+  if (Object.keys(currentRoutingGroup.value).length) {
+    const prevRoutingId = activeRoutingId.value;
+    group.value = currentRoutingGroup.value;
+    groupName.value = group.value.groupName || "";
+    description.value = group.value.description || "";
+    if (group.value.schedule) job.value = group.value.schedule;
+    const routings = group.value.routings || [];
+    // Keep the user on the routing they were editing if it still exists; else fall back to the first.
+    const target = routings.find((r: any) => r.orderRoutingId === prevRoutingId) || routings[0];
+    if (target) selectRouting(target);
+  }
   hasUnsavedChanges.value = false;
 }
 

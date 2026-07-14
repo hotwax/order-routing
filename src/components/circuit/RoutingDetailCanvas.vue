@@ -14,6 +14,16 @@
         </ion-buttons>
         <ion-title>{{ translate("Order Routing Detail") }}</ion-title>
         <ion-buttons slot="end">
+          <!-- Discard the working copy back to the last saved (server) state. Shown only when there
+               are unsaved live edits. -->
+          <ion-button
+            v-if="!activeVariationId && editorDirty"
+            color="medium"
+            :aria-label="translate('Discard changes')"
+            @click="discardEditor"
+          >
+            <ion-icon slot="icon-only" :icon="arrowUndoOutline" />
+          </ion-button>
           <!-- Explicit, on-demand Save for the live routing group. Variations save via the rail, so
                this is hidden while a variation is active. Enabled only when there are unsaved edits. -->
           <ion-button
@@ -159,20 +169,22 @@
 
 <script setup lang="ts">
 import {
+  alertController,
   IonBackButton,
   IonButton,
   IonButtons,
   IonContent,
-  IonHeader, 
-  IonIcon, 
-  IonItem, 
-  IonLabel, 
-  IonList, 
+  IonHeader,
+  IonIcon,
+  IonItem,
+  IonLabel,
+  IonList,
   IonModal,
   IonPage,
   IonTitle,
   IonToolbar
 } from '@ionic/vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import RoutingGroupEditor from '@/components/circuit/RoutingGroupEditor.vue';
 import VariationRail from '@/components/simulation/VariationRail.vue';
@@ -181,6 +193,7 @@ import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue'
 import type { KnowledgeFeedbackMessage } from '@/types/circuit';
 import {
   addOutline,
+  arrowUndoOutline,
   bulbOutline,
   chatboxEllipsesOutline,
   chatbubblesOutline,
@@ -228,6 +241,7 @@ const editorRef = ref<{
   prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
   applyDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
   save: () => Promise<void>;
+  discardChanges: () => void;
 } | null>(null);
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
 const pendingDiscardFeedbackProposal = ref<CircuitDraftProposal | null>(null);
@@ -252,6 +266,36 @@ const chatVisible = ref(true);
 // header Save button. (Variations save through the rail, so the header Save is hidden for them.)
 const editorDirty = ref(false);
 const saveEditor = () => editorRef.value?.save?.();
+
+// Discard the live working copy back to the last-saved state (with a confirm).
+const discardEditor = async () => {
+  const alert = await alertController.create({
+    header: translate("Discard changes?"),
+    message: translate("This resets the routing group to its last saved version. Unsaved edits will be lost."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      { text: translate("Discard"), role: "destructive", handler: () => editorRef.value?.discardChanges?.() }
+    ]
+  });
+  await alert.present();
+};
+
+// Unsaved-changes guard: prompt before leaving the detail page while the live working copy is dirty
+// (e.g. Back to the list, or opening another group — which would replace the working copy).
+onBeforeRouteLeave(async () => {
+  if (activeVariationId.value || !editorDirty.value) return true;
+  const alert = await alertController.create({
+    header: translate("Unsaved changes"),
+    message: translate("You have unsaved changes. Leave without saving?"),
+    buttons: [
+      { text: translate("Stay"), role: "cancel" },
+      { text: translate("Leave"), role: "destructive" }
+    ]
+  });
+  await alert.present();
+  const { role } = await alert.onDidDismiss();
+  return role === "destructive";
+});
 
 const canSendFeedback = computed(() => messages.value.length > 0);
 

@@ -133,7 +133,7 @@
       :context="feedbackContext"
       @dismiss="showFeedbackModal = false"
     />
-    <VariationRail />
+    <VariationRail :routing-group-id="routingGroupId" />
   </ion-page>
 </template>
 

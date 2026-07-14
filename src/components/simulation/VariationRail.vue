@@ -1,41 +1,35 @@
 <template>
-  <ion-modal
-    ref="modalRef"
-    class="variation-modal"
-    :is-open="true"
-    :breakpoints="breakpoints"
-    :initial-breakpoint="MIN_BP"
-    :backdrop-breakpoint="1"
-    :backdrop-dismiss="false"
-    handle-behavior="cycle"
-    @ionBreakpointDidChange="onBreakpointChange"
-  >
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>{{ translate("Variations") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button
-            v-if="isExpanded"
-            fill="clear"
-            size="default"
-            @click="minimize()"
-          >
-            <ion-icon slot="start" :icon="chevronDownOutline" />
-            {{ translate("Minimize") }}
-          </ion-button>
-          <ion-button
-            v-else
-            fill="clear"
-            size="default"
-            @click="expand()"
-          >
-            <ion-icon slot="start" :icon="chevronUpOutline" />
-            {{ translate("Expand") }}
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content>
+  <!-- In-page floating panel (NOT an ion-modal). An always-open sheet modal teleports to the app
+       root, which escapes the `ion-page-hidden` display:none Ionic puts on cached, navigated-away
+       pages — so it used to float over every other tab. As a plain element inside this page's
+       ion-page it is hidden automatically when the page is cached. `v-show="isActive"` is a
+       belt-and-suspenders guard on the same global-route signal. -->
+  <aside v-show="isActive" class="variation-rail" :class="{ expanded: isExpanded }">
+    <ion-toolbar class="rail-header">
+      <ion-title size="small">{{ translate("Variations") }}</ion-title>
+      <ion-buttons slot="end">
+        <ion-button
+          v-if="isExpanded"
+          fill="clear"
+          size="small"
+          @click="minimize()"
+        >
+          <ion-icon slot="start" :icon="chevronDownOutline" />
+          {{ translate("Minimize") }}
+        </ion-button>
+        <ion-button
+          v-else
+          fill="clear"
+          size="small"
+          @click="expand()"
+        >
+          <ion-icon slot="start" :icon="chevronUpOutline" />
+          {{ translate("Expand") }}
+        </ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+
+    <div v-show="isExpanded" class="rail-body">
       <ion-radio-group :value="radioSelected" @ionChange="selectVariation($event.detail.value)">
         <ion-item>
           <ion-radio value="" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
@@ -123,12 +117,12 @@
           <ion-note>{{ translate("Reset") }}</ion-note>
         </div>
       </div>
-    </ion-content>
-  </ion-modal>
+    </div>
+  </aside>
 
-  <!-- Results of running the active variation (parent-vs-variation compare). On the canonical detail
-       page there is no editor/results view toggle, so the rail surfaces results in its own modal,
-       reusing SimulationResults in embedded mode. -->
+  <!-- Results of running the active variation (parent-vs-variation compare). This IS still an
+       ion-modal (teleported), so it is force-closed by the isActive watcher when this page stops
+       being the current route — otherwise it would leak over other pages just like the old rail. -->
   <ion-modal :is-open="showResults" @didDismiss="showResults = false">
     <ion-header>
       <ion-toolbar>
@@ -146,11 +140,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { commonUtil, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
 import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, pencilOutline, playOutline, refreshOutline, saveOutline, trashOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import SimulationResults from "@/components/simulation/SimulationResults.vue";
+
+const props = defineProps({
+  // The routing group this rail belongs to. Used to tell whether *this* detail page is the current
+  // route (vs. a sibling detail page for a different group that is merely cached in the DOM).
+  routingGroupId: { type: String, default: null }
+});
 
 const sim = simulationStore();
 
@@ -165,25 +166,30 @@ const hasResults = computed(() => !!(sim.variationRunResult || sim.isRunningVari
 const radioSelected = ref(sim.activeVariationId || "");
 watch(() => sim.activeVariationId, (v) => { radioSelected.value = v || ""; });
 
-// Sheet stops: tucked-away sliver, half, and full. Lowest is > 0 so the sheet never dismisses.
-const MIN_BP = 0.08;
-const MAX_BP = 0.9;
-const breakpoints = [MIN_BP, 0.5, MAX_BP];
-
-const modalRef = ref<InstanceType<typeof IonModal> | null>(null);
+// Expand/minimize is a plain reactive state now (no ion-modal breakpoints). Starts collapsed so the
+// rail is an unobtrusive docked bar until the user opens it.
 const isExpanded = ref(false);
+const expand = () => { isExpanded.value = true; };
+const minimize = () => { isExpanded.value = false; };
 
-function onBreakpointChange(ev: CustomEvent<{ breakpoint: number }>) {
-  isExpanded.value = ev.detail.breakpoint > MIN_BP;
-}
+// Is this rail's own detail page the page the user is actually looking at right now? Ionic caches
+// navigated-away pages in the DOM and freezes their per-page useRoute(); the router's GLOBAL
+// currentRoute is the only signal that stays live inside a cached component. Match the exact detail
+// path (so the `/routes/test` sibling and other tabs both read as inactive).
+const router = useRouter();
+const isActive = computed(() => {
+  const path = router.currentRoute.value.path;
+  return props.routingGroupId
+    ? path === `/brokering/${props.routingGroupId}/routes`
+    : /^\/brokering\/[^/]+\/routes$/.test(path);
+});
 
-async function setBreakpoint(bp: number) {
-  await modalRef.value?.$el.setCurrentBreakpoint(bp);
-  isExpanded.value = bp > MIN_BP;
-}
-
-const expand = () => setBreakpoint(MAX_BP);
-const minimize = () => setBreakpoint(MIN_BP);
+// When this page stops being the current route, force the (teleported) results modal shut so it
+// can't linger over whatever page the user moved to. A standard modal tears down cleanly on
+// is-open=false.
+watch(isActive, (active) => {
+  if (!active) showResults.value = false;
+});
 
 // Empty value is the baseline; anything else is a saved variation id.
 // Switching discards the current working copy, so flush the editor's pending edits
@@ -265,14 +271,38 @@ async function rename(id: string, current: string) {
 </script>
 
 <style scoped>
-/* Pin the sheet to the right edge instead of the default full-width / centered layout. */
-.variation-modal::part(content) {
-  --width: 360px;
+/* Docked panel pinned to the bottom-right of the routing detail page. It lives inside the ion-page,
+   so Ionic's cached-page `display:none` hides it when you navigate away — no teleport, no zombie. */
+.variation-rail {
+  position: absolute;
+  right: 16px;
+  bottom: 0;
+  z-index: 20;
   width: 360px;
   max-width: 90vw;
-  right: 16px;
-  left: auto;
-  margin-inline: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ion-background-color, #fff);
+  border: 1px solid var(--ion-color-step-150, rgba(0, 0, 0, 0.12));
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+/* Collapsed = just the toolbar bar; expanded = grow up to most of the viewport with its own scroll. */
+.variation-rail.expanded {
+  max-height: 75vh;
+}
+
+.rail-header {
+  --min-height: 48px;
+  flex: 0 0 auto;
+}
+
+.rail-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 /* One row of circular actions: pick a variation above, then act on it here. */

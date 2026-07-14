@@ -4,8 +4,24 @@ import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
 import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
-import { v4 as uuidv4, validate } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import { simApiBaseUrl } from '@/utils/simConfig';
+import { buildRoutingGroupSavePayload, stripRoutingGroupSaveIds } from '@/utils/routingGroupEditorPayload';
+
+function hasRoutingGroupDetail(group: any, routingGroupId: string) {
+  return group?.routingGroupId === routingGroupId && (
+    Array.isArray(group.routings) ||
+    !!group.groupName ||
+    !!group.jobName ||
+    !!group.createdDate ||
+    !!group.lastUpdatedStamp
+  );
+}
+
+function isMissingScheduleResponse(err: any) {
+  const status = err?.response?.status || err?.status || err?.data?.statusCode || err?.data?.status;
+  return status === 400 || status === 404;
+}
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -101,9 +117,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
   
       if(routingGroups.length) {
-        const groupScheduleInfoPayload = routingGroups.map((group: any) => group.routingGroupId)
-        const resp = await Promise.allSettled(groupScheduleInfoPayload.map((routingGroupId: any) => api({
-          url: `order-routing/groups/${routingGroupId}/schedule`,
+        const groupsWithScheduleJobs = routingGroups.filter((group: any) => group.jobName)
+        const resp = await Promise.allSettled(groupsWithScheduleJobs.map((group: any) => api({
+          url: `order-routing/groups/${group.routingGroupId}/schedule`,
           method: "GET"
         })))
         
@@ -191,37 +207,11 @@ export const orderRoutingStore = defineStore('orderRouting', {
         logger.error(err)
       }
     },
-    async saveRoutingGroupRaw(payload: any) {
-      const transformedPayload = JSON.parse(JSON.stringify(payload));
-      const isNewRoutingGroup = transformedPayload.isNew;
+    async saveRoutingGroupRaw(payload: any, options: { saveSchedule?: boolean } = {}) {
+      const isNewRoutingGroup = Boolean(payload?.isNew);
+      const transformedPayload = buildRoutingGroupSavePayload(payload, import.meta.env.VITE_FILTER_SORT_DESC || "");
       let stateRoutingGroupId = transformedPayload.routingGroupId;
-      if (isNewRoutingGroup) {
-        delete transformedPayload.routingGroupId;
-        transformedPayload.routings?.forEach((routing: any) => {
-          delete routing.routingGroupId;
-          delete routing.orderRoutingId;
-          routing.orderFilters?.forEach((orderFilter: any) => {
-            delete orderFilter.orderRoutingId;
-          })
-          routing.rules?.forEach((rule: any) => {
-            delete rule.routingRuleId;
-            delete rule.orderRoutingId;
-            rule.inventoryFilters?.forEach((filter: any) => {
-              delete filter.routingRuleId;
-            });
-            rule.actions?.forEach((action: any) => {
-              delete action.routingRuleId;
-            });
-          });
-        });
-      } else {
-        transformedPayload.routings.forEach((routing: any) => {
-          if(routing.orderRoutingId && validate(routing.orderRoutingId)) delete routing.orderRoutingId
-          routing.rules?.forEach((rule: any) => {
-            if(rule.routingRuleId && validate(rule.routingRuleId)) delete rule.routingRuleId
-          })
-        })
-      }
+      stripRoutingGroupSaveIds(transformedPayload, { isNewRoutingGroup });
 
       const schedule = transformedPayload.schedule;
       delete transformedPayload.schedule;
@@ -235,7 +225,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
         if (resp.data?.routingGroupId) {
           const routingGroupId = resp.data.routingGroupId;
-          if (schedule) {
+          if (schedule && options.saveSchedule) {
             schedule.routingGroupId = routingGroupId;
             const scheduleResp = await this.scheduleBrokering(schedule);
             if (!scheduleResp.data?.jobName) {
@@ -254,7 +244,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
           });
 
           if (Object.keys(getResp?.data).length) {
-            this.setCurrentGroup(getResp.data, false);
+            this.setCurrentGroup(normalizeRoutingGroupHierarchy(getResp.data), false);
           } else {
             throw "Error getting saved brokering run";
           }
@@ -271,7 +261,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async fetchCurrentGroupSchedule(payload: any) {
       const currentGroup = payload.currentGroup as any
-      if (currentGroup.isNew) return;
+      if (currentGroup.isNew || !currentGroup.jobName) return;
       try {
         const resp = await api({
           url: `order-routing/groups/${payload.routingGroupId}/schedule`,
@@ -283,7 +273,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
           throw resp.data
         }
       } catch(err) {
-        logger.error(err);
+        if(!isMissingScheduleResponse(err)) {
+          logger.error(err);
+        }
       }
       this.setCurrentGroup(currentGroup, false);
     },
@@ -297,12 +289,12 @@ export const orderRoutingStore = defineStore('orderRouting', {
             method: "GET",
           });
         } catch (err) {
-          if (group) return normalizeRoutingGroupHierarchy({ ...group });
+          if (Array.isArray(group?.routings)) return normalizeRoutingGroupHierarchy({ ...group });
           throw err;
         }
-        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
-          group = resp.data;
-        } else if (group) {
+        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data) && hasRoutingGroupDetail(resp.data, routingGroupId)) {
+          group = { ...resp.data, isRoutingGroupDetailLoaded: true };
+        } else if (Array.isArray(group?.routings)) {
           group = { ...group, routings: [] };
         } else {
           throw resp?.data;
@@ -313,16 +305,60 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async fetchCurrentRoutingGroup(routingGroupId: any) {
       let currentGroup = {} as any
       try {
-        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
-          return;
+        if (
+          this.currentGroup
+          && this.currentGroup.routingGroupId === routingGroupId
+          && Array.isArray(this.currentGroup.routings)
+          && (this.currentGroup.isNew || (this.currentGroup.hasUnsavedChanges && this.currentGroup.isRoutingGroupDetailLoaded))
+        ) {
+          return this.currentGroup;
         }
         currentGroup = await this.fetchRoutingGroupDetail(routingGroupId)
-      } catch(err) {
-        logger.error(err);
+      } catch {
+        await this.clearCurrentGroup();
+        return {};
+      }
+
+      if (!hasRoutingGroupDetail(currentGroup, routingGroupId)) {
+        await this.clearCurrentGroup();
+        return {};
       }
 
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })
       this.setCurrentGroup(currentGroup, false);
+      return this.currentGroup;
+    },
+    async discardCurrentGroupChanges(routingGroupId?: string) {
+      const groupId = routingGroupId || this.currentGroup?.routingGroupId;
+      if (!groupId) {
+        await this.clearCurrentGroup();
+        return {};
+      }
+
+      if (this.currentGroup?.isNew) {
+        this.groups = this.groups.filter((group: any) => group.routingGroupId !== groupId);
+        await this.clearCurrentGroup();
+        return {};
+      }
+
+      try {
+        const resp = await api({
+          url: `order-routing/groups/${groupId}/raw`,
+          method: "GET",
+        });
+        if (commonUtil.hasError(resp) || !hasRoutingGroupDetail(resp.data, groupId)) {
+          throw resp?.data;
+        }
+
+        const group = normalizeRoutingGroupHierarchy({ ...resp.data, isRoutingGroupDetailLoaded: true });
+        await this.fetchCurrentGroupSchedule({ routingGroupId: groupId, currentGroup: group });
+        this.setCurrentGroup(group, false);
+        return this.currentGroup;
+      } catch(err) {
+        logger.error(err);
+        await this.clearCurrentGroup();
+        return {};
+      }
     },
     async setCurrentGroup(currentGroup: any, hasUnsavedChanges = true) {
       this.currentGroup = { ...currentGroup, hasUnsavedChanges };

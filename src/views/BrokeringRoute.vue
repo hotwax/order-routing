@@ -5,13 +5,20 @@
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start">
-          <ion-back-button default-href="/tabs/brokering" />
+          <ion-back-button default-href="/brokering" />
         </ion-buttons>
         <ion-title>{{ translate("Routing Run") }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content>
-      <div>
+      <div v-if="loadError" class="empty-block">
+        <EmptyState
+          :icon="albumsOutline"
+          :title="translate('Routing run unavailable')"
+          :message="loadError"
+        />
+      </div>
+      <div v-else>
         <main>
           <section class="route-details">
             <ion-card class="info">
@@ -86,7 +93,7 @@
                     {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
                   </ion-label>
                 </ion-item>
-                <ion-button fill="outline" expand="block" @click="router.push(`/tabs/brokering/${props.routingGroupId}/routes/test`)" :disabled="hasUnsavedChanges">
+                <ion-button fill="outline" expand="block" @click="router.push(`/brokering/${props.routingGroupId}/routes/test`)" :disabled="hasUnsavedChanges">
                   <ion-icon slot="start" :icon="speedometerOutline" />
                   {{ translate("Test drive") }}
                 </ion-button>
@@ -213,7 +220,7 @@
         </aside>
       </div>
 
-      <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+      <ion-fab v-if="!loadError" vertical="bottom" horizontal="end" slot="fixed">
         <ion-fab-button :disabled="!hasUnsavedChanges" @click="saveRoutingGroup">
           <ion-icon :icon="saveOutline" />
         </ion-fab-button>
@@ -231,7 +238,7 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { Group, Route } from "@/types";
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import { useCreateRouting } from "@/composables/useCreateRouting";
@@ -269,18 +276,52 @@ let groupHistory = ref([]) as any
 let isReordering = ref(false) // To handle the case of click event being triggered when dropping pointer outside of ion-reorder, more details on PR associated with issue #138
 let activeTestSessions = ref(0)
 let isBrokeringEnabled = ref(true)
+let loadError = ref("")
+let hasScheduleUnsavedChanges = ref(false)
 
 const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
 const routingHistory = computed(() => orderRoutingStore().getRoutingHistory)
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 
-onIonViewWillEnter(async () => {
-  // emitter.emit("presentLoader", { message: "Fetching rules", backdropDismiss: false })
+onIonViewWillEnter(() => loadRoutingGroupDetails())
+
+watch(() => props.routingGroupId, async (routingGroupId, previousRoutingGroupId) => {
+  if(routingGroupId && routingGroupId !== previousRoutingGroupId) {
+    await loadRoutingGroupDetails(routingGroupId)
+  }
+})
+
+function resetRoutingGroupDisplay() {
+  job.value = {}
+  orderRoutings.value = []
+  routingsForReorder.value = []
+  groupHistory.value = []
+  description.value = ""
+  groupName.value = ""
+  isDescUpdating.value = false
+  isGroupNameUpdating.value = false
+  isReordering.value = false
+  activeTestSessions.value = 0
+  isBrokeringEnabled.value = true
+  loadError.value = ""
+}
+
+async function loadRoutingGroupDetails(routingGroupId = props.routingGroupId) {
+  resetRoutingGroupDisplay()
   try {
-    await orderRoutingStore().fetchCurrentRoutingGroup(props.routingGroupId)
+    if(currentRoutingGroup.value?.routingGroupId && currentRoutingGroup.value.routingGroupId !== routingGroupId) {
+      await orderRoutingStore().clearCurrentGroup()
+    }
+
+    const routingGroup = await orderRoutingStore().fetchCurrentRoutingGroup(routingGroupId)
+    if(!routingGroup?.routingGroupId || routingGroup.routingGroupId !== routingGroupId) {
+      loadError.value = translate("Unable to load this brokering run. Open the Brokering calendar and choose an available run.")
+      return;
+    }
+
     await fetchGroupHistory()
-    orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
+    orderRoutingStore().fetchRoutingHistory(routingGroupId)
     utilStore.fetchStatusInformation()
     orderRoutingStore().clearRoutingTestInfo()
     await getTestSessions();
@@ -299,7 +340,7 @@ onIonViewWillEnter(async () => {
   } finally {
     // emitter.emit("dismissLoader")
   }
-})
+}
 
 // TODO: Need to revisit this, route entries are empty on router hooks
 onBeforeRouteLeave(async (to) => {
@@ -321,7 +362,7 @@ onBeforeRouteLeave(async (to) => {
       {
         text: translate("Discard"),
         handler: async () => {
-          hasUnsavedChanges.value = false;
+          await discardRoutingGroupChanges();
         }
       },
       {
@@ -343,6 +384,12 @@ onBeforeRouteLeave(async (to) => {
 
   return;
 })
+
+async function discardRoutingGroupChanges() {
+  hasUnsavedChanges.value = false
+  hasScheduleUnsavedChanges.value = false
+  await orderRoutingStore().discardCurrentGroupChanges(props.routingGroupId)
+}
 
 function initializeOrderRoutings() {
   routingsForReorder.value = JSON.parse(JSON.stringify(getActiveAndDraftOrderRoutings()))
@@ -382,6 +429,7 @@ async function saveSchedule() {
     job.value = JSON.parse(JSON.stringify(currentRoutingGroup.value))["schedule"]
     orderRoutingStore().setCurrentGroup(currentRoutingGroup.value);
     hasUnsavedChanges.value = true;
+    hasScheduleUnsavedChanges.value = true;
   } catch(err) {
     commonUtil.showToast(translate("Failed to update job"))
     logger.error(err)
@@ -458,7 +506,7 @@ async function redirect(orderRouting: Route) {
   }
 
   await orderRoutingStore().setCurrentOrderRouting(orderRouting.orderRoutingId)
-  router.push(`${orderRouting.orderRoutingId}/rules`)
+  router.push(`/brokering/${props.routingGroupId}/${orderRouting.orderRoutingId}/rules`)
 }
 
 async function updateGroupStatus(event: CustomEvent) {
@@ -473,6 +521,7 @@ async function updateGroupStatus(event: CustomEvent) {
     }
     orderRoutingStore().setCurrentGroup(currentRoutingGroup.value)
     hasUnsavedChanges.value = true;
+    hasScheduleUnsavedChanges.value = true;
     commonUtil.showToast(translate("Group status updated"))
   } catch(err) {
     commonUtil.showToast(translate("Failed to update group status"))
@@ -630,7 +679,9 @@ async function updateOrderRouting(routing: Route, fieldToUpdate: string, value: 
 }
 
 async function saveRoutingGroup() {
-  await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value)
+  await orderRoutingStore().saveRoutingGroupRaw(currentRoutingGroup.value, { saveSchedule: hasScheduleUnsavedChanges.value })
+  hasUnsavedChanges.value = false
+  hasScheduleUnsavedChanges.value = false
 }
 
 async function showGroupHistory() {

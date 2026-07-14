@@ -44,9 +44,9 @@
         <ion-label>{{ translate("Routings") }}</ion-label>
       </ion-list-header>
       <ion-list v-if="group.routings?.length">
-      <ion-reorder-group @ionItemReorder="doRoutingReorder($event)" :disabled="false">
+      <ion-reorder-group v-if="getActiveAndDraftOrderRoutings().length" @ionItemReorder="doRoutingReorder($event)" :disabled="false">
         <ion-card 
-          v-for="(routing, index) in group.routings" 
+          v-for="(routing, index) in getActiveAndDraftOrderRoutings()"
           :key="routing.orderRoutingId"
           class="routing pointer" 
           :class="{ 'selected-path': activeRoutingId === routing.orderRoutingId, 'reordering-enabled': isReordering }"
@@ -58,8 +58,8 @@
             <ion-label>
               {{ routing?.routingName }}
             </ion-label>
-            <ion-chip slot="end" v-if="group.routings">
-              {{ (index as number) + 1 }}/{{ group.routings.length }}
+            <ion-chip slot="end">
+              {{ (index as number) + 1 }}/{{ getActiveAndDraftOrderRoutings().length }}
             </ion-chip>
             <ion-reorder slot="end" @pointerdown="isReordering = true" />
           </ion-item>
@@ -452,12 +452,12 @@
         <div class="icon-container">
           <ion-icon :icon="gitNetworkOutline" />
         </div>
-        <h2>{{ translate("Select a Routing Context") }}</h2>
-        <p class="description">{{ translate("Select a routing from the list to view its details and manage inventory rules.") }}</p>
+        <h2>{{ translate("Select a Simulation Routing") }}</h2>
+        <p class="description">{{ translate("Select a routing in this variation to view its details and manage inventory rules.") }}</p>
 
         <div class="action-prompt">
           <ion-icon :icon="sparklesOutline" />
-          <p>{{ translate("Ask Circuit to help you create or modify rules") }}</p>
+          <p>{{ translate("Edit and save this variation before running a comparison.") }}</p>
         </div>
       </div>
     </div>
@@ -519,10 +519,15 @@ import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
 import { buildBrokeringRulesBindings, buildBrokeringRulesManifest } from "@/utils/brokeringRulesManifest";
 import { buildBrokeringAgentSnapshot } from "@/composables/useBrokeringAgentSnapshot";
+import { DEFAULT_ACTION_ENUMS, DEFAULT_CONDITION_FILTER_ENUMS, DEFAULT_CONDITION_SORT_ENUMS, DEFAULT_RULE_ENUMS, parseRoutingEditorEnvJson } from "@/utils/routingEditorEnv";
+import { stripVariationPrefix } from "@/utils/variationUtils";
 
 // Simulation fork of CircuitCanvas: edits an in-memory working copy of the
 // routing group (simulationStore.working) and performs NO network writes.
 // "Save as variation" snapshots the working copy into the simulation store.
+const props = defineProps<{
+  initialOrderRoutingId?: string;
+}>();
 const sim = simulationStore();
 const product = productStore();
 const utilStore = useUtilStore();
@@ -545,9 +550,9 @@ const inventoryRuleActions = ref({}) as any;
 const ruleActionType = ref("");
 const rulesInformation = ref({}) as any;
 const initialRulesInformation = ref({}) as any;
-const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || '{}');
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || '{}');
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || '{}');
+const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS, DEFAULT_ACTION_ENUMS);
+const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS, DEFAULT_CONDITION_FILTER_ENUMS);
+const conditionSortEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_SORT_ENUMS, DEFAULT_CONDITION_SORT_ENUMS);
 
 const groupName = ref("");
 const isReordering = ref(false);
@@ -555,7 +560,7 @@ const isReordering = ref(false);
 // but the draft-assist binding layer and several edit handlers reference it.
 const hasUnsavedChanges = ref(false);
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || '{}');
+const ruleEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ENUMS, DEFAULT_RULE_ENUMS);
 
 const facilities = computed(() => product.getVirtualFacilities);
 const enums = computed(() => utilStore.getEnums);
@@ -577,6 +582,11 @@ function flushWorking() {
   syncWorkingFromLocalState();
 }
 
+function markWorkingDirty() {
+  hasUnsavedChanges.value = true;
+  flushWorking();
+}
+
 // Save the current working copy as a brand-new variation (prompts for a name).
 async function saveAsNewVariation() {
   const alert = await alertController.create({
@@ -589,6 +599,7 @@ async function saveAsNewVariation() {
         handler: async (data) => {
           flushWorking();
           const isSaved = await sim.saveAsVariation(data?.label);
+          if (isSaved) hasUnsavedChanges.value = false;
           commonUtil.showToast(isSaved ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
         }
       }
@@ -602,6 +613,7 @@ async function updateActiveVariation() {
   if (!sim.activeVariationId) return;
   flushWorking();
   const isUpdated = await sim.updateVariation(sim.activeVariationId);
+  if (isUpdated) hasUnsavedChanges.value = false;
   commonUtil.showToast(isUpdated ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
 }
 
@@ -695,7 +707,7 @@ async function applyCircuitDraftProposal(proposal: CircuitDraftProposal) {
     buildBindings: () => buildCircuitDraftBindings()
   });
 
-  hasUnsavedChanges.value = true;
+  markWorkingDirty();
 
   const unansweredQuestions = [...(proposal.unansweredQuestions || []), ...result.unansweredQuestions];
 
@@ -776,7 +788,7 @@ async function buildCircuitDraftManifest() {
     utilStore.fetchStatusInformation()
   ])
   return buildBrokeringRulesManifest({
-    pageRoute: "/tabs/circuit",
+    pageRoute: "/simulate",
     orderRoutingId: activeRouting.value?.orderRoutingId || "",
     routingName: activeRouting.value?.routingName || "",
     routingStatus: activeRouting.value?.statusId || "",
@@ -936,9 +948,26 @@ async function initializeFromWorking() {
     logger.error(err);
   }
 
-  if (group.value.routings?.length) {
-    selectRouting(group.value.routings[0]);
+  const initialRouting = getInitialRouting();
+  if (initialRouting) {
+    selectRouting(initialRouting);
+    flushWorking();
+    sim.markWorkingClean();
   }
+}
+
+function getInitialRouting() {
+  const routings = group.value.routings || [];
+  if (!routings.length) return null;
+
+  const initialOrderRoutingId = props.initialOrderRoutingId;
+  if (!initialOrderRoutingId) return routings[0];
+
+  const variationGroupId = group.value.variationGroupId || sim.activeVariationId || "";
+  return routings.find((routing: any) => routing.orderRoutingId === initialOrderRoutingId)
+    || routings.find((routing: any) => variationGroupId && stripVariationPrefix(variationGroupId, routing.orderRoutingId) === initialOrderRoutingId)
+    || routings.find((routing: any) => routing.routingName && routing.routingName === sim.baseline?.routings?.find((baselineRouting: any) => baselineRouting.orderRoutingId === initialOrderRoutingId)?.routingName)
+    || routings[0];
 }
 
 // Normalize a rule/routing condition collection (the simulation working copy stores
@@ -1036,6 +1065,10 @@ function getArchivedOrderRoutings() {
   return group.value.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || []
 }
 
+function getActiveAndDraftOrderRoutings() {
+  return group.value.routings?.filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED") || []
+}
+
 function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
   const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
@@ -1071,7 +1104,7 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
     activeRule.value = null
   }
 
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
   initializeInventoryRules()
 }
 
@@ -1093,7 +1126,7 @@ function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
     }
   }
   inventoryRuleFilterOptions.value = filters
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updateOperator(event: any) {
@@ -1104,12 +1137,12 @@ function updateOperator(event: any) {
     filter.operator = event.detail.value
   }
   inventoryRuleFilterOptions.value = filters
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updatePartialAllocation(checked: boolean) {
   activeRule.value.assignmentEnumId = checked ? 'ORA_MULTI' : 'ORA_SINGLE'
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updatePartialGroupItemsAllocation(checked: boolean) {
@@ -1129,7 +1162,7 @@ function updatePartialGroupItemsAllocation(checked: boolean) {
     }
   }
   inventoryRuleFilterOptions.value = filters
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updateUnfillableActionType(id: string) {
@@ -1146,7 +1179,7 @@ function updateUnfillableActionType(id: string) {
   
   inventoryRuleActions.value = actions
   ruleActionType.value = id
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updateRuleActionValue(value: string) {
@@ -1155,7 +1188,7 @@ function updateRuleActionValue(value: string) {
     actions[ruleActionType.value].actionValue = value
   }
   inventoryRuleActions.value = actions
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function clearAutoCancelDays(checked: boolean) {
@@ -1173,7 +1206,7 @@ function clearAutoCancelDays(checked: boolean) {
   }
 
   inventoryRuleActions.value = actions
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 async function updateAutoCancelDays() {
@@ -1197,7 +1230,7 @@ async function updateAutoCancelDays() {
           actionValue: data.actionValue
         }
         inventoryRuleActions.value = actions
-        hasUnsavedChanges.value = true
+        markWorkingDirty()
       }
     }]
   });
@@ -1209,7 +1242,7 @@ function removeAutoCancelDays() {
   const actions = JSON.parse(JSON.stringify(inventoryRuleActions.value))
   delete actions[actionEnums['AUTO_CANCEL_DAYS'].id]
   inventoryRuleActions.value = actions
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function doConditionSortReorder(event: CustomEvent) {
@@ -1225,7 +1258,7 @@ function doConditionSortReorder(event: CustomEvent) {
     filters[filter.fieldName] = filter
     return filters
   }, {})
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
   isReordering.value = false
 }
 
@@ -1253,7 +1286,7 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
       } else {
         inventoryRuleSortOptions.value = result.data.filters
       }
-      hasUnsavedChanges.value = true
+      markWorkingDirty()
     }
   });
 
@@ -1300,7 +1333,7 @@ async function addInventoryRule() {
       }
 
       inventoryRules.value.push(newRule)
-      hasUnsavedChanges.value = true
+      markWorkingDirty()
       initializeInventoryRules()
       const created = rulesForReorder.value.find((r: any) => r._tempId === newRule._tempId)
       if (created) selectRule(created)
@@ -1313,7 +1346,17 @@ async function addInventoryRule() {
 async function openArchivedRuleModal() {
   const archivedRuleModal = await modalController.create({
     component: ArchivedRuleModal,
-    componentProps: { archivedRules: getArchivedOrderRules() }
+    componentProps: {
+      archivedRules: getArchivedOrderRules(),
+      saveRules: (rules: any) => {
+        if(rules) {
+          syncActiveRuleDraft()
+          inventoryRules.value = commonUtil.sortSequence(getActiveAndDraftOrderRules().concat(rules))
+          initializeInventoryRules()
+          markWorkingDirty()
+        }
+      }
+    }
   })
 
   await archivedRuleModal.present();
@@ -1418,7 +1461,7 @@ function updateRoutingStatus(statusId: string) {
   if (activeRouting.value) {
     activeRouting.value.statusId = statusId
   }
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = false) {
@@ -1434,7 +1477,7 @@ function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = f
       operator: "equals"
     }
   }
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
 }
 
 function doRouteSortReorder(event: CustomEvent) {
@@ -1450,7 +1493,7 @@ function doRouteSortReorder(event: CustomEvent) {
     filters[filter.fieldName] = filter
     return filters
   }, {})
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
   isReordering.value = false
 }
 
@@ -1464,7 +1507,7 @@ function doRoutingReorder(event: CustomEvent) {
   })
 
   group.value.routings = updatedSeq
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
   isReordering.value = false
 }
 
@@ -1487,7 +1530,7 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
   orderRouteFilterOptionsModal.onDidDismiss().then((result: any) => {
     if(result.role === "save") {
       conditionTypeEnumId === "ENTCT_FILTER" ? ( orderRoutingFilterOptions.value = result.data.filters ) : ( orderRoutingSortOptions.value = result.data.filters )
-      hasUnsavedChanges.value = true
+      markWorkingDirty()
     }
   })
 
@@ -1512,7 +1555,7 @@ function doReorder(event: CustomEvent) {
       rule.sequenceNum = updatedRule.sequenceNum
     }
   })
-  hasUnsavedChanges.value = true
+  markWorkingDirty()
   isReordering.value = false
 }
 
@@ -1520,10 +1563,12 @@ async function openArchivedRoutingModal() {
   const archivedRoutingModal = await modalController.create({
     component: ArchivedRoutingModal,
     componentProps: {
-      archivedRoutings: group.value?.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || [],
+      archivedRoutings: getArchivedOrderRoutings(),
       saveRoutings: (routings: any) => {
         if(routings) {
-          initializeFromWorking()
+          flushWorking()
+          group.value.routings = commonUtil.sortSequence(getActiveAndDraftOrderRoutings().concat(routings))
+          markWorkingDirty()
         }
       }
     }

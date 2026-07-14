@@ -224,7 +224,7 @@ import { DateTime } from "luxon";
 import cronstrue from "cronstrue";
 import router from "@/router";
 import EmptyState from "@/components/EmptyState.vue";
-import { commonUtil, emitter, translate } from "@common";
+import { commonUtil, emitter, logger, translate } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { Group } from "@/types";
@@ -478,12 +478,18 @@ function nextRunLabel(run: any) {
 async function fetchRuns() {
   refreshNow();
   isLoading.value = true;
-  await orderRoutingStore().fetchOrderRoutingGroups();
-  isLoading.value = false;
-  brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
-  utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
-  // Default the drill panel to the current hour so the panel isn't empty on open.
-  if (!selectedCell.value) selectedCell.value = { d: nowWeekday.value, h: nowHour.value };
+  try {
+    await orderRoutingStore().fetchOrderRoutingGroups();
+    brokeringGroups.value = JSON.parse(JSON.stringify(groups.value));
+    utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
+    // Default the drill panel to the current hour so the panel isn't empty on open.
+    if (!selectedCell.value) selectedCell.value = { d: nowWeekday.value, h: nowHour.value };
+  } catch (err) {
+    logger.error(err);
+    commonUtil.showToast(translate("Failed to load brokering runs"));
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 onIonViewWillEnter(async () => {
@@ -522,7 +528,7 @@ async function addNewRun() {
 }
 
 function redirect(group: Group) {
-  router.push(`brokering/${group.routingGroupId}/routes`);
+  router.push(`/brokering/${group.routingGroupId}/routes`);
 }
 </script>
 

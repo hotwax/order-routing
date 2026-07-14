@@ -49,11 +49,11 @@
       <!-- Select a variation above, then act on it from this row. -->
       <div class="actions">
         <div class="action">
-          <ion-fab-button class="success" size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun" :aria-label="translate('Run variation')" @click="sim.runActiveVariation()">
+          <ion-fab-button class="success" size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || sim.isDirty" :aria-label="translate('Run variation')" @click="sim.runActiveVariation()">
             <ion-spinner v-if="sim.isRunningVariationRun" name="dots" />
             <ion-icon v-else :icon="playOutline" />
           </ion-fab-button>
-          <ion-note>{{ sim.isRunningVariationRun ? translate("Running…") : translate("Run") }}</ion-note>
+          <ion-note>{{ sim.isDirty ? translate("Save first") : sim.isRunningVariationRun ? translate("Running…") : translate("Run") }}</ion-note>
         </div>
         <div class="action">
           <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Rename')" @click="renameActive()">
@@ -62,13 +62,13 @@
           <ion-note>{{ translate("Rename") }}</ion-note>
         </div>
         <div class="action">
-          <ion-fab-button class="danger" size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Delete')" @click="sim.deleteVariation(sim.activeVariationId)">
+          <ion-fab-button class="danger" size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Delete')" @click="deleteActiveVariation()">
             <ion-icon :icon="trashOutline" />
           </ion-fab-button>
           <ion-note>{{ translate("Delete") }}</ion-note>
         </div>
         <div class="action">
-          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Reset to baseline')" @click="sim.resetWorkingToBaseline()">
+          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
             <ion-icon :icon="refreshOutline" />
           </ion-fab-button>
           <ion-note>{{ translate("Reset") }}</ion-note>
@@ -107,10 +107,48 @@ async function setBreakpoint(bp: number) {
 const expand = () => setBreakpoint(MAX_BP);
 const minimize = () => setBreakpoint(MIN_BP);
 
+async function confirmDiscardSimulationChanges() {
+  if (!sim.isDirty) return true;
+
+  let shouldDiscard = false;
+  const alert = await alertController.create({
+    header: translate("Discard simulation changes?"),
+    message: translate("Unsaved variation changes only affect the simulation workspace."),
+    buttons: [
+      { text: translate("Keep editing"), role: "cancel" },
+      {
+        text: translate("Discard changes"),
+        role: "destructive",
+        handler: () => {
+          shouldDiscard = true;
+        }
+      }
+    ]
+  });
+
+  await alert.present();
+  await alert.onDidDismiss();
+  return shouldDiscard;
+}
+
 // Empty value is the baseline; anything else is a saved variation id.
-function selectVariation(id: string) {
-  if (id) sim.loadVariation(id);
+async function selectVariation(id: string) {
+  if (id === sim.activeVariationId) return;
+  if (!(await confirmDiscardSimulationChanges())) return;
+
+  if (id) await sim.loadVariation(id);
   else sim.resetWorkingToBaseline();
+}
+
+async function resetToBaseline() {
+  if (!(await confirmDiscardSimulationChanges())) return;
+  sim.resetWorkingToBaseline();
+}
+
+async function deleteActiveVariation() {
+  if (!sim.activeVariationId) return;
+  if (!(await confirmDiscardSimulationChanges())) return;
+  sim.deleteVariation(sim.activeVariationId);
 }
 
 function renameActive() {

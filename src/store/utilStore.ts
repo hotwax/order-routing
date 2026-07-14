@@ -4,6 +4,32 @@ import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 
+function getUserSessionParams(payload: any) {
+  const customParameters = payload?.customParametersMap || {};
+  const params = { ...customParameters } as any;
+
+  if(payload?.pageLimit) {
+    params.pageSize = payload.pageLimit;
+  }
+
+  return params;
+}
+
+function getSessionList(responseData: any) {
+  if(Array.isArray(responseData)) return responseData;
+  if(Array.isArray(responseData?.docs)) return responseData.docs;
+  if(Array.isArray(responseData?.entityValueList)) return responseData.entityValueList;
+  return [];
+}
+
+function isActiveSession(session: any) {
+  const now = Date.now();
+  const fromDate = Number(session?.fromDate);
+  const thruDate = Number(session?.thruDate);
+
+  return (!fromDate || fromDate <= now) && (!thruDate || thruDate > now);
+}
+
 export const useUtilStore = defineStore('util', {
   state: () => {
     return {
@@ -147,7 +173,7 @@ export const useUtilStore = defineStore('util', {
               ...basePayload,
               pageIndex
             },
-            baseURL: commonUtil.getOmsURL() 
+            baseURL: commonUtil.getMaargURL() || commonUtil.getOmsURL()
           })
           if (!commonUtil.hasError(resp) && resp.data.length) {
             categories = resp.data.reduce((acc: any, category: any) => {
@@ -200,14 +226,17 @@ export const useUtilStore = defineStore('util', {
 
       try {
         const resp = await api({
-          url: "oms/entityData",
-          method: "POST",
-          baseURL: commonUtil.getMaargURL(),
-          data: payload
+          url: "admin/user/sessions",
+          method: "GET",
+          baseURL: commonUtil.getMaargURL() || commonUtil.getOmsURL(),
+          params: getUserSessionParams(payload)
         });
 
-        if(resp.data && resp.data.entityValueList?.length) {
-          userTestingSession = resp.data.entityValueList[0]
+        const sessions = getSessionList(resp.data)
+        const filteredSessions = payload?.filterByDate ? sessions.filter(isActiveSession) : sessions
+
+        if(filteredSessions.length) {
+          userTestingSession = filteredSessions[0]
         }
       } catch(err) {
         logger.error("Failed to get user session", err)
@@ -220,15 +249,14 @@ export const useUtilStore = defineStore('util', {
 
       try {
         const resp = await api({
-          url: "oms/entityData",
-          method: "POST",
-          baseURL: commonUtil.getMaargURL(),
-          data: payload
+          url: "admin/user/sessions",
+          method: "GET",
+          baseURL: commonUtil.getMaargURL() || commonUtil.getOmsURL(),
+          params: getUserSessionParams(payload)
         });
 
-        if(resp.data && resp.data.entityValueList?.length) {
-          testingSessions = resp.data.entityValueList
-        }
+        testingSessions = getSessionList(resp.data)
+        testingSessions = payload?.filterByDate ? testingSessions.filter(isActiveSession) : testingSessions
       } catch(err) {
         logger.error("Failed to get testing sessions", err)
       }

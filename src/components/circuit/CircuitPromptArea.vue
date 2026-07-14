@@ -9,16 +9,16 @@
       v-model="internalPrompt"
       @keydown="handleKeydown"
     >
-      <ion-button :disabled="disabled || !internalPrompt?.trim()" slot="end" fill="clear" @click="onSend">
+      <ion-button aria-label="Send prompt" :disabled="disabled || !internalPrompt?.trim()" slot="end" fill="clear" @click="onSend">
         <ion-icon slot="icon-only" :icon="sendOutline" />
       </ion-button>
     </ion-textarea>          
       <div class="context-chips ion-margin-top">
-        <ion-chip v-if="!selectedContext" outline @click="onAddContext">
+        <ion-chip v-if="!selectedContext" outline button :aria-label="translate('Add routing context')" @click="onAddContext">
           <ion-icon :icon="addOutline" />
           <ion-label>{{ translate("Add context") }}</ion-label>
         </ion-chip>
-        <ion-chip v-else @click="onRemoveContext">
+        <ion-chip v-else button aria-label="Remove routing context" @click="onRemoveContext">
           <ion-label>{{ selectedContext.routingName }}</ion-label>
           <ion-icon :icon="closeCircleOutline" />
         </ion-chip>

@@ -252,7 +252,7 @@ function getScheduleFrequency(brokeringGroupObj: any) {
 }
 
 function redirect(group: Group) {
-  router.push(`brokering/${group.routingGroupId}/routes`)
+  router.push(`/brokering/${group.routingGroupId}/routes`)
 }
 
 async function groupActionsPopover(group: Group, event: Event) {

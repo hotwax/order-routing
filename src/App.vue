@@ -152,6 +152,8 @@ import router from "@/router";
 const userStore = useUserStore();
 const atpProductStore = useAtpProductStore();
 const loader = ref<any>(null);
+let loaderRequestId = 0;
+let shouldPresentLoader = false;
 
 const userProfile = computed(() => userStore.getUserProfile);
 const currentProductStore = computed(() => atpProductStore.getCurrentProductStore);
@@ -191,18 +193,33 @@ function isSelected(page: { url: string; childRoutes: string[] }) {
 
 async function presentLoader(options = { message: "", backdropDismiss: true }) {
   if (options.message && loader.value) dismissLoader();
+  shouldPresentLoader = true;
+  const requestId = ++loaderRequestId;
 
   if (!loader.value) {
-    loader.value = await loadingController.create({
+    const nextLoader = await loadingController.create({
       message: options.message ? translate(options.message) : translate("Click the backdrop to dismiss."),
       translucent: true,
       backdropDismiss: options.backdropDismiss
     });
+
+    if (!shouldPresentLoader || requestId !== loaderRequestId) {
+      return;
+    }
+
+    loader.value = nextLoader;
   }
-  loader.value.present();
+  const activeLoader = loader.value;
+  await activeLoader.present();
+
+  if (loader.value === activeLoader && !shouldPresentLoader) {
+    dismissLoader();
+  }
 }
 
 function dismissLoader() {
+  shouldPresentLoader = false;
+  loaderRequestId++;
   if (loader.value) {
     loader.value.dismiss();
     loader.value = null;

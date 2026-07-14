@@ -180,6 +180,36 @@ export const simulationStore = defineStore("simulation", {
         this.loadError = e?.message ?? "Failed to load routing group.";
       }
     },
+    async startFromLiveGroup(group: any) {
+      this.loadError = null;
+      this.baseline = null;
+      this.working = null;
+      try {
+        const normalized = normalizeRoutingGroupHierarchy(deepClone(group));
+        const routingGroupId = normalized?.routingGroupId;
+        if (!routingGroupId) {
+          throw new Error("Select a brokering run before opening simulation.");
+        }
+
+        this.routingGroupId = routingGroupId;
+        this.baseline = deepClone(normalized);
+        this.working = deepClone(normalized);
+        this.variations = [];
+        this.activeVariationId = "";
+        this.results = null;
+        this.lastSimulationId = null;
+        this.runStates = [];
+        this.batchProgress = [];
+        this.variationRunResult = null;
+        this.runCompareError = null;
+        this.parentRunProgress = null;
+        delete this.parentRunByGroupId[routingGroupId];
+        this.view = "editor";
+        await this.fetchServerVariations(routingGroupId);
+      } catch (e: any) {
+        this.loadError = e?.message ?? "Failed to load routing group.";
+      }
+    },
     // Load the server-persisted (H2) variations for the parent group into the rail.
     async fetchServerVariations(parentRoutingGroupId: string) {
       try {
@@ -188,6 +218,16 @@ export const simulationStore = defineStore("simulation", {
       } catch (err) {
         logger.error(err);
       }
+    },
+    markWorkingClean() {
+      const snapshot = deepClone(this.working);
+      if (this.activeVariationId) {
+        const variation = this.variations.find((v) => v.id === this.activeVariationId);
+        if (variation) variation.group = snapshot;
+        return;
+      }
+
+      this.baseline = snapshot;
     },
     // Persist the current working copy as a NEW H2 variation. Returns true on success so
     // callers only report success when the save actually reached the backend.

@@ -31,7 +31,7 @@
           <!-- Key on the active variation so switching baseline <-> variation tears down and
                rebuilds the editor, guaranteeing a fresh bind to sim.working regardless of any
                in-place reactivity edge case (esp. for edited variations). -->
-          <SimulationCanvas :key="sim.activeVariationId || 'baseline'" />
+          <RoutingEditorCanvas :key="sim.activeVariationId || 'baseline'" mode="simulation" />
         </div>
         <!-- Persistent right-side sheet; teleports to body so it stays available across views. -->
         <VariationRail />
@@ -49,7 +49,7 @@ import { onMounted } from "vue";
 import { translate } from "@common";
 import { IonBackButton, IonButton, IonButtons, IonContent, IonHeader, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
 import { simulationStore } from "@/store/simulationStore";
-import SimulationCanvas from "@/components/simulation/SimulationCanvas.vue";
+import RoutingEditorCanvas from "@/components/routing-editor/RoutingEditorCanvas.vue";
 import VariationRail from "@/components/simulation/VariationRail.vue";
 import SimulationResults from "@/components/simulation/SimulationResults.vue";
 

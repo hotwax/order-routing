@@ -4,13 +4,13 @@
       <ion-toolbar>
         <ion-title>{{ translate("Circuit") }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button v-if="isChatStarted" @click="createNewChat">
+          <ion-button v-if="isChatStarted" aria-label="New chat" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
           <ion-button v-if="messages.length" :disabled="isApplyingDraft" :aria-label="translate('Clear chat history')" @click="clearCurrentChatHistory">
             <ion-icon slot="icon-only" :icon="trashOutline" />
           </ion-button>
-          <ion-button v-if="isDevModeEnabled" @click="showPromptModal = true">
+          <ion-button v-if="isDevModeEnabled" :aria-label="translate('Show last prompt')" @click="showPromptModal = true">
             <ion-icon slot="icon-only" :icon="terminalOutline" />
           </ion-button>
           <ion-button
@@ -20,7 +20,7 @@
           >
             <ion-icon slot="icon-only" :icon="bulbOutline" />
           </ion-button>
-          <ion-button @click="openThreadModal">
+          <ion-button aria-label="Open chat threads" @click="openThreadModal">
             <ion-icon slot="start" :icon="chatbubblesOutline" />
             {{ translate("Threads") }}
           </ion-button>
@@ -56,7 +56,7 @@
           <ion-item v-if="pendingDraftProposal" lines="none">
             <ion-button :disabled="isApplyingDraft" @click="approvePendingProposal">
               <ion-icon slot="start" :icon="checkmarkCircleOutline" />
-              {{ translate("Apply") }}
+              {{ translate("Apply to draft") }}
             </ion-button>
             <ion-button :disabled="isApplyingDraft" fill="clear" @click="discardPendingProposal">
               <ion-icon slot="start" :icon="closeCircleOutline" />
@@ -70,7 +70,12 @@
 
         <!-- Canvas Section -->
         <div class="canvas-section">
-          <CircuitCanvas ref="circuitCanvasRef" :routingGroupId="routingGroupId" />
+          <RoutingEditorCanvas
+            ref="circuitCanvasRef"
+            mode="circuit"
+            :routing-group-id="routingGroupId"
+            :order-routing-id="orderRoutingId"
+          />
         </div>
       </div>
     </ion-content>
@@ -145,7 +150,7 @@ import {
   IonToolbar 
 } from '@ionic/vue';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
-import CircuitCanvas from '@/components/circuit/CircuitCanvas.vue';
+import RoutingEditorCanvas from '@/components/routing-editor/RoutingEditorCanvas.vue';
 import CircuitFeedbackModal from '@/components/circuit/CircuitFeedbackModal.vue';
 import RoutingRuleSelectionModal from '@/components/circuit/RoutingRuleSelectionModal.vue';
 import type { KnowledgeFeedbackMessage } from '@/types/circuit';
@@ -159,7 +164,7 @@ import {
   trashOutline
 } from 'ionicons/icons';
 import { translate } from '@common';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
 import { usePreferencesStore } from '@/store/preferences';
 import { storeToRefs } from 'pinia';
@@ -191,6 +196,7 @@ type CircuitDraftProposal = DraftProposal & {
   id: string;
   sourcePrompt: string;
   createdAt: number;
+  contextKey?: string;
 };
 
 const circuitCanvasRef = ref<{
@@ -205,11 +211,22 @@ onMounted(() => {
 });
 
 const routingGroupId = computed(() => selectedContext.value?.routingGroupId || null);
+const orderRoutingId = computed(() => selectedContext.value?.orderRoutingId || null);
+const contextKey = computed(() => [
+  selectedContext.value?.routingGroupId || "",
+  selectedContext.value?.orderRoutingId || "",
+  selectedContext.value?.routingRuleId || ""
+].join(":"));
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
 const showFeedbackModal = ref(false);
 
 const canSendFeedback = computed(() => messages.value.length > 0);
+
+watch(contextKey, () => {
+  pendingDraftProposal.value = null;
+  pendingDiscardFeedbackProposal.value = null;
+});
 
 function buildFeedbackMessages(): KnowledgeFeedbackMessage[] {
   return messages.value
@@ -253,6 +270,12 @@ const onSend = async () => {
 
     if (selectedContext.value && circuitCanvasRef.value) {
       if (pendingDraftProposal.value) {
+        if (!isPendingProposalForCurrentContext()) {
+          pendingDraftProposal.value = null;
+          await addCircuitMessage(translate("Routing context changed. Ask Circuit to draft the change again."));
+          return;
+        }
+
         if (isApprovalMessage(message)) {
           await applyPendingDraftProposal(message);
           return;
@@ -260,6 +283,9 @@ const onSend = async () => {
 
         const currentProposal = pendingDraftProposal.value;
         const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(message, conversationHistory);
+        if (result.proposal) {
+          result.proposal.contextKey = contextKey.value;
+        }
         if (result.intent !== 'inquiry') {
           await saveDraftFeedbackForProposal('revision_requested', message, currentProposal);
           pendingDraftProposal.value = result.proposal;
@@ -269,6 +295,9 @@ const onSend = async () => {
       }
 
       const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(message, conversationHistory);
+      if (result.proposal) {
+        result.proposal.contextKey = contextKey.value;
+      }
       pendingDraftProposal.value = result.proposal;
       await addCircuitMessage(result.message);
       return;
@@ -290,10 +319,10 @@ const approvePendingProposal = async () => {
   try {
     await circuitStore.addLocalMessage({
       role: 'user',
-      content: translate("Apply proposal"),
-      threadName: translate("Apply proposal")
+      content: translate("Apply to draft"),
+      threadName: translate("Apply to draft")
     });
-    await applyPendingDraftProposal(translate("Apply proposal"));
+    await applyPendingDraftProposal(translate("Apply to draft"));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : translate('Failed to apply draft changes');
     await addCircuitMessage(errorMessage);
@@ -325,11 +354,24 @@ async function applyPendingDraftProposal(userFeedback: string) {
     return;
   }
 
+  if (!isPendingProposalForCurrentContext()) {
+    pendingDraftProposal.value = null;
+    await addCircuitMessage(translate("Routing context changed. Ask Circuit to draft the change again."));
+    return;
+  }
+
   const proposal = pendingDraftProposal.value;
   await savePendingDraftFeedback('approved', userFeedback);
   const result = await circuitCanvasRef.value.applyCircuitDraftProposal(proposal);
   pendingDraftProposal.value = null;
-  await addCircuitMessage(result.message);
+  await addCircuitMessage([
+    result.message,
+    translate("Circuit changes are staged on this page. Use Save to publish them.")
+  ].filter(Boolean).join("\n\n"));
+}
+
+function isPendingProposalForCurrentContext() {
+  return !pendingDraftProposal.value?.contextKey || pendingDraftProposal.value.contextKey === contextKey.value;
 }
 
 async function savePendingDraftFeedback(type: DraftFeedbackType, userFeedback: string) {
@@ -358,6 +400,7 @@ async function reviseDiscardedProposal(proposal: CircuitDraftProposal, feedback:
   const result = await circuitCanvasRef.value.prepareCircuitDraftProposal(revisionPrompt, conversationHistory);
   if (result.proposal) {
     result.proposal.sourcePrompt = proposal.sourcePrompt;
+    result.proposal.contextKey = contextKey.value;
   }
 
   pendingDraftProposal.value = result.proposal;

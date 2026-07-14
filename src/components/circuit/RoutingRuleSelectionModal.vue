@@ -2,21 +2,21 @@
   <ion-header>
     <ion-toolbar>
       <ion-buttons slot="start">
-        <ion-button @click="closeModal">
+        <ion-button :aria-label="translate('Close')" @click="closeModal">
           <ion-icon slot="icon-only" :icon="closeOutline" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ translate("Select Routing Rule") }}</ion-title>
+      <ion-title>{{ translate("Select Routing Context") }}</ion-title>
     </ion-toolbar>
   </ion-header>
   
   <ion-content>
     <ion-list>
-      <ion-item button v-for="rule in routingRules" :key="rule.routingGroupId" @click="selectRule(rule)">
+      <ion-item button v-for="rule in routingRules" :key="rule.orderRoutingId || rule.routingGroupId" @click="selectRule(rule)">
         <ion-label>
           <h2>{{ rule.routingName }}</h2>
           <p v-if="rule.description">{{ rule.description }}</p>
-          <p v-else>{{ rule.routingGroupId }}</p>
+          <p v-else>{{ rule.groupName || rule.routingGroupId }}</p>
         </ion-label>
       </ion-item>
     </ion-list>
@@ -65,13 +65,29 @@ const fetchRoutingRules = async () => {
       productStoreId: store.currentEComStore.productStoreId,
       pageSize: 200
     }
-    const resp = await orderRoutingStore().fetchOrderRoutingGroups();
-      const routingGroups = orderRoutingStore().getRoutingGroups
-      // The API returns routing groups. We'll use these as the "rules" to select.
-      routingRules.value = routingGroups.map((group: any) => ({
-        ...group,
-        routingName: group.groupName // Normalize the name field for display
+    await orderRoutingStore().fetchOrderRoutingGroups();
+    await orderRoutingStore().fetchOrderRoutingGroupsDetails();
+    const routingGroups = orderRoutingStore().getRoutingGroups
+    routingRules.value = routingGroups.flatMap((group: any) => {
+      const activeRoutings = (group.routings || []).filter((routing: any) => routing.statusId !== "ROUTING_ARCHIVED");
+      if (!activeRoutings.length) {
+        return [{
+          routingGroupId: group.routingGroupId,
+          groupName: group.groupName,
+          routingName: group.groupName,
+          description: translate("No active routings")
+        }];
+      }
+
+      return activeRoutings.map((routing: any) => ({
+        routingGroupId: group.routingGroupId,
+        orderRoutingId: routing.orderRoutingId,
+        groupName: group.groupName,
+        routingName: routing.routingName,
+        description: group.groupName,
+        label: `${group.groupName} / ${routing.routingName}`
       }));
+    });
   } catch (err) {
     logger.error("Failed to fetch routing rules", err);
   } finally {

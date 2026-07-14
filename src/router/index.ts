@@ -13,7 +13,6 @@ import {
   pulseOutline,
   sendOutline,
   settingsOutline,
-  shuffleOutline,
   sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
@@ -201,27 +200,25 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/brokering",
     name: "Brokering",
-    component: () => import("@/views/BrokeringRuns.vue"),
+    component: () => import("@/views/BrokeringRunsCalendar.vue"),
     beforeEnter: authGuard,
     meta: {
       title: "Brokering",
-      icon: shuffleOutline,
+      icon: calendarOutline,
       section: "routing",
       menuIndex: 10,
       childRoutes: ["/brokering/"]
     }
   },
   {
+    path: "/brokering-runs",
+    name: "Brokering runs list",
+    component: () => import("@/views/BrokeringRuns.vue"),
+    beforeEnter: authGuard
+  },
+  {
     path: "/brokering-calendar",
-    name: "Brokering calendar",
-    component: () => import("@/views/BrokeringRunsCalendar.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Brokering calendar",
-      icon: calendarOutline,
-      section: "routing",
-      menuIndex: 11
-    }
+    redirect: "/brokering"
   },
   {
     path: "/brokering/:routingGroupId/routes",
@@ -250,7 +247,6 @@ const routes: Array<RouteRecordRaw> = [
       title: "Simulate",
       icon: flaskOutline,
       section: "routing",
-      menuIndex: 11,
       childRoutes: ["/simulate/"],
       featureFlag: "simulation"
     }
@@ -277,8 +273,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: "Facility groups",
       icon: businessOutline,
-      section: "routing",
-      menuIndex: 11
+      section: "routing"
     }
   },
   {
@@ -289,8 +284,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: "Circuit",
       icon: sparklesOutline,
-      section: "routing",
-      menuIndex: 12
+      section: "routing"
     }
   },
 

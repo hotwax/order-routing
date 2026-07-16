@@ -853,7 +853,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
             "group.ngroups": true,
             "q.op": "AND",
             "start": 0,
-            "fl": "orderId,orderName,orderTypeId,orderStatusId,orderStatusDesc",
+            "fl": "orderId,orderName,orderTypeId,orderStatusId,orderStatusDesc,orderDate,customerPartyName",
             "defType": "edismax"
           },
           "query": "*:*",
@@ -878,7 +878,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
                 orderName: doc.orderName,
                 orderTypeId: doc.orderTypeId,
                 orderStatusId: doc.orderStatusId,
-                orderStatusDesc: doc.orderStatusDesc
+                orderStatusDesc: doc.orderStatusDesc,
+                orderDate: doc.orderDate,
+                customerPartyName: doc.customerPartyName
               }
             }
           })

@@ -7,6 +7,7 @@ import {
   repeatOutline,
   downloadOutline,
   createOutline,
+  pencilOutline,
   cubeOutline
 } from "ionicons/icons";
 import { buildAppUrl } from "@common";
@@ -29,6 +30,7 @@ export type MovementTypeKey =
   | "PURCHASE"
   | "RETURN"
   | "CYCLE_COUNT"
+  | "MANUAL_VARIANCE"
   | "ROLLOVER"
   | "RECEIPT"
   | "ADJUSTMENT";
@@ -38,6 +40,9 @@ export interface OrderSummary {
   orderName?: string;
   orderTypeId?: string;
   orderStatusId?: string;
+  orderStatusDesc?: string;
+  orderDate?: string | number;
+  customerPartyName?: string;
 }
 
 export interface MovementContext {
@@ -73,13 +78,21 @@ const TYPE_PRESENTATION: Record<MovementTypeKey, TypePresentation> = {
   PURCHASE:    { label: "Purchase order", icon: fileTrayFullOutline, color: "secondary", linkLabel: "Open in PreOrder" },
   RETURN:      { label: "Return", icon: returnDownBackOutline, color: "warning", linkLabel: "Open in Order Manager" },
   CYCLE_COUNT: { label: "Cycle count", icon: clipboardOutline, color: "medium", linkLabel: "Open in Cycle Count" },
+  MANUAL_VARIANCE: { label: "Manual variance", icon: pencilOutline, color: "warning", linkLabel: "" },
   ROLLOVER:    { label: "Rollover", icon: repeatOutline, color: "medium", linkLabel: "" },
   RECEIPT:     { label: "Receipt", icon: downloadOutline, color: "success", linkLabel: "" },
   ADJUSTMENT:  { label: "Adjustment", icon: createOutline, color: "medium", linkLabel: "" }
 };
 
 function classifyType(row: any, order?: OrderSummary): MovementTypeKey {
-  if (row.physicalInventoryId) return "CYCLE_COUNT";
+  if (row.physicalInventoryId) {
+    // A cycle count applies a variance through a count session (WorkEffort); a manual variance is a
+    // person directly logging one. Split them so each row shows the right audit (counted + accepted
+    // vs logged-by + reason) and gets its own filter chip. The count-session signal is a workEffortId
+    // or the CYCLE_COUNT reason; everything else with a physicalInventoryId is a manual variance.
+    if (row.workEffortId || row.reasonEnumId === "CYCLE_COUNT") return "CYCLE_COUNT";
+    return "MANUAL_VARIANCE";
+  }
   if (row.reasonEnumId === "INV_ROLLOVER") return "ROLLOVER";
   if (row.returnId) return "RETURN";
   if (row.orderId) {
@@ -101,9 +114,9 @@ function classifyType(row: any, order?: OrderSummary): MovementTypeKey {
 function buildLink(typeKey: MovementTypeKey, row: any): string | null {
   switch (typeKey) {
     case "SALES_ORDER":
-      return row.orderId ? buildAppUrl("order-manager", `/order/${row.orderId}`) : null;
+      return row.orderId ? buildAppUrl("order-manager", `/orders/${row.orderId}`) : null;
     case "RETURN":
-      return row.returnId ? buildAppUrl("order-manager", `/return/${row.returnId}`) : null;
+      return row.returnId ? buildAppUrl("order-manager", `/returns/${row.returnId}`) : null;
     case "PURCHASE":
       return row.orderId ? buildAppUrl("preorder", `/purchase-order/${row.orderId}`) : null;
     case "TRANSFER":
@@ -125,6 +138,8 @@ function buildReferenceLabel(typeKey: MovementTypeKey, row: any, order?: OrderSu
       return row.returnId || "-";
     case "CYCLE_COUNT":
       return reasonDesc || row.reasonEnumId || "Cycle count";
+    case "MANUAL_VARIANCE":
+      return reasonDesc || row.reasonEnumId || "Manual variance";
     case "ROLLOVER":
       return row.description || reasonDesc || "Rollover";
     case "RECEIPT":
@@ -168,6 +183,7 @@ export const MOVEMENT_TYPE_ORDER: MovementTypeKey[] = [
   "PURCHASE",
   "RETURN",
   "CYCLE_COUNT",
+  "MANUAL_VARIANCE",
   "ROLLOVER",
   "RECEIPT",
   "ADJUSTMENT"

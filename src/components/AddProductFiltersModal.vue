@@ -140,15 +140,22 @@ async function refreshMatchedCount() {
   const prospectiveFilters = JSON.parse(JSON.stringify(appliedFilters.value))
   prospectiveFilters[props.type][props.searchfield] = selectedValues.value
   isCountLoading.value = true;
-  const { total } = await productStore.previewProducts({
-    filters: prospectiveFilters,
-    operator: appliedFiltersOperator.value,
-    countOnly: true
-  })
-  // Ignore a stale response that resolved after a newer request was issued.
-  if (requestId !== currentRequestId) return;
-  matchedCount.value = total;
-  isCountLoading.value = false;
+  try {
+    const { total } = await productStore.previewProducts({
+      filters: prospectiveFilters,
+      operator: appliedFiltersOperator.value,
+      countOnly: true
+    })
+    // Ignore a stale response that resolved after a newer request was issued.
+    if (requestId !== currentRequestId) return;
+    matchedCount.value = total;
+  } catch (error) {
+    console.error(error);
+  } finally {
+    if (requestId === currentRequestId) {
+      isCountLoading.value = false;
+    }
+  }
 }
 
 function closeModal() {

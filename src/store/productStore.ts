@@ -212,15 +212,13 @@ export const productStore = defineStore('productStore', {
     },
     async fetchSampleProducts() {
       try {
-        // Moqui-specific Solr endpoint, consistent with atpProductStore / pickupAnalyticsStore,
-        // rather than the ofbiz searchProducts endpoint.
         const resp: any = await api({
           url: "admin/runSolrQuery",
           method: "POST",
           data: {
             json: {
               query: "*:*",
-              filter: "docType: PRODUCT",
+              filter: "docType: PRODUCT AND productTypeId: FINISHED_GOOD AND isVirtual: false",
               params: { rows: 10 }
             }
           }

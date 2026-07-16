@@ -304,7 +304,7 @@
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :disabled="isReordering" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
+                  {{ rule.ruleName }}
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
@@ -695,6 +695,12 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   }
 
   const manifest = await buildCircuitDraftManifest();
+  circuitStore.setLastPrompt({
+    prompt,
+    conversationHistory,
+    pageCapabilityManifest: manifest,
+    outputContract: manifest.outputContract
+  });
   const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
   const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)

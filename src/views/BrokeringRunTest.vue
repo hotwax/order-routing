@@ -51,7 +51,7 @@
               <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
                   <ion-label>
-                    <h1>{{ routing.routingName }}</h1>
+                    {{ routing.routingName }}
                   </ion-label>
                   {{ `${Number(index) + 1}/${group.routings.length}` }}
                 </ion-item>
@@ -78,7 +78,7 @@
                 <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
                 <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="[{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }, 'rule-item']" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
                   <ion-label>
-                    <h2>{{ rule.ruleName }}</h2>
+                    {{ rule.ruleName }}
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
                   </ion-label>
                 </ion-item>
@@ -373,14 +373,10 @@ function getEligibleRoutesForBrokering(routing: any) {
 
 async function getUserTestSession() {
   userTestingSession.value = await useUtilStore().getUserSession({
-    customParametersMap: {
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      userId: userProfile.value.userId,
-      productStoreId: currentEComStore.value.productStoreId
-    },
-    selectedEntity: "co.hotwax.user.UserSession",
-    pageLimit: 100,
-    filterByDate: true
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    pageNoLimit: "true"
   });
 }
 
@@ -388,7 +384,7 @@ async function createUserTestSession() {
   await getUserTestSession();
 
   // If a test session already exists for the user do not create a new one
-  if(userTestingSession.value.userSessionId) {
+  if(userTestingSession.value?.userSessionId) {
     return;
   }
 

@@ -14,7 +14,7 @@
     <ion-list>
       <ion-item button v-for="rule in routingRules" :key="rule.routingGroupId" @click="selectRule(rule)">
         <ion-label>
-          <h2>{{ rule.routingName }}</h2>
+          {{ rule.routingName }}
           <p v-if="rule.description">{{ rule.description }}</p>
           <p v-else>{{ rule.routingGroupId }}</p>
         </ion-label>

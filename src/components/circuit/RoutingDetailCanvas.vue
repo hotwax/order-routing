@@ -146,7 +146,7 @@
         <ion-list>
           <ion-item button v-for="thread in threads" :key="thread.id" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
             <ion-label>
-              <h3>{{ thread.name }}</h3>
+              {{ thread.name }}
               <p>{{ formatDate(thread.createdAt) }}</p>
             </ion-label>
             <ion-button slot="end" fill="clear" color="danger" @click.stop="confirmDelete(thread.id)">

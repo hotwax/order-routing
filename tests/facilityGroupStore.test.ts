@@ -49,13 +49,21 @@ describe("facilityGroupStore", () => {
     });
   });
 
-  it("does not remove a facility when the active membership key is incomplete", async () => {
+  it("passes through an omitted membership fromDate per the current association contract", async () => {
     const store = useFacilityGroupStore();
 
-    await expect(store.removeFacility("DivFacilityGroup", { facilityId: "CODEX219_STORE" })).rejects.toThrow(
-      "Active facility group membership is missing its key fields",
-    );
+    await store.removeFacility("DivFacilityGroup", { facilityId: "CODEX219_STORE" });
 
-    expect(api).not.toHaveBeenCalled();
+    // Main intentionally removed the local key guard in 4f47607; the backend owns validation.
+    expect(api).toHaveBeenNthCalledWith(1, {
+      url: "admin/facilityGroups/DivFacilityGroup/facilities/CODEX219_STORE/association",
+      method: "POST",
+      data: {
+        facilityGroupId: "DivFacilityGroup",
+        facilityId: "CODEX219_STORE",
+        fromDate: undefined,
+        thruDate: Date.now(),
+      },
+    });
   });
 });

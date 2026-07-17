@@ -1,7 +1,8 @@
 // tests/variationConfigAdapter.test.ts
 import assert from "node:assert";
-import { toConfigPayload, fromVariationRoutings } from "../src/util/variationUtils";
+import { toConfigPayload, fromVariationRoutings, isEquivalentVariationConfig } from "../src/utils/variationUtils";
 
+it("adapts variation configuration in both directions", () => {
 // ---- Outbound: canvas `working` tree -> PUT /config payload --------------------------------------
 const workingRoutings = [
   {
@@ -91,3 +92,47 @@ const round = toConfigPayload(canvas);
 assert.strictEqual(round[0].filters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
 
 console.log("variationConfigAdapter tests passed");
+});
+
+it("treats editor projection order and server ids as the same persisted variation config", () => {
+  const saved = {
+    variationGroupId: "V1",
+    routings: [{
+      orderRoutingId: "V1_R1",
+      routingName: "Standard",
+      statusId: "ROUTING_ACTIVE",
+      sequenceNum: 1,
+      orderFilters: [
+        { conditionSeqId: "01", conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "deliveryDays", operator: null, fieldValue: null, sequenceNum: 2 },
+        { conditionSeqId: "02", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "F1", sequenceNum: 1 }
+      ],
+      rules: [{
+        routingRuleId: "V1_RR1",
+        ruleName: "Allocate",
+        statusId: "RULE_ACTIVE",
+        sequenceNum: 1,
+        assignmentEnumId: "ORA_SELECTED",
+        inventoryFilters: [
+          { conditionSeqId: "03", conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", operator: null, fieldValue: null, sequenceNum: 2 },
+          { conditionSeqId: "04", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "FG1", sequenceNum: 1 }
+        ],
+        actions: [
+          { actionSeqId: "02", actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null },
+          { actionSeqId: "01", actionTypeEnumId: "ORA_MV_TO_QUEUE", actionValue: "Q1" }
+        ]
+      }]
+    }]
+  };
+  const editorFlushed = structuredClone(saved);
+  editorFlushed.routings[0].orderRoutingId = "client-route-key";
+  editorFlushed.routings[0].orderFilters.reverse();
+  editorFlushed.routings[0].orderFilters.find((condition: any) => condition.operator === "not-equals").fieldName = "facilityId_excluded";
+  editorFlushed.routings[0].rules[0].routingRuleId = "client-rule-key";
+  editorFlushed.routings[0].rules[0].inventoryFilters.reverse();
+  editorFlushed.routings[0].rules[0].actions.reverse();
+
+  assert.equal(isEquivalentVariationConfig(editorFlushed, saved), true);
+
+  editorFlushed.routings[0].rules[0].inventoryFilters[0].fieldValue = "FG2";
+  assert.equal(isEquivalentVariationConfig(editorFlushed, saved), false);
+});

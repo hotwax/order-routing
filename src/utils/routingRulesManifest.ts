@@ -5,6 +5,7 @@ import {
   toDraftOptions
 } from "./draftUtils";
 import type {
+  DraftAssistantContext,
   DraftOperation,
   DraftOption,
   DraftTargetBindings,
@@ -13,6 +14,7 @@ import type {
   DraftValueType,
   PageCapabilityManifest
 } from "@/types/draft";
+import { prepareDraftAssistantManifest, resolveDraftAssistantContext } from "./draftAssistantContext";
 
 export type EnumInfo = {
   id: string;
@@ -50,11 +52,12 @@ export type RoutingRulesDraftRefs = {
   actionEnums: Record<string, EnumInfo>;
 };
 
-type ManifestInput = {
+export type ManifestInput = {
   pageRoute: string;
   orderRoutingId: string;
   routingName: string;
   routingStatus: string;
+  assistantContext?: DraftAssistantContext;
   brokeringRun?: {
     routingGroupId?: string;
     groupName?: string;
@@ -165,7 +168,14 @@ const inventorySortDefinitions: SortDefinition[] = [
 ];
 
 export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityManifest {
-  const hasSelectedRule = Boolean(input.selectedRoutingRule?.routingRuleId);
+  const selectedRuleKey = getRuleKey(input.selectedRoutingRule);
+  const hasSelectedRule = Boolean(selectedRuleKey);
+  const assistantContext = resolveDraftAssistantContext({
+    context: input.assistantContext,
+    orderRoutingId: input.orderRoutingId,
+    routingGroupId: input.brokeringRun?.routingGroupId,
+    siblingRoutingIds: (input.brokeringRun?.routings || []).map((routing) => routing.orderRoutingId)
+  });
   const selectedRuleDisabledReason = hasSelectedRule
     ? input.isTestEnabled ? "Test mode is active." : ""
     : "No rule is currently selected.";
@@ -347,9 +357,10 @@ export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityM
     })
   );
 
-  return {
+  return prepareDraftAssistantManifest({
     pageId: "order-routing.rules",
     route: input.pageRoute,
+    context: assistantContext,
     visibleEntities: {
       brokeringRun: {
         routingGroupId: input.brokeringRun?.routingGroupId || "",
@@ -376,13 +387,13 @@ export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityM
         draftLimitations: {
           selectedRuleOnly: false,
           canCreateInventoryRules: true,
-          canCreateSiblingRoutings: true,
+          canCreateSiblingRoutings: assistantContext.mode !== "variation",
           canRenameInventoryRules: false,
           note: "Circuit can draft changes across existing routing rules and can create new local draft routing rules. New rules and edits are persisted only when the user saves the route."
         }
       },
       selectedRule: hasSelectedRule ? {
-        routingRuleId: input.selectedRoutingRule.routingRuleId,
+        routingRuleId: selectedRuleKey,
         ruleName: input.selectedRoutingRule.ruleName,
         statusId: input.selectedRoutingRule.statusId,
         assignmentEnumId: input.selectedRoutingRule.assignmentEnumId,
@@ -401,7 +412,7 @@ export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityM
     },
     editableTargets: targets,
     outputContract: createDraftOutputContract()
-  };
+  });
 }
 
 export function buildRoutingRulesBindings(draft: RoutingRulesDraftRefs): DraftTargetBindings {
@@ -451,15 +462,10 @@ function applyScopedRuleOperation(operation: DraftOperation, draft: RoutingRules
 
   loadRuleDraft(ruleId, draft);
 
-  try {
-    return applyActiveRuleOperation({ ...operation, ruleKey: undefined }, draft);
-  } finally {
-    if (previousRuleId && previousRuleId !== ruleId) {
-      loadRuleDraft(previousRuleId, draft);
-    } else if (!previousRuleId) {
-      clearActiveRuleDraft(draft);
-    }
-  }
+  // Keep the rule Circuit changed selected so its preview is visible on the canvas. The editor's
+  // proposal transaction snapshots the previous selection and restores it on Reject, while Accept
+  // intentionally leaves this target rule active for review and Save.
+  return applyActiveRuleOperation({ ...operation, ruleKey: undefined }, draft);
 }
 
 function applyActiveRuleOperation(operation: DraftOperation, draft: RoutingRulesDraftRefs): boolean {
@@ -840,19 +846,24 @@ function refreshRuleList(draft: RoutingRulesDraftRefs) {
 function summarizeInventoryRules(input: ManifestInput, optionSources: Record<string, DraftOption[]>) {
   const rulesInformation = input.rulesInformation || {};
   return (input.inventoryRules || []).map((rule) => {
+    const ruleKey = getRuleKey(rule);
     const ruleInfo = {
       ...rule,
-      ...(rulesInformation[rule.routingRuleId] || {})
+      ...(rulesInformation[ruleKey] || {})
     };
 
     return {
-      routingRuleId: ruleInfo.routingRuleId,
+      routingRuleId: getRuleKey(ruleInfo),
       ruleName: ruleInfo.ruleName,
       statusId: ruleInfo.statusId,
       sequenceNum: ruleInfo.sequenceNum,
       currentValues: summarizeInventoryRuleCurrentValues(ruleInfo, input, optionSources)
     };
   });
+}
+
+function getRuleKey(rule: any) {
+  return String(rule?.routingRuleId || rule?._tempId || "");
 }
 
 function summarizeInventoryRuleCurrentValues(ruleInfo: any, input: ManifestInput, optionSources: Record<string, DraftOption[]>) {

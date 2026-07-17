@@ -105,6 +105,8 @@ export function buildRoutingGroupsListManifest(input: RunsListManifestInput): Pa
     },
     editableTargets: [],
     outputContract: {
+      operations: [],
+      operationShape: {},
       responseShape: {
         answer: "concise natural-language answer to the user's question",
         questions: "array of follow-up questions only when manifest data is missing or ambiguous",

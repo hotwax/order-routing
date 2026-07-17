@@ -1,6 +1,7 @@
 import assert from "assert";
-import { chunkVariants, mergeVariationResults } from "../src/util/simulationCompute";
+import { chunkVariants, mergeVariationResults } from "../src/utils/simulationCompute";
 
+it("chunks variants and merges simulation batches", () => {
 // chunk into batches of 5
 {
   const variants = Array.from({ length: 12 }, (_, i) => ({ label: `v${i}`, parameterOverrides: {}, routingDeltas: [] }));
@@ -44,3 +45,4 @@ import { chunkVariants, mergeVariationResults } from "../src/util/simulationComp
 }
 
 console.log("simulationBatch tests passed");
+});

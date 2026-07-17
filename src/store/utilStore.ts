@@ -5,6 +5,14 @@ import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 import { DateTime } from 'luxon'
 
+export const ROUTING_EDITOR_ENUM_TYPE_IDS = [
+  "ORD_FILTER_PRM_TYPE",
+  "ORD_SORT_PARAM_TYPE",
+  "INV_FILTER_PRM_TYPE",
+  "INV_SORT_PARAM_TYPE",
+  "ORDER_SALES_CHANNEL"
+] as const;
+
 export const useUtilStore = defineStore('util', {
   state: () => {
     return {
@@ -30,6 +38,13 @@ export const useUtilStore = defineStore('util', {
     }
   },
   actions: {
+    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
+    // and sequentially because fetchEnums merges into the current store snapshot after each request.
+    async fetchRoutingEditorEnums() {
+      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
+        await this.fetchEnums({ enumTypeId });
+      }
+    },
     async fetchEnums(payload: any) {
       let enums = { ...this.enums };
       let pageIndex = 0;

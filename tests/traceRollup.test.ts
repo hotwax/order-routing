@@ -1,6 +1,6 @@
 // tests/traceRollup.test.ts
 import assert from "node:assert";
-import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff, describeRuleAttempts } from "../src/util/simulationResults";
+import { outcomeCounts, facilityRollup, compareFacilities, queuedDiff, describeRuleAttempts } from "../src/utils/simulationResults";
 import type { OrderTrace } from "../src/types/variation";
 
 const trace = (orderId: string, finalReason: string | null, assignments: Array<[string | null, number]> = [], orderItemSeqId = "00101"): OrderTrace => ({
@@ -14,6 +14,7 @@ const trace = (orderId: string, finalReason: string | null, assignments: Array<[
   ruleAttempts: [],
 });
 
+it("rolls up simulation traces", () => {
 // --- outcomeCounts ---
 assert.deepStrictEqual(outcomeCounts(undefined), {});
 assert.deepStrictEqual(outcomeCounts([]), {});
@@ -158,3 +159,4 @@ assert.strictEqual(twoShipGroups.length, 2);
 assert.notStrictEqual(twoShipGroups[0].shipGroupSeqId, twoShipGroups[1].shipGroupSeqId);
 
 console.log("traceRollup tests passed");
+});

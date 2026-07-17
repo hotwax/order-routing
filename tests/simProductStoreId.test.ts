@@ -1,6 +1,7 @@
 import assert from "assert";
-import { simProductStoreId } from "../src/services/SimulationService";
+import { simProductStoreId } from "../src/utils/simConfig";
 
+it("resolves the simulation product store id", () => {
 // Blank when unset, so the caller falls back to the OMS currentEComStore (single-instance behaviour).
 assert.strictEqual(simProductStoreId({}), "", "defaults to empty (fall back to currentEComStore)");
 assert.strictEqual(simProductStoreId({ VITE_SIM_PRODUCT_STORE_ID: "" }), "", "empty -> empty");
@@ -10,3 +11,4 @@ assert.strictEqual(simProductStoreId({ VITE_SIM_PRODUCT_STORE_ID: "SM_STORE" }),
 assert.strictEqual(simProductStoreId({ VITE_SIM_PRODUCT_STORE_ID: "  SM_STORE  " }), "SM_STORE", "trims whitespace");
 
 console.log("simProductStoreId tests passed");
+});

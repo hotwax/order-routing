@@ -2,8 +2,9 @@
 // Backend R2 shape (confirmed): { simulation: {header}, variants: [...] }. JSON fields arrive
 // already PARSED (variant.diff is an object); the raw *Json strings are ignored.
 import assert from "assert";
-import { persistedSimulationAdapter } from "../src/util/simulationResults";
+import { persistedSimulationAdapter } from "../src/utils/simulationResults";
 
+it("adapts persisted simulation responses", () => {
 // VARIATION run: baseline + one variant; diff is a parsed object.
 {
   const raw = {
@@ -26,6 +27,40 @@ import { persistedSimulationAdapter } from "../src/util/simulationResults";
   assert.strictEqual(out.variants[0].failed, false);
   assert.strictEqual(out.partial, false);
   assert.strictEqual(out.simulationRan, true);
+  assert.strictEqual(out.identity.kind, "baseline");
+}
+
+// Synchronous parent/variation history records are distinguished by the explicit variationGroupId,
+// never by response ordering or their near-identical timestamps/counts (live UAT M100375/M100374).
+{
+  const baseline = persistedSimulationAdapter({
+    simulation: { simulationId: "M100375", routingGroupId: "M100255", runType: "SINGLE", statusId: "COMPLETE", simulationRan: "Y" },
+    variants: [{ isBaseline: "Y", brokeredItemCount: 16, attemptedItemCount: 663, queuedItemCount: 532 }]
+  });
+  const variation = persistedSimulationAdapter({
+    simulation: { simulationId: "M100374", routingGroupId: "M100255", variationGroupId: "VM100005", runType: "SINGLE", statusId: "COMPLETE", simulationRan: "Y" },
+    variants: [{ isBaseline: "Y", brokeredItemCount: 16, attemptedItemCount: 663, queuedItemCount: 532 }]
+  });
+
+  assert.strictEqual(baseline.identity.kind, "baseline");
+  assert.strictEqual(baseline.baseline.brokeredItemCount, 16);
+  assert.deepStrictEqual(baseline.variants, []);
+  assert.deepStrictEqual(variation.identity, {
+    kind: "variation", label: "VM100005", routingGroupId: "M100255", variationGroupId: "VM100005"
+  });
+  assert.strictEqual(variation.baseline, null);
+  assert.strictEqual(variation.variants[0].label, "VM100005");
+  assert.strictEqual(variation.variants[0].groupRun.brokeredItemCount, 16);
+}
+
+// Prefer explicit display metadata when the backend supplies it, while retaining id association.
+{
+  const out = persistedSimulationAdapter({
+    simulation: { routingGroupId: "M100255", variationGroupId: "VM100005", variationName: "Codex live check 2026-07-16" },
+    variants: [{ isBaseline: "Y", brokeredItemCount: 2, attemptedItemCount: 3 }]
+  });
+  assert.strictEqual(out.identity.label, "Codex live check 2026-07-16");
+  assert.strictEqual(out.variants[0].label, "Codex live check 2026-07-16");
 }
 
 // Robustness: a raw diffJson string is still parsed if `diff` is absent (defensive fallback).
@@ -72,6 +107,17 @@ import { persistedSimulationAdapter } from "../src/util/simulationResults";
   assert.deepStrictEqual(empty.variants, [], "unknown id → no variants");
 }
 
+// A failed single run has no non-baseline row; carry the header failure into the rendered baseline.
+{
+  const out = persistedSimulationAdapter({
+    simulation: { runType: "SINGLE", statusId: "FAILED", failureReason: "inventory snapshot unavailable", simulationRan: "N" },
+    variants: []
+  });
+  assert.strictEqual(out.baseline.failed, true);
+  assert.strictEqual(out.baseline.failureReason, "inventory snapshot unavailable");
+  assert.strictEqual(out.partial, false);
+}
+
 // Phase 1: any incoming `outcomes` is intentionally dropped (rich panels degrade until backend adds it to R2).
 {
   const raw = { simulation: { runType: "SINGLE", statusId: "COMPLETE", partial: "N", simulationRan: "Y" },
@@ -80,3 +126,4 @@ import { persistedSimulationAdapter } from "../src/util/simulationResults";
 }
 
 console.log("persistedSimulationAdapter tests passed");
+});

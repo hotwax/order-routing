@@ -1,4 +1,24 @@
 import assert from "node:assert";
+import { vi } from "vitest";
+
+vi.mock("@common", () => ({
+  client: async (config: any) => {
+    const response = await globalThis.fetch(`${config.baseURL || ""}${config.url}`, {
+      method: config.method,
+      headers: config.headers,
+      body: config.data === undefined ? undefined : JSON.stringify(config.data),
+      signal: config.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const error: any = new Error(`HTTP ${response.status}`);
+      error.response = { status: response.status, data };
+      throw error;
+    }
+    return { data };
+  },
+}));
+
 import {
   proposeKnowledgeFeedback,
   refineKnowledgeFeedback,
@@ -275,19 +295,132 @@ async function suggestLlmFailure() {
   }
 }
 
-async function main() {
-  await proposeHappy();
-  await refineHappy();
-  await approveHappy();
-  await proposeNetworkRejection();
-  await approveValidationFailure();
-  await suggestHappy();
-  await suggestNetworkRejection();
-  await suggestLlmFailure();
-  console.log("circuitKnowledgeFeedbackService tests passed");
+async function malformedSuccessResponsesFailClosed() {
+  const proposalRequest = {
+    messages: [{ role: "user" as const, content: "hi" }],
+    userCorrection: "x"
+  };
+
+  let restore = withMockFetch(async () =>
+    new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })
+  );
+  try {
+    const result = await proposeKnowledgeFeedback(proposalRequest);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "validation");
+      assert.match(result.error, /invalid feedback proposal/i);
+    }
+  } finally {
+    restore();
+  }
+
+  restore = withMockFetch(async () =>
+    new Response(JSON.stringify({ ok: true, shortSha: "abc1234", summary: "done", editCount: 1 }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })
+  );
+  try {
+    const result = await approveKnowledgeFeedback({
+      proposal: {
+        proposalId: "p-1",
+        summary: "x",
+        rationale: "x",
+        edits: []
+      },
+      userCorrection: "x",
+      messages: proposalRequest.messages
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "validation");
+      assert.match(result.error, /invalid feedback approval/i);
+    }
+  } finally {
+    restore();
+  }
+
+  restore = withMockFetch(async () =>
+    new Response(JSON.stringify({ ok: true, suggestedPrompt: "" }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })
+  );
+  try {
+    const result = await suggestKnowledgeFeedbackPrompt({ messages: proposalRequest.messages });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "validation");
+      assert.match(result.error, /invalid feedback suggestion/i);
+    }
+  } finally {
+    restore();
+  }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+async function disabledConfigMakesNoRequest() {
+  vi.stubEnv("VITE_DRAFT_ASSISTANT_ENABLED", "false");
+  const fetchSpy = vi.fn();
+  const restore = withMockFetch(fetchSpy as any);
+  try {
+    const request = {
+      messages: [{ role: "user", content: "hi" }],
+      userCorrection: "x"
+    };
+    const result = await proposeKnowledgeFeedback(request);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.stage, "validation");
+      assert.match(result.error, /VITE_DRAFT_ASSISTANT_ENABLED/);
+    }
+
+    vi.stubEnv("VITE_DRAFT_ASSISTANT_ENABLED", "true");
+    vi.stubEnv("VITE_MASTRA_URL", "");
+    const unsetUrlResult = await proposeKnowledgeFeedback(request);
+    assert.equal(unsetUrlResult.ok, false);
+    if (!unsetUrlResult.ok) {
+      assert.equal(unsetUrlResult.stage, "validation");
+      assert.match(unsetUrlResult.error, /VITE_MASTRA_URL/);
+    }
+
+    vi.stubEnv("VITE_MASTRA_URL", "http://circuit.example.test");
+    const insecureUrlResult = await suggestKnowledgeFeedbackPrompt({ messages: request.messages });
+    assert.equal(insecureUrlResult.ok, false);
+    if (!insecureUrlResult.ok) {
+      assert.equal(insecureUrlResult.stage, "validation");
+      assert.match(insecureUrlResult.error, /must use HTTPS/);
+    }
+
+    assert.equal(fetchSpy.mock.calls.length, 0, "disabled or invalid feedback config must never reach a network origin");
+  } finally {
+    restore();
+  }
+}
+
+async function main() {
+  vi.stubEnv("VITE_DRAFT_ASSISTANT_ENABLED", "true");
+  vi.stubEnv("VITE_MASTRA_URL", "https://circuit.example.test");
+  try {
+    await proposeHappy();
+    await refineHappy();
+    await approveHappy();
+    await proposeNetworkRejection();
+    await approveValidationFailure();
+    await suggestHappy();
+    await suggestNetworkRejection();
+    await suggestLlmFailure();
+    await malformedSuccessResponsesFailClosed();
+    await disabledConfigMakesNoRequest();
+    console.log("circuitKnowledgeFeedbackService tests passed");
+  } finally {
+    vi.unstubAllEnvs();
+  }
+}
+
+it("validates Circuit knowledge feedback service requests", async () => {
+  await main();
 });

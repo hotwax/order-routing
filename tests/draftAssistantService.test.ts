@@ -4,7 +4,21 @@ import { it, vi } from "vitest";
 // which node can't load. Mock the (tiny) surface DraftAssistantService actually uses so this runs
 // under vitest. fetch is stubbed inline per-call by the tests below.
 vi.mock("@common", () => ({
-  commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
+  client: async (config: any) => {
+    const response = await globalThis.fetch(`${config.baseURL || ""}${config.url}`, {
+      method: config.method,
+      headers: config.headers,
+      body: config.data === undefined ? undefined : JSON.stringify(config.data),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const error: any = new Error(`HTTP ${response.status}`);
+      error.response = { status: response.status, data };
+      throw error;
+    }
+    return { data };
+  },
+  commonUtil: { getMaargURL: () => "", getOmsURL: () => "", getToken: () => "" },
   cookieHelper: () => ({ get: () => "" }),
 }));
 import {
@@ -13,10 +27,10 @@ import {
   createDraftOutputContract,
   createDraftProposal,
   formatDraftProposalSections,
-  requestBrokeringRouteDraftOperations,
   summarizeDraftOperations,
   validateDraftOperations
-} from "../src/services/DraftAssistantService";
+} from "../src/utils/draftUtils";
+import { requestBrokeringRouteDraftOperations } from "../src/services/DraftAssistantService";
 import type {
   BrokeringRouteDraft,
   DraftConversationMessage,
@@ -26,6 +40,9 @@ import type {
 } from "../src/types/draft";
 
 it("draft assistant service validation", async () => {
+
+vi.stubEnv("VITE_DRAFT_ASSISTANT_ENABLED", "true");
+vi.stubEnv("VITE_MASTRA_URL", "https://circuit.example.test");
 
 const manifest: PageCapabilityManifest = {
   pageId: "test.page",
@@ -180,10 +197,10 @@ function validate(operations: DraftOperation[]) {
     "Order filters",
     "- Shipping method filter: Standard Shipping",
     "",
-    "Inventory rule: Rule 1: Warehouse first",
+    "Routing rule: Rule 1: Warehouse first",
     "- Inventory facility group filter: All Warehouses",
     "",
-    "Inventory rule: Rule 2: Store threshold",
+    "Routing rule: Rule 2: Store threshold",
     "- Inventory facility group filter: All Stores",
     "- Brokering safety stock filter: 3",
     "- Inventory proximity sort: true"
@@ -204,6 +221,66 @@ function validate(operations: DraftOperation[]) {
   assert.equal(proposal.operations[0].value, "ACTIVE");
   assert.equal(proposal.unansweredQuestions.length, 1);
   assert.equal(proposal.summary, "Selected status: Active");
+}
+
+{
+  const noOpManifest: PageCapabilityManifest = {
+    ...manifest,
+    editableTargets: [
+      {
+        target: "route.orderFilters.QUEUE",
+        label: "Queue filter",
+        valueType: "string[]",
+        currentValue: "BROKERING_QUEUE",
+        options: [{ id: "BROKERING_QUEUE", label: "Brokering Queue" }],
+        multiple: true,
+        editable: true
+      },
+      {
+        target: "route.orderFilters.SHIPPING_METHOD",
+        label: "Shipping method filter",
+        valueType: "string[]",
+        currentValue: ["STANDARD", "EXPRESS"],
+        options: [
+          { id: "STANDARD", label: "Standard" },
+          { id: "EXPRESS", label: "Express" }
+        ],
+        multiple: true,
+        editable: true
+      }
+    ]
+  };
+
+  const plan = convertBrokeringRouteDraftToOperations({
+    schemaVersion: "brokering-route-draft.v1",
+    applyMode: "merge",
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: {
+        filters: {
+          queues: { include: ["BROKERING_QUEUE"], exclude: [] },
+          shippingMethods: { include: ["EXPRESS", "STANDARD"], exclude: [] },
+          priorities: { include: [], exclude: [] },
+          promiseDateDays: { max: null, excludeMax: null },
+          salesChannels: { include: [], exclude: [] },
+          originFacilityGroups: { include: [], exclude: [] }
+        },
+        sorts: []
+      },
+      inventoryRules: []
+    },
+    questions: [],
+    summary: "Updated the routing description and preserved its filters."
+  }, noOpManifest);
+  plan.intent = "edit";
+  const proposal = createDraftProposal(plan, noOpManifest);
+
+  assert.equal(plan.operations.length, 0, "provider echoes of existing filters must be removed during conversion");
+  assert.equal(proposal.operations.length, 0, "existing scalar/array filters must not become a proposal");
+  assert.equal(proposal.summary, "No supported routing changes found");
+  assert.deepEqual(proposal.unansweredQuestions, [
+    "No supported routing change was produced. The requested field may be unavailable here, or the proposed values already match the current routing."
+  ]);
 }
 
 {
@@ -543,7 +620,9 @@ function validate(operations: DraftOperation[]) {
   const proposal = createDraftProposal(plan, brokeringManifest);
 
   assert.equal(plan.operations.some((operation) => operation.target === "selectedRule.partialGroupItemsAllocation"), false);
-  assert.equal(proposal.unansweredQuestions.length, 0);
+  assert.deepEqual(proposal.unansweredQuestions, [
+    "No supported routing change was produced. The requested field may be unavailable here, or the proposed values already match the current routing."
+  ]);
 }
 
 {
@@ -1003,5 +1082,7 @@ function validate(operations: DraftOperation[]) {
 }
 
 console.log("Draft assistant service validation tests passed");
+
+vi.unstubAllEnvs();
 
 });

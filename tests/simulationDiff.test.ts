@@ -1,6 +1,8 @@
 import assert from "assert";
-import { diffParameters, diffRoutings, buildVariant, isNoOp } from "../src/util/simulationCompute";
+import { diffParameters, diffRoutings, buildVariant, isNoOp } from "../src/utils/simulationCompute";
+import { isEquivalentVariationConfig } from "../src/utils/variationUtils";
 
+it("builds simulation parameter and routing diffs", () => {
 // Test Task 2: Parameter diff
 {
   const baseline = { distance: 50, brokeringSafetyStock: 5 };
@@ -161,3 +163,43 @@ const baseRouting = () => ({
 }
 
 console.log("all tests passed");
+});
+
+it("tracks every persisted editor mutation while ignoring projection-only reorder", () => {
+  const saved = {
+    routings: [
+      {
+        orderRoutingId: "R1", routingName: "First", statusId: "ROUTING_ACTIVE", sequenceNum: 1,
+        orderFilters: [
+          { conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "deliveryDays", sequenceNum: 2 },
+          { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB", sequenceNum: 1 }
+        ],
+        rules: [{
+          routingRuleId: "RR1", ruleName: "Allocate", statusId: "RULE_ACTIVE", sequenceNum: 1,
+          assignmentEnumId: "ORA_SINGLE",
+          inventoryFilters: [{ conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", sequenceNum: 1 }],
+          actions: [{ actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null }]
+        }]
+      },
+      { orderRoutingId: "R2", routingName: "Second", statusId: "ROUTING_ACTIVE", sequenceNum: 2, orderFilters: [], rules: [] }
+    ]
+  };
+  const projectionReorder = structuredClone(saved);
+  projectionReorder.routings[0].orderFilters.reverse();
+  assert.equal(isEquivalentVariationConfig(saved, projectionReorder), true, "array projection order alone stays clean");
+
+  const mutations: Array<[string, (group: any) => void]> = [
+    ["add", (group) => group.routings.push({ routingName: "Third", statusId: "ROUTING_DRAFT", sequenceNum: 3, orderFilters: [], rules: [] })],
+    ["remove", (group) => group.routings.pop()],
+    ["reorder", (group) => { group.routings[0].sequenceNum = 2; group.routings[1].sequenceNum = 1; }],
+    ["rename", (group) => { group.routings[0].routingName = "Renamed"; }],
+    ["status", (group) => { group.routings[0].statusId = "ROUTING_DRAFT"; }],
+    ["action", (group) => { group.routings[0].rules[0].actions[0].actionTypeEnumId = "ORA_MV_TO_QUEUE"; }]
+  ];
+
+  for (const [label, mutate] of mutations) {
+    const working = structuredClone(saved);
+    mutate(working);
+    assert.equal(isEquivalentVariationConfig(saved, working), false, `${label} edit is dirty`);
+  }
+});

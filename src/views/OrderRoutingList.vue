@@ -5,7 +5,7 @@
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Order Routing List") }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button :aria-label="translate('Open Circuit')" @click="openAssistant">
+          <ion-button v-if="draftAssistantEnabled" :aria-label="translate('Open Circuit')" @click="openAssistant">
             <ion-icon slot="icon-only" :icon="sparklesOutline" />
           </ion-button>
         </ion-buttons>
@@ -196,7 +196,7 @@
       </div>
     </ion-content>
 
-    <RoutingAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
+    <RoutingAssistantModal v-if="draftAssistantEnabled" :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
@@ -239,12 +239,15 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
 import { useRoutingGroups } from "@/composables/useRoutingGroups";
 import { Group } from "@/types";
+import { isFeatureEnabled } from "@/utils/simConfig";
 
 const userStore = useUserStore();
 const timeZone = computed(() => userStore.getUserProfile?.timeZone);
+const draftAssistantEnabled = isFeatureEnabled("draftAssistant");
 
 const isAssistantOpen = ref(false);
 function openAssistant() {
+  if (!draftAssistantEnabled) return;
   isAssistantOpen.value = true;
 }
 

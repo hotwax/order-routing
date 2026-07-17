@@ -9,6 +9,15 @@
       <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}
     </ion-button>
 
+    <ion-button
+      v-if="sim.lastSimulationId"
+      data-testid="view-saved-simulation"
+      size="small" fill="outline"
+      @click="router.push(`/simulate/history/${sim.lastSimulationId}`)"
+    >
+      {{ translate("View saved result") }}
+    </ion-button>
+
     <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare.
          runCompareError is included so a failed run shows its error (the note below) instead of a blank
          pane — otherwise, on error (no result, not running) this whole block would render nothing. -->
@@ -21,7 +30,10 @@
 
       <ion-list v-if="sim.variationRunResult">
         <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
-        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
+        <ion-note class="compare-legend ion-padding-horizontal">
+          {{ translate("Baseline") }} → {{ sim.activeVariation?.label || translate("Variation") }}
+        </ion-note>
+        <ion-item v-for="row in compareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
           <ion-label>
             {{ row.routingName }}
             <div class="cmp">
@@ -35,21 +47,22 @@
         <ion-note v-if="!sim.parentRunByGroupId[sim.routingGroupId]" color="medium" class="ion-padding-horizontal">
           {{ translate("Parent run unavailable — showing variation results only.") }}
         </ion-note>
+        <ion-note v-if="!compareRows.length" color="medium" class="ion-padding-horizontal">
+          {{ translate("No per-routing results were returned for this run.") }}
+        </ion-note>
       </ion-list>
     </template>
 
     <template v-else-if="sim.results">
       <p v-if="sim.results.simulationRan === false" class="warn">{{ translate("The simulator did not run — no numbers to report.") }}</p>
       <p v-if="sim.results.partial" class="warn">{{ translate("Some variations did not complete — results are partial.") }}</p>
-      <ion-button
-        v-if="sim.lastSimulationId"
-        size="small" fill="outline"
-        @click="router.push(`/simulate/history/${sim.lastSimulationId}`)"
-      >
-        {{ translate("View saved result") }}
-      </ion-button>
+      <div v-for="row in failedRows" :key="`${row.isBaseline ? 'baseline' : 'variation'}-${row.label}`" class="failed-run" role="alert">
+        <ion-note color="danger"><strong>{{ row.label }}</strong>: {{ row.failureReason || translate("Run failed") }}</ion-note>
+      </div>
+      <p v-if="!rows.length" class="empty-results">{{ translate("No result payload was returned for this simulation.") }}</p>
 
       <!-- ①②③ headline -->
+      <template v-if="rows.length">
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Outcomes") }}</ion-card-title></ion-card-header>
         <ion-card-content>
@@ -91,6 +104,7 @@
         <ion-card-header><ion-card-title>{{ translate("Advanced / per-order details") }}</ion-card-title></ion-card-header>
         <ion-card-content><AdvancedDetails :results="sim.results" /></ion-card-content>
       </ion-card>
+      </template>
     </template>
   </div>
 </template>
@@ -103,7 +117,8 @@ import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIco
 import { arrowBackOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import type { CompareRow } from "@/types/variation";
-import { toRows } from "@/utils/simulationResults";
+import { joinRoutingResults, toRows } from "@/utils/simulationResults";
+import { buildRoutingNameMap } from "@/utils/variationUtils";
 import SimulationProgress from "./SimulationProgress.vue";
 import OutcomeHeadline from "./OutcomeHeadline.vue";
 import TradeoffChart from "./TradeoffChart.vue";
@@ -122,6 +137,21 @@ const sim = simulationStore();
 const router = useRouter();
 
 const rows = computed(() => toRows(sim.results));
+const failedRows = computed(() => rows.value.filter((row) => row.failed));
+const compareRows = computed(() => {
+  if (!sim.variationRunResult) return [];
+  const parent = sim.parentRunByGroupId[sim.routingGroupId];
+  const names = {
+    ...buildRoutingNameMap({ routings: sim.baseline?.routings ?? [] }),
+    ...buildRoutingNameMap({ routings: sim.working?.routings ?? [] })
+  };
+  return joinRoutingResults({
+    variationGroupId: sim.variationRunResult.routingGroupId,
+    parentResults: parent?.routingResults ?? [],
+    variationResults: sim.variationRunResult.routingResults ?? [],
+    routingNameById: names
+  });
+});
 const hasClassification = computed(() => rows.value.some((r) => r.outcomes?.classification?.available));
 
 const winnerLabel = ref<string | undefined>(undefined);

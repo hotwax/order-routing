@@ -44,7 +44,13 @@
                 </ion-item>
               </div>
             </ion-card>
-            <RoutingTest :routingGroupId="currentRoutingGroup.routingGroupId" :routingGroup="group" :userTestingSession="userTestingSession"/>
+            <RoutingTest
+              v-if="testDriveReady"
+              :routingGroupId="routingGroupId"
+              :routingGroup="group"
+              :userTestingSession="userTestingSession"
+              @mutation-state="testDriveMutationInFlight = $event"
+            />
           </section>
           <section class="routings activate-scroll">
             <ion-list v-if="group.routings?.length">
@@ -108,6 +114,7 @@ import RuleDetails from "@/components/RuleDetails.vue"
 import RoutingTest from "./RoutingTest.vue";
 import { DateTime } from "luxon";
 import router from "@/router";
+import { hasVerifiedTestDriveSession } from "@/utils/testDriveSession";
 
 const userStore = useUserStore();
 const utilStore = useUtilStore();
@@ -126,8 +133,15 @@ let currentRule = ref({})
 let job = ref({}) as any
 let orderRoutings = ref([]) as any
 let userTestingSession = ref({}) as any
+const testDriveReady = ref(false)
+const testDriveMutationInFlight = ref(false)
 
-const currentRoutingGroup: any = computed((): Group => orderRoutingStore().getCurrentRoutingGroup)
+const currentRoutingGroup: any = computed((): Group => {
+  const current = orderRoutingStore().getCurrentRoutingGroup;
+  return String(current?.routingGroupId || "") === String(props.routingGroupId)
+    ? current
+    : group.value;
+})
 const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
@@ -149,32 +163,89 @@ watch(testRoutingInfo.value, (routingInfo) => {
 });
 
 onIonViewWillEnter(async () => {
-  await fetchRoutingGroupInformation()
-  await fetchRoutingsInformation()
+  testDriveReady.value = false;
+  testDriveMutationInFlight.value = false;
+  const routingStore = orderRoutingStore();
+  const current = String(routingStore.currentGroup?.routingGroupId || "") === String(props.routingGroupId)
+    ? routingStore.currentGroup
+    : null;
+  const listed = (routingStore.groups || []).find((candidate: any) => String(candidate?.routingGroupId || "") === String(props.routingGroupId));
+  if (current?.isNew || current?.hasUnsavedChanges || listed?.isNew || listed?.hasUnsavedChanges) {
+    await returnToEditor("Save or discard changes before opening Test Drive.");
+    return;
+  }
 
-  await Promise.all([productStore().fetchFacilities(), productStore().fetchFacilityGroups(), utilStore.fetchStatusInformation(), productStore().fetchShippingMethods(), orderRoutingStore().fetchRoutingHistory(props.routingGroupId)])
+  if (!(await fetchRoutingGroupInformation())) {
+    await returnToEditor("This routing group could not be loaded for Test Drive.");
+    return;
+  }
+
+  const groupProductStoreId = String(group.value.productStoreId || "");
+  const persistedTestState = routingStore.getTestRoutingInfo;
+  if (
+    String(persistedTestState.routingGroupId || "") !== String(props.routingGroupId)
+    || String(persistedTestState.productStoreId || "") !== groupProductStoreId
+  ) {
+    routingStore.clearRoutingTestInfo({
+      routingGroupId: String(props.routingGroupId),
+      productStoreId: groupProductStoreId
+    });
+  }
+  if (!(await fetchRoutingsInformation())) {
+    await returnToEditor("The routing configuration could not be loaded for Test Drive.");
+    return;
+  }
+
+  const referenceStore = productStore();
+  await Promise.all([
+    referenceStore.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId, force: true }),
+    utilStore.fetchStatusInformation(),
+    orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
+  ])
+
+  if (!Object.keys(referenceStore.getPhysicalFacilities || {}).length) {
+    await returnToEditor("Test Drive could not start because facility reference data was unavailable.");
+    return;
+  }
 
   await fetchJobInformation()
-  await createUserTestSession();
+  if (!(await createUserTestSession())) {
+    await returnToEditor("Test Drive could not start because a testing session was not available.");
+    return;
+  }
 
-  orderRoutings.value = currentRoutingGroup.value["routings"] ? JSON.parse(JSON.stringify(currentRoutingGroup.value))["routings"] : []
+  orderRoutings.value = group.value["routings"] ? JSON.parse(JSON.stringify(group.value))["routings"] : []
+  testDriveReady.value = true;
 })
 
+async function returnToEditor(message: string) {
+  commonUtil.showToast(translate(message));
+  await router.replace(`/order-routing/${props.routingGroupId}`);
+}
+
 onIonViewWillLeave(async () => {
+  testDriveReady.value = false;
+  testDriveMutationInFlight.value = false;
   await orderRoutingStore().clearRoutingTestInfo()
 })
 
 onBeforeRouteLeave(async (to: any) => {
   if(to.path === '/login') return;
 
+  if (testDriveMutationInFlight.value) {
+    commonUtil.showToast(translate("Wait for the Test Drive operation to finish before leaving."));
+    return false;
+  }
+
   if(testRoutingInfo.value.currentOrderId) {
     return exitTestMode(false);
-  } else {
+  } else if (hasVerifiedTestDriveSession(userTestingSession.value)) {
     await updateUserTestSession();
   }
+  return true;
 })
 
-async function fetchRoutingGroupInformation() {
+async function fetchRoutingGroupInformation(): Promise<boolean> {
   emitter.emit("presentLoader", { message: "Fetching information", backdropDismiss: false })
 
   try {
@@ -188,20 +259,24 @@ async function fetchRoutingGroupInformation() {
     } else {
       throw resp.data
     }
+    if(group.value.routings?.length) {
+      group.value.routings = commonUtil.sortSequence(group.value.routings)
+    } else if (!Array.isArray(group.value.routings)) {
+      group.value.routings = [];
+    }
+    return true;
   } catch(err) {
     logger.error(err);
+    group.value = {};
+    return false;
+  } finally {
+    emitter.emit("dismissLoader")
   }
-
-  if(group.value.routings?.length) {
-    group.value.routings = commonUtil.sortSequence(group.value.routings)
-  }
-
-  emitter.emit("dismissLoader")
 }
 
-async function fetchRoutingsInformation() {
-  // TODO: update logic to fetch the routings in parallel
-  await group.value.routings.forEach(async (routing: any) => {
+async function fetchRoutingsInformation(): Promise<boolean> {
+  const routings = Array.isArray(group.value.routings) ? group.value.routings : [];
+  const loaded = await Promise.all(routings.map(async (routing: any) => {
     let route = {} as any
     try {
       const resp = await api({
@@ -240,13 +315,16 @@ async function fetchRoutingsInformation() {
         routing["filtersCount"] = Object.keys(routing["filterConditions"])?.length
         routing["sortCount"] = Object.keys(routing["sortConditions"])?.length
         routing["rulesCount"] = routing["rules"].length
+        return true;
       } else {
         throw resp.data
       }
     } catch(err) {
       logger.error(err);
+      return false;
     }
-  })
+  }));
+  return loaded.every(Boolean);
 }
 
 async function openRouteDetails(routing: any) {
@@ -285,7 +363,7 @@ async function fetchJobInformation() {
 // @params isTriggerManually - false, if the exit is triggered from the hook programmatically
 async function exitTestMode(isTriggerManually = true) {
   // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
-  if(!testRoutingInfo.value.isOrderAlreadyBrokered && testRoutingInfo.value.brokeringRoute) {
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && (testRoutingInfo.value.isOrderBrokered || testRoutingInfo.value.brokeringRoute)) {
     const alert = await alertController
       .create({
         header: translate("Reset order before leaving"),
@@ -356,7 +434,7 @@ function getEligibleRoutesForBrokering(routing: any) {
       // For now, used filter but we can replace it with find, as we will always have a single value that will match with shipGroup facility
       const matchedValues = values.filter((val: string) => val === shipGroup[key])
 
-      if(matchedValues) {
+      if(matchedValues.length) {
         unmatchedRoutingProperties[key + '_excluded'] = matchedValues
       }
     }
@@ -372,38 +450,44 @@ function getEligibleRoutesForBrokering(routing: any) {
 }
 
 async function getUserTestSession() {
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
   userTestingSession.value = await useUtilStore().getUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId,
     pageNoLimit: "true"
   });
 }
 
-async function createUserTestSession() {
+async function createUserTestSession(): Promise<boolean> {
   await getUserTestSession();
 
   // If a test session already exists for the user do not create a new one
-  if(userTestingSession.value?.userSessionId) {
-    return;
+  if(hasVerifiedTestDriveSession(userTestingSession.value)) {
+    return true;
   }
 
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
   userTestingSession.value = await useUtilStore().createUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId,
     fromDate: DateTime.now().toMillis()
   });
+  return hasVerifiedTestDriveSession(userTestingSession.value);
 }
 
 async function updateUserTestSession() {
+  if (!hasVerifiedTestDriveSession(userTestingSession.value)) return false;
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
   userTestingSession.value = await useUtilStore().expireUserSession({
     sessionTypeEnumId: "ROUTING_TEST_DRIVE",
     userId: userProfile.value.userId,
     userSessionId: userTestingSession.value.userSessionId,
-    productStoreId: currentEComStore.value.productStoreId,
+    productStoreId,
     thruDate: DateTime.now().toMillis()
   });
+  return true;
 }
 </script>
 

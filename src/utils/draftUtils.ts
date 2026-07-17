@@ -4,10 +4,12 @@
 
 import type {
   DraftValue, DraftOperation, DraftConversationMessage, DraftOperationSet,
-  BrokeringRouteDraft, DraftProposal, DraftOption, DraftTargetCapability,
+  BrokeringRouteDraft, BrokeringRouteDraftRule, OptionSelection,
+  DraftProposal, DraftOption, DraftTargetCapability,
   PageCapabilityManifest, DraftValidationResult, DraftApplyResult,
   DraftTargetBinding, DraftTargetBindings, ApplyDraftProposalContext,
 } from "@/types/draft";
+import { isVariationForbiddenTarget, isVariationManifest } from "./draftAssistantContext";
 
 type ValueValidationResult =
   | { valid: true; value: DraftValue }
@@ -112,40 +114,79 @@ export function convertBrokeringRouteDraftToOperations(draft: BrokeringRouteDraf
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.queues, orderFilterTargets.queues);
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.shippingMethods, orderFilterTargets.shippingMethods);
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.priorities, orderFilterTargets.priorities);
-  addOperation(operations, manifest, "route.orderFilters.PROMISE_DATE", draft.route.orderSelection.filters.promiseDateDays.max, { skipEmpty: true });
-  addOperation(operations, manifest, "route.orderFilters.PROMISE_DATE_EXCLUDED", draft.route.orderSelection.filters.promiseDateDays.excludeMax, { skipEmpty: true });
+  addOperation(operations, manifest, "route.orderFilters.PROMISE_DATE", draft.route.orderSelection.filters.promiseDateDays.max, { skipEmpty: true, skipUnchanged: true });
+  addOperation(operations, manifest, "route.orderFilters.PROMISE_DATE_EXCLUDED", draft.route.orderSelection.filters.promiseDateDays.excludeMax, { skipEmpty: true, skipUnchanged: true });
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.salesChannels, orderFilterTargets.salesChannels);
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.originFacilityGroups, orderFilterTargets.originFacilityGroups);
   draft.route.orderSelection.sorts.forEach((sort) => addOperation(operations, manifest, orderSortTargets[sort.field], true, { skipUnchanged: true }));
 
   draft.route.inventoryRules.forEach((rule) => addSelectedRuleOperations(operations, manifest, rule));
 
+  const variationCreateRequested = isVariationManifest(manifest) && draft.targetRouting?.action === "create";
   return {
     operations,
-    unansweredQuestions: [...(draft.questions || [])],
+    unansweredQuestions: [
+      ...(draft.questions || []),
+      ...(variationCreateRequested ? ["Creating or cloning a routing is unavailable while editing a simulation variation."] : [])
+    ],
     summary: draft.summary || "Draft updated",
-    targetRouting: draft.targetRouting
+    targetRouting: variationCreateRequested ? undefined : draft.targetRouting
   };
 }
 
 export function createDraftProposal(plan: DraftOperationSet, manifest: PageCapabilityManifest): DraftProposal {
   const validation = validateDraftOperations(plan.operations || [], manifest);
+  const changedOperations = filterUnchangedOperations(validation.operations, manifest);
   const unansweredProviderQuestions = plan.intent === "inquiry"
     ? filterAnsweredInquiryQuestions(plan.unansweredQuestions || [], plan.summary || "", manifest)
-    : filterAnsweredQuestions(plan.unansweredQuestions || [], validation.operations, manifest);
+    : filterAnsweredQuestions(plan.unansweredQuestions || [], changedOperations, manifest);
 
-  const newRouting = plan.targetRouting?.action === "create" && plan.targetRouting.routingKey && plan.targetRouting.name
+  const variationCreateRequested = isVariationManifest(manifest) && plan.targetRouting?.action === "create";
+  const newRouting = !variationCreateRequested && plan.targetRouting?.action === "create" && plan.targetRouting.routingKey && plan.targetRouting.name
     ? { routingKey: plan.targetRouting.routingKey, name: plan.targetRouting.name }
     : undefined;
 
+  const hasSupportedChange = changedOperations.length > 0 || Boolean(newRouting);
+  const unansweredQuestions = [
+    ...unansweredProviderQuestions,
+    ...validation.unansweredQuestions,
+    ...(variationCreateRequested ? ["Creating or cloning a routing is unavailable while editing a simulation variation."] : [])
+  ];
+  if (plan.intent !== "inquiry" && !hasSupportedChange && unansweredQuestions.length === 0) {
+    unansweredQuestions.push("No supported routing change was produced. The requested field may be unavailable here, or the proposed values already match the current routing.");
+  }
+
   return {
-    operations: validation.operations,
-    unansweredQuestions: [...unansweredProviderQuestions, ...validation.unansweredQuestions],
-    summary: summarizeDraftOperations(validation.operations, manifest) || plan.summary || "Draft updated",
+    operations: changedOperations,
+    unansweredQuestions,
+    summary: hasSupportedChange || plan.intent === "inquiry"
+      ? summarizeDraftOperations(changedOperations, manifest) || plan.summary || "Draft updated"
+      : "No supported routing changes found",
     providerSummary: plan.summary || "",
     intent: plan.intent,
     newRouting
   };
+}
+
+function filterUnchangedOperations(operations: DraftOperation[], manifest: PageCapabilityManifest) {
+  const targets = new Map(manifest.editableTargets.map((target) => [target.target, target]));
+  const latestValues = new Map<string, DraftValue | undefined>();
+
+  return operations.filter((operation) => {
+    const target = targets.get(operation.target);
+    if (!target || operation.value === undefined) return true;
+
+    const valueKey = operation.ruleKey ? `${operation.ruleKey}:${operation.target}` : operation.target;
+    if (!latestValues.has(valueKey)) {
+      latestValues.set(valueKey, operation.ruleKey
+        ? getRuleCurrentValue(manifest, operation.ruleKey, operation.target)
+        : target.currentValue);
+    }
+
+    const currentValue = latestValues.get(valueKey);
+    latestValues.set(valueKey, operation.value);
+    return currentValue === undefined || !valuesEqual(operation.value, currentValue);
+  });
 }
 
 function filterAnsweredQuestions(questions: string[], operations: DraftOperation[], manifest: PageCapabilityManifest) {
@@ -617,6 +658,11 @@ export function validateDraftOperations(operations: DraftOperation[], manifest: 
       return result;
     }
 
+    if (isVariationManifest(manifest) && isVariationForbiddenTarget(operation.target)) {
+      result.unansweredQuestions.push(`The target '${operation.target}' is unavailable while editing a simulation variation.`);
+      return result;
+    }
+
     const target = targetCapabilities.get(operation.target);
     if (!target) {
       result.unansweredQuestions.push(`The target '${operation.target}' is not available on this page.`);
@@ -690,6 +736,13 @@ export async function applyDraftProposal(
   manifest: PageCapabilityManifest,
   ctx: ApplyDraftProposalContext
 ): Promise<DraftApplyResult> {
+  if (proposal.newRouting && isVariationManifest(manifest)) {
+    return {
+      appliedCount: 0,
+      skipped: ["Creating or cloning a routing is unavailable while editing a simulation variation."],
+      unansweredQuestions: []
+    };
+  }
   if (proposal.newRouting) {
     const newId = await ctx.createSiblingRouting(proposal.newRouting.name);
     if (!newId) {
@@ -1003,7 +1056,10 @@ function normalizeSearchText(value: string) {
 
 function valuesEqual(expected: DraftValue, actual: DraftValue | undefined) {
   if (Array.isArray(expected) || Array.isArray(actual)) {
-    return JSON.stringify(expected) === JSON.stringify(actual);
+    const expectedValues = (Array.isArray(expected) ? expected : [expected]).map(String).sort();
+    const actualValues = (Array.isArray(actual) ? actual : [actual]).map(String).sort();
+    return expectedValues.length === actualValues.length
+      && expectedValues.every((value, index) => value === actualValues[index]);
   }
 
   return String(expected) === String(actual);

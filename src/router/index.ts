@@ -3,6 +3,8 @@ import { RouteRecordRaw } from "vue-router";
 import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
 import { isFeatureEnabled } from "@/utils/simConfig";
+import { useUserStore } from "@/store/userStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import {
   albumsOutline,
   businessOutline,
@@ -39,10 +41,40 @@ const authGuard = async (to: any, _from: any, next: any) => {
   next();
 };
 
-// Same as authGuard, but first redirects away when the simulation feature is disabled for this
-// deployment (VITE_SIMULATION_ENABLED="false"), so /simulate* can't be reached by URL/bookmark.
+// Same as authGuard, but first redirects away unless the complete fail-closed simulation deployment
+// contract is configured, so /simulate* cannot bypass the feature gate by URL or bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
   isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
+
+export const ROUTING_TEST_DRIVE_PERMISSION_ID = "ROUTING_TEST_DRIVE_VIEW";
+
+export function routingGroupRequiresSaveBeforeTest(routingGroupId: string): boolean {
+  const store = orderRoutingStore();
+  const targetId = String(routingGroupId || "");
+  const current = String(store.currentGroup?.routingGroupId || "") === targetId
+    ? store.currentGroup
+    : null;
+  const listed = (store.groups || []).find((group: any) => String(group?.routingGroupId || "") === targetId);
+  return Boolean(current?.isNew || current?.hasUnsavedChanges || listed?.isNew || listed?.hasUnsavedChanges);
+}
+
+// Export the permission portion independently so the direct-URL contract can be verified without
+// manufacturing an authenticated browser session in unit tests. The composed route guard below
+// always runs auth first, then applies this check.
+export const routingTestDrivePermissionGuard = (to: any, _from: any, next: any) => {
+  const routingGroupId = String(to.params?.routingGroupId || "");
+  const fallback = routingGroupId ? `/order-routing/${routingGroupId}` : "/order-routing";
+  if (!isFeatureEnabled("testDrive")) return next(fallback);
+  if (!useUserStore().hasPermission(ROUTING_TEST_DRIVE_PERMISSION_ID)) return next(fallback);
+  if (routingGroupRequiresSaveBeforeTest(routingGroupId)) return next(fallback);
+  return next();
+};
+
+const routingTestDriveGuard = (to: any, from: any, next: any) =>
+  authGuard(to, from, (authRedirect?: any) => {
+    if (authRedirect !== undefined) return next(authRedirect);
+    return routingTestDrivePermissionGuard(to, from, next);
+  });
 
 const routes: Array<RouteRecordRaw> = [
   { path: "/", redirect: "/dashboard" },
@@ -218,13 +250,20 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/order-routing/:routingGroupId/test",
     component: () => import("@/views/RoutingGroupTest.vue"),
-    beforeEnter: authGuard,
-    props: true
+    beforeEnter: routingTestDriveGuard,
+    props: true,
+    meta: {
+      permissionId: ROUTING_TEST_DRIVE_PERMISSION_ID,
+      featureFlag: "testDrive"
+    }
   },
   // Redirect the pre-rename paths so existing bookmarks / deep links keep working.
+  { path: "/brokering", redirect: "/order-routing" },
   { path: "/brokering-calendar", redirect: "/order-routing" },
   { path: "/brokering/:routingGroupId/routes", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
   { path: "/brokering/:routingGroupId/routes/test", redirect: (to) => `/order-routing/${to.params.routingGroupId}/test` },
+  { path: "/brokering/:routingGroupId/:orderRoutingId/rules", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/circuit", redirect: "/order-routing" },
   {
     // Simulating a routing group now happens on its detail page (the Variations rail); this route is
     // the cross-group archive of past simulation runs. Editing at /simulate/:id was removed.
@@ -248,6 +287,18 @@ const routes: Array<RouteRecordRaw> = [
     beforeEnter: simulateGuard,
     props: true
   },
+  { path: "/simulate/:routingGroupId", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+
+  // The Ionic-v3 shell exposed every workflow below /tabs. Preserve those bookmarks while routing
+  // them to the canonical pages introduced by the consolidation.
+  { path: "/tabs", redirect: "/order-routing" },
+  { path: "/tabs/brokering", redirect: "/order-routing" },
+  { path: "/tabs/settings", redirect: "/settings" },
+  { path: "/tabs/simulate", redirect: "/simulate" },
+  { path: "/tabs/simulate/:routingGroupId", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/tabs/brokering/:routingGroupId/routes", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/tabs/brokering/:routingGroupId/routes/test", redirect: (to) => `/order-routing/${to.params.routingGroupId}/test` },
+  { path: "/tabs/brokering/:routingGroupId/:orderRoutingId/rules", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
 
   {
     path: "/facility-groups",
@@ -279,6 +330,8 @@ const routes: Array<RouteRecordRaw> = [
     name: "Login",
     component: Login
   },
+
+  { path: "/:pathMatch(.*)*", redirect: "/dashboard" }
 
 ];
 

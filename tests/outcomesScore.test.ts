@@ -2,8 +2,9 @@ import assert from "assert";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
 import {
   minMaxNormalize, renormalizeWeights, computeScores, selectWinner, DEFAULT_WEIGHTS,
-} from "../src/util/simulationResults";
+} from "../src/utils/simulationResults";
 
+it("scores simulation outcomes and selects a winner", () => {
 // minMaxNormalize: standard
 {
   assert.deepStrictEqual(minMaxNormalize([100, 200, 300]), [0, 0.5, 1]);
@@ -86,3 +87,4 @@ import {
 }
 
 console.log("outcomes (score + winner) tests passed");
+});

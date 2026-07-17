@@ -1,9 +1,10 @@
 import assert from "assert";
-import { mergeEvents } from "../src/util/simulationCompute";
+import { mergeEvents } from "../src/utils/simulationCompute";
 import { OrderEvent } from "../src/types/simulation";
 
 const ev = (seq: number): OrderEvent => ({ seq, orderId: `O${seq}`, facilityId: null, finalReason: "QUEUED" });
 
+it("merges the bounded simulation progress buffer", () => {
 // appends incoming to existing
 {
   const out = mergeEvents([ev(1), ev(2)], [ev(3)], 50);
@@ -30,3 +31,4 @@ const ev = (seq: number): OrderEvent => ({ seq, orderId: `O${seq}`, facilityId: 
 }
 
 console.log("progressBuffer tests passed");
+});

@@ -1,5 +1,5 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="onDismiss">
+  <ion-modal v-if="draftAssistantEnabled" :is-open="isOpen" @didDismiss="onDismiss">
     <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Circuit") }}</ion-title>
@@ -59,7 +59,7 @@
             :placeholder="translate('Ask about your routing groups')"
             :auto-grow="true"
             :disabled="isSending || isLoadingContext"
-            rows="2"
+            :rows="2"
             @keydown.enter.exact.prevent="onSend"
           />
           <ion-button :disabled="!canSend" @click="onSend">
@@ -97,6 +97,15 @@ import { buildRoutingAgentSnapshot } from "@/composables/useRoutingAgentSnapshot
 import { buildRoutingGroupsListManifest } from "@/utils/routingGroupsManifest";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import type { DraftConversationMessage, PageCapabilityManifest } from "@/types/draft";
+import {
+  DEFAULT_ACTION_ENUMS,
+  DEFAULT_CONDITION_FILTER_ENUMS,
+  DEFAULT_CONDITION_SORT_ENUMS,
+  DEFAULT_RULE_ENUMS,
+  parseRoutingEditorEnvJson,
+  parseRoutingStringRecordEnvJson
+} from "@/utils/routingEditorEnv";
+import { isFeatureEnabled } from "@/utils/simConfig";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -111,6 +120,7 @@ const emit = defineEmits(["close"]);
 const routingStore = orderRoutingStore();
 const product = productStore();
 const utilStore = useUtilStore();
+const draftAssistantEnabled = isFeatureEnabled("draftAssistant");
 
 const prompt = ref("");
 const messages = ref<ChatMessage[]>([]);
@@ -119,20 +129,25 @@ const isLoadingContext = ref(false);
 const cachedManifest = ref<PageCapabilityManifest | null>(null);
 const routingGroupCount = ref(0);
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || "{}");
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || "{}");
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || "{}");
-const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || "{}");
-const cronExpressions = JSON.parse(import.meta.env.VITE_CRON_EXPRESSIONS as string || "{}");
+const ruleEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ENUMS as string | undefined, DEFAULT_RULE_ENUMS);
+const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS as string | undefined, DEFAULT_CONDITION_FILTER_ENUMS);
+const conditionSortEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_SORT_ENUMS as string | undefined, DEFAULT_CONDITION_SORT_ENUMS);
+const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS as string | undefined, DEFAULT_ACTION_ENUMS);
+const cronExpressions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined);
 
-const canSend = computed(() => Boolean(prompt.value.trim()) && !isSending.value && !isLoadingContext.value);
+const canSend = computed(() => draftAssistantEnabled && Boolean(prompt.value.trim()) && !isSending.value && !isLoadingContext.value);
 
 watch(() => props.isOpen, async (open) => {
   if (!open) return;
+  if (!draftAssistantEnabled) {
+    emit("close");
+    return;
+  }
   await loadContext();
 });
 
 async function loadContext() {
+  if (!draftAssistantEnabled) return;
   isLoadingContext.value = true;
   cachedManifest.value = null;
   try {
@@ -168,6 +183,7 @@ function buildManifest(): PageCapabilityManifest {
 }
 
 async function onSend() {
+  if (!draftAssistantEnabled) return;
   const message = prompt.value.trim();
   if (!message || !canSend.value) return;
 
@@ -216,8 +232,9 @@ function close() {
   emit("close");
 }
 
-// Re-fetch detail when product store changes while modal is open.
-utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
+// Importing the optional assistant on the list page must remain side-effect free when deployment
+// configuration is absent, including its supporting reference-data request.
+if (draftAssistantEnabled) utilStore.fetchRoutingEditorEnums();
 </script>
 
 <style scoped>

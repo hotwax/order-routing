@@ -1,22 +1,26 @@
 // src/store/simulationStore.ts
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { api, commonUtil, logger } from "@common";
+import { commonUtil, logger } from "@common";
 import { productStore } from "./productStore";
 import { buildVariant, isNoOp, applyProductStoreId, chunkVariants, mergeVariationResults } from "../utils/simulationCompute";
-import { SimulationService } from "../services/SimulationService";
-import { simProductStoreId, simBaseURL, simApiBaseUrl } from "../utils/simConfig";
+import { isRecoverableSimulationPollError, SimulationService } from "../services/SimulationService";
+import { simProductStoreId } from "../utils/simConfig";
 import { orderRoutingStore } from "./orderRoutingStore";
 import { VariationService } from "../services/VariationService";
 import { normalizeRoutingGroupHierarchy } from "../utils/ruleUtil";
-import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, sortBySequence } from "../utils/variationUtils";
+import { toConfigPayload, fromVariationRoutings, buildRoutingNameMap, isEquivalentVariationConfig, sortBySequence } from "../utils/variationUtils";
 import { joinRoutingResults } from "../utils/simulationResults";
 import { mergeEvents } from "../utils/simulationCompute";
 import { BatchProgress, Variation, VariationRunState } from "../types/simulation";
 import { CompareRow, GroupRunResult, VariationListItem, VariationRouting, VariationRule, VariationTree } from "../types/variation";
 import type { VariationConditionInput, VariationActionInput } from "../types/variation";
 import { SimulationStorage } from "../services/simulationStorage";
+import type { VariationRunRecoveryRecord } from "../services/simulationStorage";
 
 const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
+const variationRunInterruptedMessage = (label: string) =>
+  `The previous run for ${label || "this variation"} was interrupted before this browser received a result. `
+  + "Its outcome is unknown because this browser did not receive a saved simulation ID it can open in history. It is safe to run the saved variation again.";
 
 // Registered by the active simulation editor (RoutingGroupEditor in sandbox mode) so that variation saves
 // triggered from OTHER components (e.g. the Variations sheet) still flush the editor's
@@ -25,7 +29,22 @@ const deepClone = (o: any) => JSON.parse(JSON.stringify(o ?? {}));
 let workingFlushHook: (() => void) | null = null;
 export function registerWorkingFlushHook(fn: (() => void) | null) {
   workingFlushHook = fn;
+  return () => {
+    // Keyed editors can overlap briefly during remount. Only the instance that registered this
+    // exact callback may clear it; an old instance must not unregister its replacement.
+    if (workingFlushHook === fn) workingFlushHook = null;
+  };
 }
+
+let groupLoadGeneration = 0;
+let variationLoadGeneration = 0;
+let variationRunGeneration = 0;
+let variationMutationGeneration = 0;
+let batchRunGeneration = 0;
+let groupLoadController: AbortController | null = null;
+let variationLoadController: AbortController | null = null;
+let variationRunController: AbortController | null = null;
+let batchRunController: AbortController | null = null;
 
 const zeroedBatch = (batchIndex: number): BatchProgress => ({
   batchIndex, phaseLabel: "", phaseIndex: 0, phaseCount: 0,
@@ -45,8 +64,15 @@ export const simulationStore = defineStore("simulation", {
     activeVariationId: "" as string,
     runStates: [] as VariationRunState[],
     batchProgress: [] as BatchProgress[],
-    results: null as { baseline: any; variants: any[]; partial: boolean; simulationRan?: boolean } | null,
+    results: null as {
+      baseline: any;
+      variants: any[];
+      partial: boolean;
+      simulationRan?: boolean;
+      identity?: { kind: "baseline" | "variation"; label: string; routingGroupId: string; variationGroupId?: string };
+    } | null,
     isRunning: false,
+    groupLoadState: "idle" as "idle" | "loading" | "ready" | "error",
     loadError: null as string | null,
     // Which pane is shown. User-controlled so the editor and the (possibly still-running)
     // simulation can be switched between freely — the run continues in the background.
@@ -58,7 +84,9 @@ export const simulationStore = defineStore("simulation", {
     parentRunByGroupId: {} as Record<string, GroupRunResult>, // session cache, keyed by parent group id
     parentRunProgress: null as any,
     isRunningVariationRun: false,
+    isSavingVariation: false,
     runCompareError: null as string | null,
+    interruptedVariationRun: null as VariationRunRecoveryRecord | null,
 
     // ---- Variation Editor (optimistic-write, per-node save) ----
     parentRoutingGroupId: "" as string,
@@ -79,6 +107,7 @@ export const simulationStore = defineStore("simulation", {
     // ---- Simulate-tab getters ----
     getSimGroups: (s) => s.simGroups,
     canSubmit: (s) => s.variations.length > 0 && !s.isRunning,
+    isSimulationReady: (s) => s.groupLoadState === "ready" && !!s.baseline && !!s.working,
     // The variation the working copy was loaded from (null = editing a fresh draft off baseline).
     activeVariation: (s) => s.variations.find((v) => v.id === s.activeVariationId) || null,
     // True when the working copy differs from its source (the loaded variation, or baseline).
@@ -86,7 +115,7 @@ export const simulationStore = defineStore("simulation", {
       const source = s.activeVariationId
         ? s.variations.find((v) => v.id === s.activeVariationId)?.group
         : s.baseline;
-      return JSON.stringify(s.working ?? {}) !== JSON.stringify(source ?? {});
+      return !isEquivalentVariationConfig(s.working, source);
     },
     // Per-routing parent-vs-variation comparison rows for the active H2 variation run (canvas flow).
     variationCompareRows(s): CompareRow[] {
@@ -117,6 +146,11 @@ export const simulationStore = defineStore("simulation", {
     },
   },
   actions: {
+    hasUnresolvedLiveDraft(): boolean {
+      const liveGroup = orderRoutingStore().currentGroup;
+      return String(liveGroup?.routingGroupId || "") === String(this.routingGroupId || "")
+        && Boolean(liveGroup?.isNew || liveGroup?.hasUnsavedChanges);
+    },
     // THE product-store resolution for the simulate tab — every sim call site (group list, past list,
     // submit) funnels through here so the precedence lives in one place.
     // Precedence: the configured sim store (VITE_SIM_PRODUCT_STORE_ID) > caller-supplied > OMS currentEComStore.
@@ -125,170 +159,321 @@ export const simulationStore = defineStore("simulation", {
     },
     // Routing-group list for the picker, pulled from the sim instance via api. Errors are logged
     // and leave the list empty — callers must not blow up on a sim outage.
-    async fetchSimGroups() {
+    async fetchSimGroups(signal?: AbortSignal) {
       try {
-        this.simGroups = await orderRoutingStore().fetchRoutingGroupsList(this.resolveProductStoreId());
+        const groups = await SimulationService.fetchRoutingGroups(this.resolveProductStoreId(), signal);
+        if (!signal?.aborted) this.simGroups = groups;
       } catch (err) {
+        if (signal?.aborted) throw err;
         logger.error(err);
         this.simGroups = [];
       }
     },
 
-    async fetchSimGroupDetail(routingGroupId: string): Promise<any> {
+    async fetchSimGroupDetail(routingGroupId: string, signal?: AbortSignal): Promise<any> {
       let group = (this.simGroups || []).find((g: any) => g.routingGroupId === routingGroupId);
-      if (!group?.isNew) {
-        
-        let resp;
-        try {
-          resp = await api({
-            url: `order-routing/groups/${routingGroupId}/raw`,
-            method: "GET",
-            baseURL: simApiBaseUrl(),
-          });
-        } catch (err) {
-          if (group) return normalizeRoutingGroupHierarchy({ ...group });
-          throw err;
-        }
-        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
-          group = resp.data;
-        } else if (group) {
-          group = { ...group, routings: [] };
-        } else {
-          throw resp?.data;
-        }
+      if (group?.isNew) {
+        throw new Error("Save this routing group before creating or running variations.");
       }
+
+      group = await SimulationService.fetchRoutingGroupDetail(routingGroupId, signal);
       return normalizeRoutingGroupHierarchy(group);
     },
 
     // ---- Simulate-tab actions ----
     async loadGroup(routingGroupId: string) {
+      const generation = ++groupLoadGeneration;
+      groupLoadController?.abort();
+      variationLoadController?.abort();
+      variationRunController?.abort();
+      groupLoadController = new AbortController();
+      const signal = groupLoadController.signal;
+      ++variationLoadGeneration;
+      ++variationRunGeneration;
+      ++variationMutationGeneration;
+      ++batchRunGeneration;
+      (batchRunController as AbortController | null)?.abort();
+      this.routingGroupId = routingGroupId;
+      this.groupLoadState = "loading";
       this.loadError = null;
       this.baseline = null;
       this.working = null;
+      this.variations = [];
+      this.activeVariationId = "";
+      this.results = null;
+      this.lastSimulationId = null;
+      this.runStates = [];
+      this.batchProgress = [];
+      this.variationRunResult = null;
+      this.runCompareError = null;
+      this.interruptedVariationRun = null;
+      this.parentRunProgress = null;
+      this.isRunningVariationRun = false;
+      this.isSavingVariation = false;
+      this.isRunning = false;
+      delete this.parentRunByGroupId[routingGroupId];
       try {
         if (!this.simGroups?.length) {
-          await this.fetchSimGroups();
+          await this.fetchSimGroups(signal);
         }
-        const group = await this.fetchSimGroupDetail(routingGroupId);
+        if (generation !== groupLoadGeneration) return false;
+        const group = await this.fetchSimGroupDetail(routingGroupId, signal);
+        if (generation !== groupLoadGeneration) return false;
         if (!group?.routingGroupId) {
           throw new Error(`Routing group ${routingGroupId} could not be loaded.`);
         }
-        this.routingGroupId = routingGroupId;
         this.baseline = deepClone(group);
         this.working = deepClone(group);
-        this.variations = [];
-        this.activeVariationId = "";
-        this.results = null;
-        this.lastSimulationId = null;
-        this.runStates = [];
-        this.batchProgress = [];
-        this.variationRunResult = null;
-        this.runCompareError = null;
-        await this.fetchServerVariations(routingGroupId);
+        const variations = await this.fetchServerVariations(routingGroupId, signal);
+        if (generation !== groupLoadGeneration) return false;
+        this.variations = variations;
+        this.groupLoadState = "ready";
+        this.restoreVariationRunInterruption(routingGroupId);
+        return true;
       } catch (e: any) {
-        this.loadError = e?.message ?? "Failed to load routing group.";
+        if (generation === groupLoadGeneration) {
+          this.loadError = e?.message ?? "Failed to load routing group.";
+          this.groupLoadState = "error";
+          this.baseline = null;
+          this.working = null;
+          this.variations = [];
+        }
+        return false;
       }
     },
     // Load the server-persisted (H2) variations for the parent group into the rail.
-    async fetchServerVariations(parentRoutingGroupId: string) {
-      try {
-        const list = await VariationService.listVariations(parentRoutingGroupId);
-        this.variations = list.map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
-      } catch (err) {
-        logger.error(err);
+    async fetchServerVariations(parentRoutingGroupId: string, signal?: AbortSignal): Promise<Variation[]> {
+      const list = await VariationService.listVariations(parentRoutingGroupId, signal);
+      return list.map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
+    },
+    // A synchronous variation POST cannot be reattached after a reload. Even though successful new
+    // responses include a simulation id, a reload or lost response can happen before the browser
+    // receives it. Convert a leftover running marker into an explicit durable unknown outcome.
+    restoreVariationRunInterruption(routingGroupId: string): boolean {
+      const stored = SimulationStorage.getVariationRun(routingGroupId);
+      if (!stored) {
+        this.interruptedVariationRun = null;
+        return false;
       }
+      const interrupted: VariationRunRecoveryRecord = stored.status === "interrupted"
+        ? stored
+        : { ...stored, status: "interrupted", interruptedAt: Date.now() };
+      SimulationStorage.setVariationRun(interrupted);
+      this.interruptedVariationRun = interrupted;
+      this.isRunningVariationRun = false;
+      this.variationRunResult = null;
+      this.parentRunProgress = null;
+      this.lastSimulationId = null;
+      this.runCompareError = variationRunInterruptedMessage(interrupted.variationLabel);
+      return true;
     },
     // Persist the current working copy as a NEW H2 variation. Returns true on success so
     // callers only report success when the save actually reached the backend.
     async saveAsVariation(label: string): Promise<boolean> {
+      if (!this.activeVariationId && this.hasUnresolvedLiveDraft()) {
+        this.loadError = "Save or discard live changes before creating a variation.";
+        return false;
+      }
+      if (!this.isSimulationReady || this.isSavingVariation) {
+        this.loadError = this.loadError || "Wait for the routing group and variations to finish loading.";
+        return false;
+      }
+      const generation = ++variationMutationGeneration;
+      const parentId = this.routingGroupId;
+      let createdVariationId = "";
+      this.isSavingVariation = true;
       try {
         workingFlushHook?.();
-        const vid = await VariationService.createVariation(this.routingGroupId, label);
-        const tree = await VariationService.replaceVariationConfig(vid, toConfigPayload(this.working?.routings ?? []));
-        const group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: vid };
-        this.variations.push({ id: vid, label: label || tree?.variationName || vid, group, serverVid: vid });
+        createdVariationId = await VariationService.createVariation(parentId, label);
+        const tree = await VariationService.replaceVariationConfig(createdVariationId, toConfigPayload(this.working?.routings ?? []));
+        if (generation !== variationMutationGeneration || this.routingGroupId !== parentId || this.groupLoadState !== "ready") return false;
+        const group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: createdVariationId };
+        this.variations.push({ id: createdVariationId, label: label || tree?.variationName || createdVariationId, group, serverVid: createdVariationId });
         this.clearRunResults(); // new variation becomes active — don't attribute a prior run's results to it
-        this.activeVariationId = vid;
+        this.activeVariationId = createdVariationId;
         this.working = deepClone(group);
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message || "";
+        if (generation === variationMutationGeneration && this.routingGroupId === parentId) {
+          if (createdVariationId) {
+            // The backend has no delete endpoint. Refresh the list so the partially-created record is
+            // visible/recoverable instead of silently orphaned while the UI claims nothing happened.
+            try {
+              this.variations = await this.fetchServerVariations(parentId);
+            } catch (refreshError) {
+              logger.error(refreshError);
+            }
+            this.loadError = `Variation ${createdVariationId} was created, but its configuration could not be saved. Retry after the backend is healthy.`;
+          } else {
+            this.loadError = err?.message || "Failed to create variation.";
+          }
+        }
         return false;
+      } finally {
+        if (generation === variationMutationGeneration) this.isSavingVariation = false;
       }
     },
     // Overwrite an existing H2 variation with the current working copy. Returns true on success.
     async updateVariation(id: string): Promise<boolean> {
+      if (!this.isSimulationReady || this.isSavingVariation) return false;
       workingFlushHook?.();
       const v = this.variations.find((x) => x.id === id);
       if (!v?.serverVid) return false;
+      const generation = ++variationMutationGeneration;
+      const parentId = this.routingGroupId;
+      this.isSavingVariation = true;
       try {
         const tree = await VariationService.replaceVariationConfig(v.serverVid, toConfigPayload(this.working?.routings ?? []));
+        if (generation !== variationMutationGeneration || this.routingGroupId !== parentId || this.activeVariationId !== id) return false;
         v.group = { ...deepClone(this.working), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         this.working = deepClone(v.group);
         return true;
       } catch (err: any) {
         logger.error(err);
-        this.loadError = err?.message || "";
+        if (generation === variationMutationGeneration && this.routingGroupId === parentId) {
+          this.loadError = err?.message || "Failed to update variation.";
+        }
         return false;
+      } finally {
+        if (generation === variationMutationGeneration) this.isSavingVariation = false;
       }
     },
     // Open a variation in the canvas: use the cached tree or fetch it from H2 (lazy).
-    async loadVariation(id: string) {
+    async loadVariation(id: string): Promise<boolean> {
+      if (!this.activeVariationId && this.hasUnresolvedLiveDraft()) {
+        this.loadError = "Save or discard live changes before opening a variation.";
+        commonUtil.showToast(this.loadError);
+        return false;
+      }
+      if (!this.isSimulationReady || this.isSavingVariation) return false;
+      const generation = ++variationLoadGeneration;
+      variationLoadController?.abort();
+      variationLoadController = new AbortController();
+      const signal = variationLoadController.signal;
+      ++variationRunGeneration;
+      variationRunController?.abort();
+      const parentId = this.routingGroupId;
       const v = this.variations.find((x) => x.id === id);
-      if (!v) return;
+      if (!v) return false;
       const previousActiveVariationId = this.activeVariationId;
       try {
+        let loadedGroup = v.group ? deepClone(v.group) : null;
         if (!v.group && v.serverVid) {
-          const tree = await VariationService.getVariation(v.serverVid);
-          v.group = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
+          const tree = await VariationService.getVariation(v.serverVid, signal);
+          loadedGroup = { ...deepClone(this.baseline), routings: fromVariationRoutings(tree?.routings ?? []), variationGroupId: v.serverVid };
         }
-        if (v.group) {
+        if (generation !== variationLoadGeneration || this.routingGroupId !== parentId || this.groupLoadState !== "ready") return false;
+        if (loadedGroup) {
+          v.group = deepClone(loadedGroup);
           if (id !== previousActiveVariationId) this.clearRunResults();
           this.activeVariationId = id;
-          this.working = deepClone(v.group);
+          this.working = deepClone(loadedGroup);
+          this.isRunningVariationRun = false;
+          this.parentRunProgress = null;
+          return true;
         }
+        return false;
       } catch (err: any) {
-        this.activeVariationId = previousActiveVariationId;
+        if (generation !== variationLoadGeneration || this.routingGroupId !== parentId) return false;
         logger.error(err);
         const message = err?.message ?? "Failed to load variation.";
         this.loadError = message;
         // Surface the failure — otherwise a thrown getVariation silently leaves the
         // canvas on the previous copy, which reads as "the variation didn't load".
         commonUtil.showToast(message);
+        return false;
       }
     },
     // Run the active H2 variation (synchronous) and the parent live-config (cached) for compare.
     async runActiveVariation(sampleCap = 500) {
+      workingFlushHook?.();
+      if (!this.isSimulationReady) {
+        this.runCompareError = "Wait for the routing group and variations to finish loading.";
+        commonUtil.showToast(this.runCompareError);
+        return false;
+      }
+      if (this.isDirty) {
+        this.runCompareError = "Update the variation before running it.";
+        commonUtil.showToast(this.runCompareError);
+        return false;
+      }
       const v = this.activeVariationId ? this.variations.find((x) => x.id === this.activeVariationId) : null;
-      if (!v?.serverVid) { this.runCompareError = "Save the variation before running it."; this.view = "results"; return; }
+      if (!v?.serverVid) { this.runCompareError = "Save the variation before running it."; this.view = "results"; return false; }
+      const generation = ++variationRunGeneration;
+      variationRunController?.abort();
+      variationRunController = new AbortController();
+      const signal = variationRunController.signal;
+      const variationId = v.id;
       this.runCompareError = null;
       this.variationRunResult = null;
       this.isRunningVariationRun = true;
       this.view = "results";
       const parentId = this.routingGroupId;
+      const recoveryRecord: VariationRunRecoveryRecord = {
+        routingGroupId: parentId,
+        variationId,
+        serverVariationId: v.serverVid,
+        variationLabel: v.label || v.serverVid,
+        sampleCap,
+        startedAt: Date.now(),
+        status: "running",
+      };
+      SimulationStorage.setVariationRun(recoveryRecord);
+      this.interruptedVariationRun = null;
       const needParent = !this.parentRunByGroupId[parentId];
       try {
-        const [vr] = await Promise.all([
-          VariationService.runVariation(v.serverVid, sampleCap),
+        const [vr, parentOutcome] = await Promise.all([
+          VariationService.runVariation(v.serverVid, sampleCap, signal),
           needParent
-            ? SimulationService.runParentLiveConfig(parentId, sampleCap, (p) => { this.parentRunProgress = p; })
-              .then((gr) => { this.parentRunByGroupId[parentId] = gr; })
-              .catch((e) => { logger.error(e); })
-            : Promise.resolve(),
+            ? SimulationService.runParentLiveConfig(parentId, sampleCap, (p) => {
+              if (generation === variationRunGeneration && this.routingGroupId === parentId && this.activeVariationId === variationId) {
+                this.parentRunProgress = p;
+              }
+            }, signal).then((result) => ({ result })).catch((error) => ({ error }))
+            : Promise.resolve({ result: this.parentRunByGroupId[parentId] }),
         ]);
+        if (generation !== variationRunGeneration || this.routingGroupId !== parentId || this.activeVariationId !== variationId) return false;
+        if (parentOutcome && "error" in parentOutcome) {
+          logger.error(parentOutcome.error);
+          this.runCompareError = "The variation ran, but the live parent configuration could not be run for comparison.";
+        }
+        else if (parentOutcome?.result) this.parentRunByGroupId[parentId] = parentOutcome.result;
         this.variationRunResult = vr;
-        const sid = (vr as any)?.simulationId;
-        if (sid) this.lastSimulationId = String(sid);
+        this.lastSimulationId = vr.simulationId ? String(vr.simulationId) : null;
+        // Clear the durable marker only after the canonical group result and optional history id
+        // have been adopted by the still-current editor. Older id-less successes remain valid.
+        SimulationStorage.clearVariationRun(parentId);
+        this.interruptedVariationRun = null;
+        return true;
       } catch (e: any) {
-        this.runCompareError = e?.message ?? "Variation run failed.";
+        if (generation === variationRunGeneration && this.routingGroupId === parentId && this.activeVariationId === variationId) {
+          const interrupted: VariationRunRecoveryRecord = {
+            ...recoveryRecord,
+            status: "interrupted",
+            interruptedAt: Date.now(),
+            lastError: e?.message ?? "The request ended before a result was received.",
+          };
+          SimulationStorage.setVariationRun(interrupted);
+          this.interruptedVariationRun = interrupted;
+          this.variationRunResult = null;
+          this.lastSimulationId = null;
+          this.runCompareError = variationRunInterruptedMessage(interrupted.variationLabel);
+        }
+        return false;
       } finally {
-        this.isRunningVariationRun = false;
+        if (generation === variationRunGeneration) this.isRunningVariationRun = false;
       }
     },
     resetWorkingToBaseline() {
+      ++variationLoadGeneration;
+      ++variationRunGeneration;
+      variationLoadController?.abort();
+      variationRunController?.abort();
       this.working = deepClone(this.baseline);
       this.activeVariationId = "";
+      this.isRunningVariationRun = false;
+      this.parentRunProgress = null;
       this.clearRunResults();
     },
     // Run results (variationRunResult/runCompareError/lastSimulationId) belong to ONE variation's
@@ -305,14 +490,6 @@ export const simulationStore = defineStore("simulation", {
     flushWorkingCopy() {
       workingFlushHook?.();
     },
-    renameVariation(id: string, label: string) {
-      const v = this.variations.find((x) => x.id === id);
-      if (v) v.label = label;
-    },
-    deleteVariation(id: string) {
-      this.variations = this.variations.filter((x) => x.id !== id);
-      if (this.activeVariationId === id) this.resetWorkingToBaseline();
-    },
     // Update the phase (+ optional error) of every runStates entry whose id is in `ids`.
     setVariationPhase(ids: string[], phase: VariationRunState["phase"], error?: string) {
       ids.forEach((id) => {
@@ -322,15 +499,19 @@ export const simulationStore = defineStore("simulation", {
     },
 
     // Poll one already-submitted batch job to completion, streaming progress into batchProgress.
-    async runBatch(args: { batchIndex: number; ids: string[]; jobId: string }): Promise<any | null> {
-      const { batchIndex, ids, jobId } = args;
-      this.setVariationPhase(ids, "running");
+    async runBatch(args: { batchIndex: number; ids: string[]; jobId: string; routingGroupId?: string; generation?: number; signal?: AbortSignal }): Promise<any | null> {
+      const { batchIndex, ids, jobId, generation, signal } = args;
+      const routingGroupId = args.routingGroupId ?? this.routingGroupId;
+      const isCurrent = () => this.routingGroupId === routingGroupId
+        && (generation == null || generation === batchRunGeneration);
+      if (isCurrent()) this.setVariationPhase(ids, "running");
       try {
         const result = await SimulationService.pollJob(
-          this.routingGroupId,
+          routingGroupId,
           jobId,
-          (status) => { if (status === "running") this.setVariationPhase(ids, "running"); },
+          (status) => { if (isCurrent() && status === "running") this.setVariationPhase(ids, "running"); },
           (progress) => {
+            if (!isCurrent()) return;
             const bp = this.batchProgress[batchIndex];
             if (!bp) return;
             bp.phaseLabel = progress.phaseLabel;
@@ -342,26 +523,41 @@ export const simulationStore = defineStore("simulation", {
             bp.queued = progress.queued;
             bp.events = mergeEvents(bp.events, progress.events ?? [], 50);
           },
+          signal,
         );
+        if (!isCurrent()) return null;
         const sid = (result as any)?.simulationId ?? (result as any)?.variation?.simulationId ?? (result as any)?.groupRun?.simulationId;
         if (sid && !this.lastSimulationId) this.lastSimulationId = String(sid);
         this.setVariationPhase(ids, "done");
-        SimulationStorage.removeJob(this.routingGroupId, jobId);
+        // Keep completed jobs until the aggregate finishes. If another batch loses its connection,
+        // reload recovery must re-poll every batch so the final merged result is still complete.
         return result;
       } catch (err: any) {
+        if (!isCurrent()) return null;
         this.setVariationPhase(ids, "failed", err?.message ?? "Batch failed.");
-        SimulationStorage.removeJob(this.routingGroupId, jobId);
+        // Terminal failures cannot be resumed. Network interruption, timeout, and cancellation keep
+        // the job record so reopening the routing group can reattach to the backend job.
+        if (!isRecoverableSimulationPollError(err)) SimulationStorage.removeJob(routingGroupId, jobId);
         return null;
       }
     },
 
     async submit() {
+      const generation = ++batchRunGeneration;
+      (batchRunController as AbortController | null)?.abort();
+      batchRunController = new AbortController();
+      const signal = batchRunController.signal;
+      const routingGroupId = this.routingGroupId;
+      const isCurrent = () => generation === batchRunGeneration && this.routingGroupId === routingGroupId;
       const built = this.variations.map((v) => ({ variation: v, variant: buildVariant(v.label, this.baseline, v.group) }));
       const live = built.filter((b) => !isNoOp(b.variant));
       this.runStates = built.map((b) => isNoOp(b.variant)
         ? { variationId: b.variation.id, label: b.variation.label, phase: "failed" as const, error: "No changes vs baseline — skipped." }
         : { variationId: b.variation.id, label: b.variation.label, phase: "pending" as const });
-      if (live.length === 0) return;
+      if (live.length === 0) {
+        this.isRunning = false;
+        return;
+      }
 
       this.isRunning = true;
       this.results = null;
@@ -372,37 +568,56 @@ export const simulationStore = defineStore("simulation", {
         const idBatches = chunkVariants(live.map((b) => b.variation.id), 5);
         this.batchProgress = batches.map((_, i) => zeroedBatch(i));
 
-        SimulationStorage.clearJobs(this.routingGroupId);
+        SimulationStorage.clearJobs(routingGroupId);
         const submitted = await Promise.all(batches.map(async (variants, i) => {
           const ids = idBatches[i];
-          this.setVariationPhase(ids, "submitted");
+          if (isCurrent()) this.setVariationPhase(ids, "submitted");
           try {
-            const jobId = await SimulationService.submitBatch({ routingGroupId: this.routingGroupId, variants });
+            const jobId = await SimulationService.submitBatch({ routingGroupId, variants, signal });
+            if (isCurrent()) {
+              SimulationStorage.upsertJob(routingGroupId, {
+                jobId,
+                batchIndex: i,
+                batchCount: batches.length,
+                variantLabels: variants.map((variant) => variant.label),
+                submittedAt: Date.now(),
+              });
+            }
             return { batchIndex: i, ids, jobId, variantLabels: variants.map((v) => v.label) };
           } catch (err: any) {
-            this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
+            if (isCurrent()) this.setVariationPhase(ids, "failed", err?.message ?? "Failed to submit batch.");
             return { batchIndex: i, ids, jobId: null as string | null, variantLabels: variants.map((v) => v.label) };
           }
         }));
+        if (!isCurrent()) return;
 
-        const okJobs = submitted.filter((s) => s.jobId) as Array<{ batchIndex: number; ids: string[]; jobId: string; variantLabels: string[] }>;
-        SimulationStorage.recordJobs(this.routingGroupId, okJobs.map((s) => ({
-          jobId: s.jobId, batchIndex: s.batchIndex, batchCount: batches.length,
-          variantLabels: s.variantLabels, submittedAt: Date.now(),
-        })));
-
-        const batchResults = await Promise.all(okJobs.map((s) => this.runBatch({ batchIndex: s.batchIndex, ids: s.ids, jobId: s.jobId })));
+        // Preserve failed submissions as null entries so the aggregate is marked partial instead of
+        // presenting the successful batches as a complete simulation.
+        const batchResults = await Promise.all(submitted.map((s) => s.jobId
+          ? this.runBatch({ batchIndex: s.batchIndex, ids: s.ids, jobId: s.jobId, routingGroupId, generation, signal })
+          : Promise.resolve(null)));
+        if (!isCurrent()) return;
         this.results = mergeVariationResults(batchResults);
+        const successfulJobIds = new Set(submitted.flatMap((s, index) => s.jobId && batchResults[index] ? [s.jobId] : []));
+        const hasRecoverableJob = SimulationStorage.getJobs(routingGroupId)
+          .some((job) => !successfulJobIds.has(job.jobId));
+        if (!hasRecoverableJob) SimulationStorage.clearJobs(routingGroupId);
       } finally {
-        this.isRunning = false;
+        if (isCurrent()) this.isRunning = false;
       }
     },
 
-    // On reopening a group's Simulate screen, re-attach to any persisted in-flight jobs and resume polling.
+    // Explicit recovery hook for a host that supports legacy multi-batch simulations. The canonical
+    // routing-detail variation flow does not call this action; it has a separate run contract.
     async resumeInFlight(routingGroupId: string) {
       const jobs = SimulationStorage.getJobs(routingGroupId);
       if (!jobs.length) return;
 
+      const generation = ++batchRunGeneration;
+      (batchRunController as AbortController | null)?.abort();
+      batchRunController = new AbortController();
+      const signal = batchRunController.signal;
+      const isCurrent = () => generation === batchRunGeneration && this.routingGroupId === routingGroupId;
       this.routingGroupId = routingGroupId;
       this.isRunning = true;
       this.results = null;
@@ -422,10 +637,15 @@ export const simulationStore = defineStore("simulation", {
           return { batchIndex: j.batchIndex, ids, jobId: j.jobId };
         });
 
-        const batchResults = await Promise.all(toRun.map((x) => this.runBatch(x)));
+        const batchResults = await Promise.all(toRun.map((x) => this.runBatch({ ...x, routingGroupId, generation, signal })));
+        if (!isCurrent()) return;
         this.results = mergeVariationResults(batchResults);
+        const successfulJobIds = new Set(jobs.flatMap((job, index) => batchResults[index] ? [job.jobId] : []));
+        const hasRecoverableJob = SimulationStorage.getJobs(routingGroupId)
+          .some((job) => !successfulJobIds.has(job.jobId));
+        if (!hasRecoverableJob) SimulationStorage.clearJobs(routingGroupId);
       } finally {
-        this.isRunning = false;
+        if (isCurrent()) this.isRunning = false;
       }
     },
 

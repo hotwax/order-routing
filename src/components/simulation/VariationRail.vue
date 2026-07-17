@@ -30,15 +30,41 @@
     </ion-toolbar>
 
     <div v-show="isExpanded" class="rail-body">
+      <div v-if="sim.groupLoadState === 'loading'" class="load-state">
+        <ion-spinner name="dots" />
+        <ion-note>{{ translate("Loading routing group and variations…") }}</ion-note>
+      </div>
+      <div v-else-if="sim.groupLoadState === 'error'" class="load-state error-state">
+        <ion-note color="danger">{{ sim.loadError || translate("Failed to load routing group.") }}</ion-note>
+        <ion-button size="small" fill="outline" @click="retryLoad()">{{ translate("Retry") }}</ion-button>
+      </div>
+
+      <template v-if="sim.isSimulationReady">
       <ion-radio-group :value="radioSelected" @ionChange="selectVariation($event.detail.value)">
         <ion-item>
-          <ion-radio value="" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
+          <ion-radio value="" :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
         </ion-item>
 
         <ion-item v-for="v in sim.variations" :key="v.id">
-          <ion-radio :value="v.id" label-placement="end" justify="start">{{ v.label }}</ion-radio>
+          <ion-radio :value="v.id" :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ v.label }}</ion-radio>
         </ion-item>
       </ion-radio-group>
+
+      <ion-item v-if="sim.interruptedVariationRun" class="interrupted-run" lines="none" color="warning">
+        <ion-label class="ion-text-wrap">
+          <strong>{{ translate("Previous run outcome unknown") }}</strong>
+          <p>{{ sim.runCompareError }}</p>
+        </ion-label>
+        <ion-button
+          slot="end"
+          size="small"
+          data-testid="rerun-interrupted-variation"
+          :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation || !interruptedVariationExists"
+          @click="rerunInterruptedVariation()"
+        >
+          {{ translate("Run again") }}
+        </ion-button>
+      </ion-item>
 
       <!-- Editing status + save-changes workflow: update the active variation, or save the current
            working copy as a brand-new variation named inline. Replaces the old inline canvas card. -->
@@ -47,7 +73,7 @@
           <ion-label>
             <template v-if="sim.activeVariationId">{{ translate("Editing:") }} {{ sim.activeVariation?.label }}</template>
             <template v-else>{{ translate("New variation (from Baseline)") }}</template>
-            <template v-if="sim.isDirty"> — {{ translate("unsaved changes") }}</template>
+            <template v-if="effectiveVariationDirty"> — {{ translate("unsaved changes") }}</template>
           </ion-label>
         </ion-chip>
 
@@ -56,7 +82,7 @@
           expand="block"
           size="small"
           color="primary"
-          :disabled="isSaving"
+          :disabled="isSaving || sim.isSavingVariation"
           @click="updateActive()"
         >
           <ion-icon slot="start" :icon="saveOutline" />
@@ -67,14 +93,14 @@
           <ion-input
             v-model="newVariationName"
             :placeholder="translate('New variation name')"
-            :disabled="isSaving"
+            :disabled="isSaving || sim.isSavingVariation || (!sim.activeVariationId && props.liveDirty)"
             @keyup.enter="saveAsNew()"
           />
           <ion-button
             size="small"
             :fill="sim.activeVariationId ? 'outline' : 'solid'"
             color="primary"
-            :disabled="isSaving"
+            :disabled="isSaving || sim.isSavingVariation"
             @click="saveAsNew()"
           >
             <ion-icon slot="start" :icon="addCircleOutline" />
@@ -86,7 +112,7 @@
       <!-- Select a variation above, then act on it from this row. -->
       <div class="actions">
         <div class="action">
-          <ion-fab-button class="success" size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun" :aria-label="translate('Run variation')" @click="sim.runActiveVariation()">
+          <ion-fab-button class="success" size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || sim.isSavingVariation || effectiveVariationDirty" :aria-label="translate('Run variation')" @click="runActiveVariation()">
             <ion-spinner v-if="sim.isRunningVariationRun" name="dots" />
             <ion-icon v-else :icon="playOutline" />
           </ion-fab-button>
@@ -99,24 +125,13 @@
           <ion-note>{{ translate("Results") }}</ion-note>
         </div>
         <div class="action">
-          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Rename')" @click="renameActive()">
-            <ion-icon :icon="pencilOutline" />
-          </ion-fab-button>
-          <ion-note>{{ translate("Rename") }}</ion-note>
-        </div>
-        <div class="action">
-          <ion-fab-button class="danger" size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Delete')" @click="sim.deleteVariation(sim.activeVariationId)">
-            <ion-icon :icon="trashOutline" />
-          </ion-fab-button>
-          <ion-note>{{ translate("Delete") }}</ion-note>
-        </div>
-        <div class="action">
-          <ion-fab-button size="small" :disabled="!sim.activeVariationId" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
+          <ion-fab-button size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || isSaving || sim.isSavingVariation" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
             <ion-icon :icon="refreshOutline" />
           </ion-fab-button>
           <ion-note>{{ translate("Reset") }}</ion-note>
         </div>
       </div>
+      </template>
     </div>
   </aside>
 
@@ -143,14 +158,20 @@ import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { commonUtil, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
-import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, pencilOutline, playOutline, refreshOutline, saveOutline, trashOutline } from "ionicons/icons";
+import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, playOutline, refreshOutline, saveOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import SimulationResults from "@/components/simulation/SimulationResults.vue";
 
 const props = defineProps({
   // The routing group this rail belongs to. Used to tell whether *this* detail page is the current
   // route (vs. a sibling detail page for a different group that is merely cached in the DOM).
-  routingGroupId: { type: String, default: null }
+  routingGroupId: { type: String, default: null },
+  // Live edits belong to orderRoutingStore, not simulationStore. Do not let selecting a variation
+  // remount the editor and discard them; the user must resolve the live draft first.
+  liveDirty: { type: Boolean, default: false },
+  // Sandbox editor refs are flushed lazily into sim.working. Include the editor signal when gating
+  // destructive switches and Run so the visible canvas can never diverge from the invoked version.
+  editorDirty: { type: Boolean, default: false }
 });
 
 const sim = simulationStore();
@@ -161,6 +182,9 @@ const isSaving = ref(false);
 // been kicked off — while running, on success, or on error — so the user can open it to watch/read.
 const showResults = ref(false);
 const hasResults = computed(() => !!(sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError));
+const effectiveVariationDirty = computed(() => !!sim.activeVariationId && (props.editorDirty || sim.isDirty));
+const interruptedVariationExists = computed(() => !!sim.interruptedVariationRun
+  && sim.variations.some((variation: any) => variation.id === sim.interruptedVariationRun?.variationId));
 // Local mirror of the selected radio so a cancelled discard can visually revert it
 // (binding directly to sim.activeVariationId wouldn't re-patch when it's unchanged).
 const radioSelected = ref(sim.activeVariationId || "");
@@ -197,19 +221,34 @@ watch(isActive, (active) => {
 async function selectVariation(id: string) {
   radioSelected.value = id;
   if (id === (sim.activeVariationId || "")) return;
+  if (!sim.isSimulationReady || sim.isRunningVariationRun || isSaving.value || sim.isSavingVariation) {
+    radioSelected.value = sim.activeVariationId || "";
+    commonUtil.showToast(translate("Wait for the current variation operation to finish."));
+    return;
+  }
+  if (!sim.activeVariationId && id && props.liveDirty) {
+    radioSelected.value = "";
+    commonUtil.showToast(translate("Save or discard live changes before opening a variation."));
+    return;
+  }
   sim.flushWorkingCopy();
-  if (sim.isDirty && !(await confirmDiscard())) {
+  if ((props.editorDirty || sim.isDirty) && !(await confirmDiscard())) {
     radioSelected.value = sim.activeVariationId || ""; // revert the radio to the still-active variation
     return;
   }
-  if (id) sim.loadVariation(id);
-  else sim.resetWorkingToBaseline();
+  if (id) {
+    const loaded = await sim.loadVariation(id);
+    if (!loaded) radioSelected.value = sim.activeVariationId || "";
+  } else {
+    sim.resetWorkingToBaseline();
+  }
 }
 
 // Reset also discards the working copy; same flush-then-guard.
 async function resetToBaseline() {
+  if (!sim.isSimulationReady || sim.isRunningVariationRun || isSaving.value || sim.isSavingVariation) return;
   sim.flushWorkingCopy();
-  if (sim.isDirty && !(await confirmDiscard())) return;
+  if ((props.editorDirty || sim.isDirty) && !(await confirmDiscard())) return;
   sim.resetWorkingToBaseline();
 }
 
@@ -229,7 +268,11 @@ async function confirmDiscard(): Promise<boolean> {
 
 // Save the current working copy as a brand-new variation, named inline in this sheet.
 async function saveAsNew() {
-  if (isSaving.value) return;
+  if (!sim.isSimulationReady || isSaving.value || sim.isSavingVariation) return;
+  if (!sim.activeVariationId && props.liveDirty) {
+    commonUtil.showToast(translate("Save or discard live changes before creating a variation."));
+    return;
+  }
   isSaving.value = true;
   try {
     const isSaved = await sim.saveAsVariation(newVariationName.value.trim());
@@ -242,7 +285,7 @@ async function saveAsNew() {
 
 // Overwrite the active variation with the current working copy.
 async function updateActive() {
-  if (!sim.activeVariationId || isSaving.value) return;
+  if (!sim.isSimulationReady || !sim.activeVariationId || isSaving.value || sim.isSavingVariation) return;
   isSaving.value = true;
   try {
     const isUpdated = await sim.updateVariation(sim.activeVariationId);
@@ -252,21 +295,31 @@ async function updateActive() {
   }
 }
 
-function renameActive() {
-  const v = sim.activeVariation;
-  if (v) rename(v.id, v.label);
+async function runActiveVariation() {
+  if (!sim.isSimulationReady || !sim.activeVariationId || sim.isRunningVariationRun || sim.isSavingVariation) return;
+  sim.flushWorkingCopy();
+  if (props.editorDirty || sim.isDirty) {
+    commonUtil.showToast(translate("Update the variation before running it."));
+    return;
+  }
+  await sim.runActiveVariation();
 }
 
-async function rename(id: string, current: string) {
-  const alert = await alertController.create({
-    header: translate("Rename variation"),
-    inputs: [{ name: "label", value: current }],
-    buttons: [
-      { text: translate("Cancel"), role: "cancel" },
-      { text: translate("Save"), handler: (data) => sim.renameVariation(id, data.label) },
-    ],
-  });
-  await alert.present();
+async function rerunInterruptedVariation() {
+  const interrupted = sim.interruptedVariationRun;
+  if (!interrupted || !interruptedVariationExists.value) {
+    commonUtil.showToast(translate("The saved variation for this interrupted run is no longer available."));
+    return;
+  }
+  if (sim.activeVariationId !== interrupted.variationId) {
+    await selectVariation(interrupted.variationId);
+  }
+  if (sim.activeVariationId === interrupted.variationId) await runActiveVariation();
+}
+
+async function retryLoad() {
+  const groupId = props.routingGroupId || sim.routingGroupId;
+  if (groupId && sim.groupLoadState !== "loading") await sim.loadGroup(groupId);
 }
 </script>
 
@@ -298,6 +351,18 @@ async function rename(id: string, current: string) {
 .rail-header {
   --min-height: 48px;
   flex: 0 0 auto;
+}
+
+.load-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+}
+
+.error-state {
+  align-items: flex-start;
+  flex-direction: column;
 }
 
 .rail-body {

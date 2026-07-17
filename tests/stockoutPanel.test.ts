@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import StockoutPanel from "../src/components/simulation/StockoutPanel.vue";
-import { toRows } from "../src/util/simulationResults";
+import { toRows } from "../src/utils/simulationResults";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
 
 vi.mock("@common", () => ({ translate: (s: string) => s }));

@@ -4,8 +4,46 @@ import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
 import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
-import { v4 as uuidv4, validate } from 'uuid';
-import { simApiBaseUrl } from '@/utils/simConfig';
+import { v4 as uuidv4 } from 'uuid';
+import { buildRoutingGroupSavePayload, stripRoutingGroupSaveIds } from '@/utils/routingGroupEditorPayload';
+
+export interface SaveRoutingGroupRawOptions {
+  /** Schedule changes are committed by their own explicit UI actions. */
+  saveSchedule?: boolean;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function hasGroupIdentity(group: any, routingGroupId: string) {
+  return Boolean(
+    group
+    && typeof group === "object"
+    && !Array.isArray(group)
+    && group.routingGroupId === routingGroupId
+  );
+}
+
+function isHydratedRoutingGroup(group: any, routingGroupId: string) {
+  return hasGroupIdentity(group, routingGroupId)
+    && Array.isArray(group.routings)
+    && group.isRoutingGroupDetailLoaded === true;
+}
+
+function markRoutingGroupHydrated(group: any, routingGroupId: string) {
+  if (!hasGroupIdentity(group, routingGroupId)) return null;
+  return {
+    ...group,
+    routings: Array.isArray(group.routings) ? group.routings : [],
+    isRoutingGroupDetailLoaded: true
+  };
+}
+
+function isMissingScheduleResponse(err: any) {
+  const status = err?.response?.status || err?.status || err?.statusCode || err?.data?.statusCode || err?.data?.status;
+  return status === 400 || status === 404;
+}
 
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
@@ -75,17 +113,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
     }
   },
   actions: {
-    async fetchRoutingGroupsList(productStoreId: string): Promise<any[]> {
-      const resp = await api({
-        url: `order-routing/groups`,
-        method: "GET",
-        baseURL: simApiBaseUrl(),
-        params: { productStoreId, pageSize: 200 },
-      });
-      return !commonUtil.hasError(resp) && Array.isArray(resp.data) ? resp.data : [];
-    },
     async fetchOrderRoutingGroups() {
-      let routingGroups = [] as any;
+      let routingGroups: any[] | null = null;
       const payload = {
         productStoreId: productStore().currentEComStore.productStoreId,
         pageSize: 200
@@ -96,19 +125,22 @@ export const orderRoutingStore = defineStore('orderRouting', {
           method: "GET",
           params: payload
         });
-        if(!commonUtil.hasError(resp) && resp.data.length) {
+        if(!commonUtil.hasError(resp) && Array.isArray(resp.data)) {
           routingGroups = resp.data
         } else {
           throw resp.data
         }
       } catch(err) {
         logger.error(err);
+        return;
       }
   
       if(routingGroups.length) {
-        const groupScheduleInfoPayload = routingGroups.map((group: any) => group.routingGroupId)
-        const resp = await Promise.allSettled(groupScheduleInfoPayload.map((routingGroupId: any) => api({
-          url: `order-routing/groups/${routingGroupId}/schedule`,
+        // A group without a jobName has no schedule yet. Avoid turning the expected
+        // unscheduled state into a GET /schedule error for every list refresh.
+        const groupsWithScheduleJobs = routingGroups.filter((group: any) => group.jobName)
+        const resp = await Promise.allSettled(groupsWithScheduleJobs.map((group: any) => api({
+          url: `order-routing/groups/${group.routingGroupId}/schedule`,
           method: "GET"
         })))
         
@@ -127,21 +159,32 @@ export const orderRoutingStore = defineStore('orderRouting', {
         routingGroups = commonUtil.sortSequence(routingGroups, "runTime")
       }
 
-      routingGroups.forEach((group: any) => {
-        const groupIndex = this.groups.findIndex((g: any) => g.routingGroupId === group.routingGroupId);
-        if (groupIndex !== -1) {
-          this.groups[groupIndex] = { ...this.groups[groupIndex], ...group };
-        } else {
-          this.groups.push(group);
-        }
-      });
-      this.groups = commonUtil.sortSequence(this.groups, "runTime")
+      const existingForStore = new Map(
+        this.groups
+          .filter((group: any) => group.productStoreId === payload.productStoreId)
+          .map((group: any) => [group.routingGroupId, group])
+      );
+      const serverGroups = routingGroups.map((group: any) => ({
+        ...(existingForStore.get(group.routingGroupId) || {}),
+        ...group
+      }));
+      const serverIds = new Set(serverGroups.map((group: any) => group.routingGroupId));
+      const localNewGroups = this.groups.filter((group: any) => (
+        group.isNew
+        && group.productStoreId === payload.productStoreId
+        && !serverIds.has(group.routingGroupId)
+      ));
+      // The server response is authoritative for persisted rows. Retain only local drafts for the
+      // active product store; deleted rows and rows from a previously selected store must disappear.
+      this.groups = commonUtil.sortSequence([...serverGroups, ...localNewGroups], "runTime")
     },
     // Fetches the raw routings/rules/filters for every group in state.groups that
     // is missing them. Used by the Routing groups assistant to give the agent full
     // detail visibility across all listed runs without forcing the user to open each one.
     async fetchOrderRoutingGroupsDetails() {
-      const groupsNeedingDetail = this.groups.filter((group: any) => !group.isNew && !Array.isArray(group.routings));
+      const groupsNeedingDetail = this.groups.filter((group: any) => (
+        !group.isNew && !isHydratedRoutingGroup(group, group.routingGroupId)
+      ));
       if (!groupsNeedingDetail.length) return;
 
       const responses = await Promise.allSettled(groupsNeedingDetail.map((group: any) => api({
@@ -152,7 +195,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
       responses.forEach((response: any, index: number) => {
         const group = groupsNeedingDetail[index];
         const data = response.status === "fulfilled" && !commonUtil.hasError(response.value) ? response.value.data : null;
-        const detail = data && typeof data === "object" && !Array.isArray(data) ? data : { routings: [] };
+        const detail = markRoutingGroupHydrated(data, group.routingGroupId);
+        if (!detail) return;
         if (detail?.routings?.length) {
           detail.routings = commonUtil.sortSequence(detail.routings).map((routing: any) => {
             if (routing.rules?.length) {
@@ -196,37 +240,14 @@ export const orderRoutingStore = defineStore('orderRouting', {
         logger.error(err)
       }
     },
-    async saveRoutingGroupRaw(payload: any) {
-      const transformedPayload = JSON.parse(JSON.stringify(payload));
-      const isNewRoutingGroup = transformedPayload.isNew;
-      let stateRoutingGroupId = transformedPayload.routingGroupId;
-      if (isNewRoutingGroup) {
-        delete transformedPayload.routingGroupId;
-        transformedPayload.routings?.forEach((routing: any) => {
-          delete routing.routingGroupId;
-          delete routing.orderRoutingId;
-          routing.orderFilters?.forEach((orderFilter: any) => {
-            delete orderFilter.orderRoutingId;
-          })
-          routing.rules?.forEach((rule: any) => {
-            delete rule.routingRuleId;
-            delete rule.orderRoutingId;
-            rule.inventoryFilters?.forEach((filter: any) => {
-              delete filter.routingRuleId;
-            });
-            rule.actions?.forEach((action: any) => {
-              delete action.routingRuleId;
-            });
-          });
-        });
-      } else {
-        transformedPayload.routings.forEach((routing: any) => {
-          if(routing.orderRoutingId && validate(routing.orderRoutingId)) delete routing.orderRoutingId
-          routing.rules?.forEach((rule: any) => {
-            if(rule.routingRuleId && validate(rule.routingRuleId)) delete rule.routingRuleId
-          })
-        })
-      }
+    async saveRoutingGroupRaw(payload: any, options: SaveRoutingGroupRawOptions = {}) {
+      const isNewRoutingGroup = Boolean(payload?.isNew);
+      const stateRoutingGroupId = payload?.routingGroupId;
+      const transformedPayload = buildRoutingGroupSavePayload(
+        payload,
+        import.meta.env.VITE_FILTER_SORT_DESC || ""
+      );
+      stripRoutingGroupSaveIds(transformedPayload, { isNewRoutingGroup });
 
       const schedule = transformedPayload.schedule;
       delete transformedPayload.schedule;
@@ -240,9 +261,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
         if (resp.data?.routingGroupId) {
           const routingGroupId = resp.data.routingGroupId;
-          if (schedule) {
-            schedule.routingGroupId = routingGroupId;
-            const scheduleResp = await this.scheduleBrokering(schedule);
+          // The editor's Add/Edit schedule flows already POST explicitly. A normal
+          // group Save must never repost a previously loaded schedule as a side effect.
+          if (schedule && options.saveSchedule) {
+            const scheduleResp = await this.scheduleBrokering({ ...schedule, routingGroupId });
             if (!scheduleResp.data?.jobName) {
               commonUtil.showToast(translate("Failed to schedule routing group."));
             }
@@ -258,8 +280,13 @@ export const orderRoutingStore = defineStore('orderRouting', {
             method: "GET"
           });
 
-          if (Object.keys(getResp?.data).length) {
-            this.setCurrentGroup(getResp.data, false);
+          const savedGroup = !commonUtil.hasError(getResp)
+            ? markRoutingGroupHydrated(getResp?.data, routingGroupId)
+            : null;
+          if (savedGroup) {
+            await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup: savedGroup });
+            await this.setCurrentGroup(normalizeRoutingGroupHierarchy(savedGroup), false);
+            return this.currentGroup;
           } else {
             throw "Error getting saved routing group";
           }
@@ -276,7 +303,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async fetchCurrentGroupSchedule(payload: any) {
       const currentGroup = payload.currentGroup as any
-      if (currentGroup.isNew) return;
+      if (currentGroup.isNew || !currentGroup.jobName) return currentGroup;
       try {
         const resp = await api({
           url: `order-routing/groups/${payload.routingGroupId}/schedule`,
@@ -284,11 +311,15 @@ export const orderRoutingStore = defineStore('orderRouting', {
         });
         if(!commonUtil.hasError(resp) && resp.data?.schedule) {
           currentGroup["schedule"] = resp.data.schedule
+          // Readback delivers backend truth, so mirror it into a matching baseline too (schedule
+          // only — see adoptCommittedSchedule; this never absorbs a user draft the way a full
+          // setCurrentGroup(..., false) would).
+          this.adoptCommittedSchedule(payload.routingGroupId, resp.data.schedule)
         } else {
           throw resp.data
         }
       } catch(err) {
-        logger.error(err);
+        if (!isMissingScheduleResponse(err)) logger.error(err);
       }
       // Do NOT setCurrentGroup(..., false) here. This runs on every editor mount (via
       // fetchGroupSchedule) and the payload's currentGroup is the LIVE store working copy by
@@ -297,9 +328,18 @@ export const orderRoutingStore = defineStore('orderRouting', {
       // "Saved". The schedule is mutated in place above (reactive on the live object). The genuine
       // backend-load caller (fetchCurrentRoutingGroup) does its own setCurrentGroup(..., false) right
       // after this returns, so a fresh load still captures the baseline correctly.
+      return currentGroup;
     },
     async fetchRoutingGroupDetail(routingGroupId: string): Promise<any> {
       let group = (this.groups || []).find((g: any) => g.routingGroupId === routingGroupId);
+      if (group?.isNew) {
+        return normalizeRoutingGroupHierarchy({
+          ...group,
+          routings: Array.isArray(group.routings) ? group.routings : [],
+          isRoutingGroupDetailLoaded: true
+        });
+      }
+
       if (!group?.isNew) {
         let resp;
         try {
@@ -308,32 +348,81 @@ export const orderRoutingStore = defineStore('orderRouting', {
             method: "GET",
           });
         } catch (err) {
-          if (group) return normalizeRoutingGroupHierarchy({ ...group });
+          // A list row (or an old persisted value with routings: []) is not a
+          // detail fallback. Only a value carrying the raw-hydration marker is.
+          if (isHydratedRoutingGroup(group, routingGroupId)) {
+            return normalizeRoutingGroupHierarchy(clone(group));
+          }
           throw err;
         }
-        if (!commonUtil.hasError(resp) && resp.data && typeof resp.data === "object" && !Array.isArray(resp.data)) {
-          group = resp.data;
-        } else if (group) {
-          group = { ...group, routings: [] };
-        } else {
+        const rawGroup = !commonUtil.hasError(resp)
+          ? markRoutingGroupHydrated(resp?.data, routingGroupId)
+          : null;
+        if (!rawGroup) {
           throw resp?.data;
         }
+        group = rawGroup;
       }
       return normalizeRoutingGroupHierarchy(group);
     },
     async fetchCurrentRoutingGroup(routingGroupId: any) {
-      let currentGroup = {} as any
+      const persistedCurrentGroup = this.currentGroup;
+      const sameGroup = persistedCurrentGroup?.routingGroupId === routingGroupId;
+      const trustedDirtyDraft = sameGroup
+        && persistedCurrentGroup?.hasUnsavedChanges
+        && isHydratedRoutingGroup(persistedCurrentGroup, routingGroupId);
+      const trustedBaseline = isHydratedRoutingGroup(this.baseline, routingGroupId);
+
+      if (sameGroup && persistedCurrentGroup?.isNew) {
+        // New groups exist only in the local working copy until their first Save.
+        // Keep them dirty and do not manufacture a server baseline.
+        this.currentGroup = {
+          ...persistedCurrentGroup,
+          routings: Array.isArray(persistedCurrentGroup.routings) ? persistedCurrentGroup.routings : [],
+          isRoutingGroupDetailLoaded: true,
+          hasUnsavedChanges: true
+        };
+        this.baseline = {};
+        return this.currentGroup;
+      }
+
+      if (trustedDirtyDraft && trustedBaseline) return this.currentGroup;
+
+      let currentGroup = {} as any;
       try {
-        if (this.currentGroup && this.currentGroup.routingGroupId === routingGroupId && Array.isArray(this.currentGroup.routings)) {
-          return;
-        }
         currentGroup = await this.fetchRoutingGroupDetail(routingGroupId)
       } catch(err) {
         logger.error(err);
+        throw err;
+      }
+
+      if (currentGroup?.isNew) {
+        this.currentGroup = {
+          ...currentGroup,
+          routings: Array.isArray(currentGroup.routings) ? currentGroup.routings : [],
+          isRoutingGroupDetailLoaded: true,
+          hasUnsavedChanges: true
+        };
+        this.baseline = {};
+        return this.currentGroup;
       }
 
       await this.fetchCurrentGroupSchedule({ routingGroupId, currentGroup })
-      this.setCurrentGroup(currentGroup, false);
+      await this.setCurrentGroup(currentGroup, false);
+
+      if (trustedDirtyDraft) {
+        // Schema migration case: the raw-hydrated working copy is trustworthy but
+        // its persisted baseline predates baseline persistence. Establish the fresh
+        // server baseline, then restore the draft rather than discarding user edits.
+        await this.setCurrentGroup({
+          ...currentGroup,
+          ...clone(persistedCurrentGroup),
+          schedule: currentGroup.schedule,
+          isRoutingGroupDetailLoaded: true
+        }, true);
+      }
+
+      return this.currentGroup;
     },
     async setCurrentGroup(currentGroup: any, hasUnsavedChanges = true) {
       this.currentGroup = { ...currentGroup, hasUnsavedChanges };
@@ -656,6 +745,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async clearRouting() {
       this.groups = []
       this.currentGroup = {}
+      this.baseline = {}
       this.currentRoutingId = ""
       this.currentRuleId = ""
       this.routingHistory = {}
@@ -672,8 +762,20 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     // Discard the working copy's uncommitted edits by resetting it to the server-pristine baseline.
     discardChanges() {
-      if (!this.baseline?.routingGroupId) return;
-      this.setCurrentGroup(JSON.parse(JSON.stringify(this.baseline)), false);
+      const routingGroupId = this.currentGroup?.routingGroupId;
+      if (!routingGroupId) return false;
+      if (this.currentGroup?.isNew) {
+        this.groups = this.groups.filter((group: any) => group.routingGroupId !== routingGroupId);
+        this.currentGroup = {};
+        this.baseline = {};
+        this.currentRoutingId = "";
+        this.currentRuleId = "";
+        this.routingHistory = {};
+        return true;
+      }
+      if (!isHydratedRoutingGroup(this.baseline, routingGroupId)) return false;
+      this.setCurrentGroup(clone(this.baseline), false);
+      return true;
     },
     async clearCurrentRoutingAndRule() {
       this.currentRoutingId = "";
@@ -729,6 +831,22 @@ export const orderRoutingStore = defineStore('orderRouting', {
         data: payload
       });
     },
+    adoptCommittedSchedule(routingGroupId: string, schedule: any) {
+      // A schedule accepted by the backend is committed state by definition — schedule edits POST
+      // immediately and are never part of the draftable working copy. Mirror it into the matching
+      // baseline (schedule + jobName only; every other field and the dirty flag stay untouched) so
+      // a later Discard of unrelated edits cannot rebind the UI to the stale pre-save schedule.
+      if (!schedule || !routingGroupId) return;
+      const committed = JSON.parse(JSON.stringify(schedule));
+      if (this.currentGroup?.routingGroupId === routingGroupId) {
+        this.currentGroup.schedule = committed;
+        if (committed.jobName) this.currentGroup.jobName = committed.jobName;
+      }
+      if (isHydratedRoutingGroup(this.baseline, routingGroupId)) {
+        this.baseline.schedule = JSON.parse(JSON.stringify(committed));
+        if (committed.jobName) this.baseline.jobName = committed.jobName;
+      }
+    },
     async cloneRule(payload: any): Promise<any> {
       try {
         const currentGroup = JSON.parse(JSON.stringify(this.currentGroup))
@@ -777,12 +895,27 @@ export const orderRoutingStore = defineStore('orderRouting', {
     },
     async cloneGroup(payload: any): Promise<any> {
       try {
-        const sourceGroup = this.groups.find((g: any) => g.routingGroupId === payload.routingGroupId);
+        // Clone is only offered from the loaded, clean editor, so the hydrated working copy is the
+        // authoritative source; list rows are summaries and may carry no routings at all.
+        const sourceGroup = this.currentGroup?.routingGroupId === payload.routingGroupId
+          ? this.currentGroup
+          : this.groups.find((g: any) => g.routingGroupId === payload.routingGroupId);
         if (sourceGroup) {
           const newGroupId = uuidv4();
           const clonedGroup = JSON.parse(JSON.stringify(sourceGroup));
           clonedGroup.routingGroupId = newGroupId;
           clonedGroup.groupName = payload.newGroupName || `${sourceGroup.groupName || 'Group'} copy`;
+          // A clone exists only locally until its first Save. isNew routes detail loads to this row
+          // instead of a guaranteed backend miss on the client uuid, and makes the first save strip
+          // the uuid and every child id copied from the source so the backend assigns fresh ones.
+          clonedGroup.isNew = true;
+          clonedGroup.hasUnsavedChanges = true;
+          clonedGroup.routings = Array.isArray(clonedGroup.routings) ? clonedGroup.routings : [];
+          // The source's schedule and job belong to the source group's server-side job; a clone
+          // starts unscheduled and gets its own job when the user schedules it after saving.
+          delete clonedGroup.jobName;
+          delete clonedGroup.schedule;
+          delete clonedGroup.runTime;
           this.groups.push(clonedGroup);
           return { data: { routingGroupId: newGroupId } };
         }

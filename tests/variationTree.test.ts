@@ -2,9 +2,10 @@
 import assert from "node:assert";
 import {
   isPlaceholder, sortBySequence, stripVariationPrefix, buildRoutingNameMap, nextSeqId,
-} from "../src/util/variationUtils";
+} from "../src/utils/variationUtils";
 import type { VariationTree } from "../src/types/variation";
 
+it("normalizes and inspects variation trees", () => {
 // isPlaceholder: a condition with null operator AND null value is an unset placeholder.
 assert.strictEqual(isPlaceholder({ conditionSeqId: "04", fieldName: "orderDate", operator: null, fieldValue: null, sequenceNum: 0 }), true);
 assert.strictEqual(isPlaceholder({ conditionSeqId: "06", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "POS_SALES_CHANNEL", sequenceNum: 0 }), false);
@@ -35,3 +36,4 @@ assert.strictEqual(nextSeqId([], "conditionSeqId"), "01");
 assert.strictEqual(nextSeqId([{ actionSeqId: "09" }], "actionSeqId"), "10");
 
 console.log("variationTree tests passed");
+});

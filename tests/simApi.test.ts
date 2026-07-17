@@ -1,59 +1,99 @@
-// tests/simApi.test.ts — simRequest() uses client() + OMS Bearer token so sim 401s never fire the
-// global logout interceptor.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const client = vi.fn();
 const api = vi.fn();
+const client = vi.fn();
+
 vi.mock("@common", () => ({
-  client: (...a: any[]) => client(...a),
-  api: (...a: any[]) => api(...a),
-  commonUtil: { getToken: () => "oms-token-xyz", hasError: (r: any) => r?._error === true },
-  logger: { warn: () => {}, error: () => {} },
+  api: (...args: any[]) => api(...args),
+  client: (...args: any[]) => client(...args),
+  commonUtil: {
+    getToken: () => "oms-token",
+    hasError: (response: any) => response?._error === true,
+  },
 }));
 
-import { simRequest } from "../src/services/SimulationService";
+vi.mock("@/utils/simConfig", () => ({
+  simApiBaseUrl: () => "https://sim.example/rest/s1/",
+}));
 
-const BASE = "https://asb-sim-uat.hotwax.io/rest/s1/order-routing";
+import { submitBatch } from "../src/services/SimulationService";
+import { runVariation } from "../src/services/VariationService";
+import { simApi } from "../src/services/SimApiService";
 
-describe("simRequest", () => {
-  afterEach(() => { client.mockReset(); api.mockReset(); vi.unstubAllEnvs(); });
+describe("SimulationService API contract", () => {
+  afterEach(() => {
+    api.mockReset();
+    client.mockReset();
+  });
 
-  it("uses client() (not api()) so sim 401s don't fire the global logout interceptor", async () => {
-    client.mockResolvedValue({ data: { ok: true } });
+  it("submits through the isolated simulation client at the trusted base URL", async () => {
+    client.mockResolvedValue({ data: { jobId: "JOB-1" } });
 
-    await simRequest({ url: "facilities", method: "GET", baseURL: BASE });
+    await expect(submitBatch({
+      routingGroupId: "GROUP-1",
+      variants: [{ label: "Closer stores", parameterOverrides: {}, routingDeltas: [] }],
+      sampleCap: 500,
+    })).resolves.toBe("JOB-1");
 
-    expect(client).toHaveBeenCalledTimes(1);
+    expect(client).toHaveBeenCalledWith({
+      url: "sim-routing/routingGroups/GROUP-1/brokeringSimulation/jobs",
+      method: "POST",
+      baseURL: "https://sim.example/rest/s1/",
+      headers: {
+        Authorization: "Bearer oms-token",
+        "Content-Type": "application/json",
+      },
+      data: {
+        variants: [{ label: "Closer stores", parameterOverrides: {}, routingDeltas: [] }],
+        sampleCap: 500,
+      },
+    });
     expect(api).not.toHaveBeenCalled();
   });
 
-  it("attaches OMS Bearer token from commonUtil.getToken()", async () => {
+  it("omits an unset sample cap and rejects malformed success responses", async () => {
     client.mockResolvedValue({ data: {} });
 
-    await simRequest({ url: "facilities", method: "GET", baseURL: BASE });
+    await expect(submitBatch({ routingGroupId: "GROUP-1", variants: [] }))
+      .rejects.toThrow("Failed to submit simulation batch");
 
-    const cfg = client.mock.calls[0][0];
-    expect(cfg.headers?.Authorization).toBe("Bearer oms-token-xyz");
+    expect(client.mock.calls[0][0].data).toEqual({ variants: [] });
   });
 
-  it("passes through url, method, baseURL, and params unchanged", async () => {
-    client.mockResolvedValue({ data: {} });
-    const cfg = { url: "brokeringSimulations", method: "GET", baseURL: BASE, params: { pageSize: 10 } };
-    await simRequest(cfg);
+  it("rejects backend error responses", async () => {
+    client.mockResolvedValue({ _error: true, data: { error: "unavailable" } });
 
-    const called = client.mock.calls[0][0];
-    expect(called.url).toBe(cfg.url);
-    expect(called.method).toBe(cfg.method);
-    expect(called.baseURL).toBe(cfg.baseURL);
-    expect(called.params).toEqual(cfg.params);
+    await expect(submitBatch({ routingGroupId: "GROUP-1", variants: [] }))
+      .rejects.toThrow("Failed to submit simulation batch");
   });
 
-  it("merges caller headers with the Bearer token", async () => {
-    client.mockResolvedValue({ data: {} });
-    await simRequest({ url: "x", method: "POST", baseURL: BASE, headers: { "X-Custom": "val" } });
+  it("keeps a simulation-host 401 isolated from the shared OMS API client", async () => {
+    client.mockRejectedValue(Object.assign(new Error("denied"), { response: { status: 401 } }));
 
-    const cfg = client.mock.calls[0][0];
-    expect(cfg.headers?.["X-Custom"]).toBe("val");
-    expect(cfg.headers?.Authorization).toBe("Bearer oms-token-xyz");
+    await expect(submitBatch({ routingGroupId: "GROUP-1", variants: [] }))
+      .rejects.toThrow("denied");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it("forwards the variation timeout and AbortSignal to the isolated client", async () => {
+    const controller = new AbortController();
+    client.mockResolvedValue({ data: { groupRunResult: { routingGroupId: "V1", routingResults: [] } } });
+
+    await runVariation("V1", 500, controller.signal);
+
+    expect(client).toHaveBeenCalledWith(expect.objectContaining({
+      timeout: 10 * 60_000,
+      signal: controller.signal,
+      url: "sim-routing/variations/V1/simulation",
+    }));
+  });
+
+  it("refuses an absolute or root-escaping URL before attaching the OMS token", async () => {
+    await expect(simApi({ url: "https://untrusted.example/collect", method: "POST" }))
+      .rejects.toThrow("relative to the configured simulation REST root");
+    await expect(simApi({ url: "../admin/users", method: "GET" }))
+      .rejects.toThrow("relative to the configured simulation REST root");
+    expect(client).not.toHaveBeenCalled();
   });
 });

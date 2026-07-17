@@ -23,7 +23,7 @@
             <p>{{ testRoutingInfo.currentOrder.orderId }}</p>
           </ion-label>
         </ion-item>
-        <ion-item lines="none" button @click="updateCurrentOrder()">
+        <ion-item lines="none" button :disabled="mutationInFlight" @click="updateCurrentOrder()">
           <ion-label>{{ translate("Try another order") }}</ion-label>
           <ion-icon :icon="searchOutline"/>
         </ion-item>
@@ -37,7 +37,7 @@
 
       <div class="ship-groups ion-margin">
         <div class="order-group">
-          <ion-button class="ion-margin-horizontal" v-if="testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered" @click="resetOrder()">
+          <ion-button class="ion-margin-horizontal" v-if="testRoutingInfo.isOrderBrokered" :disabled="!hasVerifiedSession || mutationInFlight" @click="resetOrder()">
             <ion-icon slot="start" :icon="arrowUndoOutline" />
             {{ translate("Reset order") }}
           </ion-button>
@@ -66,10 +66,17 @@
               <ion-badge slot="end" :color="commonUtil.getColorByDesc(item.orderItemStatusDesc)">{{ item.orderItemStatusDesc }}</ion-badge>
             </ion-item>
           </ion-card>
-          <ion-button v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage" @click="brokerOrder()">
+          <ion-button
+            v-if="!(testRoutingInfo.isOrderBrokered || testRoutingInfo.isOrderAlreadyBrokered) && currentShipGroup[0]?.shipGroupSeqId && !testRoutingInfo.errorMessage"
+            :disabled="!hasVerifiedSession || mutationInFlight"
+            @click="brokerOrder()"
+          >
             <ion-icon slot="start" :icon="compassOutline" />
             {{ translate("Broker Order") }}
           </ion-button>
+          <ion-note v-if="!hasVerifiedSession" color="danger">
+            {{ translate("Test Drive is unavailable because a testing session could not be verified.") }}
+          </ion-note>
         </div>
       </div>
     </template>
@@ -87,6 +94,7 @@ import { computed, onMounted, ref } from "vue";
 import { logger, emitter, translate, commonUtil } from "@common";
 import Image from "@/components/Image.vue"
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
+import { verifiedTestDriveSessionId } from "@/utils/testDriveSession";
 
 const props = defineProps({
   routingRuleId: {
@@ -112,6 +120,9 @@ const props = defineProps({
     required: false
   }
 })
+const emit = defineEmits<{
+  (event: "mutationState", inFlight: boolean): void;
+}>();
 
 onMounted(() => {
   if(testRoutingInfo.value.currentOrderId) {
@@ -122,6 +133,7 @@ onMounted(() => {
 
 let queryString = ref("")
 let orders = ref([]) as any
+const mutationInFlight = ref(false)
 
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
@@ -133,6 +145,18 @@ const getProductStock = computed(() => (productId: string, facilityId: string) =
 const shippingMethods = computed(() => productStore().getShippingMethods)
 const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
+const verifiedSessionId = computed(() => verifiedTestDriveSessionId(props.userTestingSession))
+const hasVerifiedSession = computed(() => Boolean(verifiedSessionId.value))
+const routingProductStoreId = computed(() => props.routingGroup?.productStoreId || currentEComStore.value?.productStoreId || "")
+
+function currentVerifiedSessionId() {
+  return verifiedTestDriveSessionId(props.userTestingSession, Date.now());
+}
+
+function setMutationInFlight(value: boolean) {
+  mutationInFlight.value = value;
+  emit("mutationState", value);
+}
 
 async function searchOrders(orderId = "") {
   const searchedQuery = orderId ? orderId : queryString.value.trim()
@@ -146,12 +170,21 @@ async function searchOrders(orderId = "") {
   }
 
   emitter.emit("presentLoader", { message: "Searching orders...", backdropDismiss: false })
-  const resp = await orderRoutingStore().findOrder(searchedQuery, orderId) as any;
+  const resp = await (orderRoutingStore().findOrder as any)(searchedQuery, orderId, routingProductStoreId.value) as any;
 
   if(resp.errorMessage) {
-    await orderRoutingStore().updateRoutingTestInfo( [
-      { key: "errorMessage", value: resp.errorMessage }
-    ])
+    const updates = [{ key: "errorMessage", value: resp.errorMessage }];
+    if (orderId) {
+      updates.push(
+        { key: "currentOrder", value: {} },
+        { key: "currentOrderId", value: "" },
+        { key: "currentShipGroupId", value: "" },
+        { key: "isOrderBrokered", value: false },
+        { key: "brokeringRoute", value: "" },
+        { key: "brokeringRule", value: "" }
+      );
+    }
+    await orderRoutingStore().updateRoutingTestInfo(updates)
   } else {
     orders.value = resp.orders
 
@@ -164,6 +197,7 @@ async function searchOrders(orderId = "") {
 }
 
 async function updateCurrentOrder(order?: any) {
+  if (mutationInFlight.value) return;
   if(order?.orderId) {
     await orderRoutingStore().updateRoutingTestInfo( [
       { key: "currentOrder", value: order },
@@ -176,7 +210,7 @@ async function updateCurrentOrder(order?: any) {
   }
 
   // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
-  if(!testRoutingInfo.value.isOrderAlreadyBrokered && testRoutingInfo.value.brokeringRoute) {
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && (testRoutingInfo.value.isOrderBrokered || testRoutingInfo.value.brokeringRoute)) {
     const alert = await alertController
       .create({
         header: translate("Reset order before leaving"),
@@ -344,14 +378,21 @@ function checkOrderBrokeringPossibility() {
 }
 
 async function brokerOrder() {
+  const sessionId = currentVerifiedSessionId();
+  if (!sessionId) {
+    commonUtil.showToast(translate("Test Drive is unavailable because a testing session could not be verified."));
+    return false;
+  }
+  if (mutationInFlight.value) return false;
+  setMutationInFlight(true);
   emitter.emit("presentLoader", { message: "Brokering order...", backdropDismiss: false })
   try {
     const payload = {
       routingGroupId: props.routingGroupId,
       orderId: testRoutingInfo.value.currentOrderId,
       shipGroupSeqId: testRoutingInfo.value.currentShipGroupId,
-      productStoreId: currentEComStore.value.productStoreId,
-      testDriveSessionId: (props.userTestingSession as any)?.userSessionId
+      productStoreId: routingProductStoreId.value,
+      testDriveSessionId: sessionId
     } as any
 
     if(props.orderRoutingId) {
@@ -366,7 +407,13 @@ async function brokerOrder() {
 
     // If group has attempted the brokering for the order then it means brokering is success, otherwise displaying the error message
     if(!commonUtil.hasError(resp) && resp.data.attemptedItemCount) {
-      getOrderBrokeringInfo(true);
+      const resetRequired = Number(resp.data.brokeredItemCount ?? resp.data.attemptedItemCount) > 0;
+      if (resetRequired) {
+        // Establish the reset obligation before the secondary history read. A transient history
+        // failure must never make a committed allocation safe to abandon.
+        await orderRoutingStore().updateRoutingTestInfo([{ key: "isOrderBrokered", value: true }]);
+      }
+      await getOrderBrokeringInfo(true);
     } else {
       throw resp.data;
     }
@@ -385,6 +432,8 @@ async function brokerOrder() {
   ])
 
   emitter.emit("dismissLoader")
+  setMutationInFlight(false);
+  return true;
 }
 
 async function getOrderBrokeringInfo(updateOrderInfo = false) {
@@ -460,24 +509,51 @@ async function getOrderBrokeringInfo(updateOrderInfo = false) {
 }
 
 async function resetOrder() {
+  const sessionId = currentVerifiedSessionId();
+  if (!sessionId) {
+    commonUtil.showToast(translate("Test Drive is unavailable because a testing session could not be verified."));
+    return false;
+  }
+  if (mutationInFlight.value) return false;
+
+  const alert = await alertController.create({
+    header: translate("Reset tested order?"),
+    message: translate("Resetting changes live OMS inventory allocation. Continue only after verifying this is the tested order."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      { text: translate("Reset order"), role: "destructive" }
+    ]
+  });
+  await alert.present();
+  const { role } = await alert.onDidDismiss();
+  if (role !== "destructive") return false;
+
+  setMutationInFlight(true);
   emitter.emit("presentLoader", { message: "Resetting order...", backdropDismiss: false })
   try {
+    const requestedItems = currentShipGroup.value.map((item: any) => ({
+      facilityId: item.facilityId,
+      shipmentMethodTypeId: item.shipmentMethodTypeId,
+      quantity: item.quantity,
+      orderItemSeqId: item.orderItemSeqId,
+      toFacilityId: item.fromFacilityId ?? "_NA_",
+      recordVariance: "N",
+      rejectReason: "NO_VARIANCE_LOG"
+    }));
     let resp = await orderRoutingStore().resetOrder({
       orderId: testRoutingInfo.value.currentOrderId,
+      testDriveSessionId: sessionId,
       notify: false,
-      items: currentShipGroup.value.map((item: any) => ({
-        facilityId: item.facilityId,
-        shipmentMethodTypeId: item.shipmentMethodTypeId,
-        quantity: item.quantity,
-        orderItemSeqId: item.orderItemSeqId,
-        toFacilityId: item.fromFacilityId ?? "_NA_",
-        recordVariance: "N",
-        rejectReason: "NO_VARIANCE_LOG"
-      }))
+      items: requestedItems
     })
 
     // TODO: handle error cases, currently success and error are in the same `messages` property hence having issue in differentiating between the two
-    if(!commonUtil.hasError(resp) && resp.data?.rejectedItemsList?.length) {
+    const rejectedItems = Array.isArray(resp?.data?.rejectedItemsList) ? resp.data.rejectedItemsList : [];
+    const resetOrderItemIds = new Set(rejectedItems.map((item: any) => String(item.orderItemSeqId || "")));
+    const requestedOrderItemIds = new Set(requestedItems.map((item: any) => String(item.orderItemSeqId || "")));
+    const resetCoveredEveryItem = requestedOrderItemIds.size > 0
+      && [...requestedOrderItemIds].every((orderItemSeqId) => resetOrderItemIds.has(orderItemSeqId));
+    if(!commonUtil.hasError(resp) && resetCoveredEveryItem) {
       await orderRoutingStore().updateRoutingTestInfo( [
         { key: "brokeringRoute", value: "" },
         { key: "brokeringRule", value: "" },
@@ -506,6 +582,8 @@ async function resetOrder() {
   }
 
   emitter.emit("dismissLoader")
+  setMutationInFlight(false);
+  return !testRoutingInfo.value.isOrderBrokered;
 }
 </script>
 

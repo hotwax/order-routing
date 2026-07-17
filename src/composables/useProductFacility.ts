@@ -12,6 +12,13 @@ interface ProductFacility {
   maximumStock: string;
   inventoryItemId: string;
   isChecked: boolean;
+  inventoryConfig?: {
+    atp?: string | number | null;
+    qoh?: string | number | null;
+    minimumStock?: string | number | null;
+    allowPickup?: string | null;
+    allowBrokering?: string | null;
+  };
 }
 
 const productFacility: Ref<ProductFacility[]> = ref([] as ProductFacility[])

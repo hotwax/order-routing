@@ -1,37 +1,55 @@
 <template>
-  <div v-if="isLoadingGroup && !group?.routingGroupId" class="canvas-loading">
+  <div v-if="(isLoadingGroup && !group?.routingGroupId) || sandboxReferenceLoading" class="canvas-loading">
     <ion-spinner name="crescent" />
   </div>
-  <div class="routing-group-editor" v-else-if="group?.routingGroupId">
+  <div v-else-if="sandboxReferenceError" class="empty-state-canvas" role="alert">
+    <div class="empty-state-content">
+      <div class="empty-content-wrapper">
+        <div class="icon-container">
+          <ion-icon :icon="gitNetworkOutline" />
+        </div>
+        <h2>{{ translate("Simulation reference data unavailable") }}</h2>
+        <p class="description">{{ simReferences.loadError || translate("Simulation reference data could not be loaded completely.") }}</p>
+      </div>
+    </div>
+  </div>
+  <div
+    class="routing-group-editor"
+    :class="{ 'interaction-locked': interactionLocked }"
+    :aria-busy="interactionLocked"
+    v-else-if="group?.routingGroupId"
+    @click.capture="guardLockedInteraction"
+    @keydown.capture="guardLockedInteraction"
+  >
     <!-- Routing Group Column -->
     <div class="routing-group">
       <ion-card class="info">
         <div>
           <ion-card-header>
             <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
-            <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
+            <ion-input v-if="!isSandbox" ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName" @ionInput="hasUnsavedChanges = true"></ion-input>
             <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
             <p v-show="!isDescUpdating && group.description" class="group-description">{{ group.description }}</p>
-            <ion-textarea v-show="isDescUpdating" ref="descRef" class="group-description-input" aria-label="description" :auto-grow="true" v-model="description" @keydown.enter.exact.prevent="updateGroupDescription()"></ion-textarea>
+            <ion-textarea v-if="!isSandbox" v-show="isDescUpdating" ref="descRef" class="group-description-input" aria-label="description" :auto-grow="true" v-model="description" @ionInput="hasUnsavedChanges = true" @keydown.enter.exact.prevent="updateGroupDescription()"></ion-textarea>
           </ion-card-header>
           <div class="ion-padding">
-            <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
+            <ion-button v-if="!isSandbox" v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
               <ion-icon slot="start" :icon="pencilOutline" />
               {{ translate("Rename") }}
             </ion-button>
-            <ion-button v-show="isGroupNameUpdating" fill="outline" size="small" @click="updateGroupName()">
+            <ion-button v-if="!isSandbox" v-show="isGroupNameUpdating" fill="outline" size="small" @click="updateGroupName()">
               <ion-icon slot="start" :icon="saveOutline" />
               {{ translate("Save") }}
             </ion-button>
-            <ion-button v-show="!isDescUpdating" fill="outline" size="small" @click="editGroupDescription()">
+            <ion-button v-if="!isSandbox" v-show="!isDescUpdating" fill="outline" size="small" @click="editGroupDescription()">
               <ion-icon slot="start" :icon="group.description ? pencilOutline : addCircleOutline" />
               {{ group.description ? translate("Edit description") : translate("Add description") }}
             </ion-button>
-            <ion-button v-show="isDescUpdating" fill="outline" size="small" @click="updateGroupDescription()">
+            <ion-button v-if="!isSandbox" v-show="isDescUpdating" fill="outline" size="small" @click="updateGroupDescription()">
               <ion-icon slot="start" :icon="saveOutline" />
               {{ translate("Save description") }}
             </ion-button>
-            <ion-button v-if="!isSandbox" fill="outline" size="small" @click="cloneGroup()">
+            <ion-button v-if="!isSandbox" fill="outline" size="small" :disabled="liveActionsBlocked" @click="cloneGroup()">
               <ion-icon slot="start" :icon="copyOutline" />
               {{ translate("Clone") }}
             </ion-button>
@@ -48,7 +66,7 @@
           </ion-item>
           <ion-item v-if="!isSandbox" lines="none">
             <ion-icon slot="start" :icon="pulseOutline" />
-            <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
+            <ion-select :label="translate('Status')" label-placement="stacked" interface="popover" :interface-options="{ subHeader: translate('Status') }" :disabled="liveActionsBlocked" :value="job.paused || 'Y'" @ionChange="updateGroupStatus($event)">
               <ion-select-option value="N">{{ translate("Active") }}</ion-select-option>
               <ion-select-option value="Y">{{ translate("Draft") }}</ion-select-option>
             </ion-select>
@@ -63,7 +81,7 @@
               <ion-card-subtitle>{{ translate("Scheduler") }}</ion-card-subtitle>
               <ion-card-title>{{ getCronString() || translate("No schedule") }}</ion-card-title>
             </div>
-            <ion-button fill="outline" size="small" color="medium" @click="openScheduleModal()">
+            <ion-button fill="outline" size="small" color="medium" :disabled="liveActionsBlocked" @click="openScheduleModal()">
               <ion-icon slot="start" :icon="timerOutline" />
               {{ job?.cronExpression ? translate("Edit schedule") : translate("Add schedule") }}
             </ion-button>
@@ -74,7 +92,7 @@
           <p v-else>{{ translate("Next run") }} -</p>
         </ion-card-content>
         <ion-item lines="none">
-          <ion-button fill="outline" color="dark" slot="start" @click="runNow()">{{ translate("Run now") }}</ion-button>
+          <ion-button fill="outline" color="dark" slot="start" :disabled="liveActionsBlocked" @click="runNow()">{{ translate("Run now") }}</ion-button>
           <ion-button fill="clear" color="medium" slot="end" @click="showGroupHistory()">
             <ion-icon slot="start" :icon="timeOutline" />
             {{ translate("History") }}
@@ -82,7 +100,7 @@
         </ion-item>
       </ion-card>
 
-      <ion-card v-if="!isSandbox && !userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+      <ion-card v-if="!isSandbox && testDriveEnabled && userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
         <ion-card-header>
           <ion-card-subtitle>{{ translate("Test drive") }}</ion-card-subtitle>
         </ion-card-header>
@@ -90,7 +108,7 @@
           {{ translate("Test drive your routing group to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
         </ion-card-content>
         <ion-item lines="none">
-          <ion-button fill="outline" expand="block" :disabled="hasUnsavedChanges" @click="router.push(`/order-routing/${group.routingGroupId}/test`)">
+          <ion-button fill="outline" expand="block" :disabled="liveActionsBlocked" @click="router.push(`/order-routing/${group.routingGroupId}/test`)">
             <ion-icon slot="start" :icon="speedometerOutline" />
             {{ translate("Test drive") }}
           </ion-button>
@@ -165,7 +183,7 @@
           <ion-label>
             <p>{{ getRouteIndex() }}</p>
             <h1 v-show="!isRouteNameUpdating">{{ activeRouting?.routingName }}</h1>
-            <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName"></ion-input>
+            <ion-input ref="routeNameRef" :class="isRouteNameUpdating ? 'name' : ''" v-show="isRouteNameUpdating" aria-label="route name" v-model="routeName" @ionInput="hasUnsavedChanges = true"></ion-input>
           </ion-label>
         </ion-item>
         <div class="actions">
@@ -187,7 +205,7 @@
         </ion-item>
         <ion-item class="status" lines="none">
           <ion-icon slot="start" :icon="pulseOutline" />
-          <ion-select :label="translate('Status')" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateRoutingStatus($event.detail.value)">
+          <ion-select :label="translate('Status')" label-placement="stacked" interface="popover" :interface-options="{ subHeader: translate('Status') }" :value="routingStatus" @ionChange="updateRoutingStatus($event.detail.value)">
             <ion-select-option value="ROUTING_ACTIVE">{{ translate("Active") }}</ion-select-option>
             <ion-select-option value="ROUTING_DRAFT">{{ translate("Draft") }}</ion-select-option>
             <ion-select-option value="ROUTING_ARCHIVED">{{ translate("Archive") }}</ion-select-option>
@@ -196,21 +214,27 @@
       </ion-card>
       <div class="config">
         <section class="condition">
-          <ion-item-group>
-            <ion-item-divider color="light">
-              <ion-label>{{ translate("Filters") }}</ion-label>
+          <RoutingConfigSectionCard
+            :card="routeFiltersSectionCard"
+            :dirty="isOrderConditionCardDirty('ENTCT_FILTER')"
+            :show-context="false"
+          >
+            <template #header-actions>
               <ion-button size="default" v-if="orderRoutingFilterOptions && Object.keys(orderRoutingFilterOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                </ion-button>
-            </ion-item-divider>
-            <p class="empty-state" v-if="!orderRoutingFilterOptions || !Object.keys(orderRoutingFilterOptions).length">
+              </ion-button>
+            </template>
+            <template #empty>
+            <p class="empty-state">
               {{ translate("All orders in all parkings will be attempted if no filter is applied.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                   {{ translate("Add filters") }}
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')">
+            </template>
+            <template #item="{ item }">
+            <ion-item v-if="item.target.endsWith('.PROD_CATEGORY')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY', true)">
                 <div slot="label">
                   {{ translate("Product Category") }}
@@ -218,7 +242,7 @@
                 <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.PROD_CATEGORY_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('product category')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROD_CATEGORY_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'PROD_CATEGORY_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate("Product Category") }}</ion-label>
@@ -227,7 +251,7 @@
                 <ion-select-option v-for="(category, productCategoryId) in catalogCategories" :key="productCategoryId" :value="productCategoryId">{{ category.categoryName || productCategoryId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')">
+            <ion-item v-else-if="item.target.endsWith('.QUEUE')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE', true)">
                 <div slot="label">
                   {{ translate("Queue") }}
@@ -235,7 +259,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.QUEUE_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('queue')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'QUEUE_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'QUEUE_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate("Queue") }}</ion-label>
@@ -244,7 +268,7 @@
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')">
+            <ion-item v-else-if="item.target.endsWith('.SHIPPING_METHOD')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD', true)">
                 <div slot="label">
                   {{ translate("Shipping method") }}
@@ -252,7 +276,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.SHIPPING_METHOD_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('shipping method')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SHIPPING_METHOD_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SHIPPING_METHOD_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Shipping method') }}</ion-label>
@@ -261,7 +285,7 @@
                 <ion-select-option v-for="(shippingMethod, shippingMethodId) in shippingMethods" :key="shippingMethodId" :value="shippingMethodId">{{ shippingMethod.description || shippingMethodId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY')">
+            <ion-item v-else-if="item.target.endsWith('.PRIORITY')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY')">
                 <div slot="label">
                   {{ translate("Order priority") }}
@@ -271,7 +295,7 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.PRIORITY_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('priority')" interface="popover" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PRIORITY_EXCLUDED').fieldValue" @ionChange="updateOrderFilterValue($event, 'PRIORITY_EXCLUDED')">
                 <div slot="label">
                   <ion-label>{{ translate('Order priority') }}</ion-label>
@@ -282,20 +306,20 @@
                 <ion-select-option value="Low">{{ translate("Low") }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE')">
+            <ion-item v-else-if="item.target.endsWith('.PROMISE_DATE')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-chip outline @click="selectPromiseFilterValue($event)">
                 {{ getPromiseDateValue() }}
               </ion-chip>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'PROMISE_DATE_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.PROMISE_DATE_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate("Promise date") }}</ion-label>
               <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
               <ion-chip outline @click="selectPromiseFilterValue($event, 'excluded')">
-                {{ getPromiseDateValue() }}
+                {{ getPromiseDateValue("excluded") }}
               </ion-chip>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')">
+            <ion-item v-else-if="item.target.endsWith('.SALES_CHANNEL')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL', true)">
                 <div slot="label">
                   {{ translate("Sales Channel") }}
@@ -303,7 +327,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.SALES_CHANNEL_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('sales channel')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'SALES_CHANNEL_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'SALES_CHANNEL_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Sales Channel') }}</ion-label>
@@ -312,7 +336,7 @@
                 <ion-select-option v-for="(enumInfo, enumId) in enums['ORDER_SALES_CHANNEL']" :key="enumId" :value="enumId">{{ enumInfo.description || enumInfo.enumId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')">
+            <ion-item v-else-if="item.target.endsWith('.ORIGIN_FACILITY_GROUP')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP', true)">
                 <div slot="label">
                   {{ translate("Origin Facility Group") }}
@@ -320,7 +344,7 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.ORIGIN_FACILITY_GROUP_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select multiple :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED')" :value="getFilterValue(orderRoutingFilterOptions, ruleEnums, 'ORIGIN_FACILITY_GROUP_EXCLUDED').fieldValue?.split(',')" @ionChange="updateOrderFilterValue($event, 'ORIGIN_FACILITY_GROUP_EXCLUDED', true)">
                 <div slot="label">
                   <ion-label>{{ translate('Origin Facility Group') }}</ion-label>
@@ -329,28 +353,36 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in facilityGroups" :key="facilityGroupId" :value="facilityGroupId">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-          </ion-item-group>
-          <ion-item-group>
-            <ion-item-divider color="light">
-              <ion-label>{{ translate("Sort") }}</ion-label>
+            </template>
+          </RoutingConfigSectionCard>
+          <RoutingConfigSectionCard
+            :card="routeSortSectionCard"
+            :dirty="isOrderConditionCardDirty('ENTCT_SORT_BY')"
+            reorderable
+            :show-context="false"
+            @reorder="doRouteSortReorder"
+          >
+            <template #header-actions>
               <ion-button size="default" v-if="orderRoutingSortOptions && Object.keys(orderRoutingSortOptions).length" slot="end" fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   <ion-icon slot="icon-only" :icon="optionsOutline"/>
-                </ion-button>
-            </ion-item-divider>
-            <p class="empty-state" v-if="!orderRoutingSortOptions || !Object.keys(orderRoutingSortOptions).length">
+              </ion-button>
+            </template>
+            <template #empty>
+            <p class="empty-state">
               {{ translate("Orders will be brokered based on order date if no sorting is specified.") }}
               <ion-button fill="clear" @click="addOrderRouteFilterOptions('ORD_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                   {{ translate("Add sorting") }}
                   <ion-icon slot="end" :icon="optionsOutline"/>
                 </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doRouteSortReorder($event)" :disabled="false">
-              <ion-item v-for="(sort, code) in orderRoutingSortOptions" :key="code">
-                <ion-label>{{ getLabel("ORD_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
+            </template>
+            <template #item="{ item }">
+              <ion-item :class="{ 'dirty-setting-row': item.dirty }">
+                <ion-label>{{ item.label }}</ion-label>
                 <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
-            </ion-reorder-group>
-          </ion-item-group>
+            </template>
+          </RoutingConfigSectionCard>
         </section>
         <section class="rules">
           <ion-list>
@@ -359,11 +391,31 @@
             </ion-list-header>
               
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
-              <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="ruleKey(rule)" :disabled="isReordering" :color="ruleKey(rule) === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
+              <ion-item
+                class="rule-item"
+                :class="{ 'dirty-row': isRuleDirty(rule) }"
+                lines="full"
+                v-for="rule in rulesForReorder"
+                :key="ruleKey(rule)"
+                :disabled="isReordering"
+                :color="ruleKey(rule) === activeRuleId ? 'light' : ''"
+                @click="selectRule(rule)"
+                button
+              >
                 <ion-label>
                   {{ rule.ruleName }}
-                  <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
+                  <p
+                    class="rule-status"
+                    :class="{
+                      active: rule.statusId === 'RULE_ACTIVE',
+                      archived: rule.statusId === 'RULE_ARCHIVED',
+                      draft: rule.statusId !== 'RULE_ACTIVE' && rule.statusId !== 'RULE_ARCHIVED'
+                    }"
+                  >
+                    {{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}
+                  </p>
                 </ion-label>
+                <ion-note v-if="isRuleDirty(rule)" slot="end" color="warning">{{ translate("Changed") }}</ion-note>
                 <!-- Don't display reordering option when there is a single rule -->
                 <ion-reorder v-show="rulesForReorder.length > 1" @pointerdown="isReordering = true" />
               </ion-item>
@@ -383,7 +435,7 @@
 
     <!-- Routing Rules Column -->
     <div class="routing-rule" v-if="activeRouting?.orderRoutingId">
-      <div v-if="activeRule?.routingRuleId">
+      <div v-if="ruleKey(activeRule)">
         <ion-card class="summary">
           <ion-item class="title" lines="none">
             <ion-label>
@@ -391,17 +443,17 @@
               <h1 v-show="!isRuleNameUpdating">{{ selectedRoutingRule.ruleName }}</h1>
             </ion-label>
             <!-- Added class as we can't change the background of ion-input with css property, and we need to change the background to show the user that now this value is editable -->
-            <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="selectedRoutingRule.ruleName"></ion-input>
+            <ion-input ref="ruleNameRef" :class="isRuleNameUpdating ? 'name' : ''" v-show="isRuleNameUpdating" aria-label="rule name" v-model="ruleName" @ionInput="hasUnsavedChanges = true"></ion-input>
           </ion-item>
           <div class="actions">
-            <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(selectedRoutingRule.routingRuleId) : editRuleName()" fill="outline">
+            <ion-button size="small" @click="isRuleNameUpdating ? updateRuleName(ruleKey(selectedRoutingRule)) : editRuleName()" fill="outline">
               <ion-icon slot="start" :icon="isRuleNameUpdating ? saveOutline : pencilOutline" />
               {{ isRuleNameUpdating ? translate("Save") : translate("Rename") }}
             </ion-button>
           </div>
           <ion-item lines="none" class="status">
             <ion-icon slot="start" :icon="pulseOutline" />
-            <ion-select :label="translate('Status')" interface="popover" :value="getRuleStatus(selectedRoutingRule.routingRuleId)" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, selectedRoutingRule.routingRuleId)">
+            <ion-select :label="translate('Status')" label-placement="stacked" interface="popover" :value="getRuleStatus(ruleKey(selectedRoutingRule))" :interface-options="{ subHeader: translate('Status') }" @ionChange="updateRuleStatus($event, ruleKey(selectedRoutingRule))">
               <ion-select-option value="RULE_ACTIVE">{{ translate("Active") }}</ion-select-option>
               <ion-select-option value="RULE_DRAFT">{{ translate("Draft") }}</ion-select-option>
               <ion-select-option value="RULE_ARCHIVED">{{ translate("Archived") }}</ion-select-option>
@@ -409,17 +461,19 @@
           </ion-item>
         </ion-card>
         <section class="config">
-          <ion-card class="filter">
-            <ion-item lines="none">
-              <ion-icon slot="start" :icon="filterOutline"/>
-              <ion-label>
-                <h2>{{ translate("Filters") }}</h2>
-              </ion-label>
+          <RoutingConfigSectionCard
+            class="filter"
+            :card="ruleFiltersSectionCard"
+            :dirty="isRuleConditionCardDirty('ENTCT_FILTER')"
+            :show-context="false"
+          >
+            <template #header-actions>
               <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
-            </ion-item>
-            <p class="empty-state" v-if="!isInventoryRuleFiltersApplied()">
+            </template>
+            <template #empty>
+            <p class="empty-state">
               {{ translate("All facilities enabled for online fulfillment will be attempted for routing if no filter is applied.") }}<br /><br />
               <span><a target="_blank" rel="noopener noreferrer" href="https://docs.hotwax.co/documents/v/system-admins/administration/facilities/configure-fulfillment">{{ translate("Learn more") }}</a>{{ translate(" about enabling a facility for online fulfillment.") }}</span>
               <ion-button fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
@@ -427,12 +481,14 @@
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP')">
+            </template>
+            <template #item="{ item }">
+            <ion-item v-if="item.target.endsWith('.FACILITY_GROUP')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')">
+            <ion-item v-else-if="item.target.endsWith('.FACILITY_GROUP_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
                 <div slot="label">
                   <ion-label>{{ translate("Group") }}</ion-label>
@@ -441,7 +497,7 @@
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'excluded')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'PROXIMITY')">
+            <ion-item v-else-if="item.target.endsWith('.PROXIMITY')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate("Proximity") }}</ion-label>
               <div>
                 <ion-chip outline @click.stop="chipClickEvent(measurementRef)">
@@ -453,7 +509,7 @@
                 <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
               </div>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
+            <ion-item v-else-if="item.target.endsWith('.BRK_SAFETY_STOCK')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate("Safety stock") }}</ion-label>
               <div>
                 <ion-chip outline @click.stop="chipClickEvent(operatorRef)">
@@ -466,74 +522,85 @@
               </div>
             </ion-item>
 
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
+            <ion-item v-else-if="item.target.endsWith('.FACILITY_ORDER_LIMIT')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
                 <ion-label class="ion-text-wrap">
                   {{ translate("Turn off the facility order limit check") }}
                 </ion-label>
               </ion-toggle>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIP_THRESHOLD')">
+            <ion-item v-else-if="item.target.endsWith('.SHIP_THRESHOLD')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('SHIP_THRESHOLD', 'Add shipment threshold check')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIP_THRESHOLD").fieldValue : "-" }}</ion-chip>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'WOS')">
+            <ion-item v-else-if="item.target.endsWith('.WOS')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate('Week of Supply') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
             </ion-item>
-          </ion-card>
-          <ion-card class="sort">
-            <ion-item lines="none">
-              <ion-icon slot="start" :icon="swapVerticalOutline"/>
-              <ion-label>
-                <h2>{{ translate("Sort") }}</h2>
-              </ion-label>
+            </template>
+          </RoutingConfigSectionCard>
+          <RoutingConfigSectionCard
+            class="sort"
+            :card="ruleSortSectionCard"
+            :dirty="isRuleConditionCardDirty('ENTCT_SORT_BY')"
+            reorderable
+            :show-context="false"
+            @reorder="doConditionSortReorder"
+          >
+            <template #header-actions>
               <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
               </ion-button>
-            </ion-item>
-            <p class="empty-state" v-if="!inventoryRuleSortOptions || !Object.keys(inventoryRuleSortOptions).length">
+            </template>
+            <template #empty>
+            <p class="empty-state">
               {{ translate("Facilities will be sorted based on creation date if no sorting preferences are applied.") }}
               <ion-button fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                 {{ translate("Add sorting") }}
                 <ion-icon slot="end" :icon="optionsOutline"/>
               </ion-button>
             </p>
-            <ion-reorder-group @ionItemReorder="doConditionSortReorder($event)" :disabled="false">
-              <ion-item v-for="(sort, code) in inventoryRuleSortOptions" :key="code">
-                <ion-label>{{ getLabel("INV_SORT_PARAM_TYPE", String(code)) || code }}</ion-label>
+            </template>
+            <template #item="{ item }">
+              <ion-item :class="{ 'dirty-setting-row': item.dirty }">
+                <ion-label>{{ item.label }}</ion-label>
                 <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
-            </ion-reorder-group>
-          </ion-card>
-          <ion-card class="split">
-            <ion-card-header>
-              <ion-card-title>
-                {{ translate("Partially available") }}
-              </ion-card-title>
-            </ion-card-header>
+            </template>
+          </RoutingConfigSectionCard>
+          <RoutingConfigSectionCard
+            class="split"
+            :card="partialSectionCard"
+            :dirty="isPartialAvailabilityDirty()"
+            :show-context="false"
+          >
+            <template #before-items>
             <ion-card-content>
               {{ translate("Select if partial allocation should be allowed in this routing rule") }}
             </ion-card-content>
-            <ion-item lines="none">
-              <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="activeRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
-            </ion-item>
             <ion-item v-show="isPromiseDateFilterApplied()" lines="none">
               <ion-label class="ion-text-wrap">
                 <p>{{ translate("Partial allocation cannot be disabled. Orders are filtered by item when filtering by promise date.") }}</p>
               </ion-label>
             </ion-item>
-            <ion-item lines="none">
+            </template>
+            <template #item="{ item }">
+            <ion-item v-if="item.target === 'selectedRule.partialAllocation'" lines="none" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-toggle :disabled="isPromiseDateFilterApplied()" :checked="activeRule.assignmentEnumId === 'ORA_MULTI'" @ionChange="updatePartialAllocation($event.detail.checked)">{{ translate("Allow partial allocation") }}</ion-toggle>
+            </ion-item>
+            <ion-item v-else lines="none" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-toggle :disabled="activeRule.assignmentEnumId !== 'ORA_MULTI' && !isPromiseDateFilterApplied()" :checked="isPartialGroupItemsAllocationActive()" @ionChange="updatePartialGroupItemsAllocation($event.detail.checked)">{{ translate("Partially allocate grouped items") }}</ion-toggle>
             </ion-item>
-          </ion-card>
-          <ion-card class="unavailable">
-            <ion-card-header>
-              <ion-card-title>
-                {{ translate("Unavailable items") }}
-              </ion-card-title>
-            </ion-card-header>
-            <ion-item lines="none">
+            </template>
+          </RoutingConfigSectionCard>
+          <RoutingConfigSectionCard
+            class="unavailable"
+            :card="unavailableSectionCard"
+            :dirty="isUnavailableItemsDirty()"
+            :show-context="false"
+          >
+            <template #item="{ item }">
+            <ion-item v-if="item.target === 'selectedRule.unavailableItemsAction'" lines="none" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('action')" :label="translate('Move items to')" interface="popover" :value="ruleActionType" @ionChange="updateUnfillableActionType($event.detail.value)">
                 <ion-select-option :value="actionEnums['NEXT_RULE'].id">
                   {{ translate("Next rule") }}
@@ -545,15 +612,15 @@
                 </ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item lines="none" v-show="ruleActionType === actionEnums['MOVE_TO_QUEUE'].id">
+            <ion-item v-else-if="item.target === 'selectedRule.unavailableItemsQueueId'" lines="none" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-select :placeholder="translate('queue')" :label="translate('Queue')" interface="popover" :value="inventoryRuleActions[ruleActionType]?.actionValue" @ionChange="updateRuleActionValue($event.detail.value)">
                 <ion-select-option v-for="(facility, facilityId) in facilities" :key="facilityId" :value="facilityId">{{ facility.facilityName || facilityId }}</ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item lines="none">
+            <ion-item v-else-if="item.target === 'selectedRule.clearAutoCancelDays'" lines="none" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-toggle :checked="JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)" @ionChange="clearAutoCancelDays($event.detail.checked)">{{ translate("Clear auto cancel days") }}</ion-toggle>
             </ion-item>
-            <ion-item lines="none" v-show="!JSON.parse(inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue ? inventoryRuleActions[actionEnums['RM_AUTO_CANCEL_DATE'].id]?.actionValue : false)">
+            <ion-item v-else lines="none" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate("Auto cancel days") }}</ion-label>
               <ion-chip outline @click="updateAutoCancelDays()">
                 <template v-if="inventoryRuleActions[actionEnums['AUTO_CANCEL_DAYS'].id]?.actionValue">
@@ -565,7 +632,8 @@
                 </template>
               </ion-chip>
             </ion-item>
-          </ion-card>
+            </template>
+          </RoutingConfigSectionCard>
         </section>
       </div>
     </div>
@@ -583,7 +651,7 @@
         <h2>{{ translate("No routing selected") }}</h2>
         <p class="description">{{ translate("Select a routing from the list to view its details and manage routing rules.") }}</p>
 
-        <div class="action-prompt">
+        <div v-if="draftAssistantEnabled" class="action-prompt">
           <ion-icon :icon="sparklesOutline" />
           <p>{{ translate("Ask the assistant to help you create or modify rules") }}</p>
         </div>
@@ -616,6 +684,7 @@ import {
   IonReorderGroup,
   IonSelect,
   IonSelectOption,
+  IonTextarea,
   IonToggle,
   IonFab,
   IonFabButton,
@@ -655,6 +724,7 @@ import { productStore } from '@/store/productStore';
 import { useUserStore } from '@/store/userStore';
 import { useUtilStore } from '@/store/utilStore';
 import { simulationStore, registerWorkingFlushHook } from '@/store/simulationStore';
+import { useSimReferenceStore } from '@/store/simReferenceStore';
 import { translate, emitter, logger, commonUtil } from '@common';
 import AddOrderRouteFilterOptions from "@/components/AddOrderRouteFilterOptions.vue"
 import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
@@ -668,11 +738,43 @@ import GroupHistoryModal from "@/components/GroupHistoryModal.vue"
 import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
+import RoutingConfigSectionCard from "@/components/circuit/RoutingConfigSectionCard.vue";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
+import {
+  RoutingPageOperationGuard,
+  type RoutingPageOperationIdentity
+} from "@/utils/routingPageOperationGuard";
 import type { DraftConversationMessage, DraftProposal } from "@/types/draft";
+import { buildCircuitProposalContextCards } from "@/utils/circuitProposalContext";
+import type { RoutingConfigSection } from "@/types/routingConfigSection";
+import { routingConfigTargetLabel } from "@/utils/routingConfigSection";
 import { buildRoutingRulesBindings, buildRoutingRulesManifest } from "@/utils/routingRulesManifest";
 import { buildRoutingAgentSnapshot } from "@/composables/useRoutingAgentSnapshot";
-import { useCreateRouting } from "@/composables/useCreateRouting";
+import {
+  DEFAULT_ACTION_ENUMS,
+  DEFAULT_CONDITION_FILTER_ENUMS,
+  DEFAULT_CONDITION_SORT_ENUMS,
+  DEFAULT_RULE_ENUMS,
+  parseRoutingEditorEnvJson
+} from "@/utils/routingEditorEnv";
+import { isFeatureEnabled } from "@/utils/simConfig";
+import {
+  applyPendingRoutingInlineEdits,
+  applyRoutingProposalPreview,
+  canonicalRoutingEditorRoute,
+  isRoutingRuleDraftDirty,
+  prepareRoutingGroupSaveCommit,
+  projectRuleForEditor,
+  replaceWorkingEntry,
+  routingEditorReferenceMaps,
+  routingEditorCodeLabel,
+  routingGroupScheduleWorkingCopy,
+  routingWorkingKey,
+  ruleWorkingKey,
+  settleRoutingEditorDiscard,
+  serializeRoutingWorkingCopy,
+  serializeRuleWorkingCopy
+} from "@/utils/routingWorkingCopy";
 
 const props = defineProps({
   routingGroupId: {
@@ -683,6 +785,10 @@ const props = defineProps({
   // NO backend writes, instead of the live routing group. Set true when editing a variation
   // (or on the Simulation page). All live-persistence sites are guarded on !isSandbox.
   sandbox: {
+    type: Boolean,
+    default: false
+  },
+  interactionLocked: {
     type: Boolean,
     default: false
   }
@@ -698,6 +804,99 @@ const product = productStore();
 const userStore = useUserStore();
 const utilStore = useUtilStore();
 const sim = simulationStore();
+const simReferences = useSimReferenceStore();
+const draftAssistantEnabled = isFeatureEnabled("draftAssistant");
+const testDriveEnabled = isFeatureEnabled("testDrive");
+
+// These descriptors are the stable UI identity for each routing JSON section. The canvas supplies
+// editable controls through the shared card's slot; Circuit supplies a normalized JSON slice to the
+// same component in read-only mode.
+const routeFiltersSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:route:filters",
+  eyebrow: "Routing",
+  title: "Filters",
+  kind: "filters",
+  items: routingSectionItems(
+    orderRoutingFilterOptions.value,
+    ruleEnums,
+    "ORD_FILTER_PRM_TYPE",
+    "route.orderFilters",
+    "filters",
+    (code, parameter) => isOrderConditionCodeDirty("ENTCT_FILTER", code)
+      || isOrderConditionDirty("ENTCT_FILTER", parameter)
+  )
+}));
+const routeSortSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:route:sort",
+  eyebrow: "Routing",
+  title: "Sort",
+  kind: "sort",
+  items: routingSectionItems(
+    orderRoutingSortOptions.value,
+    ruleEnums,
+    "ORD_SORT_PARAM_TYPE",
+    "route.orderSorts",
+    "sort",
+    (code) => isOrderConditionCodeDirty("ENTCT_SORT_BY", code)
+  )
+}));
+const ruleFiltersSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:rule:filters",
+  eyebrow: "Routing rule",
+  title: "Filters",
+  kind: "filters",
+  items: routingSectionItems(
+    inventoryRuleFilterOptions.value,
+    conditionFilterEnums,
+    "INV_FILTER_PRM_TYPE",
+    "selectedRule.inventoryFilters",
+    "filters",
+    (code, parameter) => isRuleConditionCodeDirty("ENTCT_FILTER", code)
+      || isRuleConditionDirty("ENTCT_FILTER", parameter)
+      || (parameter === "PROXIMITY" && isRuleConditionDirty("ENTCT_FILTER", "MEASUREMENT_SYSTEM"))
+  ).filter((item) => !item.target.endsWith(".SPLIT_ITEM_GROUP") && !item.target.endsWith(".MEASUREMENT_SYSTEM"))
+}));
+const ruleSortSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:rule:sort",
+  eyebrow: "Routing rule",
+  title: "Sort",
+  kind: "sort",
+  items: routingSectionItems(
+    inventoryRuleSortOptions.value,
+    conditionSortEnums,
+    "INV_SORT_PARAM_TYPE",
+    "selectedRule.inventorySorts",
+    "sort",
+    (code) => isRuleConditionCodeDirty("ENTCT_SORT_BY", code)
+  )
+}));
+const partialSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:rule:partial",
+  eyebrow: "Routing rule",
+  title: "Partially available",
+  kind: "partial",
+  items: [
+    {
+      target: "selectedRule.partialAllocation",
+      label: "Allow partial allocation",
+      value: activeRule.value?.assignmentEnumId === "ORA_MULTI" ? "Enabled" : "Disabled",
+      dirty: isPartialAllocationDirty()
+    },
+    {
+      target: "selectedRule.partialGroupItemsAllocation",
+      label: "Partially allocate grouped items",
+      value: isPartialGroupItemsAllocationActive() ? "Enabled" : "Disabled",
+      dirty: isPartialGroupItemsAllocationDirty()
+    }
+  ]
+}));
+const unavailableSectionCard = computed<RoutingConfigSection>(() => ({
+  key: "canvas:rule:unavailable",
+  eyebrow: "Routing rule",
+  title: "Unavailable items",
+  kind: "unavailable",
+  items: unavailableSectionItems()
+}));
 
 // Single source of truth for "should edits stay in the in-memory working copy instead of
 // persisting to the live backend". Every backend-write site is guarded on !isSandbox.value.
@@ -710,6 +909,7 @@ const activeRuleId = ref('');
 const activeRouting = ref(null) as any;
 const initialActiveRouting = ref(null) as any;
 const activeRule = ref(null) as any;
+const ruleName = ref("");
 
 const orderRoutingFilterOptions = ref({}) as any;
 const orderRoutingSortOptions = ref({}) as any;
@@ -727,9 +927,16 @@ const initialRulesInformation = ref({}) as any;
 // Sandbox only: monotonic counter backing the client _tempId of rules/routings added to a
 // variation working copy (persisted entities use their backend id; new ones need a stable key).
 let tempIdCounter = 0;
-const actionEnums = JSON.parse(import.meta.env.VITE_RULE_ACTION_ENUMS as string || '{}');
-const conditionFilterEnums = JSON.parse(import.meta.env.VITE_RULE_FILTER_ENUMS as string || '{}');
-const conditionSortEnums = JSON.parse(import.meta.env.VITE_RULE_SORT_ENUMS as string || '{}');
+function createClientUuid() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (token) => {
+    const random = Math.floor(Math.random() * 16);
+    return (token === "x" ? random : (random & 0x3) | 0x8).toString(16);
+  });
+}
+const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS as string | undefined, DEFAULT_ACTION_ENUMS);
+const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS as string | undefined, DEFAULT_CONDITION_FILTER_ENUMS);
+const conditionSortEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_SORT_ENUMS as string | undefined, DEFAULT_CONDITION_SORT_ENUMS);
 
 const groupName = ref("");
 const isGroupNameUpdating = ref(false);
@@ -742,13 +949,31 @@ const isReordering = ref(false);
 const job = ref({}) as any;
 const groupHistory = ref([]) as any;
 
-const ruleEnums = JSON.parse(import.meta.env.VITE_RULE_ENUMS as string || '{}');
+const ruleEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ENUMS as string | undefined, DEFAULT_RULE_ENUMS);
 
-const facilities = computed(() => product.getVirtualFacilities);
-const enums = computed(() => utilStore.getEnums);
-const shippingMethods = computed(() => product.getShippingMethods);
-const facilityGroups = computed(() => product.getFacilityGroups);
-const brokeringFacilityGroups = computed(() => product.getFacilityGroups); // Assuming brokering uses same for now or similar
+const editorReferenceMaps = computed(() => routingEditorReferenceMaps(
+  isSandbox.value,
+  {
+    facilities: simReferences.getVirtualFacilities,
+    facilityGroups: simReferences.getFacilityGroups,
+    shippingMethods: simReferences.getShippingMethods,
+    salesChannels: simReferences.getSalesChannels
+  },
+  {
+    facilities: product.getVirtualFacilities,
+    facilityGroups: product.getFacilityGroups,
+    shippingMethods: product.getShippingMethods,
+    salesChannels: utilStore.getEnums?.ORDER_SALES_CHANNEL || {},
+    catalogCategories: (utilStore.getCatalogCategories || {}) as Record<string, any>
+  }
+));
+const facilities = computed(() => editorReferenceMaps.value.facilities);
+const enums = computed(() => isSandbox.value
+  ? { ORDER_SALES_CHANNEL: editorReferenceMaps.value.salesChannels }
+  : utilStore.getEnums);
+const shippingMethods = computed(() => editorReferenceMaps.value.shippingMethods);
+const facilityGroups = computed(() => editorReferenceMaps.value.facilityGroups);
+const brokeringFacilityGroups = computed(() => editorReferenceMaps.value.facilityGroups);
 const routingHistory = computed(() => routingStore.getRoutingHistory)
 const userProfile = computed(() => userStore.getUserProfile)
 
@@ -757,10 +982,12 @@ const measurementRef = ref()
 
 const currentRoutingGroup: any = computed(() => routingStore.getCurrentRoutingGroup)
 
-const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
+// The simulation API has no status-description endpoint. Use a local display-only label there while
+// keeping live OMS status descriptions authoritative outside the sandbox.
+const getStatusDesc = computed(() => (id: string) => isSandbox.value ? translate(routingEditorCodeLabel(id)) : utilStore.getStatusDesc(id))
 const routingStatus = computed(() => activeRouting.value?.statusId)
 const selectedRoutingRule = computed(() => activeRule.value || {})
-const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => rule.routingRuleId == ruleId)?.statusId)
+const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => ruleKey(rule) === ruleId)?.statusId)
 
 function isInventoryRuleFiltersApplied() {
   const ruleFilters = Object.keys(inventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"]?.code);
@@ -774,6 +1001,12 @@ type CircuitDraftProposal = DraftProposal & {
 };
 
 async function prepareDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
+  if (!draftAssistantEnabled) {
+    return {
+      proposal: null,
+      message: translate("Draft assistant is unavailable for this deployment.")
+    };
+  }
   if (!activeRouting.value?.orderRoutingId) {
     return {
       proposal: null,
@@ -781,7 +1014,12 @@ async function prepareDraftProposal(prompt: string, conversationHistory: DraftCo
     };
   }
 
+  const proposalContext = captureProposalContext();
+  // Fold the visible projection into the selected working copy before building either an inquiry or
+  // edit manifest. In sandbox mode this is sim.working; no live routing-store write is involved.
+  flushEditorDraft();
   const manifest = await buildCircuitDraftManifest();
+  assertCurrentProposalContext(proposalContext);
   circuitStore.setLastPrompt({
     prompt,
     conversationHistory,
@@ -789,6 +1027,7 @@ async function prepareDraftProposal(prompt: string, conversationHistory: DraftCo
     outputContract: manifest.outputContract
   });
   const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
+  assertCurrentProposalContext(proposalContext);
   const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)
     ? {
@@ -831,7 +1070,13 @@ async function prepareDraftProposal(prompt: string, conversationHistory: DraftCo
   };
 }
 
-async function applyDraftProposal(proposal: CircuitDraftProposal) {
+async function applyDraftProposal(proposal: CircuitDraftProposal, proposalContext = captureProposalContext()) {
+  if (!draftAssistantEnabled) {
+    return {
+      appliedCount: 0,
+      message: translate("Draft assistant is unavailable for this deployment.")
+    };
+  }
   if (!activeRouting.value?.orderRoutingId) {
     return {
       appliedCount: 0,
@@ -840,27 +1085,18 @@ async function applyDraftProposal(proposal: CircuitDraftProposal) {
   }
 
   const manifest = await buildCircuitDraftManifest();
+  assertCurrentProposalContext(proposalContext);
 
   const result = await DraftAssistantService.applyDraftProposal(proposal, manifest, {
     createSiblingRouting: async (name: string) => {
-      // Sandbox: a variation can't spawn a new live routing; signal "not created" so the draft
-      // apply skips the sibling and only applies rule/filter/action edits to the working copy.
+      assertCurrentProposalContext(proposalContext);
+      // Creating a sibling routing remains a live-only group operation. Variation manifests remove
+      // it before apply; this callback also fails closed if a provider returns it anyway.
       if (isSandbox.value) return "";
-      const existing = group.value?.routings || [];
-      const tail = existing[existing.length - 1];
-      const sequenceNum = tail?.sequenceNum >= 0 ? tail.sequenceNum + 5 : 0;
-      const newId = await routingStore.createOrderRouting({
-        orderRoutingId: "",
-        routingGroupId: routingGroupId.value || "",
-        statusId: "ROUTING_DRAFT",
-        routingName: name,
-        sequenceNum,
-        description: "",
-        createdDate: DateTime.now().toMillis()
-      });
-      return newId || "";
+      return stageNewRouting(name);
     },
     selectRouting: (id: string) => {
+      assertCurrentProposalContext(proposalContext);
       // Sandbox: resolve against the working copy, not live routingStore.currentGroup.
       group.value = isSandbox.value ? sim.working : routingStore.currentGroup;
       const created = group.value.routings?.find((r: any) => r.orderRoutingId === id);
@@ -869,7 +1105,11 @@ async function applyDraftProposal(proposal: CircuitDraftProposal) {
     buildBindings: () => buildCircuitDraftBindings()
   });
 
+  assertCurrentProposalContext(proposalContext);
   hasUnsavedChanges.value = true;
+  // The variation rail computes dirty state from sim.working, so publish the applied projection to
+  // that working tree immediately. Persistence still occurs only when the user chooses Update.
+  flushEditorDraft();
 
   const unansweredQuestions = [...(proposal.unansweredQuestions || []), ...result.unansweredQuestions];
 
@@ -893,29 +1133,55 @@ async function applyDraftProposal(proposal: CircuitDraftProposal) {
 // reversible transaction: before applying we snapshot every ref the apply can touch, so Reject can
 // restore the pre-proposal working state — preserving the user's own manual edits and reverting ONLY
 // the proposal. Accept simply drops the snapshot (the applied change stays in the working copy and
-// is committed/reverted later via the header Save/Discard). Live mode only — variation drafting is
-// server-gated and out of scope, so proposals are never applied to a sandbox working copy.
+// is committed/reverted later via live Save/Discard or variation Update/Reset).
 const proposalSnapshot = ref<any>(null);
 
 function cloneSnapshotValue(value: any) {
   return value === undefined || value === null ? value : JSON.parse(JSON.stringify(value));
 }
 
+type ProposalContextIdentity = {
+  sandbox: boolean;
+  routingGroupId: string;
+  variationId: string;
+  activationVersion: number;
+};
+
+function captureProposalContext(): ProposalContextIdentity {
+  return {
+    sandbox: isSandbox.value,
+    routingGroupId: String(routingGroupId.value || group.value?.routingGroupId || ""),
+    variationId: isSandbox.value ? String(sim.activeVariationId || "") : "",
+    activationVersion: visibleActivationVersion
+  };
+}
+
+function isCurrentProposalContext(context: ProposalContextIdentity): boolean {
+  return isVisibleEditor
+    && context.activationVersion === visibleActivationVersion
+    && context.sandbox === isSandbox.value
+    && context.routingGroupId === String(routingGroupId.value || group.value?.routingGroupId || "")
+    && (!context.sandbox || context.variationId === String(sim.activeVariationId || ""));
+}
+
+function assertCurrentProposalContext(context: ProposalContextIdentity): void {
+  if (!isCurrentProposalContext(context)) {
+    throw new DOMException("The routing context changed while Circuit was preparing changes.", "AbortError");
+  }
+}
+
 function captureProposalSnapshot() {
-  proposalSnapshot.value = {
-    // The store working copy (captures the routings list so a sibling routing the apply creates can
-    // be removed on reject).
-    currentGroup: cloneSnapshotValue(routingStore.currentGroup),
+  const context = captureProposalContext();
+  const editorState = {
+    context,
     hadUnsavedChanges: hasUnsavedChanges.value,
-    // The store's active-routing pointer. A newRouting proposal creates a sibling routing and selects
-    // it, which moves routingStore.currentRoutingId; store rule mutations (create/update/clone/delete)
-    // resolve their target routing through it, so it must be reverted in lockstep on reject.
-    currentRoutingId: routingStore.currentRoutingId,
     // Editor-local selection + the refs the draft bindings write to.
     activeRoutingId: activeRoutingId.value,
     activeRuleId: activeRuleId.value,
     routeName: routeName.value,
+    ruleName: ruleName.value,
     activeRouting: cloneSnapshotValue(activeRouting.value),
+    activeRule: cloneSnapshotValue(activeRule.value),
     initialActiveRouting: cloneSnapshotValue(initialActiveRouting.value),
     inventoryRules: cloneSnapshotValue(inventoryRules.value),
     rulesForReorder: cloneSnapshotValue(rulesForReorder.value),
@@ -928,25 +1194,51 @@ function captureProposalSnapshot() {
     inventoryRuleActions: cloneSnapshotValue(inventoryRuleActions.value),
     ruleActionType: ruleActionType.value
   };
+  proposalSnapshot.value = isSandbox.value
+    ? {
+        ...editorState,
+        // Snapshot only the active variation tree. Do not read or mutate orderRoutingStore.
+        simulationWorking: cloneSnapshotValue(sim.working)
+      }
+    : {
+        ...editorState,
+        // Live working copy + active routing pointer; live behavior remains unchanged.
+        currentGroup: cloneSnapshotValue(routingStore.currentGroup),
+        currentRoutingId: routingStore.currentRoutingId
+      };
+}
+
+function restoreObjectInPlace(target: any, snapshot: any) {
+  Object.keys(target || {}).forEach((key) => delete target[key]);
+  Object.assign(target, cloneSnapshotValue(snapshot) || {});
 }
 
 function restoreProposalSnapshot() {
   const snap = proposalSnapshot.value;
   if (!snap) return;
-  // Restore the store working copy WITHOUT recapturing the baseline (pass hasUnsavedChanges=true),
-  // then set the dirty flag back to what it was before the proposal. This undoes any sibling routing
-  // the apply created and never disturbs the last-saved baseline.
-  routingStore.setCurrentGroup(snap.currentGroup, true);
-  routingStore.setHasUnsavedChanges(snap.hadUnsavedChanges);
-  // Revert the store's active-routing pointer in lockstep so it can't dangle at a now-removed sibling
-  // routing (which would silently break subsequent add/update/clone rule store actions).
-  routingStore.setCurrentOrderRouting(snap.currentRoutingId || snap.activeRoutingId || "");
-  group.value = currentRoutingGroup.value;
-  // Restore editor-local refs verbatim. activeRouting/activeRule are re-pointed INTO the restored
-  // group/rulesInformation so later edits alias the working copy correctly.
+  proposalSnapshot.value = null;
+  // If a group/variation switch already replaced the authoritative copy, the old preview is stale
+  // and must not overwrite the new selection. Its old detached object will be discarded on remount.
+  if (!isCurrentProposalContext(snap.context)) return;
+
+  if (snap.context.sandbox) {
+    // Preserve the sim.working object identity so its authoritative-rebind watcher does not publish a
+    // false clean state. This path never reads or writes orderRoutingStore.
+    restoreObjectInPlace(sim.working, snap.simulationWorking);
+    group.value = sim.working;
+  } else {
+    // Restore the live working copy WITHOUT recapturing the baseline, then restore its routing pointer.
+    routingStore.setCurrentGroup(snap.currentGroup, true);
+    routingStore.setHasUnsavedChanges(snap.hadUnsavedChanges);
+    routingStore.setCurrentOrderRouting(snap.currentRoutingId || snap.activeRoutingId || "");
+    group.value = currentRoutingGroup.value;
+  }
+  // Restore editor-local projections verbatim; the raw group stays authoritative and is only
+  // changed by flushEditorDraft.
   activeRoutingId.value = snap.activeRoutingId;
   activeRuleId.value = snap.activeRuleId;
   routeName.value = snap.routeName;
+  ruleName.value = snap.ruleName || "";
   rulesInformation.value = snap.rulesInformation || {};
   initialRulesInformation.value = snap.initialRulesInformation || {};
   inventoryRules.value = snap.inventoryRules || [];
@@ -957,23 +1249,30 @@ function restoreProposalSnapshot() {
   inventoryRuleSortOptions.value = snap.inventoryRuleSortOptions || {};
   inventoryRuleActions.value = snap.inventoryRuleActions || {};
   ruleActionType.value = snap.ruleActionType;
-  activeRouting.value = (group.value.routings || []).find((r: any) => r.orderRoutingId === snap.activeRoutingId) || null;
+  activeRouting.value = snap.activeRouting || null;
   initialActiveRouting.value = snap.initialActiveRouting || null;
-  activeRule.value = snap.activeRuleId ? (rulesInformation.value[snap.activeRuleId] || null) : null;
+  activeRule.value = snap.activeRule || null;
   hasUnsavedChanges.value = snap.hadUnsavedChanges;
-  proposalSnapshot.value = null;
 }
 
 // Apply a proposal live to the canvas as a reversible transaction. If a proposal is already live
 // (undecided), revert it first so proposals never stack — each revision applies on top of the
 // user's manual working state, not on top of the previous proposal.
 async function previewDraftProposal(proposal: CircuitDraftProposal) {
-  if (isSandbox.value) {
-    return { appliedCount: 0, message: translate("Select a routing before drafting changes.") };
+  if (!draftAssistantEnabled) {
+    return {
+      appliedCount: 0,
+      message: translate("Draft assistant is unavailable for this deployment.")
+    };
   }
   if (proposalSnapshot.value) restoreProposalSnapshot();
-  captureProposalSnapshot();
-  return applyDraftProposal(proposal);
+  flushEditorDraft();
+  const proposalContext = captureProposalContext();
+  return applyRoutingProposalPreview(
+    captureProposalSnapshot,
+    () => applyDraftProposal(proposal, proposalContext),
+    restoreProposalSnapshot
+  );
 }
 
 // Keep the applied proposal in the working copy (stays dirty for the header Save/Discard). Drop the
@@ -1045,11 +1344,21 @@ function formatInquiryMessage(proposal: DraftProposal) {
 
 async function buildCircuitDraftManifest() {
   await Promise.all([
-    utilStore.fetchEnums({ productStoreId: group.value.productStoreId }),
+    utilStore.fetchRoutingEditorEnums(),
     utilStore.fetchStatusInformation()
   ])
   return buildRoutingRulesManifest({
-    pageRoute: "/circuit",
+    pageRoute: canonicalRoutingEditorRoute(routingGroupId.value || group.value.routingGroupId || ""),
+    assistantContext: isSandbox.value
+      ? {
+          mode: "variation",
+          variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || ""),
+          routingGroupId: String(group.value.routingGroupId || routingGroupId.value || "")
+        }
+      : {
+          mode: "live",
+          routingGroupId: String(group.value.routingGroupId || routingGroupId.value || "")
+        },
     orderRoutingId: activeRouting.value?.orderRoutingId || "",
     routingName: routeName.value,
     routingStatus: activeRouting.value?.statusId || "",
@@ -1079,7 +1388,7 @@ async function buildCircuitDraftManifest() {
     conditionFilterEnums,
     conditionSortEnums,
     actionEnums,
-    ...buildRoutingAgentSnapshot()
+    ...buildRoutingAgentSnapshot(editorReferenceMaps.value)
   });
 }
 
@@ -1089,6 +1398,12 @@ function getSelectedRuleDraftRef() {
       return activeRule.value || {};
     },
     set value(rule: any) {
+      const key = ruleWorkingKey(rule);
+      const persistedRule = inventoryRules.value.find((candidate: any) => ruleWorkingKey(candidate) === key);
+      if (key && persistedRule && !String(key).startsWith("new:") && !initialRulesInformation.value[key]) {
+        initialRulesInformation.value[key] = projectRuleForEditor(persistedRule);
+      }
+      activeRuleId.value = key;
       activeRule.value = rule;
     }
   };
@@ -1107,30 +1422,224 @@ function getRoutingStatusDraftRef() {
   };
 }
 
+function enumParameterForCode(enumerations: Record<string, any>, code: string) {
+  return Object.entries(enumerations)
+    .find(([, enumInfo]: [string, any]) => enumInfo?.code === code)?.[0] || code;
+}
+
+function conditionContextValue(
+  options: Record<string, any>,
+  enumerations: Record<string, any>,
+  parameter: string,
+  condition: any
+) {
+  const value = condition?.fieldValue;
+  if (parameter === "MEASUREMENT_SYSTEM") {
+    return value === "IMPERIAL" ? translate("miles") : value === "METRIC" ? translate("kms") : String(value ?? "");
+  }
+  if (value === true || value === "Y") return translate("Enabled");
+  if (value === false || value === "N") return translate("Disabled");
+  if (value === undefined || value === null || value === "") return "";
+  try {
+    return getSelectedValue(options, enumerations, parameter) || String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function proposalRuleKey(card: RoutingConfigSection) {
+  if (!card.key.startsWith("rule:")) return "";
+  const suffix = `:${card.kind}`;
+  return card.key.slice("rule:".length, card.key.endsWith(suffix) ? -suffix.length : undefined);
+}
+
+function currentRuleProjection(ruleKeyValue: string) {
+  if (ruleKeyValue === activeRuleId.value && activeRule.value) {
+    return {
+      ...cloneSnapshotValue(activeRule.value),
+      inventoryFilters: {
+        ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+        ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
+      },
+      actions: cloneSnapshotValue(inventoryRuleActions.value)
+    };
+  }
+  const stored = rulesInformation.value[ruleKeyValue];
+  if (stored) return stored;
+  const raw = inventoryRules.value.find((rule: any) => ruleWorkingKey(rule) === ruleKeyValue);
+  return raw ? projectRuleForEditor(raw) : null;
+}
+
+function proposalUnavailableItems(actions: Record<string, any>, changedTargets: Set<string>) {
+  const nextRuleId = actionEnums.NEXT_RULE?.id;
+  const moveToQueueId = actionEnums.MOVE_TO_QUEUE?.id;
+  const clearDaysId = actionEnums.RM_AUTO_CANCEL_DATE?.id;
+  const autoCancelDaysId = actionEnums.AUTO_CANCEL_DAYS?.id;
+  const moveToQueue = Boolean(moveToQueueId && actions?.[moveToQueueId]);
+  const clearDays = JSON.parse(actions?.[clearDaysId]?.actionValue || false);
+  const queueId = moveToQueue ? actions?.[moveToQueueId]?.actionValue : "";
+  return [
+    {
+      target: "selectedRule.unavailableItemsAction",
+      label: "Move items to",
+      value: moveToQueue ? "Queue" : nextRuleId && actions?.[nextRuleId] ? "Next rule" : "None",
+      dirty: changedTargets.has("selectedRule.unavailableItemsAction")
+    },
+    ...(moveToQueue ? [{
+      target: "selectedRule.unavailableItemsQueueId",
+      label: "Queue",
+      value: facilities.value[queueId]?.facilityName || String(queueId || ""),
+      dirty: changedTargets.has("selectedRule.unavailableItemsQueueId")
+    }] : []),
+    {
+      target: "selectedRule.clearAutoCancelDays",
+      label: "Clear auto cancel days",
+      value: clearDays ? "Enabled" : "Disabled",
+      dirty: changedTargets.has("selectedRule.clearAutoCancelDays")
+    },
+    ...(!clearDays ? [{
+      target: "selectedRule.autoCancelDays",
+      label: "Auto cancel days",
+      value: String(actions?.[autoCancelDaysId]?.actionValue || "select days"),
+      dirty: changedTargets.has("selectedRule.autoCancelDays")
+    }] : [])
+  ];
+}
+
+function getProposalContextCards(proposal: CircuitDraftProposal | null): RoutingConfigSection[] {
+  return buildCircuitProposalContextCards(proposal).map((card) => {
+    const isRuleCard = card.key.startsWith("rule:");
+    const ruleProjection = isRuleCard ? currentRuleProjection(proposalRuleKey(card)) : null;
+    const changedTargets = new Set(card.items.map((item) => item.target));
+
+    if (card.kind === "partial" && ruleProjection) {
+      const splitCode = conditionFilterEnums.SPLIT_ITEM_GROUP?.code;
+      const splitCondition = ruleProjection.inventoryFilters?.ENTCT_FILTER?.[splitCode];
+      return {
+        ...card,
+        items: [
+          {
+            target: "selectedRule.partialAllocation",
+            label: "Allow partial allocation",
+            value: ruleProjection.assignmentEnumId === "ORA_MULTI" ? "Enabled" : "Disabled",
+            dirty: changedTargets.has("selectedRule.partialAllocation")
+          },
+          {
+            target: "selectedRule.partialGroupItemsAllocation",
+            label: "Partially allocate grouped items",
+            value: splitCondition?.fieldValue === "Y" || splitCondition?.fieldValue === true ? "Enabled" : "Disabled",
+            dirty: changedTargets.has("selectedRule.partialGroupItemsAllocation")
+          }
+        ]
+      };
+    }
+
+    if (card.kind === "unavailable" && ruleProjection) {
+      return { ...card, items: proposalUnavailableItems(ruleProjection.actions || {}, changedTargets) };
+    }
+
+    if (card.kind !== "filters" && card.kind !== "sort") return card;
+
+    const options = card.kind === "filters"
+      ? isRuleCard ? ruleProjection?.inventoryFilters?.ENTCT_FILTER || {} : orderRoutingFilterOptions.value
+      : isRuleCard ? ruleProjection?.inventoryFilters?.ENTCT_SORT_BY || {} : orderRoutingSortOptions.value;
+    const enumerations = card.kind === "filters"
+      ? isRuleCard ? conditionFilterEnums : ruleEnums
+      : isRuleCard ? conditionSortEnums : ruleEnums;
+    const targetPrefix = card.kind === "filters"
+      ? isRuleCard ? "selectedRule.inventoryFilters" : "route.orderFilters"
+      : isRuleCard ? "selectedRule.inventorySorts" : "route.orderSorts";
+    const parentEnumId = card.kind === "filters"
+      ? isRuleCard ? "INV_FILTER_PRM_TYPE" : "ORD_FILTER_PRM_TYPE"
+      : isRuleCard ? "INV_SORT_PARAM_TYPE" : "ORD_SORT_PARAM_TYPE";
+    const items = routingSectionItems(
+      options,
+      enumerations,
+      parentEnumId,
+      targetPrefix,
+      card.kind,
+      (_code, parameter) => changedTargets.has(`${targetPrefix}.${parameter}`)
+        || (parameter === "PROXIMITY" && changedTargets.has(`${targetPrefix}.MEASUREMENT_SYSTEM`))
+    ).filter((item) => !isRuleCard || (
+      !item.target.endsWith(".SPLIT_ITEM_GROUP")
+      && !item.target.endsWith(".MEASUREMENT_SYSTEM")
+    ));
+
+    // A removal no longer exists in the current card options, but it still needs a visible changed
+    // row in the proposal card so the user can see what disappeared.
+    card.items.forEach((item) => {
+      if (!items.some((candidate) => candidate.target === item.target)) {
+        if (item.target.endsWith(".MEASUREMENT_SYSTEM")) return;
+        items.push(item);
+      }
+    });
+    return { ...card, items };
+  });
+}
+
 // Throw away the working copy's uncommitted edits and re-bind the editor to the server-pristine
 // baseline. Exposed so the host header's Discard control can trigger it. Live mode only.
-function discardChanges() {
-  if (isSandbox.value) return;
-  // Any undecided Circuit proposal is subsumed by the full reset — drop its stash.
+async function discardChanges(options: { navigate?: boolean } = {}) {
+  if (isSandbox.value) return false;
+  const navigate = options.navigate !== false;
+  const wasNew = Boolean(group.value?.isNew);
+  // Do not clear any local/proposal state unless the store proves that a compatible baseline exists.
+  if (!routingStore.discardChanges()) return false;
   proposalSnapshot.value = null;
-  // Restore the server-pristine baseline into the store working copy.
-  routingStore.discardChanges();
+  if (wasNew) {
+    group.value = {};
+    groupName.value = "";
+    description.value = "";
+    clearEditorSelection();
+    hasUnsavedChanges.value = false;
+    emit("dirtyChange", false);
+    if (navigate) {
+      await nextTick();
+      await router.replace("/order-routing");
+    }
+    return true;
+  }
   // Re-bind the editor's local refs from the restored group WITHOUT re-fetching: the reference
   // data, group history and schedule were already loaded on mount and don't change on a discard,
-  // and the baseline is already in memory. Keeping this synchronous means the confirm dialog
-  // dismisses immediately and the dirty flag clears at once (no network hang).
-  if (Object.keys(currentRoutingGroup.value).length) {
-    const prevRoutingId = activeRoutingId.value;
-    group.value = currentRoutingGroup.value;
-    groupName.value = group.value.groupName || "";
-    description.value = group.value.description || "";
-    if (group.value.schedule) job.value = group.value.schedule;
-    const routings = group.value.routings || [];
-    // Keep the user on the routing they were editing if it still exists; else fall back to the first.
-    const target = routings.find((r: any) => r.orderRoutingId === prevRoutingId) || routings[0];
-    if (target) selectRouting(target);
+  // and the baseline is already in memory. The only wait is for local queued control updates; no
+  // backend request is made by Discard.
+  discardRebindInProgress = true;
+  try {
+    await settleRoutingEditorDiscard(
+      () => {
+        if (!Object.keys(currentRoutingGroup.value).length) return;
+        const prevRoutingId = activeRoutingId.value;
+        group.value = currentRoutingGroup.value;
+        groupName.value = group.value.groupName || "";
+        description.value = group.value.description || "";
+        job.value = routingGroupScheduleWorkingCopy(group.value);
+        isGroupNameUpdating.value = false;
+        isDescUpdating.value = false;
+        isRouteNameUpdating.value = false;
+        isRuleNameUpdating.value = false;
+        const routings = group.value.routings || [];
+        // Keep the user on the routing they were editing if it still exists; else fall back to the first.
+        const target = routings.find((r: any) => r.orderRoutingId === prevRoutingId) || routings[0];
+        if (target) selectRouting(target, false);
+        else clearEditorSelection();
+      },
+      () => {
+        hasUnsavedChanges.value = false;
+        // A queued input/select event may have mirrored true back into the persisted store after
+        // discardChanges restored the baseline. Publish the clean commit again after rebind settles.
+        if (String(routingStore.currentGroup?.routingGroupId || "") === String(routingGroupId.value || "")) {
+          routingStore.setHasUnsavedChanges(false);
+        }
+      },
+      async () => {
+        await nextTick();
+        await nextTick();
+      }
+    );
+  } finally {
+    discardRebindInProgress = false;
   }
-  hasUnsavedChanges.value = false;
+  return true;
 }
 
 defineExpose({
@@ -1138,18 +1647,23 @@ defineExpose({
   previewDraftProposal,
   acceptDraftProposal,
   rejectDraftProposal,
+  getProposalContextCards,
   save,
-  discardChanges
+  discardChanges,
+  flushEditorDraft,
+  activateForVisibleGroup,
+  activateWorkingFlushHook,
+  deactivateWorkingFlushHook
 });
 
-function isFacilityGroupSelected(facilityGroupId: string, type: string) {
+function isFacilityGroupSelected(facilityGroupId: string | number, type: string) {
   const facilityGroupIncluded = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP')?.fieldValue;
   const facilityGroupExcluded = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')?.fieldValue;
 
   if (type === 'included') {
-    return facilityGroupExcluded === facilityGroupId;
+    return String(facilityGroupExcluded || "") === String(facilityGroupId);
   } else {
-    return facilityGroupIncluded === facilityGroupId;
+    return String(facilityGroupIncluded || "") === String(facilityGroupId);
   }
 }
 
@@ -1187,13 +1701,18 @@ function isPartialGroupItemsAllocationActive() {
   return !!(activeRule.value?.assignmentEnumId === 'ORA_MULTI' && getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "SPLIT_ITEM_GROUP")?.fieldValue === 'Y')
 }
 
-function getPromiseDateValue() {
-  const promiseDateFilter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE") || getFilterValue(orderRoutingFilterOptions.value, ruleEnums, "PROMISE_DATE_EXCLUDED")
+function getPromiseDateValue(type = "included") {
+  const key = type === "excluded" ? "PROMISE_DATE_EXCLUDED" : "PROMISE_DATE";
+  const promiseDateFilter = getFilterValue(orderRoutingFilterOptions.value, ruleEnums, key)
   return promiseDateFilter?.fieldValue || '-'
 }
 
 // Product categories for the PROD_CATEGORY(/_EXCLUDED) order filter select.
-const catalogCategories = computed((): any => utilStore.getCatalogCategories)
+// Sandbox categories intentionally remain empty until a simulation-scoped catalog source exists.
+const catalogCategories = computed((): any => editorReferenceMaps.value.catalogCategories)
+const sandboxReferenceLoading = computed(() => isSandbox.value
+  && (simReferences.loadState === "idle" || simReferences.loadState === "loading"));
+const sandboxReferenceError = computed(() => isSandbox.value && simReferences.loadState === "error");
 
 // Promise-date filter uses a duration popover (past durations stored as a negative value).
 async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
@@ -1223,48 +1742,136 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
 
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
+const liveActionsBlocked = computed(() => Boolean(group.value?.isNew || hasUnsavedChanges.value));
+function guardLiveGroupAction(): boolean {
+  if (!liveActionsBlocked.value) return false;
+  const message = group.value?.isNew
+    ? "Save this routing group before using quick actions."
+    : "Save or discard changes before using quick actions.";
+  commonUtil.showToast(translate(message));
+  return true;
+}
 // Make `hasUnsavedChanges` reflect EVERY kind of live edit so it's the one display signal (header
 // Save/Discard + test-drive disable). Editor-local edits (filters/sorts/actions) already set it
 // directly; store-mutation edits (status/add/clone/rename/name) set currentGroup.hasUnsavedChanges,
 // which we mirror in here. And mirror it back onto the store working copy so the no-clobber guard in
 // clearCurrentGroup also covers editor-local edits.
-watch(() => routingStore.getCurrentRoutingGroup?.hasUnsavedChanges, (v) => { if (!isSandbox.value && v) hasUnsavedChanges.value = true })
-watch(hasUnsavedChanges, (v) => { if (!isSandbox.value && v) routingStore.setHasUnsavedChanges(true) })
-watch(hasUnsavedChanges, (v) => { if (!isSandbox.value) emit("dirtyChange", v) }, { immediate: true })
+watch(() => routingStore.getCurrentRoutingGroup?.hasUnsavedChanges, (v) => {
+  if (!isSandbox.value
+    && isVisibleEditor
+    && String(routingStore.getCurrentRoutingGroup?.routingGroupId || "") === String(routingGroupId.value || "")
+    && v) hasUnsavedChanges.value = true;
+})
+watch(hasUnsavedChanges, (v) => {
+  if ((discardRebindInProgress || authoritativeSandboxRebindInProgress) && v) {
+    hasUnsavedChanges.value = false;
+    return;
+  }
+  if (!isSandbox.value
+    && isVisibleEditor
+    && v
+    && String(routingStore.getCurrentRoutingGroup?.routingGroupId || "") === String(routingGroupId.value || "")) {
+    routingStore.setHasUnsavedChanges(true);
+  }
+})
+watch(hasUnsavedChanges, (v) => { emit("dirtyChange", v) }, { immediate: true })
 const ruleNameRef = ref()
+let unregisterWorkingFlushHook: (() => void) | undefined;
+let isVisibleEditor = false;
+let visibleActivationVersion = 0;
+let discardRebindInProgress = false;
+let authoritativeSandboxRebindInProgress = false;
 
-onMounted(async () => {
+// Ionic keeps this editor mounted across group-param changes and page hides, so a slow schedule or
+// status response started on group A can resolve while the instance already shows group B. Every
+// such continuation must prove it still belongs to the group (and visibility) that started it
+// before publishing UI state or adopting anything into the store baseline.
+const editorInstanceIdentity = {};
+const groupOperationGuard = new RoutingPageOperationGuard();
+function liveGroupOperationIdentity(): RoutingPageOperationIdentity {
+  return {
+    routingGroupId: String(routingGroupId.value || ""),
+    variationId: "",
+    editor: editorInstanceIdentity
+  };
+}
+
+function activateWorkingFlushHook() {
+  unregisterWorkingFlushHook?.();
+  unregisterWorkingFlushHook = registerWorkingFlushHook(flushEditorDraft);
+}
+
+function deactivateWorkingFlushHook(flush = true) {
+  if (flush && isVisibleEditor) flushEditorDraft();
+  isVisibleEditor = false;
+  visibleActivationVersion += 1;
+  // Same-group continuations must also die when the page merely goes hidden — a later re-entry is
+  // a fresh activation, not a continuation of whatever was in flight when the user left.
+  groupOperationGuard.invalidate();
+  unregisterWorkingFlushHook?.();
+  unregisterWorkingFlushHook = undefined;
+}
+
+/**
+ * Claim the singleton flush hook and rebind data only when the owning Ionic page is visible.
+ * Ionic caches routed pages, so child mount/unmount is not a reliable ownership signal.
+ */
+async function activateForVisibleGroup(): Promise<void> {
+  const activationVersion = ++visibleActivationVersion;
+  isVisibleEditor = true;
+  activateWorkingFlushHook();
+
+  if (isSandbox.value) {
+    isLoadingGroup.value = true;
+    const requestedGroupId = String(routingGroupId.value || "");
+    try {
+      if (requestedGroupId && sim.routingGroupId !== requestedGroupId) {
+        await sim.loadGroup(requestedGroupId);
+      }
+      if (!isVisibleEditor || activationVersion !== visibleActivationVersion) return;
+      await initializeFromWorking();
+    } finally {
+      if (isVisibleEditor && activationVersion === visibleActivationVersion) isLoadingGroup.value = false;
+    }
+    return;
+  }
+
+  const requestedGroupId = String(routingGroupId.value || "");
+  const cachedDraft = requestedGroupId
+    && String(group.value?.routingGroupId || "") === requestedGroupId
+    && hasUnsavedChanges.value
+      ? cloneSnapshotValue(group.value)
+      : null;
+  await fetchRoutingGroupInformation(activationVersion, cachedDraft);
+  if (isVisibleEditor && activationVersion === visibleActivationVersion) {
+    hasUnsavedChanges.value = !!routingStore.getCurrentRoutingGroup?.hasUnsavedChanges;
+  }
+}
+
+onMounted(() => {
   window.addEventListener('pointerup', resetReordering);
   window.addEventListener('touchend', resetReordering);
   window.addEventListener('mouseup', resetReordering);
-  // In sandbox mode, register the working-flush hook so variation saves (from the rail) capture
-  // this editor's pending edits, and bind to the in-memory working copy instead of fetching.
-  registerWorkingFlushHook(flushWorking);
-  if (isSandbox.value) {
-    await initializeFromWorking();
-  } else {
-    await fetchRoutingGroupInformation();
-    // Reflect a persisted/surviving dirty working copy (the same group reopened after a reload or a
-    // live<->variation remount) into the editor's dirty signal. The store->editor mirror watch only
-    // fires on a CHANGE to true, so an already-true flag present at mount would otherwise never reach
-    // the header Save/Discard or the nav guard — leaving an unsaved draft looking "Saved".
-    hasUnsavedChanges.value = !!routingStore.getCurrentRoutingGroup?.hasUnsavedChanges;
-  }
+  // Hook ownership belongs to the visible Ionic page. Routed pages are cached, so claiming the
+  // singleton hook merely because this child mounted would let a hidden editor steal it from the
+  // page the user can actually see. RoutingDetailCanvas activates/deactivates the exposed hook from
+  // its view-enter/view-leave lifecycle.
 });
 
 onBeforeUnmount(() => {
+  if (isVisibleEditor) flushEditorDraft();
   // If a Circuit proposal is still undecided when this editor unmounts (the detail page is keyed by
   // activeVariationId, so opening a variation remounts it), auto-reject it: the snapshot lives only on
   // this instance, so leaving it applied would strand the un-accepted change in the working copy with
-  // no way back. restoreProposalSnapshot reverts the store working copy before teardown.
-  if (!isSandbox.value && proposalSnapshot.value) restoreProposalSnapshot();
+  // no way back. restoreProposalSnapshot reverts the matching live or simulation working copy.
+  if (proposalSnapshot.value) restoreProposalSnapshot();
 });
 
 onUnmounted(() => {
   window.removeEventListener('pointerup', resetReordering);
   window.removeEventListener('touchend', resetReordering);
   window.removeEventListener('mouseup', resetReordering);
-  registerWorkingFlushHook(null);
+  deactivateWorkingFlushHook(false);
 });
 
 function resetReordering() {
@@ -1273,24 +1880,37 @@ function resetReordering() {
 
 // Live: re-load from backend when the routing group id changes.
 watch(routingGroupId, async () => {
-  if (!isSandbox.value) await fetchRoutingGroupInformation();
+  if (!isSandbox.value && isVisibleEditor) {
+    flushEditorDraft();
+    await activateForVisibleGroup();
+  }
 });
 
 // Sandbox: re-bind when the store swaps the working copy (load variation / reset to baseline).
 watch(() => sim.working, async () => {
-  if (isSandbox.value) await initializeFromWorking();
+  if (isSandbox.value && isVisibleEditor) {
+    // Store operations flush the visible draft before replacing `working`. The replacement is the
+    // new authoritative baseline (load/reset/successful save), so flushing the stale projection
+    // again would overwrite it and incorrectly leave the editor dirty after a successful save.
+    authoritativeSandboxRebindInProgress = true;
+    try {
+      await initializeFromWorking();
+      hasUnsavedChanges.value = false;
+      await nextTick();
+      hasUnsavedChanges.value = false;
+    } finally {
+      authoritativeSandboxRebindInProgress = false;
+    }
+  }
 });
 
-async function fetchRoutingGroupInformation() {
-  if (!routingGroupId.value || "") {
+async function fetchRoutingGroupInformation(activationVersion = visibleActivationVersion, cachedDraft: any = null) {
+  const requestedGroupId = String(routingGroupId.value || "");
+  if (!requestedGroupId) {
     group.value = {};
-    activeRoutingId.value = '';
-    activeRuleId.value = '';
-    activeRouting.value = null;
-    initialActiveRouting.value = null;
-    activeRule.value = null;
-    inventoryRules.value = [];
-    rulesForReorder.value = [];
+    job.value = {};
+    clearEditorSelection();
+    isLoadingGroup.value = false;
     return;
   }
 
@@ -1298,31 +1918,55 @@ async function fetchRoutingGroupInformation() {
   // and can overlap other flows on the detail page (e.g. the simulation store loading), and the
   // shared singleton loader can't safely handle concurrent callers. A local spinner is isolated.
   isLoadingGroup.value = true
+  const previousRoutingId = activeRoutingId.value;
   try {
-    await routingStore.fetchCurrentRoutingGroup(routingGroupId.value || "");
+    await routingStore.fetchCurrentRoutingGroup(requestedGroupId);
+    if (!isVisibleEditor
+      || activationVersion !== visibleActivationVersion
+      || String(routingGroupId.value || "") !== requestedGroupId) return;
+
+    if (cachedDraft) {
+      const serverGroup = cloneSnapshotValue(currentRoutingGroup.value);
+      await routingStore.setCurrentGroup({
+        ...serverGroup,
+        ...cachedDraft,
+        schedule: serverGroup.schedule,
+        isRoutingGroupDetailLoaded: true
+      }, true);
+    }
     if(Object.keys(currentRoutingGroup.value).length) {
       group.value = currentRoutingGroup.value
       groupName.value = group.value.groupName || ""
       description.value = group.value.description || ""
+      job.value = routingGroupScheduleWorkingCopy(group.value)
 
       await Promise.all([
         fetchGroupHistory(),
         fetchGroupSchedule(),
         product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
+        // Direct detail entry does not pass through the list page, so the editor owns loading the
+        // routing enum families used by its filter/sort option modals.
+        utilStore.fetchRoutingEditorEnums(),
         utilStore.fetchStatusInformation()
       ])
       // Categories back the PROD_CATEGORY(/_EXCLUDED) filter select options; they aren't
       // needed for initial paint, so load them without blocking the group load.
       utilStore.fetchCategories()
 
-      if(group.value.routings?.length) {
-        selectRouting(group.value.routings[0]);
-      }
+      if (!isVisibleEditor
+        || activationVersion !== visibleActivationVersion
+        || String(routingGroupId.value || "") !== requestedGroupId) return;
+
+      const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
+        || group.value.routings?.[0];
+      if (target) selectRouting(target, false);
+      else clearEditorSelection();
     }
   } catch(err) {
     logger.error(err);
+  } finally {
+    if (activationVersion === visibleActivationVersion) isLoadingGroup.value = false
   }
-  isLoadingGroup.value = false
 }
 
 async function fetchRoutingsInformation() {
@@ -1330,128 +1974,436 @@ async function fetchRoutingsInformation() {
   return;
 }
 
-const { promptCreateRouting } = useCreateRouting();
-function createNewRouting() {
+function stageNewRouting(routingName: string) {
+  flushEditorDraft();
+  const routings = group.value.routings || [];
+  const tail = routings[routings.length - 1];
+  const orderRoutingId = createClientUuid();
+  const routing = {
+    _tempId: `temp-routing-${++tempIdCounter}`,
+    orderRoutingId,
+    routingGroupId: group.value.routingGroupId,
+    statusId: "ROUTING_DRAFT",
+    routingName: routingName.trim(),
+    sequenceNum: tail?.sequenceNum >= 0 ? Number(tail.sequenceNum) + 5 : 0,
+    description: "",
+    createdDate: DateTime.now().toMillis(),
+    orderFilters: [],
+    rules: []
+  };
+  group.value.routings = commonUtil.sortSequence([...routings, routing]);
+  hasUnsavedChanges.value = true;
+  return orderRoutingId;
+}
+
+async function createNewRouting() {
   if (isSandbox.value) return; // adding a routing to a variation isn't supported (matches the sim flow)
   if (!routingGroupId.value) return;
-  return promptCreateRouting({
-    routingGroupId: routingGroupId.value,
-    existingRoutings: group.value?.routings || [],
-    onCreated: (newRoutingId) => {
-      group.value = currentRoutingGroup.value;
-      hasUnsavedChanges.value = true;
-      const created = group.value.routings?.find((r: any) => r.orderRoutingId === newRoutingId);
-      if (created) selectRouting(created);
+  const alert = await alertController.create({
+    header: translate("New routing"),
+    inputs: [{ name: "routingName", placeholder: translate("routing name") }],
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      {
+        text: translate("Save"),
+        handler: (data: any) => {
+          if (!data.routingName?.trim()) {
+            commonUtil.showToast(translate("Please enter a valid name"));
+            return false;
+          }
+        }
+      }
+    ]
+  });
+  alert.onDidDismiss().then((result: any) => {
+    if (result.role) return;
+    const routingName = result.data?.values?.routingName?.trim();
+    if (!routingName) return;
+    const orderRoutingId = stageNewRouting(routingName);
+    const created = group.value.routings.find((routing: any) => routingWorkingKey(routing) === orderRoutingId);
+    if (created) selectRouting(created, false);
+  });
+  return alert.present();
+}
+
+function clearEditorSelection() {
+  activeRoutingId.value = "";
+  activeRuleId.value = "";
+  activeRouting.value = null;
+  initialActiveRouting.value = null;
+  activeRule.value = null;
+  ruleName.value = "";
+  routeName.value = "";
+  orderRoutingFilterOptions.value = {};
+  orderRoutingSortOptions.value = {};
+  inventoryRules.value = [];
+  rulesForReorder.value = [];
+  inventoryRuleFilterOptions.value = {};
+  inventoryRuleSortOptions.value = {};
+  inventoryRuleActions.value = {};
+  rulesInformation.value = {};
+  initialRulesInformation.value = {};
+  ruleActionType.value = "";
+}
+
+const selectRouting = (routing: any, flushCurrent = true) => {
+  if (!routing) {
+    clearEditorSelection();
+    return;
+  }
+  if (flushCurrent) flushEditorDraft();
+
+  const key = routingWorkingKey(routing);
+  const rawRouting = (group.value.routings || []).find((candidate: any) => routingWorkingKey(candidate) === key) || routing;
+  activeRoutingId.value = key;
+  // The editor always works on a projection. The raw group is changed only by flushEditorDraft.
+  activeRouting.value = cloneSnapshotValue(rawRouting);
+  initialActiveRouting.value = cloneSnapshotValue(rawRouting);
+  activeRuleId.value = "";
+  activeRule.value = null;
+  ruleName.value = "";
+  rulesInformation.value = {};
+  initialRulesInformation.value = {};
+
+  if (!isSandbox.value && rawRouting.orderRoutingId) routingStore.setCurrentOrderRouting(rawRouting.orderRoutingId);
+
+  routeName.value = rawRouting.routingName || "";
+  isRouteNameUpdating.value = false;
+  initializeOrderRoutingOptions();
+
+  inventoryRules.value = cloneSnapshotValue(rawRouting.rules || []);
+  initializeInventoryRules(true);
+
+  if (rulesForReorder.value.length) selectRule(rulesForReorder.value[0], false);
+};
+
+const selectRule = (rule: any, flushCurrent = true) => {
+  if (flushCurrent) syncActiveRuleDraft();
+  const key = ruleWorkingKey(rule);
+  if (!key) {
+    activeRuleId.value = "";
+    activeRule.value = null;
+    ruleName.value = "";
+    inventoryRuleFilterOptions.value = {};
+    inventoryRuleSortOptions.value = {};
+    inventoryRuleActions.value = {};
+    ruleActionType.value = "";
+    return;
+  }
+
+  const rawRule = inventoryRules.value.find((candidate: any) => ruleWorkingKey(candidate) === key) || rule;
+  const projection = rulesInformation.value[key]
+    ? cloneSnapshotValue(rulesInformation.value[key])
+    : projectRuleForEditor(rawRule);
+  activeRuleId.value = key;
+  activeRule.value = projection;
+  ruleName.value = String(projection.ruleName || "");
+  rulesInformation.value[key] = cloneSnapshotValue(projection);
+  if (!initialRulesInformation.value[key]) initialRulesInformation.value[key] = cloneSnapshotValue(projection);
+  initializeInventoryRule(projection);
+};
+
+function ruleKey(rule: any) {
+  return ruleWorkingKey(rule);
+}
+
+function isRuleDirty(rule: any) {
+  const key = ruleWorkingKey(rule);
+  if (!key) return false;
+  const rawRule = inventoryRules.value.find((candidate: any) => ruleWorkingKey(candidate) === key) || rule;
+  const currentRule = key === activeRuleId.value && activeRule.value
+    ? {
+        ...cloneSnapshotValue(activeRule.value),
+        inventoryFilters: {
+          ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+          ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
+        },
+        actions: cloneSnapshotValue(inventoryRuleActions.value)
+      }
+    : rulesInformation.value[key] || projectRuleForEditor(rawRule);
+  return isRoutingRuleDraftDirty(currentRule, initialRulesInformation.value[key]);
+}
+
+function comparableCondition(condition: any) {
+  if (!condition) return null;
+  return {
+    fieldName: condition.fieldName || "",
+    fieldValue: condition.fieldValue ?? null,
+    operator: condition.operator || "",
+    sequenceNum: Number(condition.sequenceNum || 0)
+  };
+}
+
+function conditionChanged(current: any, baseline: any) {
+  return JSON.stringify(comparableCondition(current)) !== JSON.stringify(comparableCondition(baseline));
+}
+
+function initialOrderConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  return (initialActiveRouting.value?.orderFilters || [])
+    .filter((condition: any) => condition.conditionTypeEnumId === conditionTypeEnumId)
+    .reduce((result: Record<string, any>, condition: any) => {
+      result[condition.fieldName] = condition;
+      return result;
+    }, {});
+}
+
+function currentOrderConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  return conditionTypeEnumId === "ENTCT_FILTER"
+    ? orderRoutingFilterOptions.value
+    : orderRoutingSortOptions.value;
+}
+
+function currentRuleConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  return conditionTypeEnumId === "ENTCT_FILTER"
+    ? inventoryRuleFilterOptions.value
+    : inventoryRuleSortOptions.value;
+}
+
+function initialRuleConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  return initialRulesInformation.value[activeRuleId.value]?.inventoryFilters?.[conditionTypeEnumId] || {};
+}
+
+function isOrderConditionCodeDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY", code: string) {
+  return conditionChanged(
+    currentOrderConditionMap(conditionTypeEnumId)?.[code],
+    initialOrderConditionMap(conditionTypeEnumId)?.[code]
+  );
+}
+
+function isOrderConditionDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY", parameter: string) {
+  const code = ruleEnums[parameter]?.code;
+  return Boolean(code && isOrderConditionCodeDirty(conditionTypeEnumId, code));
+}
+
+function isOrderConditionCardDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  const current = currentOrderConditionMap(conditionTypeEnumId);
+  const baseline = initialOrderConditionMap(conditionTypeEnumId);
+  return [...new Set([...Object.keys(current || {}), ...Object.keys(baseline || {})])]
+    .some((code) => conditionChanged(current?.[code], baseline?.[code]));
+}
+
+function isRuleConditionCodeDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY", code: string) {
+  return conditionChanged(
+    currentRuleConditionMap(conditionTypeEnumId)?.[code],
+    initialRuleConditionMap(conditionTypeEnumId)?.[code]
+  );
+}
+
+function isRuleConditionDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY", parameter: string) {
+  const enumerations = conditionTypeEnumId === "ENTCT_FILTER" ? conditionFilterEnums : conditionSortEnums;
+  const code = enumerations[parameter]?.code;
+  return Boolean(code && isRuleConditionCodeDirty(conditionTypeEnumId, code));
+}
+
+function isRuleConditionCardDirty(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
+  const current = currentRuleConditionMap(conditionTypeEnumId);
+  const baseline = initialRuleConditionMap(conditionTypeEnumId);
+  return [...new Set([...Object.keys(current || {}), ...Object.keys(baseline || {})])]
+    .some((code) => conditionChanged(current?.[code], baseline?.[code]));
+}
+
+function isPartialAvailabilityDirty() {
+  const baseline = initialRulesInformation.value[activeRuleId.value];
+  return Boolean(baseline) && (
+    String(activeRule.value?.assignmentEnumId || "") !== String(baseline.assignmentEnumId || "")
+    || isRuleConditionDirty("ENTCT_FILTER", "SPLIT_ITEM_GROUP")
+  );
+}
+
+function isPartialAllocationDirty() {
+  const baseline = initialRulesInformation.value[activeRuleId.value];
+  return Boolean(baseline)
+    && String(activeRule.value?.assignmentEnumId || "") !== String(baseline.assignmentEnumId || "");
+}
+
+function isPartialGroupItemsAllocationDirty() {
+  return isRuleConditionDirty("ENTCT_FILTER", "SPLIT_ITEM_GROUP");
+}
+
+function routingSectionItems(
+  options: Record<string, any>,
+  enumerations: Record<string, any>,
+  parentEnumId: string,
+  targetPrefix: string,
+  kind: "filters" | "sort",
+  isDirty: (code: string, parameter: string) => boolean
+) {
+  return Object.entries(options || {}).map(([code, condition]) => {
+    const parameter = enumParameterForCode(enumerations, code);
+    return {
+      target: `${targetPrefix}.${parameter}`,
+      label: routingConfigTargetLabel(`${targetPrefix}.${parameter}`) || getLabel(parentEnumId, code) || parameter,
+      value: kind === "sort" ? "" : conditionContextValue(options, enumerations, parameter, condition),
+      dirty: isDirty(code, parameter)
+    };
+  });
+}
+
+function actionValue(actionId: string) {
+  return inventoryRuleActions.value[actionEnums[actionId]?.id]?.actionValue;
+}
+
+function initialActionValue(actionId: string) {
+  return initialRulesInformation.value[activeRuleId.value]?.actions?.[actionEnums[actionId]?.id]?.actionValue;
+}
+
+function actionValueDirty(actionId: string) {
+  return String(actionValue(actionId) ?? "") !== String(initialActionValue(actionId) ?? "");
+}
+
+function unavailableSectionItems() {
+  const moveToQueue = ruleActionType.value === actionEnums.MOVE_TO_QUEUE?.id;
+  const clearDays = JSON.parse(actionValue("RM_AUTO_CANCEL_DATE") || false);
+  return [
+    {
+      target: "selectedRule.unavailableItemsAction",
+      label: "Move items to",
+      value: moveToQueue ? "Queue" : "Next rule",
+      dirty: actionValueDirty("NEXT_RULE") || actionValueDirty("MOVE_TO_QUEUE")
+    },
+    ...(moveToQueue ? [{
+      target: "selectedRule.unavailableItemsQueueId",
+      label: "Queue",
+      value: facilities.value[actionValue("MOVE_TO_QUEUE")]?.facilityName || String(actionValue("MOVE_TO_QUEUE") || ""),
+      dirty: actionValueDirty("MOVE_TO_QUEUE")
+    }] : []),
+    {
+      target: "selectedRule.clearAutoCancelDays",
+      label: "Clear auto cancel days",
+      value: clearDays ? "Enabled" : "Disabled",
+      dirty: actionValueDirty("RM_AUTO_CANCEL_DATE")
+    },
+    ...(!clearDays ? [{
+      target: "selectedRule.autoCancelDays",
+      label: "Auto cancel days",
+      value: String(actionValue("AUTO_CANCEL_DAYS") || "select days"),
+      dirty: actionValueDirty("AUTO_CANCEL_DAYS")
+    }] : [])
+  ];
+}
+
+function comparableActions(actions: Record<string, any> = {}) {
+  return Object.keys(actions)
+    .sort()
+    .reduce((result: Record<string, any>, key) => {
+      const action = actions[key];
+      result[key] = {
+        actionTypeEnumId: action?.actionTypeEnumId || key,
+        actionValue: action?.actionValue ?? null
+      };
+      return result;
+    }, {});
+}
+
+function isUnavailableItemsDirty() {
+  const baseline = initialRulesInformation.value[activeRuleId.value]?.actions || {};
+  return JSON.stringify(comparableActions(inventoryRuleActions.value))
+    !== JSON.stringify(comparableActions(baseline));
+}
+
+function guardLockedInteraction(event: Event) {
+  if (!props.interactionLocked) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest("ion-button, button, ion-input, ion-textarea, ion-select, ion-toggle, ion-chip, ion-reorder, a, .pointer, .rule-item")) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function normalizeLiveDraftRuleIds() {
+  if (isSandbox.value) return;
+  inventoryRules.value.forEach((rule: any) => {
+    const previousId = rule.routingRuleId;
+    if (!String(previousId || "").match(/^(new|draft):/)) return;
+    const routingRuleId = createClientUuid();
+    rule._tempId = rule._tempId || previousId;
+    rule.routingRuleId = routingRuleId;
+    rule.inventoryFilters = (rule.inventoryFilters || []).map((filter: any) => ({ ...filter, routingRuleId }));
+    rule.actions = (rule.actions || []).map((action: any) => ({ ...action, routingRuleId }));
+
+    const projection = rulesInformation.value[previousId];
+    if (projection) {
+      delete rulesInformation.value[previousId];
+      const nextProjection = cloneSnapshotValue(projection);
+      nextProjection.routingRuleId = routingRuleId;
+      Object.values(nextProjection.inventoryFilters?.ENTCT_FILTER || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
+      Object.values(nextProjection.inventoryFilters?.ENTCT_SORT_BY || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
+      Object.values(nextProjection.actions || {}).forEach((action: any) => { action.routingRuleId = routingRuleId; });
+      rulesInformation.value[routingRuleId] = nextProjection;
+    }
+    if (initialRulesInformation.value[previousId]) {
+      initialRulesInformation.value[routingRuleId] = initialRulesInformation.value[previousId];
+      delete initialRulesInformation.value[previousId];
+    }
+    rulesForReorder.value.forEach((listedRule: any) => {
+      if (listedRule.routingRuleId === previousId) listedRule.routingRuleId = routingRuleId;
+    });
+    if (activeRuleId.value === previousId) {
+      activeRuleId.value = routingRuleId;
+      if (activeRule.value) activeRule.value.routingRuleId = routingRuleId;
+      Object.values(inventoryRuleFilterOptions.value || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
+      Object.values(inventoryRuleSortOptions.value || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
+      Object.values(inventoryRuleActions.value || {}).forEach((action: any) => { action.routingRuleId = routingRuleId; });
     }
   });
 }
 
-const selectRouting = (routing: any) => {
-  // Sandbox: flush edits of the routing we're leaving back into the working copy before switching,
-  // so edits across multiple routings all persist into the variation snapshot (not just the last).
-  if (isSandbox.value) {
-    syncActiveRuleDraft();
-    syncWorkingFromLocalState();
-  }
-  activeRoutingId.value = routing.orderRoutingId;
-  activeRouting.value = routing;
-  initialActiveRouting.value = JSON.parse(JSON.stringify(routing));
-  activeRuleId.value = '';
-  activeRule.value = null;
-  rulesInformation.value = {};
-  initialRulesInformation.value = {};
-
-  // Live only: sync store-side currentRoutingId so getCurrentRule / fetchInventoryRuleInformation
-  // resolve correctly. In sandbox the working copy is not in routingStore.currentGroup, so this
-  // would both leak into live state and be pointless.
-  if (!isSandbox.value) routingStore.setCurrentOrderRouting(routing.orderRoutingId);
-
-  routeName.value = routing.routingName || ""
-  isRouteNameUpdating.value = false
-
-  initializeOrderRoutingOptions();
-
-  inventoryRules.value = routing.rules ? JSON.parse(JSON.stringify(routing.rules)) : [];
-  initializeInventoryRules();
-
-  if (rulesForReorder.value?.length) {
-    selectRule(rulesForReorder.value[0]);
-  }
-};
-
-const selectRule = async (rule: any) => {
-  // Sandbox: read the rule straight from the in-memory working copy — no backend fetch. Flush the
-  // previously-open rule first (keyed by ruleKey so client-added _tempId rules are handled).
-  if (isSandbox.value) {
-    syncActiveRuleDraft();
-    const key = ruleKey(rule);
-    activeRuleId.value = key;
-    if (!rulesInformation.value[key]) {
-      rulesInformation.value[key] = JSON.parse(JSON.stringify(rule));
-      initialRulesInformation.value[key] = JSON.parse(JSON.stringify(rule));
+function syncPendingInlineEdits() {
+  const changed = applyPendingRoutingInlineEdits({
+    group: group.value,
+    activeRouting: activeRouting.value,
+    activeRule: activeRule.value,
+    inventoryRules: inventoryRules.value,
+    editing: {
+      groupName: !isSandbox.value && isGroupNameUpdating.value,
+      description: !isSandbox.value && isDescUpdating.value,
+      routeName: isRouteNameUpdating.value,
+      ruleName: isRuleNameUpdating.value
+    },
+    values: {
+      groupName: groupName.value,
+      description: description.value,
+      routeName: routeName.value,
+      ruleName: ruleName.value
     }
-    activeRule.value = rulesInformation.value[key];
-    initializeInventoryRule(activeRule.value);
-    return;
+  });
+
+  if (changed) {
+    groupName.value = String(group.value.groupName || "");
+    description.value = String(group.value.description || "");
+    routeName.value = String(activeRouting.value?.routingName || "");
+    hasUnsavedChanges.value = true;
   }
+}
 
-  activeRuleId.value = rule.routingRuleId;
+// Serialize the currently visible projections into the one raw, flat-array working copy used by
+// both live editing and simulation variations. This is intentionally synchronous so navigation,
+// remount and beforeunload callers cannot race it.
+function flushEditorDraft(): void {
+  if (!group.value?.routingGroupId) return;
+  syncPendingInlineEdits();
+  normalizeLiveDraftRuleIds();
+  syncActiveRuleDraft();
+  syncCachedRuleDrafts();
+  if (!activeRouting.value || !activeRoutingId.value) return;
 
-  // Fetch full rule information including actions and filters
-  try {
-    if(!rulesInformation.value[rule.routingRuleId]) {
-      const formatted = await routingStore.fetchInventoryRuleInformation(rule.routingRuleId)
-      // fetchInventoryRuleInformation returns {} if the store can't resolve the rule
-      // (e.g. currentRoutingId mismatch). Fall back to the raw rule object so the
-      // detail panel still renders something usable.
-      rulesInformation.value[rule.routingRuleId] = (formatted && formatted.routingRuleId) ? formatted : rule
-      initialRulesInformation.value[rule.routingRuleId] = JSON.parse(JSON.stringify(rulesInformation.value[rule.routingRuleId] || {}))
-    }
-    activeRule.value = rulesInformation.value[rule.routingRuleId] || rule
-  } catch (err) {
-    logger.error(err);
-    activeRule.value = rule;
+  const serialized = serializeRoutingWorkingCopy(
+    activeRouting.value,
+    orderRoutingFilterOptions.value,
+    orderRoutingSortOptions.value,
+    inventoryRules.value
+  );
+  group.value.routings = replaceWorkingEntry(
+    group.value.routings || [],
+    serialized,
+    routingWorkingKey
+  );
+  activeRouting.value = cloneSnapshotValue(serialized);
+
+  // Live groups normally share this reference already. If another local store action replaced the
+  // top-level object, restore the authoritative working-copy reference without changing baseline.
+  if (!isSandbox.value && routingStore.currentGroup !== group.value) {
+    routingStore.currentGroup = group.value;
   }
-  initializeInventoryRule(activeRule.value);
-};
-
-// --- Sandbox (variation working-copy) helpers, ported from SimulationCanvas ---
-// A rule's stable key: persisted rules have routingRuleId; rules added in-sandbox have only
-// a client _tempId (so the diff/save treats them as new).
-function ruleKey(rule: any) {
-  return rule?.routingRuleId || rule?._tempId || "";
-}
-// The variation working copy stores a rule's conditions/actions as FLAT ARRAYS; the editor
-// controls consume keyed-by-code maps. These adapt flat -> keyed.
-function buildOptionMap(conditions: any[] | undefined, conditionTypeEnumId: string) {
-  return (conditions || [])
-    .filter((c: any) => c.conditionTypeEnumId === conditionTypeEnumId)
-    .reduce((map: any, c: any) => { map[c.fieldName] = { ...c }; return map; }, {});
-}
-function buildActionMap(actions: any[] | undefined) {
-  return (actions || []).reduce((map: any, a: any) => {
-    const id = a.routingActionTypeId || a.actionTypeEnumId;
-    if (id) map[id] = { ...a, routingActionTypeId: id };
-    return map;
-  }, {});
-}
-// Flush the active routing's order filters + rules array back into the working copy (which is
-// group.value === sim.working by reference, so this mutates the store's copy in place).
-function syncWorkingFromLocalState() {
-  if (!activeRouting.value) return
-  activeRouting.value.orderFilters = [
-    ...Object.values(orderRoutingFilterOptions.value || {}),
-    ...Object.values(orderRoutingSortOptions.value || {})
-  ].map((c: any) => ({ ...c }))
-  activeRouting.value.rules = JSON.parse(JSON.stringify(inventoryRules.value))
-}
-// Commit all pending local editor state into the working copy. Registered as the store's
-// working-flush hook (see onMounted) so variation saves from the Variations sheet capture edits.
-// No-op in live mode (live persistence goes through save()/per-action writes, not the flush).
-function flushWorking() {
-  if (!isSandbox.value) return
-  syncActiveRuleDraft()
-  syncWorkingFromLocalState()
 }
 
 // Sandbox load: bind the editor to the in-memory simulation working copy (no backend fetch).
@@ -1459,47 +2411,28 @@ function flushWorking() {
 async function initializeFromWorking() {
   if (!sim.working || !sim.working.routingGroupId) {
     group.value = {};
-    activeRoutingId.value = '';
-    activeRuleId.value = '';
-    activeRouting.value = null;
-    initialActiveRouting.value = null;
-    activeRule.value = null;
-    inventoryRules.value = [];
-    rulesForReorder.value = [];
+    clearEditorSelection();
+    await simReferences.fetchReferenceData({ productStoreId: "" });
     return;
   }
+  const previousRoutingId = activeRoutingId.value;
   group.value = sim.working;
   groupName.value = group.value.groupName || "";
   description.value = group.value.description || "";
-  try {
-    await Promise.all([
-      product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
-      utilStore.fetchStatusInformation()
-    ]);
-    utilStore.fetchCategories();
-  } catch (err) {
-    logger.error(err);
-  }
-  if (group.value.routings?.length) {
-    selectRouting(group.value.routings[0]);
-  }
+  // Simulation reference data is loaded exclusively from the sim instance. Catalog categories and
+  // status descriptions have no sim-scoped source yet and remain explicit UI blockers above.
+  await simReferences.fetchReferenceData({ productStoreId: String(group.value.productStoreId || "") });
+  const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
+    || group.value.routings?.[0];
+  if (target) selectRouting(target, false);
+  else clearEditorSelection();
 }
 
 function initializeInventoryRule(rule: any) {
-  const inventoryFilters = rule["inventoryFilters"]
-
-  // Dual-shape: working-copy rules store a FLAT ARRAY of conditions; live rules store the
-  // keyed { ENTCT_FILTER, ENTCT_SORT_BY } structure.
-  if (Array.isArray(inventoryFilters)) {
-    inventoryRuleFilterOptions.value = buildOptionMap(inventoryFilters, "ENTCT_FILTER")
-    inventoryRuleSortOptions.value = buildOptionMap(inventoryFilters, "ENTCT_SORT_BY")
-  } else {
-    const filters = inventoryFilters || {}
-    inventoryRuleFilterOptions.value = filters["ENTCT_FILTER"] ? filters["ENTCT_FILTER"] : {}
-    inventoryRuleSortOptions.value = filters["ENTCT_SORT_BY"] ? filters["ENTCT_SORT_BY"] : {}
-  }
-
-  inventoryRuleActions.value = Array.isArray(rule["actions"]) ? buildActionMap(rule["actions"]) : (rule["actions"] || {})
+  const projection = projectRuleForEditor(rule);
+  inventoryRuleFilterOptions.value = cloneSnapshotValue(projection.inventoryFilters.ENTCT_FILTER || {});
+  inventoryRuleSortOptions.value = cloneSnapshotValue(projection.inventoryFilters.ENTCT_SORT_BY || {});
+  inventoryRuleActions.value = cloneSnapshotValue(projection.actions || {});
 
   const actionTypes = ["ORA_NEXT_RULE", "ORA_MV_TO_QUEUE"]
   ruleActionType.value = Object.keys(inventoryRuleActions.value).find((actionId: string) => {
@@ -1507,8 +2440,16 @@ function initializeInventoryRule(rule: any) {
   }) || ""
 }
 
-function initializeInventoryRules() {
+function initializeInventoryRules(captureBaseline = false) {
   rulesForReorder.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(getActiveAndDraftOrderRules())))
+  if (!captureBaseline) return;
+  inventoryRules.value.forEach((rule: any) => {
+    const key = ruleWorkingKey(rule);
+    if (!key) return;
+    const projection = projectRuleForEditor(rule);
+    rulesInformation.value[key] = cloneSnapshotValue(projection);
+    initialRulesInformation.value[key] = cloneSnapshotValue(projection);
+  });
 }
 
 function getActiveAndDraftOrderRules() {
@@ -1527,12 +2468,12 @@ function getLabel(parentType: string, code: string) {
   const enumerations = enums.value[parentType]
   const enumInfo: any = enumerations ? Object.values(enumerations).find((enumeration: any) => enumeration.enumCode === code) : null
 
-  return enumInfo?.description
+  return enumInfo?.description || routingEditorCodeLabel(code)
 }
 
 function getRuleIndex() {
   const total = rulesForReorder.value.length
-  const currentRuleIndex: any = Object.keys(rulesForReorder.value).find((key: any) => rulesForReorder.value[key].routingRuleId == activeRule.value?.routingRuleId)
+  const currentRuleIndex: any = Object.keys(rulesForReorder.value).find((key: any) => ruleKey(rulesForReorder.value[key]) === ruleKey(activeRule.value))
 
   return `${+currentRuleIndex + 1}/${total}`
 }
@@ -1540,9 +2481,7 @@ function getRuleIndex() {
 async function fetchGroupSchedule() {
   try {
     await routingStore.fetchCurrentGroupSchedule({ routingGroupId: routingGroupId.value || "", currentGroup: group.value });
-    if (group.value.schedule) {
-      job.value = group.value.schedule
-    }
+    job.value = routingGroupScheduleWorkingCopy(group.value)
   } catch (err) {
     logger.error(err);
   }
@@ -1569,7 +2508,7 @@ async function editGroupName() {
 }
 
 async function updateGroupName() {
-  if (groupName.value.trim() && groupName.value.trim() !== group.value.groupName.trim()) {
+  if (groupName.value.trim() && groupName.value.trim() !== String(group.value.groupName || "").trim()) {
     const resultId = await updateRoutingGroup({ routingGroupId: routingGroupId.value || "", productStoreId: group.value.productStoreId, groupName: groupName.value })
     if (resultId) {
       group.value.groupName = groupName.value
@@ -1602,47 +2541,33 @@ async function updateGroupDescription() {
 }
 
 async function updateRoutingGroup(payload: any) {
-  if (isSandbox.value) {
-    // Sandbox: mutate the in-memory working copy (group.value === sim.working); no backend write.
-    if (payload.groupName !== undefined) group.value.groupName = payload.groupName
-    if (payload.description !== undefined) group.value.description = payload.description
-    hasUnsavedChanges.value = true
-    return payload.routingGroupId || group.value.routingGroupId || "sandbox"
-  }
-  emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-  let rGId = ''
-  try {
-    const resp = await routingStore.updateRoutingGroup(payload);
-    if(resp) {
-      commonUtil.showToast(translate("Routing group information updated"))
-      rGId = payload.routingGroupId
-    }
-  } catch (err) {
-    commonUtil.showToast(translate("Failed to update group information"))
-    logger.error(err);
-  }
-  emitter.emit("dismissLoader")
-  return rGId
+  if (payload.groupName !== undefined) group.value.groupName = payload.groupName;
+  if (payload.description !== undefined) group.value.description = payload.description;
+  hasUnsavedChanges.value = true;
+  return payload.routingGroupId || group.value.routingGroupId || "working-copy";
 }
 
 async function cloneGroup() {
   if (isSandbox.value) return // group-level live action; not applicable to a sandboxed variation
-  const payload = {
-    routingGroupId: group.value.routingGroupId,
-    newGroupName: `${group.value.groupName} copy`
-  }
+  if (guardLiveGroupAction()) return;
+  flushEditorDraft();
   try {
-    const resp = await routingStore.cloneGroup(payload)
-    if (!commonUtil.hasError(resp)) {
-      commonUtil.showToast(translate("Routing group cloned"))
-    }
+    const response = await routingStore.cloneGroup({
+      routingGroupId: group.value.routingGroupId,
+      newGroupName: `${group.value.groupName || "Routing group"} copy`
+    });
+    const clonedGroupId = response?.data?.routingGroupId;
+    if (!clonedGroupId) throw new Error("Clone did not return a routing group id");
+    commonUtil.showToast(translate("Routing group cloned"));
+    await router.push(canonicalRoutingEditorRoute(clonedGroupId));
   } catch (err) {
-    commonUtil.showToast(translate("Failed to clone routing group"))
-    logger.error(err)
+    logger.error(err);
+    commonUtil.showToast(translate("Failed to clone routing group"));
   }
 }
 
 async function openScheduleModal() {
+  if (isSandbox.value || guardLiveGroupAction()) return;
   const scheduleModal = await modalController.create({
     component: ScheduleModal,
     componentProps: { cronExpression: job.value.cronExpression }
@@ -1650,63 +2575,106 @@ async function openScheduleModal() {
 
   scheduleModal.onDidDismiss().then(async (result: any) => {
     if (result?.data?.expression) {
-      job.value.cronExpression = result.data.expression
-      await saveSchedule()
+      await saveSchedule(result.data.expression)
     }
   })
 
   scheduleModal.present();
 }
 
-async function saveSchedule() {
+async function saveSchedule(nextCronExpression = job.value.cronExpression) {
   if (isSandbox.value) return // scheduling is a live group action; not applicable to a variation
-  if (!job.value.cronExpression) {
+  if (guardLiveGroupAction()) return;
+  if (!nextCronExpression) {
     commonUtil.showToast(translate("Please select a scheduling for job"))
-    return;
+    return false;
   }
 
+  const previousJob = cloneSnapshotValue(job.value || {});
+  const operationToken = groupOperationGuard.begin(liveGroupOperationIdentity());
+  const operationGroupId = operationToken.routingGroupId;
   const payload = {
-    routingGroupId: routingGroupId.value || "",
-    paused: job.value.paused || 'N',
-    ...job.value
+    ...previousJob,
+    routingGroupId: operationGroupId,
+    paused: previousJob.paused || 'N',
+    cronExpression: nextCronExpression
   }
 
   try {
     const resp = await routingStore.scheduleBrokering(payload)
-    if (!commonUtil.hasError(resp)) {
-      commonUtil.showToast(translate("Job updated"))
-      await fetchGroupSchedule()
-    }
+    // The backend accepted (or rejected) group A's schedule; if this cached instance has moved on,
+    // publishing here would land on whatever group is visible now. Drop the continuation.
+    if (!groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) return false;
+    if (commonUtil.hasError(resp)) throw resp?.data || new Error("Schedule update failed");
+
+    // Publish the requested value only after the backend accepted it. A best-effort readback then
+    // replaces it with the canonical schedule when that endpoint is available.
+    job.value = {
+      ...previousJob,
+      ...(resp?.data?.schedule || {}),
+      cronExpression: resp?.data?.schedule?.cronExpression || nextCronExpression
+    };
+    // The backend accepted this schedule, so it is committed state: adopt it into the store
+    // baseline now (Discard must not resurrect the old schedule), then let the readback refine it.
+    routingStore.adoptCommittedSchedule(operationGroupId, job.value);
+    commonUtil.showToast(translate("Job updated"))
+    await fetchGroupSchedule()
+    return true;
   } catch (err) {
-    commonUtil.showToast(translate("Failed to update job"))
+    if (groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) {
+      job.value = previousJob;
+      commonUtil.showToast(translate("Failed to update job"))
+    }
     logger.error(err)
+    return false;
   }
 }
 
 async function updateGroupStatus(event: CustomEvent) {
   if (isSandbox.value) return // live group status; not applicable to a variation
-  job.value.paused = event.detail.value
+  if (guardLiveGroupAction()) return;
+  const previousJob = cloneSnapshotValue(job.value || {});
+  const nextPaused = event.detail.value;
+  const operationToken = groupOperationGuard.begin(liveGroupOperationIdentity());
+  const operationGroupId = operationToken.routingGroupId;
 
   const payload = {
-    routingGroupId: routingGroupId.value || "",
-    paused: job.value.paused,
-    cronExpression: job.value.cronExpression || "0 0 0 * * ?"
+    ...previousJob,
+    routingGroupId: operationGroupId,
+    paused: nextPaused,
+    cronExpression: previousJob.cronExpression || "0 0 0 * * ?"
   }
 
   try {
     const resp = await routingStore.scheduleBrokering(payload)
-    if (!commonUtil.hasError(resp)) {
-      job.value.cronExpression = job.value.cronExpression || "0 0 0 * * ?"
-      commonUtil.showToast(translate("Group status updated"))
-    }
+    if (!groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) return false;
+    if (commonUtil.hasError(resp)) throw resp?.data || new Error("Group status update failed");
+
+    job.value = {
+      ...previousJob,
+      ...(resp?.data?.schedule || {}),
+      paused: resp?.data?.schedule?.paused || nextPaused,
+      cronExpression: resp?.data?.schedule?.cronExpression || payload.cronExpression
+    };
+    routingStore.adoptCommittedSchedule(operationGroupId, job.value);
+    commonUtil.showToast(translate("Group status updated"))
+    await fetchGroupSchedule();
+    return true;
   } catch (err) {
-    commonUtil.showToast(translate("Failed to update group status"))
+    // Keep the control aligned with backend truth when a resolved error response or network error
+    // rejects the immediate action.
+    if (groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) {
+      job.value = previousJob;
+      commonUtil.showToast(translate("Failed to update group status"))
+    }
     logger.error(err)
+    return false;
   }
 }
 
 async function runNow() {
   if (isSandbox.value) return // live run; variations are run via the Variations rail
+  if (guardLiveGroupAction()) return;
   const scheduleAlert = await alertController.create({
     header: translate("Run now"),
     message: translate("Running this schedule now will not replace this schedule. A copy of this schedule will be created and run immediately. You may not be able to reverse this action."),
@@ -1715,6 +2683,7 @@ async function runNow() {
       {
         text: translate("Run now"),
         handler: async () => {
+          if (guardLiveGroupAction()) return false;
           if (!job.value.jobName) {
             const payload = {
               routingGroupId: routingGroupId.value || "",
@@ -1722,8 +2691,12 @@ async function runNow() {
             }
             try {
               const resp = await routingStore.scheduleBrokering(payload)
-              if (!commonUtil.hasError(resp)) job.value.jobName = resp.data.jobName
+              if (commonUtil.hasError(resp) || !resp?.data?.jobName) {
+                throw resp?.data || new Error("Schedule creation returned no job name");
+              }
+              job.value.jobName = resp.data.jobName
             } catch (err) {
+              commonUtil.showToast(translate("Failed to schedule service"))
               logger.error(err)
               return;
             }
@@ -1777,11 +2750,15 @@ function getRouteIndex() {
 }
 
 function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
+  syncActiveRuleDraft();
   inventoryRules.value.forEach((inventoryRule: any) => {
-    if(inventoryRule.routingRuleId === routingRuleId) {
+    if(ruleKey(inventoryRule) === routingRuleId) {
       inventoryRule.statusId = event.detail.value
     }
   })
+  if (rulesInformation.value[routingRuleId]) rulesInformation.value[routingRuleId].statusId = event.detail.value;
+
+  if (ruleKey(activeRule.value) === routingRuleId) activeRule.value.statusId = event.detail.value;
 
   if(event.detail.value === "RULE_ARCHIVED") {
     activeRule.value = null
@@ -1793,51 +2770,44 @@ function updateRuleStatus(event: CustomEvent, routingRuleId: string) {
 
 async function editRuleName() {
   isRuleNameUpdating.value = !isRuleNameUpdating.value;
+  ruleName.value = String(activeRule.value?.ruleName || "");
   await nextTick()
   ruleNameRef.value.$el.setFocus();
 }
 
-async function updateRuleName(routingRuleId: string) {
-  if (activeRule.value.ruleName.trim() && !isSandbox.value) {
-    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-
-    let ruleId = await routingStore.updateRule({
-      routingRuleId,
-      ruleName: activeRule.value.ruleName
-    })
-
-    if (ruleId) {
-      commonUtil.showToast(translate("Routing rule information updated"))
-    }
-    emitter.emit("dismissLoader")
-  } else if (isSandbox.value) {
-    // Sandbox: the rename already mutated activeRule.value.ruleName via v-model; just mark dirty.
-    hasUnsavedChanges.value = true
+async function updateRuleName(_routingRuleId: string) {
+  const nextRuleName = ruleName.value.trim();
+  if (activeRule.value && nextRuleName) {
+    activeRule.value.ruleName = nextRuleName;
+    ruleName.value = nextRuleName;
+    hasUnsavedChanges.value = true;
+    syncActiveRuleDraft();
+    initializeInventoryRules();
   }
   isRuleNameUpdating.value = false
 }
 
 async function cloneRule(rule: any) {
   if (isSandbox.value) return // clone-rule is a live action; not supported for a sandboxed variation
-  emitter.emit("presentLoader", { message: translate("Cloning rule"), backdropDismiss: false })
-  // try/finally so the non-dismissable loader always clears even if the store action rejects (it does
-  // when the store's currentRoutingId can't resolve a routing) — otherwise the spinner sticks forever.
-  try {
-    const resp = await routingStore.cloneRule({
-      routingRuleId: rule.routingRuleId,
-      ruleName: rule.ruleName,
-      orderRoutingId: activeRouting.value.orderRoutingId
-    })
-    if(!commonUtil.hasError(resp)) {
-      // If needed, refresh routing information
-      commonUtil.showToast(translate("Rule cloned successfully"))
-    }
-  } catch (err) {
-    logger.error(err)
-    commonUtil.showToast(translate("Failed to clone rule"))
-  } finally {
-    emitter.emit("dismissLoader")
-  }
+  flushEditorDraft();
+  const source = inventoryRules.value.find((candidate: any) => ruleKey(candidate) === ruleKey(rule));
+  if (!source) return;
+  const routingRuleId = createClientUuid();
+  const cloned = cloneSnapshotValue(source);
+  cloned._tempId = `temp-rule-${++tempIdCounter}`;
+  cloned.routingRuleId = routingRuleId;
+  cloned.orderRoutingId = activeRouting.value.orderRoutingId;
+  cloned.ruleName = `${source.ruleName || "Rule"} copy`;
+  const tail = inventoryRules.value[inventoryRules.value.length - 1];
+  cloned.sequenceNum = tail?.sequenceNum >= 0 ? Number(tail.sequenceNum) + 5 : 0;
+  cloned.inventoryFilters = (cloned.inventoryFilters || []).map((filter: any) => ({ ...filter, routingRuleId }));
+  cloned.actions = (cloned.actions || []).map((action: any) => ({ ...action, routingRuleId }));
+  inventoryRules.value.push(cloned);
+  hasUnsavedChanges.value = true;
+  initializeInventoryRules();
+  const target = rulesForReorder.value.find((candidate: any) => ruleKey(candidate) === routingRuleId);
+  if (target) selectRule(target, false);
+  commonUtil.showToast(translate("Rule cloned successfully"));
 }
 
 
@@ -1996,7 +2966,7 @@ function doConditionSortReorder(event: CustomEvent) {
 }
 
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
-  if (!activeRule.value?.routingRuleId) {
+  if (!ruleKey(activeRule.value)) {
     commonUtil.showToast(translate("Please select a rule first"));
     return;
   }
@@ -2004,7 +2974,7 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
     component: AddInventoryFilterOptionsModal,
     componentProps: {
       ruleConditions: conditionTypeEnumId === "ENTCT_FILTER" ? inventoryRuleFilterOptions.value : inventoryRuleSortOptions.value,
-      routingRuleId: activeRule.value.routingRuleId,
+      routingRuleId: activeRule.value.routingRuleId || activeRule.value._tempId,
       parentEnumId,
       conditionTypeEnumId,
       label,
@@ -2047,64 +3017,34 @@ async function addInventoryRule() {
     }]
   })
 
-  newRuleAlert.onDidDismiss().then(async (result: any) => {
+  newRuleAlert.onDidDismiss().then((result: any) => {
     const ruleName = result.data?.values?.ruleName;
     if(!result.role && ruleName) {
       const sequenceNum = inventoryRules.value.length && inventoryRules.value[inventoryRules.value.length - 1].sequenceNum >= 0 ? inventoryRules.value[inventoryRules.value.length - 1].sequenceNum + 5 : 0
 
-      // Sandbox: keep the added rule in-memory only. It must NOT get a routingRuleId so the
-      // variation diff treats it as an ADD_RULE; a client _tempId gives it a stable :key.
-      // Conditions/actions use the flat-array working-copy shape.
-      if (isSandbox.value) {
-        const newRule = {
-          _tempId: `temp-rule-${++tempIdCounter}`,
-          orderRoutingId: activeRouting.value.orderRoutingId,
-          ruleName,
-          statusId: "RULE_DRAFT",
-          sequenceNum,
-          assignmentEnumId: "ORA_SINGLE",
-          createdDate: DateTime.now().toMillis(),
-          inventoryFilters: [],
-          actions: [{ actionTypeEnumId: "ORA_NEXT_RULE", actionValue: "" }]
-        }
-        inventoryRules.value.push(newRule)
-        hasUnsavedChanges.value = true
-        initializeInventoryRules()
-        const created = rulesForReorder.value.find((r: any) => r._tempId === newRule._tempId)
-        if (created) selectRule(created)
-        return
-      }
-
-      const payload = {
-        routingRuleId: "",
+      syncActiveRuleDraft();
+      const routingRuleId = isSandbox.value ? "" : createClientUuid();
+      const newRule = {
+        _tempId: `temp-rule-${++tempIdCounter}`,
+        ...(routingRuleId ? { routingRuleId } : {}),
         orderRoutingId: activeRouting.value.orderRoutingId,
         ruleName,
         statusId: "RULE_DRAFT",
         sequenceNum,
         assignmentEnumId: "ORA_SINGLE",
-        createdDate: DateTime.now().toMillis()
-      }
-
-      const routingRuleId = await routingStore.createRoutingRule(payload)
-      if(routingRuleId) {
-        await routingStore.updateRule({
-          routingRuleId,
-          orderRoutingId: activeRouting.value.orderRoutingId,
-          actions: [{
-            actionTypeEnumId: "ORA_NEXT_RULE",
-            actionValue: "",
-            createdDate: DateTime.now().toMillis()
-          }]
-        })
-        await routingStore.fetchCurrentOrderRouting(activeRouting.value.orderRoutingId)
-        // createRoutingRule/updateRule replaced store.currentGroup with fresh clones, so activeRouting
-        // now aliases a stale object WITHOUT the new rule. Re-point at the current store copy before
-        // reading its rules, else the just-added rule is missing from the list until Save/refetch.
-        group.value = currentRoutingGroup.value
-        activeRouting.value = (group.value.routings || []).find((r: any) => r.orderRoutingId === activeRoutingId.value) || activeRouting.value
-        inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(activeRouting.value["rules"])))
-        initializeInventoryRules()
-      }
+        createdDate: DateTime.now().toMillis(),
+        inventoryFilters: [],
+        actions: [{
+          actionTypeEnumId: "ORA_NEXT_RULE",
+          actionValue: "",
+          ...(routingRuleId ? { routingRuleId } : {})
+        }]
+      };
+      inventoryRules.value.push(newRule);
+      hasUnsavedChanges.value = true;
+      initializeInventoryRules();
+      const created = rulesForReorder.value.find((candidate: any) => ruleKey(candidate) === ruleKey(newRule));
+      if (created) selectRule(created, false);
     }
   })
 
@@ -2112,15 +3052,22 @@ async function addInventoryRule() {
 }
 
 async function openArchivedRuleModal() {
+  flushEditorDraft();
   const archivedRuleModal = await modalController.create({
     component: ArchivedRuleModal,
-    componentProps: { archivedRules: getArchivedOrderRules() }
-  })
-
-  archivedRuleModal.onDidDismiss().then(() => {
-    // Sandbox: re-bind from the in-memory working copy instead of hitting the backend.
-    if (isSandbox.value) initializeFromWorking();
-    else fetchRoutingGroupInformation();
+    componentProps: {
+      archivedRules: getArchivedOrderRules(),
+      saveRules: (rules: any[]) => {
+        const updated = rules?.[0];
+        if (!updated) return;
+        const index = inventoryRules.value.findIndex((rule: any) => ruleKey(rule) === ruleKey(updated));
+        if (index >= 0) inventoryRules.value[index] = { ...inventoryRules.value[index], ...updated };
+        const key = ruleKey(updated);
+        if (rulesInformation.value[key]) rulesInformation.value[key] = { ...rulesInformation.value[key], ...updated };
+        hasUnsavedChanges.value = true;
+        initializeInventoryRules();
+      }
+    }
   })
 
   await archivedRuleModal.present();
@@ -2128,410 +3075,100 @@ async function openArchivedRuleModal() {
 
 
 async function save() {
-  // Sandbox: never persist to the live backend. Edits are captured into the variation working
-  // copy via the flush hook; the Variations rail owns saving a variation. Flush and stop.
+  flushEditorDraft();
   if (isSandbox.value) {
-    flushWorking()
-    return false // not a live commit; the host Save is live-only, so this path is defensive
+    return false;
   }
-  emitter.emit("presentLoader", { message: "Updating routing rules and filters", backdropDismiss: false })
-  syncActiveRuleDraft()
-  const localRulesPersisted = await persistLocalInventoryRules()
-  if(!localRulesPersisted) {
-    emitter.emit("dismissLoader")
-    return false
+  if (!group.value?.routingGroupId) {
+    commonUtil.showToast(translate("Failed to save changes"));
+    return false;
   }
 
-  const orderRouting = {
-    orderRoutingId: activeRouting.value.orderRoutingId,
-    routingGroupId: group.value.routingGroupId
-  } as any;
-
-  if(initialActiveRouting.value?.statusId !== activeRouting.value.statusId) {
-    orderRouting.statusId = activeRouting.value.statusId;
-  }
-
-  if(activeRouting.value["rules"]) {
-    let diffSeq = findRulesDiff(activeRouting.value["rules"], inventoryRules.value);
-    diffSeq = Object.keys(diffSeq).map((key) => diffSeq[key]);
-
-    if(diffSeq.length) {
-      orderRouting.rules = diffSeq;
-    }
-  }
-  
-  // Save routing-level changes first
-  const initialOrderFilters = activeRouting.value["orderFilters"]?.length ? activeRouting.value["orderFilters"].reduce((filters: any, filter: any) => {
-    if(filters[filter.conditionTypeEnumId]) {
-      filters[filter.conditionTypeEnumId][filter.fieldName] = filter
-    } else {
-      filters[filter.conditionTypeEnumId] = {
-        [filter.fieldName]: filter
-      }
-    }
-    return filters
-  }, {}) : {}
-
-  const routeSortOptionsDiff = findSortDiff(initialOrderFilters["ENTCT_SORT_BY"] ? initialOrderFilters["ENTCT_SORT_BY"] : {}, orderRoutingSortOptions.value)
-  const routeFilterOptionsDiff = findFilterDiff(initialOrderFilters["ENTCT_FILTER"] ? initialOrderFilters["ENTCT_FILTER"] : {}, orderRoutingFilterOptions.value)
-
-  // As we have explicitely added the options for exclude filter for routing rules, we will remove the _excluded from the fieldName parameter before updating the same
-  Object.entries(routeFilterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  Object.entries(routeFilterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-    if(key.includes("_excluded")) {
-      value["fieldName"] = value["fieldName"].split("_")[0]
-    }
-  })
-
-  const filtersToRemove = Object.values({ ...routeFilterOptionsDiff.seqToRemove, ...routeSortOptionsDiff.seqToRemove })
-  const filtersToUpdate = Object.values({ ...routeFilterOptionsDiff.seqToUpdate, ...routeSortOptionsDiff.seqToUpdate })
-
-  if(filtersToRemove?.length) {
-    await routingStore.deleteRoutingFilters({ filters: filtersToRemove, orderRoutingId: activeRouting.value.orderRoutingId })
-  }
-
-  if(filtersToUpdate?.length || orderRouting.rules?.length || orderRouting.statusId) {
-    orderRouting["orderFilters"] = filtersToUpdate
-    const orderRoutingId = await routingStore.updateRouting(orderRouting)
-    if(orderRoutingId) {
-      activeRouting.value["orderFilters"] = Object.values({ ...orderRoutingFilterOptions.value, ...orderRoutingSortOptions.value })
-      if(orderRouting.rules?.length) {
-        activeRouting.value["rules"] = JSON.parse(JSON.stringify(inventoryRules.value))
-      }
-      initialActiveRouting.value = JSON.parse(JSON.stringify(activeRouting.value))
-    }
-  }
-
-  const rulesDiff = buildRulesInformationDiff()
-  for(const rule of rulesDiff) {
-    if(rule.filtersToRemove?.length) {
-      await routingStore.deleteRuleConditions({ routingRuleId: rule.routingRuleId, conditions: rule.filtersToRemove })
-    }
-
-    if(rule.actionsToRemove?.length) {
-      await routingStore.deleteRuleActions({ routingRuleId: rule.routingRuleId, actions: rule.actionsToRemove })
-    }
-
-    if(rule.filtersToUpdate?.length || rule.actionsToUpdate?.length) {
-      await routingStore.updateRule({
-        routingRuleId: rule.routingRuleId,
-        orderRoutingId: rule.orderRoutingId,
-        inventoryFilters: rule.filtersToUpdate,
-        actions: rule.actionsToUpdate
-      })
-    }
-  }
-
-  // The granular flush above kept the in-memory group (routingStore.currentGroup) in sync with every
-  // editor change. THIS is the explicit, on-demand commit — POST the whole group to the backend.
-  // (Until now nothing on this page reached the server; edits only accumulated as a local draft.)
+  const previousRoutingId = activeRoutingId.value;
+  const previousGroupId = group.value.routingGroupId;
+  emitter.emit("presentLoader", { message: translate("Updating routing rules and filters"), backdropDismiss: false });
   try {
-    await routingStore.saveRoutingGroupRaw({ ...currentRoutingGroup.value })
+    // saveRoutingGroupRaw owns payload sanitization and performs the sole whole-group write.
+    // Empty groups are valid: there is intentionally no active-routing dereference here.
+    const savedGroup = await routingStore.saveRoutingGroupRaw(cloneSnapshotValue(group.value));
+
+    proposalSnapshot.value = null;
+    const savedGroupId = (savedGroup || currentRoutingGroup.value)?.routingGroupId || "";
+    const replacementRoute = prepareRoutingGroupSaveCommit(previousGroupId, savedGroupId, () => {
+      hasUnsavedChanges.value = false;
+      emit("dirtyChange", false);
+    });
+    group.value = savedGroup || currentRoutingGroup.value;
+    groupName.value = group.value.groupName || "";
+    description.value = group.value.description || "";
+    job.value = routingGroupScheduleWorkingCopy(group.value);
+
+    const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
+      || group.value.routings?.[0];
+    if (target) selectRouting(target, false);
+    else clearEditorSelection();
+
+    if (replacementRoute) {
+      await nextTick();
+      await router.replace(replacementRoute);
+    }
+
+    commonUtil.showToast(translate("Changes saved successfully"));
+    return true;
   } catch (err) {
-    logger.error(err)
-    emitter.emit("dismissLoader")
-    commonUtil.showToast(translate("Failed to save changes"))
-    return false
+    logger.error(err);
+    commonUtil.showToast(translate("Failed to save changes"));
+    return false;
+  } finally {
+    emitter.emit("dismissLoader");
   }
-
-  // A Save commits everything in the working copy, including any undecided Circuit proposal — drop
-  // its stash so a later reject can't resurrect the pre-proposal state after it's been persisted.
-  proposalSnapshot.value = null
-  // saveRoutingGroupRaw refetched the saved group and cleared the store dirty flag. Re-bind the editor
-  // from the fresh backend data (new server ids for created rules), keeping the routing selection.
-  const prevRoutingId = activeRoutingId.value
-  hasUnsavedChanges.value = false
-  await fetchRoutingGroupInformation()
-  const prevRouting = group.value.routings?.find((r: any) => r.orderRoutingId === prevRoutingId)
-  if (prevRouting) selectRouting(prevRouting)
-
-  emitter.emit("dismissLoader")
-  commonUtil.showToast(translate("Changes saved successfully"))
-  return true
 }
 
 function syncActiveRuleDraft() {
-  if (isSandbox.value) {
-    // Sandbox: serialize the open rule's edits to FLAT ARRAYS (working-copy shape), keyed by
-    // ruleKey so client-added (_tempId) rules are handled, and mirror back into inventoryRules.
-    const key = activeRuleId.value
-    if (!key || !activeRule.value) return
-    const inventoryFilters = [
-      ...Object.values(inventoryRuleFilterOptions.value || {}),
-      ...Object.values(inventoryRuleSortOptions.value || {})
-    ].map((c: any) => ({ ...c }))
-    const actions = Object.values(inventoryRuleActions.value || {}).map((a: any) => ({
-      actionTypeEnumId: a.routingActionTypeId || a.actionTypeEnumId,
-      actionValue: a.actionValue,
-      ...(a.routingRuleId ? { routingRuleId: a.routingRuleId } : {})
-    }))
-    activeRule.value.inventoryFilters = inventoryFilters
-    activeRule.value.actions = actions
-    rulesInformation.value[key] = activeRule.value
-    const idx = inventoryRules.value.findIndex((r: any) => ruleKey(r) === key)
-    if (idx >= 0) {
-      inventoryRules.value[idx] = { ...inventoryRules.value[idx], ...activeRule.value, inventoryFilters, actions }
-    }
-    return
-  }
+  const key = activeRuleId.value || ruleWorkingKey(activeRule.value);
+  if (!key || !activeRule.value) return;
 
-  const ruleId = activeRule.value?.routingRuleId
-  if(!ruleId) return
-
-  rulesInformation.value[ruleId] = {
-    ...(rulesInformation.value[ruleId] || activeRule.value),
-    ...activeRule.value,
+  const projection = {
+    ...cloneSnapshotValue(activeRule.value),
     inventoryFilters: {
-      ENTCT_FILTER: inventoryRuleFilterOptions.value,
-      ENTCT_SORT_BY: inventoryRuleSortOptions.value
+      ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+      ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
     },
-    actions: inventoryRuleActions.value
+    actions: cloneSnapshotValue(inventoryRuleActions.value)
+  };
+  rulesInformation.value[key] = projection;
+
+  const serialized = serializeRuleWorkingCopy(
+    activeRule.value,
+    inventoryRuleFilterOptions.value,
+    inventoryRuleSortOptions.value,
+    inventoryRuleActions.value
+  );
+  inventoryRules.value = replaceWorkingEntry(inventoryRules.value, serialized, ruleWorkingKey);
+
+  const listIndex = rulesForReorder.value.findIndex((rule: any) => ruleWorkingKey(rule) === key);
+  if (listIndex >= 0) {
+    const nextList = [...rulesForReorder.value];
+    nextList[listIndex] = cloneSnapshotValue(serialized);
+    rulesForReorder.value = nextList;
   }
 }
 
-async function persistLocalInventoryRules() {
-  const localRules = inventoryRules.value.filter((rule: any) => isLocalRuleId(rule.routingRuleId))
-
-  for(const rule of localRules) {
-    const localRuleId = rule.routingRuleId
-    const payload = {
-      ...rule,
-      routingRuleId: "",
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      createdDate: rule.createdDate || DateTime.now().toMillis()
-    }
-    const persistedRuleId = await routingStore.createRoutingRule(payload)
-    if(!persistedRuleId) {
-      commonUtil.showToast(translate("Failed to create routing rule"))
-      return false
-    }
-
-    replaceLocalRuleId(localRuleId, persistedRuleId)
-  }
-
-  return true
+function syncCachedRuleDrafts() {
+  inventoryRules.value = inventoryRules.value.map((rawRule: any) => {
+    const key = ruleWorkingKey(rawRule);
+    const projection = rulesInformation.value[key];
+    if (!projection) return rawRule;
+    const projectedFilters = projection.inventoryFilters || {};
+    return serializeRuleWorkingCopy(
+      { ...rawRule, ...projection },
+      projectedFilters.ENTCT_FILTER || {},
+      projectedFilters.ENTCT_SORT_BY || {},
+      projection.actions || {}
+    );
+  });
 }
 
-function replaceLocalRuleId(localRuleId: string, persistedRuleId: string) {
-  replaceRuleIdInList(inventoryRules.value, localRuleId, persistedRuleId)
-  replaceRuleIdInList(rulesForReorder.value, localRuleId, persistedRuleId)
-
-  const ruleInfo = rulesInformation.value[localRuleId] || {}
-  delete rulesInformation.value[localRuleId]
-  rulesInformation.value[persistedRuleId] = rewriteRuleOwnerIds({
-    ...ruleInfo,
-    routingRuleId: persistedRuleId
-  }, persistedRuleId)
-
-  delete initialRulesInformation.value[localRuleId]
-  initialRulesInformation.value[persistedRuleId] = {}
-
-  if(activeRule.value?.routingRuleId === localRuleId) {
-    activeRule.value.routingRuleId = persistedRuleId
-    activeRuleId.value = persistedRuleId
-  }
-}
-
-function replaceRuleIdInList(rules: any[], localRuleId: string, persistedRuleId: string) {
-  rules.forEach((rule: any) => {
-    if(rule.routingRuleId === localRuleId) {
-      rule.routingRuleId = persistedRuleId
-    }
-  })
-}
-
-function rewriteRuleOwnerIds(ruleInfo: any, routingRuleId: string) {
-  const inventoryFilters = ruleInfo.inventoryFilters || {}
-  Object.values(inventoryFilters.ENTCT_FILTER || {}).forEach((filter: any) => filter.routingRuleId = routingRuleId)
-  Object.values(inventoryFilters.ENTCT_SORT_BY || {}).forEach((filter: any) => filter.routingRuleId = routingRuleId)
-  Object.values(ruleInfo.actions || {}).forEach((action: any) => action.routingRuleId = routingRuleId)
-  return ruleInfo
-}
-
-function isLocalRuleId(ruleId: string) {
-  return String(ruleId || "").startsWith("new:") || String(ruleId || "").startsWith("draft:")
-}
-
-function buildRulesInformationDiff() {
-  const currentRulesInformation = JSON.parse(JSON.stringify(rulesInformation.value))
-  const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC as string || ""
-
-  return Object.keys(currentRulesInformation).map((ruleId: string) => {
-    const previousRuleInformation = initialRulesInformation.value[ruleId] || {}
-    const updatedRuleInformation = currentRulesInformation[ruleId] || {}
-    const previousRuleSortOptions = previousRuleInformation["inventoryFilters"]?.["ENTCT_SORT_BY"] || {}
-    const updatedRuleSortOptions = updatedRuleInformation["inventoryFilters"]?.["ENTCT_SORT_BY"] || {}
-    const sortOptionsDiff = findSortDiff(previousRuleSortOptions, updatedRuleSortOptions)
-
-    Object.values({...sortOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToRemove}).map((option: any) => {
-      if(filterSortDesc.includes(option.fieldName)) {
-        option.fieldName += " desc"
-      }
-    })
-
-    const previousRuleFilterOptions = previousRuleInformation["inventoryFilters"]?.["ENTCT_FILTER"] || {}
-    const updatedRuleFilterOptions = updatedRuleInformation["inventoryFilters"]?.["ENTCT_FILTER"] || {}
-    const filterOptionsDiff = findFilterDiff(previousRuleFilterOptions, updatedRuleFilterOptions)
-
-    const previousRuleActionOptions = previousRuleInformation["actions"] || {}
-    const updatedRuleActionOptions = updatedRuleInformation["actions"] || {}
-    const ruleActionsDiff = findActionDiff(previousRuleActionOptions, updatedRuleActionOptions)
-
-    Object.entries(filterOptionsDiff.seqToRemove).map(([key, value]: any) => {
-      if(key.includes("_excluded")) {
-        value["fieldName"] = value["fieldName"].split("_")[0]
-      }
-    })
-
-    Object.entries(filterOptionsDiff.seqToUpdate).map(([key, value]: any) => {
-      if(key.includes("_excluded")) {
-        value["fieldName"] = value["fieldName"].split("_")[0]
-      }
-    })
-
-    return {
-      routingRuleId: ruleId,
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      filtersToRemove: Object.values({ ...filterOptionsDiff.seqToRemove, ...sortOptionsDiff.seqToRemove }),
-      filtersToUpdate: Object.values({ ...filterOptionsDiff.seqToUpdate, ...sortOptionsDiff.seqToUpdate }),
-      actionsToRemove: Object.values(ruleActionsDiff.seqToRemove),
-      actionsToUpdate: Object.values(ruleActionsDiff.seqToUpdate)
-    }
-  }).filter((rule: any) => rule.filtersToRemove.length || rule.filtersToUpdate.length || rule.actionsToRemove.length || rule.actionsToUpdate.length)
-}
-
-function findRulesDiff(previousSeq: any, updatedSeq: any) {
-  const diffSeq: any = Object.keys(previousSeq).reduce((diff, key) => {
-    if (updatedSeq[key].routingRuleId === previousSeq[key].routingRuleId
-      && updatedSeq[key].statusId === previousSeq[key].statusId
-      && updatedSeq[key].assignmentEnumId === previousSeq[key].assignmentEnumId
-      && updatedSeq[key].ruleName === previousSeq[key].ruleName
-      && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, {})
-  return diffSeq;
-}
-
-function findSortDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].sequenceNum === previousSeq[key].sequenceNum) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key]) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_sort'] = seqToUpdate[key]
-    return updatedSeq
-  }, {})
-
-  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_sort'] = seqToRemove[key]
-    return updatedSeq
-  }, {})
-
-  return { seqToUpdate, seqToRemove };
-}
-
-function findFilterDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].fieldName === previousSeq[key].fieldName && updatedSeq[key].fieldValue == previousSeq[key].fieldValue && updatedSeq[key].operator === previousSeq[key].operator) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key] && (updatedSeq[key].fieldValue || updatedSeq[key].fieldValue === 0)) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(seqToUpdate).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_filter'] = seqToUpdate[key]
-    return updatedSeq
-  }, {})
-
-  seqToRemove = Object.keys(seqToRemove).reduce((updatedSeq: any, key) => {
-    updatedSeq[key + '_filter'] = seqToRemove[key]
-    return updatedSeq
-  }, {})
-
-  return { seqToUpdate, seqToRemove };
-}
-
-function findActionDiff(previousSeq: any, updatedSeq: any) {
-  let seqToUpdate = {} as any
-  let seqToRemove = {} as any
-
-  seqToUpdate = Object.keys(previousSeq).reduce((diff, key) => {
-    if(!updatedSeq[key]) {
-      seqToRemove[key] = previousSeq[key]
-      return diff
-    }
-
-    if (updatedSeq[key].routingActionTypeId === previousSeq[key].routingActionTypeId && updatedSeq[key].actionValue == previousSeq[key].actionValue) return diff
-    return {
-      ...diff,
-      [key]: updatedSeq[key]
-    }
-  }, seqToUpdate)
-
-  seqToUpdate = Object.keys(updatedSeq).reduce((diff, key) => {
-    if(!previousSeq[key]) {
-      diff = {
-        ...diff,
-        [key]: updatedSeq[key]
-      }
-    }
-
-    return diff
-  }, seqToUpdate)
-
-  return { seqToUpdate, seqToRemove };
-}
 
 const openRouteDetails = (routing: any) => {
   // Logic to open details modal/menu if needed
@@ -2590,70 +3227,50 @@ async function editRouteName() {
 }
 
 async function updateRouteName() {
-  if(routeName.value.trim() && routeName.value.trim() !== activeRouting.value.routingName.trim()) {
-    // Sandbox: rename the in-memory routing only; the variation diff persists it on save.
-    if (isSandbox.value) {
-      activeRouting.value.routingName = routeName.value
-      hasUnsavedChanges.value = true
-      isRouteNameUpdating.value = false
-      return
-    }
-    emitter.emit("presentLoader", { message: translate("Updating..."), backdropDismiss: false })
-    const payload = {
-      orderRoutingId: activeRouting.value.orderRoutingId,
-      routingName: routeName.value
-    }
-    try {
-      const orderRoutingId = await routingStore.updateRouting(payload);
-      if(orderRoutingId) {
-        activeRouting.value.routingName = routeName.value
-        commonUtil.showToast(translate("Order routing information updated"))
-      }
-    } catch(err) {
-      commonUtil.showToast(translate("Failed to update routing information"))
-      logger.error(err);
-    }
-    emitter.emit("dismissLoader")
+  if(routeName.value.trim() && routeName.value.trim() !== String(activeRouting.value?.routingName || "").trim()) {
+    activeRouting.value.routingName = routeName.value.trim();
+    routeName.value = routeName.value.trim();
+    hasUnsavedChanges.value = true;
+    flushEditorDraft();
   }
   isRouteNameUpdating.value = false
 }
 
 async function cloneRouting(routing: any) {
   if (isSandbox.value) return; // cloning a routing into a variation isn't supported (matches the sim flow)
-  emitter.emit("presentLoader", { message: translate("Cloning route"), backdropDismiss: false })
-  const orderRoutingId = await routingStore.cloneOrderRouting({
-    orderRoutingId: routing.orderRoutingId,
-    orderRoutingName: routing.routingName,
-    routingGroupId: routingGroupId.value || ""
-  })
-  if(orderRoutingId) {
-    await fetchRoutingGroupInformation();
-    commonUtil.showToast(translate("Route cloned successfully"))
-  }
-  emitter.emit("dismissLoader")
+  flushEditorDraft();
+  const source = (group.value.routings || []).find((candidate: any) => routingWorkingKey(candidate) === routingWorkingKey(routing));
+  if (!source) return;
+  const orderRoutingId = createClientUuid();
+  const cloned = cloneSnapshotValue(source);
+  cloned._tempId = `temp-routing-${++tempIdCounter}`;
+  cloned.orderRoutingId = orderRoutingId;
+  cloned.routingGroupId = group.value.routingGroupId;
+  cloned.routingName = `${source.routingName || "Routing"} copy`;
+  const tail = group.value.routings?.[group.value.routings.length - 1];
+  cloned.sequenceNum = tail?.sequenceNum >= 0 ? Number(tail.sequenceNum) + 5 : 0;
+  cloned.rules = (cloned.rules || []).map((rule: any) => {
+    const routingRuleId = createClientUuid();
+    return {
+      ...rule,
+      _tempId: `temp-rule-${++tempIdCounter}`,
+      routingRuleId,
+      orderRoutingId,
+      inventoryFilters: (rule.inventoryFilters || []).map((filter: any) => ({ ...filter, routingRuleId })),
+      actions: (rule.actions || []).map((action: any) => ({ ...action, routingRuleId }))
+    };
+  });
+  group.value.routings = commonUtil.sortSequence([...(group.value.routings || []), cloned]);
+  hasUnsavedChanges.value = true;
+  selectRouting(cloned, false);
+  commonUtil.showToast(translate("Route cloned successfully"));
 }
 
 async function updateRoutingStatus(statusId: string) {
-  // Sandbox: flip the status on the in-memory routing only; the variation diff persists it later.
-  if (isSandbox.value) {
-    if (activeRouting.value) activeRouting.value.statusId = statusId
-    hasUnsavedChanges.value = true
-    return
-  }
-  const payload = {
-    orderRoutingId: activeRoutingId.value,
-    statusId: statusId
-  }
-  try {
-    const orderRoutingId = await routingStore.updateRouting(payload)
-    if(orderRoutingId){
-      activeRouting.value.statusId = statusId
-      commonUtil.showToast(translate("Routing status updated"))
-    }
-  } catch(err) {
-    commonUtil.showToast(translate("Failed to update routing status"))
-    logger.error(err)
-  }
+  if (!activeRouting.value) return;
+  activeRouting.value.statusId = statusId;
+  hasUnsavedChanges.value = true;
+  flushEditorDraft();
 }
 
 function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = false) {
@@ -2703,6 +3320,8 @@ function doRoutingReorder(event: CustomEvent) {
   })
 
   group.value.routings = updatedSeq
+  const updatedActiveRouting = updatedSeq.find((routing: any) => routingWorkingKey(routing) === activeRoutingId.value);
+  if (updatedActiveRouting && activeRouting.value) activeRouting.value.sequenceNum = updatedActiveRouting.sequenceNum;
   hasUnsavedChanges.value = true
   isReordering.value = false
 }
@@ -2763,8 +3382,12 @@ function doReorder(event: CustomEvent) {
     const updatedRule = updatedSeq.find((seq: any) => ruleKey(seq) === ruleKey(rule))
     if(updatedRule) {
       rule.sequenceNum = updatedRule.sequenceNum
+      const key = ruleKey(rule);
+      if (rulesInformation.value[key]) rulesInformation.value[key].sequenceNum = updatedRule.sequenceNum;
     }
   })
+  const updatedActiveRule = updatedSeq.find((rule: any) => ruleKey(rule) === activeRuleId.value);
+  if (updatedActiveRule && activeRule.value) activeRule.value.sequenceNum = updatedActiveRule.sequenceNum;
   hasUnsavedChanges.value = true
   isReordering.value = false
 }
@@ -2783,16 +3406,17 @@ async function openRoutingHistoryModal(orderRoutingId: string, routingName: stri
 }
 
 async function openArchivedRoutingModal() {
+  flushEditorDraft();
   const archivedRoutingModal = await modalController.create({
     component: ArchivedRoutingModal,
     componentProps: {
       archivedRoutings: group.value?.routings?.filter((routing: any) => routing.statusId === "ROUTING_ARCHIVED") || [],
       saveRoutings: (routings: any) => {
-        if(routings) {
-          // Sandbox: re-bind from the working copy instead of hitting the backend.
-          if (isSandbox.value) initializeFromWorking()
-          else fetchRoutingGroupInformation()
-        }
+        const updated = routings?.[0];
+        if (!updated) return;
+        const index = (group.value.routings || []).findIndex((routing: any) => routingWorkingKey(routing) === routingWorkingKey(updated));
+        if (index >= 0) group.value.routings[index] = { ...group.value.routings[index], ...updated };
+        hasUnsavedChanges.value = true;
       }
     }
   })
@@ -2934,6 +3558,46 @@ ion-card {
 
 .routing .config .rules {
   grid-column: 2;
+}
+
+.rule-status {
+  margin-top: 2px;
+}
+
+.rule-item.dirty-row {
+  --background: rgba(var(--ion-color-warning-rgb), 0.16);
+  border-inline-start: 3px solid var(--ion-color-warning);
+}
+
+.rule-item.dirty-row ion-note {
+  font-size: 0.75rem;
+}
+
+.dirty-card {
+  outline: 2px solid var(--ion-color-warning);
+  outline-offset: -2px;
+  overflow: hidden;
+}
+
+.dirty-setting-row {
+  --background: rgba(var(--ion-color-warning-rgb), 0.16);
+  border-inline-start: 3px solid var(--ion-color-warning);
+}
+
+.routing-group-editor.interaction-locked {
+  cursor: progress;
+}
+
+.rule-status.active {
+  color: var(--ion-color-success);
+}
+
+.rule-status.archived {
+  color: var(--ion-color-warning);
+}
+
+.rule-status.draft {
+  color: var(--ion-color-medium);
 }
 
 /* routing rule */

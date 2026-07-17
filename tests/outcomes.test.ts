@@ -1,7 +1,8 @@
 import assert from "assert";
 import { makeOutcomes, makeResults } from "./fixtures/outcomes";
-import { toRows, formatPercent, formatMoney, fillRateOf, moneySaved } from "../src/util/simulationResults";
+import { toRows, formatPercent, formatMoney, fillRateOf, moneySaved } from "../src/utils/simulationResults";
 
+it("normalizes and formats simulation outcomes", () => {
 // toRows: baseline first, asymmetry normalized
 {
   const results = makeResults(makeOutcomes(), [
@@ -74,3 +75,4 @@ import { toRows, formatPercent, formatMoney, fillRateOf, moneySaved } from "../s
 }
 
 console.log("outcomes (rows + formatters) tests passed");
+});

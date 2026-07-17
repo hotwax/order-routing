@@ -15,6 +15,7 @@ function mem(): Cache.StorageLike & { map: Map<string, string> } {
 const hdr = (id: string, createdDate: string, statusId = "COMPLETE") =>
   ({ simulationId: id, productStoreId: "STORE", statusId, createdDate } as any);
 
+it("stores, prunes, and safely reads simulation history", () => {
 // list set/get roundtrip, scoped by productStoreId.
 {
   const s = mem();
@@ -67,3 +68,4 @@ const hdr = (id: string, createdDate: string, statusId = "COMPLETE") =>
 }
 
 console.log("SimulationHistoryCache tests passed");
+});

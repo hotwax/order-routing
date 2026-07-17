@@ -6,12 +6,12 @@ vi.mock("@common", () => ({
   commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
   cookieHelper: () => ({ get: () => "" }),
 }));
-import { applyDraftOperations } from "../src/util/draftUtils";
+import { applyDraftOperations } from "../src/utils/draftUtils";
 import type { DraftOperation } from "../src/types/draft";
 import {
-  buildBrokeringRulesBindings,
-  buildBrokeringRulesManifest
-} from "../src/util/brokeringRulesManifest";
+  buildRoutingRulesBindings,
+  buildRoutingRulesManifest
+} from "../src/utils/routingRulesManifest";
 
 it("brokering rules draft targets", async () => {
 
@@ -69,7 +69,7 @@ function createFixture(overrides: any = {}) {
     "rule-1": { ...selectedRoutingRule, ...overrides.selectedRoutingRule, inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: {} }, actions: {} }
   };
   const draft = {
-    orderRoutingId: "route-1",
+    orderRoutingId: overrides.orderRoutingId || "route-1",
     selectedRoutingRule: { value: { ...selectedRoutingRule, ...overrides.selectedRoutingRule } },
     routingStatus: { value: overrides.routingStatus || "ROUTING_DRAFT" },
     orderRoutingFilterOptions: { value: overrides.orderRoutingFilterOptions || {} },
@@ -93,10 +93,10 @@ function createFixture(overrides: any = {}) {
     conditionSortEnums,
     actionEnums
   };
-  const manifest = buildBrokeringRulesManifest({
+  const manifest = buildRoutingRulesManifest({
     pageRoute: "/tabs/brokering/M100000/M100000/rules",
     orderRoutingId: draft.orderRoutingId,
-    routingName: "Route A",
+    routingName: overrides.routingName || "Route A",
     routingStatus: draft.routingStatus.value,
     selectedRoutingRule: draft.selectedRoutingRule.value,
     isTestEnabled: false,
@@ -123,9 +123,81 @@ function createFixture(overrides: any = {}) {
   return { draft, manifest };
 }
 
+{
+  const variationRule = {
+    routingRuleId: "",
+    _tempId: "temp-variation-rule-1",
+    ruleName: "Variation working rule",
+    statusId: "RULE_DRAFT",
+    sequenceNum: 7,
+    assignmentEnumId: "ORA_MULTI"
+  };
+  const { manifest } = createFixture({
+    orderRoutingId: "VM100005_100008",
+    routingName: "Variation working route",
+    routingStatus: "ROUTING_ACTIVE",
+    selectedRoutingRule: variationRule,
+    inventoryRules: [variationRule],
+    rulesInformation: {
+      "temp-variation-rule-1": {
+        ...variationRule,
+        inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: {} },
+        actions: {}
+      }
+    },
+    brokeringRun: {
+      routingGroupId: "M100255",
+      groupName: "Working variation",
+      productStoreId: "STORE",
+      schedule: { jobName: "live-job-must-not-leak" },
+      routings: [
+        {
+          orderRoutingId: "VM100005_100008",
+          routingName: "Variation working route",
+          statusId: "ROUTING_ACTIVE",
+          sequenceNum: 5
+        },
+        {
+          orderRoutingId: "VM100005_100009",
+          routingName: "Variation sibling",
+          statusId: "ROUTING_DRAFT",
+          sequenceNum: 10
+        }
+      ]
+    }
+  });
+
+  assert.deepEqual(manifest.context, {
+    mode: "variation",
+    variationId: "VM100005",
+    routingGroupId: "M100255",
+    unavailableOperations: ["newRouting", "cloneRouting", "schedule", "liveRun", "groupStatus"]
+  });
+  const run = manifest.visibleEntities.brokeringRun as any;
+  const route = manifest.visibleEntities.route as any;
+  const selectedRule = manifest.visibleEntities.selectedRule as any;
+  assert.equal(run.schedule, null, "a live group schedule must not be sent in variation context");
+  assert.equal(run.availableSiblingRoutings[1].routingName, "Variation sibling");
+  assert.equal(route.orderRoutingId, "VM100005_100008");
+  assert.equal(route.routingName, "Variation working route");
+  assert.equal(route.statusId, "ROUTING_ACTIVE");
+  assert.equal(route.draftLimitations.canCreateSiblingRoutings, false);
+  assert.equal(route.availableInventoryRules[0].routingRuleId, "temp-variation-rule-1");
+  assert.equal(selectedRule.routingRuleId, "temp-variation-rule-1");
+  assert.equal(selectedRule.assignmentEnumId, "ORA_MULTI");
+  assert.equal(manifest.editableTargets.some((target) => target.target === "route.statusId" && target.editable), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.statusId" && target.editable), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.partialAllocation"), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("route.orderFilters.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("route.orderSorts.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("selectedRule.inventoryFilters.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("selectedRule.inventorySorts.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.unavailableItemsAction"), true);
+}
+
 function apply(operations: DraftOperation[], overrides: any = {}) {
   const fixture = createFixture(overrides);
-  const result = applyDraftOperations(operations, fixture.manifest, buildBrokeringRulesBindings(fixture.draft));
+  const result = applyDraftOperations(operations, fixture.manifest, buildRoutingRulesBindings(fixture.draft));
   return { ...fixture, result };
 }
 
@@ -415,10 +487,13 @@ const queueFacilities = {
       ruleName: "Stores fallback",
       ruleSequence: 20
     } as any
-  ], fixture.manifest, buildBrokeringRulesBindings(fixture.draft));
+  ], fixture.manifest, buildRoutingRulesBindings(fixture.draft));
 
   assert.equal(result.appliedCount, 2);
-  assert.equal(fixture.draft.selectedRoutingRule.value.routingRuleId, "rule-1");
+  // The last scoped rule Circuit changed remains selected so the accepted preview is visible and
+  // the editor's Save flush serializes the same state the user reviewed on the canvas.
+  assert.equal(fixture.draft.selectedRoutingRule.value.routingRuleId, "new:stores-fallback");
+  assert.equal(fixture.draft.inventoryRuleSortOptions.value.distance.fieldName, "distance");
   assert.ok(fixture.draft.inventoryRules.value.some((rule: any) => rule.routingRuleId === "new:warehouse-first"));
   assert.ok(fixture.draft.inventoryRules.value.some((rule: any) => rule.routingRuleId === "new:stores-fallback"));
   assert.equal(fixture.draft.rulesInformation.value["new:warehouse-first"].inventoryFilters.ENTCT_FILTER.facilityGroupId.fieldValue, "FG1");
@@ -549,7 +624,7 @@ const queueFacilities = {
 
 // --- targetRouting/sibling-routing manifest fields ---
 {
-  const manifest = buildBrokeringRulesManifest({
+  const manifest = buildRoutingRulesManifest({
     pageRoute: "/tabs/circuit",
     orderRoutingId: "ROUTING_A",
     routingName: "East Coast",
@@ -597,7 +672,7 @@ const queueFacilities = {
 
 // Sibling routings array must be empty (not undefined) when group has no routings
 {
-  const manifest = buildBrokeringRulesManifest({
+  const manifest = buildRoutingRulesManifest({
     pageRoute: "/tabs/circuit",
     orderRoutingId: "ROUTING_A",
     routingName: "East Coast",

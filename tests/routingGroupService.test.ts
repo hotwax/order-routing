@@ -1,5 +1,4 @@
-// tests/routingGroupService.test.ts — shared routing-group fetch+normalize helpers used by both the
-// OMS store (orderRoutingStore, via api()) and the isolated simulate path (simulationStore, via simApi()).
+// The shared service was intentionally folded into the stores; hierarchy normalization remains pure.
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@common", () => ({
@@ -10,7 +9,7 @@ vi.mock("@common", () => ({
   },
 }));
 
-import { normalizeRoutingGroupHierarchy, fetchRoutingGroupDetail } from "../src/services/RoutingGroupService";
+import { normalizeRoutingGroupHierarchy } from "../src/utils/ruleUtil";
 
 describe("normalizeRoutingGroupHierarchy", () => {
   it("sorts routings + rules by sequence and rewrites _excluded fieldNames for negative operators", () => {
@@ -41,42 +40,5 @@ describe("normalizeRoutingGroupHierarchy", () => {
   it("returns the group untouched when there are no routings", () => {
     expect(normalizeRoutingGroupHierarchy({ routingGroupId: "G", routings: [] }))
       .toEqual({ routingGroupId: "G", routings: [] });
-  });
-});
-
-describe("fetchRoutingGroupDetail", () => {
-  it("pulls /raw via the supplied request fn, preserving baseURL, and normalizes the result", async () => {
-    const request = vi.fn().mockResolvedValue({ data: { routingGroupId: "G1", routings: [{ orderRoutingId: "R1", sequenceNum: 1 }] } });
-    const out = await fetchRoutingGroupDetail("G1", [], request, "http://sim/rest/s1/");
-    expect(request).toHaveBeenCalledWith(expect.objectContaining({
-      url: "order-routing/groups/G1/raw", method: "GET", baseURL: "http://sim/rest/s1/",
-    }));
-    expect(out.routingGroupId).toBe("G1");
-    expect(out.routings[0].orderRoutingId).toBe("R1");
-  });
-
-  it("treats an empty/non-object /raw body as a valid group with no routings (using the list metadata)", async () => {
-    const request = vi.fn().mockResolvedValue({ data: "" });
-    const out = await fetchRoutingGroupDetail("G1", [{ routingGroupId: "G1", groupName: "Grp" }], request, "");
-    expect(out).toMatchObject({ routingGroupId: "G1", groupName: "Grp", routings: [] });
-  });
-
-  it("falls back to the list metadata (without routings) when the request throws and the group is listed", async () => {
-    const request = vi.fn().mockRejectedValue(new Error("network down"));
-    const out = await fetchRoutingGroupDetail("G1", [{ routingGroupId: "G1", groupName: "Grp" }], request, "");
-    // No routings array: cache checks must treat this as partial and refetch on the next visit.
-    expect(out).toMatchObject({ routingGroupId: "G1", groupName: "Grp" });
-    expect(out.routings).toBeUndefined();
-  });
-
-  it("rethrows when the request throws and the group is not in the list (nothing to render)", async () => {
-    const request = vi.fn().mockRejectedValue(new Error("network down"));
-    await expect(fetchRoutingGroupDetail("G1", [], request, "")).rejects.toThrow("network down");
-  });
-
-  it("builds paths under the supplied component name (ai-routing rename is one env change)", async () => {
-    const request = vi.fn().mockResolvedValue({ data: { routingGroupId: "G1" } });
-    await fetchRoutingGroupDetail("G1", [], request, "http://sim/rest/s1/", "ai-routing");
-    expect(request).toHaveBeenCalledWith(expect.objectContaining({ url: "ai-routing/groups/G1/raw" }));
   });
 });

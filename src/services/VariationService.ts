@@ -1,11 +1,15 @@
 // src/services/VariationService.ts
 // Thin REST layer for the sim-routing (variation / what-if) API. The pure `variationRequests` builders
 // return axios-style configs (testable without network); the exported async functions add baseURL +
-// auth via client() and unwrap/validate the response.
-import { api, commonUtil } from "@common";
+// auth via the isolated simulation client and unwrap/validate the response.
+import { commonUtil } from "@common";
 import type { VariationConditionInput, VariationActionInput } from "../types/variation";
-import { simApiBaseUrl } from "../utils/simConfig";
 import type { GroupRunResult, VariationListItem, VariationTree } from "../types/variation";
+import { simApi } from "./SimApiService";
+
+// The current backend contract documents group/variation runs in minutes, not seconds. Keep a
+// finite client ceiling while leaving enough headroom above the documented 2-5 minute window.
+const VARIATION_RUN_TIMEOUT_MS = 10 * 60_000;
 
 /** Pure request builders — { url, method, params?, data? } relative to simApiBaseUrl(). */
 export const variationRequests = {
@@ -37,11 +41,11 @@ export const variationRequests = {
     ({ url: `sim-routing/variations/${vid}/simulation`, method: "POST", data: sampleCap != null ? { sampleCap } : {} }),
 };
 
-async function call(req: { url: string; method: string; params?: any; data?: any }, timeout?: number): Promise<any> {
-  const resp: any = await api({
+async function call(req: { url: string; method: string; params?: any; data?: any }, timeout?: number, signal?: AbortSignal): Promise<any> {
+  const resp: any = await simApi({
     ...req,
-    baseURL: simApiBaseUrl(),
     ...(timeout ? { timeout } : {}),
+    ...(signal ? { signal } : {}),
   });
 
   if (commonUtil.hasError(resp)) {
@@ -51,22 +55,22 @@ async function call(req: { url: string; method: string; params?: any; data?: any
   return resp.data;
 }
 
-export async function listVariations(parentRoutingGroupId: string): Promise<VariationListItem[]> {
-  const data = await call(variationRequests.listVariations(parentRoutingGroupId));
+export async function listVariations(parentRoutingGroupId: string, signal?: AbortSignal): Promise<VariationListItem[]> {
+  const data = await call(variationRequests.listVariations(parentRoutingGroupId), undefined, signal);
 
   return data?.variationList ?? [];
 }
 
-export async function createVariation(parentRoutingGroupId: string, variationName?: string): Promise<string> {
-  const data = await call(variationRequests.createVariation(parentRoutingGroupId, variationName));
+export async function createVariation(parentRoutingGroupId: string, variationName?: string, signal?: AbortSignal): Promise<string> {
+  const data = await call(variationRequests.createVariation(parentRoutingGroupId, variationName), undefined, signal);
 
   if (!data?.variationGroupId) throw new Error(`createVariation returned no id: ${JSON.stringify(data)?.slice(0, 200)}`);
 
   return data.variationGroupId;
 }
 
-export async function getVariation(vid: string): Promise<VariationTree> {
-  const data = await call(variationRequests.getVariation(vid));
+export async function getVariation(vid: string, signal?: AbortSignal): Promise<VariationTree> {
+  const data = await call(variationRequests.getVariation(vid), undefined, signal);
 
   if (!data?.variation?.variationGroupId) throw new Error(`Variation ${vid} could not be loaded.`);
 
@@ -75,8 +79,8 @@ export async function getVariation(vid: string): Promise<VariationTree> {
 
 /** Persist-on-save: replace the variation's whole config (lossless whole-tree). Returns the canonical
  *  variation tree the backend re-inserted (adopt it as the new client state). */
-export async function replaceVariationConfig(vid: string, routings: any[]): Promise<VariationTree> {
-  const data = await call(variationRequests.replaceConfig(vid, routings));
+export async function replaceVariationConfig(vid: string, routings: any[], signal?: AbortSignal): Promise<VariationTree> {
+  const data = await call(variationRequests.replaceConfig(vid, routings), undefined, signal);
   // The endpoint returns the canonical tree (same shape as GET). Tolerate either {variation} or a bare tree.
   return data?.variation ?? data;
 }
@@ -98,13 +102,20 @@ export const upsertAction = (vid: string, rid: string, ruleId: string, action: V
 export const deleteAction = (vid: string, rid: string, ruleId: string, seqId: string) =>
   call(variationRequests.deleteAction(vid, rid, ruleId, seqId));
 
-/** Run the variation. Synchronous, ~25–150s — long client timeout. Returns the GroupRunResult. */
-export async function runVariation(vid: string, sampleCap?: number): Promise<GroupRunResult> {
-  const data = await call(variationRequests.runVariation(vid, sampleCap), 200_000);
+/**
+ * Run the variation synchronously with a finite timeout. Newer backends return simulationId beside
+ * groupRunResult; older deployments omit it, and a best-effort history persistence failure may also
+ * leave it absent. Normalize a returned id onto the result without making it a success requirement.
+ */
+export async function runVariation(vid: string, sampleCap?: number, signal?: AbortSignal): Promise<GroupRunResult> {
+  const data = await call(variationRequests.runVariation(vid, sampleCap), VARIATION_RUN_TIMEOUT_MS, signal);
 
   if (!data?.groupRunResult) throw new Error(`Variation run returned no result: ${JSON.stringify(data)?.slice(0, 200)}`);
 
-  return data.groupRunResult;
+  const simulationId = String(data.simulationId || data.groupRunResult.simulationId || "").trim();
+  return simulationId
+    ? { ...data.groupRunResult, simulationId }
+    : data.groupRunResult;
 }
 
 export const VariationService = {

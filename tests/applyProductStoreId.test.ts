@@ -1,6 +1,7 @@
 import assert from "assert";
-import { applyProductStoreId } from "../src/util/simulationCompute";
+import { applyProductStoreId } from "../src/utils/simulationCompute";
 
+it("applies the product store id without mutating variants", () => {
 const variants = [
   { label: "A", parameterOverrides: { distance: 50 }, routingDeltas: [] as any[] },
   { label: "B", parameterOverrides: {}, routingDeltas: [{ op: "REMOVE_RULE", routingRuleId: "R" }] as any[] },
@@ -20,3 +21,4 @@ assert.deepStrictEqual(out2[0].parameterOverrides, { distance: 50 }, "blank id l
 assert.deepStrictEqual(variants[0].parameterOverrides, { distance: 50 }, "input not mutated");
 
 console.log("applyProductStoreId tests passed");
+});

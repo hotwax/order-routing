@@ -6,6 +6,7 @@ import router from "@/router";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUtilStore } from "@/store/utilStore";
 import { Group } from "@/types";
+import { parseRoutingStringRecordEnvJson } from "@/utils/routingEditorEnv";
 
 // Shared logic for the routing groups pages (list + calendar). Each caller gets
 // its own reactive state (function-scoped refs) so the two pages don't share a
@@ -15,12 +16,7 @@ export function useRoutingGroups() {
   const utilStore = useUtilStore();
   const groups = computed(() => orderRoutingStore().getRoutingGroups);
 
-  let cronExpressions: Record<string, string> = {};
-  try {
-    cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS || "{}");
-  } catch {
-    cronExpressions = {};
-  }
+  const cronExpressions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined);
 
   const isLoading = ref(false);
   const routingGroups = ref<any[]>([]);
@@ -68,7 +64,7 @@ export function useRoutingGroups() {
     await orderRoutingStore().fetchOrderRoutingGroups();
     isLoading.value = false;
     routingGroups.value = JSON.parse(JSON.stringify(groups.value));
-    utilStore.fetchEnums({ parentTypeId: "ORDER_ROUTING" });
+    utilStore.fetchRoutingEditorEnums();
   }
 
   async function addRoutingGroup() {

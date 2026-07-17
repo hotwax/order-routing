@@ -137,6 +137,11 @@ import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardT
 import { arrowBackOutline, bookmarkOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { computed, ref } from "vue"
 import InlineHint from "@/components/InlineHint.vue"
+import {
+  DEFAULT_ACTION_ENUMS,
+  DEFAULT_CONDITION_FILTER_ENUMS,
+  parseRoutingEditorEnvJson
+} from "@/utils/routingEditorEnv"
 
 const props = defineProps({
   group: {
@@ -149,8 +154,8 @@ const props = defineProps({
   }
 })
 
-const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
+const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS as string | undefined, DEFAULT_ACTION_ENUMS)
+const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS as string | undefined, DEFAULT_CONDITION_FILTER_ENUMS)
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

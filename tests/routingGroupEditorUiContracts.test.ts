@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import editorSource from "../src/components/circuit/RoutingGroupEditor.vue?raw";
+import canvasSource from "../src/components/circuit/RoutingDetailCanvas.vue?raw";
+
+describe("routing group editor UI contracts", () => {
+  it("loads routing enum options for direct detail entry and Circuit manifests", () => {
+    expect(editorSource.match(/utilStore\.fetchRoutingEditorEnums\(\)/g)).toHaveLength(2);
+  });
+
+  it("stacks every status value below its label", () => {
+    const statusSelects = editorSource.match(/<ion-select[^>]*:label="translate\('Status'\)"[^>]*>/g) || [];
+
+    expect(statusSelects).toHaveLength(3);
+    expect(statusSelects.every((select) => select.includes('label-placement="stacked"'))).toBe(true);
+  });
+
+  it("marks changed rule rows and guards editing without making the canvas inert", () => {
+    expect(editorSource).toContain("'dirty-row': isRuleDirty(rule)");
+    expect(editorSource).toContain('translate("Changed")');
+    expect(canvasSource).toContain(':interaction-locked="editorLocked"');
+    expect(canvasSource).not.toContain(':inert="editorLocked');
+  });
+
+  it("replaces the prompt with proposal context and spaced decision actions", () => {
+    expect(canvasSource).toContain('v-if="!pendingDraftProposal"');
+    expect(canvasSource).toContain('<RoutingConfigSectionCard');
+    expect(canvasSource).toContain('class="proposal-actions"');
+    expect(canvasSource).toContain('class="circuit-loading"');
+  });
+
+  it("reviews Circuit proposals in live and variation editors with stale-context guards", () => {
+    expect(canvasSource).toContain('<div v-if="pendingDraftProposal" class="proposal-review">');
+    expect(canvasSource).not.toContain('pendingDraftProposal && !activeVariationId');
+    expect(canvasSource).not.toContain('Circuit can only edit the live routing');
+    expect(canvasSource).toContain('assertCurrentCircuitContext(circuitContext)');
+    expect(editorSource).toContain('simulationWorking: cloneSnapshotValue(sim.working)');
+    expect(editorSource).toContain('restoreObjectInPlace(sim.working, snap.simulationWorking)');
+    expect(editorSource).toContain('variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || "")');
+    expect(editorSource).toContain('...buildRoutingAgentSnapshot(editorReferenceMaps.value)');
+    expect(editorSource).toContain('if (isSandbox.value) return ""');
+  });
+
+  it("uses the same routing-section component for the canvas and Circuit context", () => {
+    expect(canvasSource).toContain("RoutingConfigSectionCard from '@/components/circuit/RoutingConfigSectionCard.vue'");
+    expect(editorSource).toContain('RoutingConfigSectionCard from "@/components/circuit/RoutingConfigSectionCard.vue"');
+    expect(editorSource.match(/<RoutingConfigSectionCard/g)).toHaveLength(6);
+    expect(editorSource).toContain(':card="routeFiltersSectionCard"');
+    expect(editorSource).toContain(':card="ruleSortSectionCard"');
+    expect(editorSource).toContain(':card="unavailableSectionCard"');
+  });
+
+  it("marks the affected canvas card and exact setting row as dirty", () => {
+    expect(editorSource).toContain("isOrderConditionCardDirty('ENTCT_SORT_BY')");
+    expect(editorSource).toContain('items: routingSectionItems(');
+    expect(editorSource).toContain(':class="{ \'dirty-setting-row\': item.dirty }"');
+    expect(editorSource).toContain("isRuleConditionCardDirty('ENTCT_FILTER')");
+    expect(editorSource).toContain("'dirty-setting-row'");
+    expect(editorSource).toContain(':dirty="isRuleConditionCardDirty(\'ENTCT_FILTER\')"');
+  });
+
+  it("commits rule renames from a dedicated input draft before variation serialization", () => {
+    expect(editorSource).toContain('aria-label="rule name" v-model="ruleName"');
+    expect(editorSource).toContain('activeRule.value.ruleName = nextRuleName');
+    expect(editorSource).toContain('ruleName: ruleName.value');
+  });
+
+  it("treats a replaced simulation working copy as the clean authoritative state", () => {
+    const workingCopyWatcher = editorSource.slice(
+      editorSource.indexOf('watch(() => sim.working'),
+      editorSource.indexOf('async function fetchRoutingGroupInformation')
+    );
+
+    expect(workingCopyWatcher).toContain('await initializeFromWorking()');
+    expect(workingCopyWatcher).toContain('hasUnsavedChanges.value = false');
+    expect(workingCopyWatcher).not.toContain('flushEditorDraft()');
+  });
+
+  it("keeps chat copy readable and makes the panel accessibly resizable", () => {
+    expect(canvasSource).toContain('class="message-content"');
+    expect(canvasSource).toContain('font-size: 1rem');
+    expect(canvasSource).toContain('role="separator"');
+    expect(canvasSource).toContain(':aria-valuenow="chatWidth"');
+    expect(canvasSource).toContain('@pointerdown="startChatResize"');
+    expect(canvasSource).toContain('@keydown="resizeChatWithKeyboard"');
+  });
+});

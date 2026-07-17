@@ -4,8 +4,9 @@ import {
   buildFeedbackRevisionMessage,
   buildFeedbackRevisionPrompt,
   buildFeedbackSavedMessage
-} from "../src/util/circuitFeedback";
+} from "../src/utils/circuitFeedback";
 
+it("builds Circuit draft feedback prompts and acknowledgements", () => {
 {
   const message = buildDiscardFeedbackPrompt({ summary: "Queue: Brokering Queue" });
   assert.ok(message.includes("Proposal discarded."));
@@ -42,3 +43,4 @@ import {
 }
 
 console.log("Circuit draft feedback service tests passed");
+});

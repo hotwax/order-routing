@@ -1,18 +1,33 @@
-import assert from "assert";
-import { simApiBaseUrl } from "../src/services/SimulationService";
+import assert from "node:assert";
+import { simApiBaseUrl } from "../src/utils/simConfig";
 
-const UAT = "https://asb-sim-uat.hotwax.io/rest/s1/order-routing";
+const enabled = {
+  VITE_SIMULATION_ENABLED: "true",
+  VITE_SIM_ALLOW_OMS_BEARER: "true",
+};
 
-// Defaults to the UAT base when unset, so a missing env still resolves to the dedicated instance.
-assert.strictEqual(simApiBaseUrl({}), UAT, "defaults to UAT base");
-assert.strictEqual(simApiBaseUrl({ VITE_SIM_API_BASE_URL: "" }), UAT, "empty -> default");
-
-// Single config switch: any environment (prod, local) is a config change, not a code change.
-assert.strictEqual(
-  simApiBaseUrl({ VITE_SIM_API_BASE_URL: "https://asb-sim-prod.hotwax.io/rest/s1/order-routing" }),
-  "https://asb-sim-prod.hotwax.io/rest/s1/order-routing",
-  "honors override (prod)",
-);
-assert.strictEqual(simApiBaseUrl({ VITE_SIM_API_BASE_URL: "  " + UAT + "  " }), UAT, "trims whitespace");
-
-console.log("simApiBaseUrl tests passed");
+it("builds a simulation REST URL only from an explicitly trusted origin", () => {
+  assert.throws(() => simApiBaseUrl({}), /VITE_SIMULATION_ENABLED/);
+  assert.throws(() => simApiBaseUrl({ ...enabled }), /VITE_SIM_URL/);
+  assert.throws(
+    () => simApiBaseUrl({ ...enabled, VITE_SIM_URL: "http://remote.example.test" }),
+    /must use HTTPS/,
+  );
+  assert.throws(
+    () => simApiBaseUrl({ ...enabled, VITE_SIM_URL: "https://user:pass@sim.example.test" }),
+    /without credentials/,
+  );
+  assert.throws(
+    () => simApiBaseUrl({ ...enabled, VITE_SIM_URL: "https://sim.example.test/rest/s1" }),
+    /bare origin/,
+  );
+  assert.equal(
+    simApiBaseUrl({ ...enabled, VITE_SIM_URL: " https://sim.example.test/ " }),
+    "https://sim.example.test/rest/s1/",
+  );
+  assert.equal(
+    simApiBaseUrl({ ...enabled, VITE_SIM_URL: "http://localhost:8075" }),
+    "http://localhost:8075/rest/s1/",
+    "loopback HTTP remains available for local development",
+  );
+});

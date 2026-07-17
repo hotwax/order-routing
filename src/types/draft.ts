@@ -38,12 +38,12 @@ export type DraftOperationSet = {
   };
 };
 
-type OptionSelection = {
+export type OptionSelection = {
   include: string[];
   exclude: string[];
 };
 
-type BrokeringRouteDraftRule = {
+export type BrokeringRouteDraftRule = {
   ruleKey: string;
   name: string;
   statusId: "RULE_DRAFT" | "RULE_ACTIVE" | "RULE_ARCHIVED";
@@ -156,9 +156,20 @@ export type DraftTargetCapability = {
   dependencies?: DraftTargetDependency[];
 };
 
+export type DraftAssistantContext = {
+  mode: "live" | "variation";
+  variationId?: string;
+  routingGroupId?: string;
+  unavailableOperations?: Array<
+    "newRouting" | "cloneRouting" | "schedule" | "liveRun" | "groupStatus"
+  >;
+};
+
 export type PageCapabilityManifest = {
   pageId: string;
   route: string;
+  /** Safe editor identity only. Never add backend URLs, session data, or credentials here. */
+  context?: DraftAssistantContext;
   visibleEntities: Record<string, unknown>;
   editableTargets: DraftTargetCapability[];
   outputContract: {

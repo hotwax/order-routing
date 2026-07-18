@@ -88,7 +88,7 @@ import {
   IonToolbar
 } from "@ionic/vue";
 import { sendOutline, trashOutline } from "ionicons/icons";
-import { computed, defineEmits, defineProps, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { translate, commonUtil } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore } from "@/store/productStore";

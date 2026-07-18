@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   fetchRoutingEditorEnums: vi.fn(),
   fetchGroupDetails: vi.fn(),
   loadAllThreads: vi.fn(),
+  switchThread: vi.fn(),
+  threads: [] as any[],
   requestRouteDraft: vi.fn(),
   requestListInquiry: vi.fn(),
 }));
@@ -53,6 +55,7 @@ vi.mock("@ionic/vue", () => {
     IonItemDivider: passthrough("IonItemDivider"),
     IonLabel: passthrough("IonLabel"),
     IonList: passthrough("IonList"),
+    IonListHeader: passthrough("IonListHeader"),
     IonMenuButton: passthrough("IonMenuButton"),
     IonModal: {
       name: "IonModal",
@@ -158,23 +161,30 @@ vi.mock("@/store/preferences", () => ({
 }));
 
 vi.mock("@/store/circuit", () => ({
-  useCircuitStore: () => ({
-    __refs: {
+  useCircuitStore: () => {
+    const currentThreadId = ref<string | null>(null);
+
+    return {
+      __refs: {
       messages: ref([]),
-      threads: ref([]),
-      currentThreadId: ref(null),
+      threads: ref(mocks.threads),
+      currentThreadId,
       lastPrompt: ref(null),
       activeContext: ref(null),
       isChatStarted: ref(false),
-    },
-    loadAllThreads: mocks.loadAllThreads,
-    addLocalMessage: vi.fn(),
-    saveDraftFeedback: vi.fn(),
-    setChatStarted: vi.fn(),
-    switchThread: vi.fn(),
-    clearCurrentChatHistory: vi.fn(),
-    deleteThread: vi.fn(),
-  }),
+      },
+      loadAllThreads: mocks.loadAllThreads,
+      addLocalMessage: vi.fn(),
+      saveDraftFeedback: vi.fn(),
+      setChatStarted: vi.fn(),
+      switchThread: async (threadId: string | null) => {
+        currentThreadId.value = threadId;
+        return mocks.switchThread(threadId);
+      },
+      clearCurrentChatHistory: vi.fn(),
+      deleteThread: vi.fn(),
+    };
+  },
 }));
 
 vi.mock("@/store/simulationStore", () => ({
@@ -241,6 +251,7 @@ import OrderRoutingList from "../src/views/OrderRoutingList.vue";
 describe("draft assistant production UI gate", () => {
   beforeEach(() => {
     mocks.assistantEnabled = false;
+    mocks.threads = [];
     vi.clearAllMocks();
     mocks.fetchRoutingEditorEnums.mockResolvedValue(undefined);
     mocks.fetchGroupDetails.mockResolvedValue(undefined);
@@ -395,5 +406,44 @@ describe("draft assistant production UI gate", () => {
     expect(detail.text()).toContain("Ask Circuit a question about this routing or describe a change you want to make.");
     expect(detail.text()).toContain("Threads");
     expect(mocks.loadAllThreads).toHaveBeenCalledOnce();
+  });
+
+  it("shows the three newest conversations and focuses the prompt when an empty thread opens", async () => {
+    mocks.assistantEnabled = true;
+    mocks.threads = [
+      { id: "oldest", name: "Old routing question", createdAt: 100 },
+      { id: "newest", name: "Holiday routing review", createdAt: 400 },
+      { id: "third", name: "Warehouse proximity", createdAt: 200 },
+      { id: "second", name: "Standard order filters", createdAt: 300 },
+    ];
+
+    const detail = mount(RoutingDetailCanvas, {
+      props: { routingGroupId: "G1", simulationEnabled: false },
+      global: {
+        stubs: {
+          CircuitFeedbackModal: true,
+          RoutingGroupEditor: true,
+          VariationRail: true,
+        },
+      },
+      attachTo: document.body,
+    });
+
+    const recentThreads = detail.findAll(".recent-thread-item");
+    const recentThreadText = recentThreads.map((thread) => thread.text());
+    expect(recentThreadText).toEqual([
+      expect.stringContaining("Holiday routing review"),
+      expect.stringContaining("Standard order filters"),
+      expect.stringContaining("Warehouse proximity"),
+    ]);
+    expect(recentThreadText.join(" ")).not.toContain("Old routing question");
+
+    await recentThreads[1].trigger("click");
+    await flushPromises();
+    expect(mocks.switchThread).toHaveBeenCalledWith("second");
+    expect(detail.text()).not.toContain("Start a conversation");
+    expect(document.activeElement).toBe(detail.get(".ion-textarea").element);
+
+    detail.unmount();
   });
 });

@@ -88,13 +88,35 @@
         >
           <ion-list class="chat-history">
             <EmptyState
-              v-if="!messages.length"
+              v-if="!currentThreadId"
               class="chat-empty-state"
               variant="compact"
               :icon="chatboxEllipsesOutline"
               :title="translate('Start a conversation')"
               :message="translate('Ask Circuit a question about this routing or describe a change you want to make.')"
-            />
+            >
+              <template v-if="recentThreads.length" #actions>
+                <ion-list class="recent-threads">
+                  <ion-list-header>
+                    <ion-label>{{ translate("Recent conversations") }}</ion-label>
+                  </ion-list-header>
+                  <ion-item
+                    v-for="thread in recentThreads"
+                    :key="thread.id"
+                    button
+                    :detail="false"
+                    lines="none"
+                    class="recent-thread-item"
+                    @click="selectThread(thread.id)"
+                  >
+                    <ion-label class="ion-text-wrap">
+                      {{ thread.name }}
+                      <p>{{ formatDate(thread.createdAt) }}</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+              </template>
+            </EmptyState>
             <template v-for="message in messages" :key="message.id">
               <ion-item lines="none" :class="message.role === 'user' ? 'prompt-item' : 'response-item'">
                 <ion-label>
@@ -115,6 +137,7 @@
 
           <CircuitPromptArea
             v-if="!pendingDraftProposal"
+            ref="promptArea"
             v-model="prompt"
             :disabled="isApplyingDraft || isSavingEditor"
             @send="onSend"
@@ -216,7 +239,7 @@
       </ion-content>
     </ion-modal>
 
-    <ion-modal v-if="draftAssistantEnabled" :is-open="showThreadMenu" @didDismiss="showThreadMenu = false">
+    <ion-modal v-if="draftAssistantEnabled" :is-open="showThreadMenu" @didDismiss="handleThreadModalDismiss">
       <ion-header>
         <ion-toolbar>
           <ion-title>{{ translate("Chat Threads") }}</ion-title>
@@ -270,6 +293,7 @@ import {
   IonItem,
   IonLabel,
   IonList,
+  IonListHeader,
   IonModal,
   IonNote,
   IonPage,
@@ -340,7 +364,12 @@ const {
   isChatStarted
 } = storeToRefs(circuitStore);
 const prompt = ref('');
+const promptArea = ref<InstanceType<typeof CircuitPromptArea> | null>(null);
 const isApplyingDraft = ref(false);
+const recentThreads = computed(() => [...threads.value]
+  .filter((thread) => thread.id !== currentThreadId.value)
+  .sort((left, right) => Number(right.createdAt || 0) - Number(left.createdAt || 0))
+  .slice(0, 3));
 const CHAT_MIN_WIDTH = 320;
 const CHAT_DEFAULT_WIDTH = 360;
 const CHAT_MAX_WIDTH = 720;
@@ -515,6 +544,7 @@ watch([routingGroupId, activeVariationId], async () => {
 });
 const showThreadMenu = ref(false);
 const showPromptModal = ref(false);
+let focusPromptAfterThreadDismiss = false;
 const showFeedbackModal = ref(false);
 // The chat panel can be collapsed to give the editor full width. v-show (not v-if) keeps the
 // chat mounted so its thread/messages state survives toggling.
@@ -983,9 +1013,29 @@ const openThreadModal = () => {
   showThreadMenu.value = true;
 }
 
-const selectThread = (threadId: string) => {
-  circuitStore.switchThread(threadId);
+const focusPrompt = async () => {
+  await nextTick();
+  await promptArea.value?.focus();
+}
+
+const selectThread = async (threadId: string) => {
+  await circuitStore.switchThread(threadId);
+
+  if (showThreadMenu.value) {
+    focusPromptAfterThreadDismiss = true;
+    showThreadMenu.value = false;
+    return;
+  }
+
+  await focusPrompt();
+}
+
+const handleThreadModalDismiss = async () => {
   showThreadMenu.value = false;
+
+  if (!focusPromptAfterThreadDismiss) return;
+  focusPromptAfterThreadDismiss = false;
+  await focusPrompt();
 }
 
 const confirmDelete = (threadId: string) => {
@@ -1019,6 +1069,24 @@ const formatDate = (timestamp: number) => {
 
 .chat-empty-state {
   block-size: 100%;
+  inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.chat-empty-state :deep(.empty-state__actions) {
+  inline-size: calc(100% + var(--spacer-base) + var(--spacer-base));
+  margin-inline: calc(0px - var(--spacer-base));
+}
+
+.recent-threads {
+  inline-size: 100%;
+  padding: 0;
+  text-align: start;
+}
+
+.recent-thread-item {
+  --padding-start: var(--spacer-sm);
+  --inner-padding-end: var(--spacer-sm);
 }
 
 .overline {

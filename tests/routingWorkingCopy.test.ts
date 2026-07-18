@@ -15,7 +15,8 @@ import {
   ruleWorkingKey,
   settleRoutingEditorDiscard,
   serializeRoutingWorkingCopy,
-  serializeRuleWorkingCopy
+  serializeRuleWorkingCopy,
+  updateRoutingFilterCondition
 } from "../src/utils/routingWorkingCopy";
 
 describe("routing working-copy projections", () => {
@@ -271,5 +272,59 @@ describe("routing working-copy projections", () => {
     expect(entries[0].orderFilters).toHaveLength(1);
     expect(ruleWorkingKey(entries[0].rules[0])).toBe("temp-rule-1");
     expect(entries[1]).toBe(second);
+  });
+
+  it("updates multi-select filters under their canonical backend field without duplicate rows", () => {
+    const filters = {
+      facilityId: {
+        conditionSeqId: "01",
+        conditionTypeEnumId: "ENTCT_FILTER",
+        fieldName: "facilityId",
+        fieldValue: "QUEUE_A",
+        operator: "equals"
+      },
+      QUEUE: {
+        conditionTypeEnumId: "ENTCT_FILTER",
+        fieldName: "QUEUE",
+        fieldValue: "STALE_QUEUE"
+      }
+    };
+
+    const updated = updateRoutingFilterCondition(
+      filters,
+      { QUEUE: { code: "facilityId" } },
+      "QUEUE",
+      ["QUEUE_A", "QUEUE_B"],
+      true
+    );
+
+    expect(Object.keys(updated)).toEqual(["facilityId"]);
+    expect(updated.facilityId).toEqual({
+      ...filters.facilityId,
+      fieldValue: "QUEUE_A,QUEUE_B"
+    });
+    expect(filters.facilityId.fieldValue).toBe("QUEUE_A");
+  });
+
+  it("creates new multi-select filters with the field code used by save serialization", () => {
+    const updated = updateRoutingFilterCondition(
+      {},
+      { SHIPPING_METHOD: { code: "shipmentMethodTypeId" } },
+      "SHIPPING_METHOD",
+      ["STANDARD", "STORE_PICKUP"],
+      true
+    );
+
+    expect(updated).toEqual({
+      shipmentMethodTypeId: {
+        conditionTypeEnumId: "ENTCT_FILTER",
+        fieldName: "shipmentMethodTypeId",
+        fieldValue: "STANDARD,STORE_PICKUP",
+        operator: "equals",
+        sequenceNum: 1
+      }
+    });
+    expect(serializeRoutingWorkingCopy({ orderFilters: [], rules: [] }, updated, {}, []).orderFilters)
+      .toEqual([updated.shipmentMethodTypeId]);
   });
 });

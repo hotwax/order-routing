@@ -43,6 +43,7 @@ vi.mock("@ionic/vue", () => {
     },
     IonButtons: passthrough("IonButtons"),
     IonCard: passthrough("IonCard"),
+    IonCardContent: passthrough("IonCardContent"),
     IonCardHeader: passthrough("IonCardHeader"),
     IonCardTitle: passthrough("IonCardTitle"),
     IonContent: passthrough("IonContent"),
@@ -64,6 +65,7 @@ vi.mock("@ionic/vue", () => {
     IonSearchbar: passthrough("IonSearchbar"),
     IonSegment: passthrough("IonSegment"),
     IonSegmentButton: passthrough("IonSegmentButton"),
+    IonSkeletonText: passthrough("IonSkeletonText"),
     IonSpinner: passthrough("IonSpinner"),
     IonTextarea: {
       name: "IonTextarea",
@@ -71,6 +73,7 @@ vi.mock("@ionic/vue", () => {
       emits: ["update:modelValue", "keydown"],
       template: '<textarea class="ion-textarea" :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
     },
+    IonText: passthrough("IonText"),
     IonTitle: passthrough("IonTitle"),
     IonToolbar: passthrough("IonToolbar"),
   };
@@ -295,7 +298,9 @@ describe("draft assistant production UI gate", () => {
 
     mocks.assistantEnabled = true;
     const enabledEditor = mount(RoutingGroupEditor, {
-      props: { routingGroupId: "G1", sandbox: false },
+      // This assertion targets the no-selection assistant prompt. A routed group now deliberately
+      // starts with its structural loading skeleton until the visible-page activation fetch resolves.
+      props: { routingGroupId: "", sandbox: false },
       global: {
         stubs: {
           AddInventoryFilterOptionsModal: true,
@@ -384,6 +389,8 @@ describe("draft assistant production UI gate", () => {
     expect(detail.find(".chat-section").exists()).toBe(true);
     expect(detail.find("circuit-prompt-area-stub").exists()).toBe(true);
     expect(detail.find("circuit-feedback-modal-stub").exists()).toBe(true);
+    expect(detail.text()).toContain("Start a conversation");
+    expect(detail.text()).toContain("Ask Circuit a question about this routing or describe a change you want to make.");
     expect(detail.text()).toContain("Threads");
     expect(mocks.loadAllThreads).toHaveBeenCalledOnce();
   });

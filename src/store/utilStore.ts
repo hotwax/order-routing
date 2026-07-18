@@ -4,6 +4,7 @@ import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 import { DateTime } from 'luxon'
+import { routingEditorCodeLabel } from '@/utils/routingWorkingCopy'
 
 export const ROUTING_EDITOR_ENUM_TYPE_IDS = [
   "ORD_FILTER_PRM_TYPE",
@@ -34,7 +35,7 @@ export const useUtilStore = defineStore('util', {
       }, {})
     },
     getStatusDesc: (state) => (id: any) => {
-      return state.statuses[id]?.description ? state.statuses[id]?.description : id
+      return state.statuses[id]?.description || routingEditorCodeLabel(id)
     }
   },
   actions: {

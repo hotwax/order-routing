@@ -50,7 +50,7 @@
             <ion-icon slot="start" :icon="saveOutline" />
             {{ editorDirty ? translate("Save") : translate("Saved") }}
           </ion-button>
-          <ion-button v-if="draftAssistantEnabled && isChatStarted" @click="createNewChat">
+          <ion-button v-if="draftAssistantEnabled && isChatStarted" :aria-label="translate('New chat')" @click="createNewChat">
             <ion-icon slot="icon-only" :icon="addOutline" />
           </ion-button>
           <ion-button v-if="draftAssistantEnabled && messages.length" :disabled="isApplyingDraft" :aria-label="translate('Clear chat history')" @click="clearCurrentChatHistory">
@@ -86,10 +86,18 @@
           :style="{ inlineSize: `${chatWidth}px` }"
         >
           <ion-list class="chat-history">
+            <EmptyState
+              v-if="!messages.length"
+              class="chat-empty-state"
+              variant="compact"
+              :icon="chatboxEllipsesOutline"
+              :title="translate('Start a conversation')"
+              :message="translate('Ask Circuit a question about this routing or describe a change you want to make.')"
+            />
             <template v-for="message in messages" :key="message.id">
               <ion-item lines="none" :class="message.role === 'user' ? 'prompt-item' : 'response-item'">
                 <ion-label>
-                  <p class="role-label">{{ message.role === 'user' ? translate('User') : translate('Circuit') }}</p>
+                  <p class="overline">{{ message.role === 'user' ? translate('User') : translate('Circuit') }}</p>
                   <p class="message-content">{{ message.content }}</p>
                 </ion-label>
               </ion-item>
@@ -99,7 +107,7 @@
           <div v-if="isApplyingDraft" class="circuit-loading" role="status" aria-live="polite">
             <ion-spinner name="dots" />
             <ion-label>
-              <p class="role-label">{{ translate("Circuit") }}</p>
+              <p class="overline">{{ translate("Circuit") }}</p>
               <p class="message-content">{{ circuitLoadingMessage }}</p>
             </ion-label>
           </div>
@@ -138,6 +146,7 @@
           v-show="chatVisible"
           ref="chatResizeHandle"
           class="chat-resize-handle"
+          :class="{ 'is-resizing': isResizingChat }"
           role="separator"
           tabindex="0"
           aria-orientation="vertical"
@@ -254,6 +263,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import CircuitPromptArea from '@/components/circuit/CircuitPromptArea.vue';
 import RoutingConfigSectionCard from '@/components/circuit/RoutingConfigSectionCard.vue';
 import RoutingGroupEditor from '@/components/circuit/RoutingGroupEditor.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import VariationRail from '@/components/simulation/VariationRail.vue';
 import { orderRoutingStore } from '@/store/orderRoutingStore';
 import { simulationStore } from '@/store/simulationStore';
@@ -922,14 +932,12 @@ const formatDate = (timestamp: number) => {
   overflow-y: auto;
 }
 
-.role-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  line-height: 1.25;
-  margin-bottom: var(--spacer-2xs);
-  color: var(--ion-color-medium);
+.chat-empty-state {
+  block-size: 100%;
+}
+
+.overline {
+  color: var(--ion-color-dard);
 }
 
 .message-content {
@@ -943,12 +951,22 @@ const formatDate = (timestamp: number) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-inline: 1px solid var(--ion-color-step-150);
+  border-inline: 1px solid var(--ion-color-medium);
+  background: var(--ion-color-light);
   cursor: col-resize;
   touch-action: none;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.chat-resize-handle:hover,
+.chat-resize-handle.is-resizing {
+  border-inline-color: var(--ion-color-primary);
+  background: var(--ion-color-light-shade);
 }
 
 .chat-resize-handle:focus-visible {
+  border-inline-color: var(--ion-color-primary);
+  background: var(--ion-color-light-shade);
   outline: 2px solid var(--ion-color-primary);
   outline-offset: -2px;
 }

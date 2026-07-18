@@ -290,6 +290,46 @@ export function serializeRoutingWorkingCopy(
   return serialized;
 }
 
+/**
+ * Update an order-routing filter using the backend field code as the map key.
+ *
+ * Controls use enum names such as QUEUE and SHIPPING_METHOD, while persisted conditions use enum
+ * codes such as facilityId and shipmentMethodTypeId. Writing with the enum name creates a second
+ * condition that the control never reads back. Keep one canonical row and remove any legacy alias.
+ */
+export function updateRoutingFilterCondition(
+  options: Record<string, any>,
+  enumerations: Record<string, any>,
+  parameter: string,
+  rawValue: any,
+  multiple = false
+) {
+  const next = cloneValue(options || {});
+  const fieldName = String(enumerations?.[parameter]?.code || parameter);
+  const selectedValues = multiple
+    ? (Array.isArray(rawValue) ? rawValue : rawValue === undefined || rawValue === null || rawValue === "" ? [] : [rawValue])
+    : rawValue;
+  const fieldValue = multiple
+    ? selectedValues.map((value: any) => String(value)).filter(Boolean).join(",")
+    : selectedValues;
+  const existing = next[fieldName];
+
+  if (existing) {
+    existing.fieldValue = fieldValue;
+  } else {
+    next[fieldName] = {
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName,
+      fieldValue,
+      operator: "equals",
+      sequenceNum: Object.keys(next).filter((key) => key !== parameter).length + 1
+    };
+  }
+
+  if (parameter !== fieldName) delete next[parameter];
+  return next;
+}
+
 export function replaceWorkingEntry<T>(
   entries: T[],
   next: T,

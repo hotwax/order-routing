@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import editorSource from "../src/components/circuit/RoutingGroupEditor.vue?raw";
 import canvasSource from "../src/components/circuit/RoutingDetailCanvas.vue?raw";
+import skeletonSource from "../src/components/circuit/RoutingGroupEditorSkeleton.vue?raw";
 
 describe("routing group editor UI contracts", () => {
   it("loads routing enum options for direct detail entry and Circuit manifests", () => {
@@ -19,6 +20,27 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain('translate("Changed")');
     expect(canvasSource).toContain(':interaction-locked="editorLocked"');
     expect(canvasSource).not.toContain(':inert="editorLocked');
+  });
+
+  it("combines the routing position and reorder handle in an outline chip", () => {
+    const routingChip = editorSource.match(/<ion-chip slot="end" outline v-if="group\.routings">[\s\S]*?<\/ion-chip>/)?.[0] || "";
+
+    expect(routingChip).toContain("{{ (index as number) + 1 }}/{{ group.routings.length }}");
+    expect(routingChip).toContain('<ion-reorder @pointerdown="isReordering = true" />');
+  });
+
+  it("never renders a routing status system ID when enum reference data is unavailable", () => {
+    expect(editorSource).toContain("description && description !== id ? description : routingEditorCodeLabel(id)");
+  });
+
+  it("holds the detail canvas geometry with card skeletons throughout the initial group load", () => {
+    expect(editorSource).toContain('<RoutingGroupEditorSkeleton v-if="isLoadingGroup || sandboxReferenceLoading"');
+    expect(editorSource).toContain("const isLoadingGroup = ref(Boolean(props.routingGroupId));");
+    expect(skeletonSource).toContain('role="status"');
+    expect(skeletonSource).toContain('class="skeleton-column skeleton-group-column"');
+    expect(skeletonSource).toContain('class="skeleton-column skeleton-routing-column"');
+    expect(skeletonSource).toContain('class="skeleton-column skeleton-rule-column"');
+    expect(skeletonSource.match(/<ion-card/g)?.length).toBeGreaterThanOrEqual(7);
   });
 
   it("replaces the prompt with proposal context and spaced decision actions", () => {
@@ -82,5 +104,9 @@ describe("routing group editor UI contracts", () => {
     expect(canvasSource).toContain(':aria-valuenow="chatWidth"');
     expect(canvasSource).toContain('@pointerdown="startChatResize"');
     expect(canvasSource).toContain('@keydown="resizeChatWithKeyboard"');
+    expect(canvasSource).toContain(":class=\"{ 'is-resizing': isResizingChat }\"");
+    expect(canvasSource).toContain('border-inline: 1px solid var(--ion-color-medium)');
+    expect(canvasSource).toContain('background: var(--ion-color-light)');
+    expect(canvasSource).toContain('background: var(--ion-color-light-shade)');
   });
 });

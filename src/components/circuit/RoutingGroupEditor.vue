@@ -1,7 +1,5 @@
 <template>
-  <div v-if="(isLoadingGroup && !group?.routingGroupId) || sandboxReferenceLoading" class="canvas-loading">
-    <ion-spinner name="crescent" />
-  </div>
+  <RoutingGroupEditorSkeleton v-if="isLoadingGroup || sandboxReferenceLoading" :sandbox="isSandbox" />
   <div v-else-if="sandboxReferenceError" class="empty-state-canvas" role="alert">
     <div class="empty-state-content">
       <div class="empty-content-wrapper">
@@ -137,10 +135,10 @@
             <ion-label>
               {{ routing?.routingName }}
             </ion-label>
-            <ion-chip slot="end" v-if="group.routings">
+            <ion-chip slot="end" outline v-if="group.routings">
               {{ (index as number) + 1 }}/{{ group.routings.length }}
+              <ion-reorder @pointerdown="isReordering = true" />
             </ion-chip>
-            <ion-reorder slot="end" @pointerdown="isReordering = true" />
           </ion-item>
           <ion-item v-if="routing.filtersCount">
             <ion-label>
@@ -688,7 +686,6 @@ import {
   IonToggle,
   IonFab,
   IonFabButton,
-  IonSpinner,
   modalController,
   popoverController,
   alertController
@@ -739,6 +736,7 @@ import RoutingHistoryModal from "@/components/RoutingHistoryModal.vue"
 import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import RoutingConfigSectionCard from "@/components/circuit/RoutingConfigSectionCard.vue";
+import RoutingGroupEditorSkeleton from "@/components/circuit/RoutingGroupEditorSkeleton.vue";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import {
   RoutingPageOperationGuard,
@@ -773,7 +771,8 @@ import {
   ruleWorkingKey,
   settleRoutingEditorDiscard,
   serializeRoutingWorkingCopy,
-  serializeRuleWorkingCopy
+  serializeRuleWorkingCopy,
+  updateRoutingFilterCondition
 } from "@/utils/routingWorkingCopy";
 
 const props = defineProps({
@@ -944,7 +943,10 @@ const groupNameRef = ref();
 const description = ref("");
 const isDescUpdating = ref(false);
 const descRef = ref();
-const isLoadingGroup = ref(false);
+// The routed view seeds the group id before Ionic's enter lifecycle starts the backend request.
+// Begin in a local loading state so direct detail entries render the final card geometry immediately
+// instead of flashing the empty canvas and then shifting into the three-column editor.
+const isLoadingGroup = ref(Boolean(props.routingGroupId));
 const isReordering = ref(false);
 const job = ref({}) as any;
 const groupHistory = ref([]) as any;
@@ -982,9 +984,12 @@ const measurementRef = ref()
 
 const currentRoutingGroup: any = computed(() => routingStore.getCurrentRoutingGroup)
 
-// The simulation API has no status-description endpoint. Use a local display-only label there while
-// keeping live OMS status descriptions authoritative outside the sandbox.
-const getStatusDesc = computed(() => (id: string) => isSandbox.value ? translate(routingEditorCodeLabel(id)) : utilStore.getStatusDesc(id))
+// Prefer live OMS status descriptions, but never let a system ID leak into the UI while reference
+// data is loading or unavailable. Simulation statuses always use the same display-only fallback.
+const getStatusDesc = computed(() => (id: string) => {
+  const description = isSandbox.value ? "" : utilStore.getStatusDesc(id)
+  return translate(description && description !== id ? description : routingEditorCodeLabel(id))
+})
 const routingStatus = computed(() => activeRouting.value?.statusId)
 const selectedRoutingRule = computed(() => activeRule.value || {})
 const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => ruleKey(rule) === ruleId)?.statusId)
@@ -3274,18 +3279,13 @@ async function updateRoutingStatus(statusId: string) {
 }
 
 function updateOrderFilterValue(event: CustomEvent, fieldName: string, multi = false) {
-  const value = multi ? event.detail.value.join(",") : event.detail.value
-  const filter = orderRoutingFilterOptions.value[fieldName]
-  if(filter) {
-    filter.fieldValue = value
-  } else {
-    orderRoutingFilterOptions.value[fieldName] = {
-      conditionTypeEnumId: "ENTCT_FILTER",
-      fieldName,
-      fieldValue: value,
-      operator: "equals"
-    }
-  }
+  orderRoutingFilterOptions.value = updateRoutingFilterCondition(
+    orderRoutingFilterOptions.value,
+    ruleEnums,
+    fieldName,
+    event.detail.value,
+    multi
+  )
   hasUnsavedChanges.value = true
 }
 
@@ -3444,10 +3444,6 @@ ion-chip > ion-select {
   overflow-x: scroll;
 }
 
-ion-card {
-  margin: 0;
-}
-
 /* assign columns */
 
 .routing-group {
@@ -3566,11 +3562,6 @@ ion-card {
 
 .rule-item.dirty-row {
   --background: rgba(var(--ion-color-warning-rgb), 0.16);
-  border-inline-start: 3px solid var(--ion-color-warning);
-}
-
-.rule-item.dirty-row ion-note {
-  font-size: 0.75rem;
 }
 
 .dirty-card {
@@ -3581,7 +3572,6 @@ ion-card {
 
 .dirty-setting-row {
   --background: rgba(var(--ion-color-warning-rgb), 0.16);
-  border-inline-start: 3px solid var(--ion-color-warning);
 }
 
 .routing-group-editor.interaction-locked {
@@ -3661,7 +3651,6 @@ ion-card {
 }
 
 .empty-content-wrapper .description {
-  font-size: 16px;
   color: var(--ion-color-medium);
   margin-bottom: var(--spacer-2xl);
   line-height: 1.6;
@@ -3679,14 +3668,11 @@ ion-card {
 }
 
 .action-prompt ion-icon {
-  font-size: 24px;
   color: var(--ion-color-primary);
 }
 
 .action-prompt p {
   margin: 0;
-  font-size: 14px;
-  font-weight: 500;
   color: var(--ion-color-dark);
 }
 

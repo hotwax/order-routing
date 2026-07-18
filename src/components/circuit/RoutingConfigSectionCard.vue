@@ -87,10 +87,6 @@ const itemsContainer = computed(() => props.reorderable ? IonReorderGroup : IonL
 </script>
 
 <style scoped>
-.routing-config-card {
-  margin: 0;
-  overflow: hidden;
-}
 
 .dirty-card {
   outline: 2px solid var(--ion-color-warning);
@@ -99,6 +95,5 @@ const itemsContainer = computed(() => props.reorderable ? IonReorderGroup : IonL
 
 .dirty-setting-row {
   --background: rgba(var(--ion-color-warning-rgb), 0.16);
-  border-inline-start: 3px solid var(--ion-color-warning);
 }
 </style>

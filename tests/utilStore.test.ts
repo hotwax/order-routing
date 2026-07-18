@@ -105,4 +105,15 @@ describe("utilStore user testing sessions", () => {
       expect(util.enums[enumTypeId]).toBeTruthy();
     }
   });
+
+  it("never exposes routing status system IDs as display labels", () => {
+    const util = useUtilStore();
+
+    expect(util.getStatusDesc("ROUTING_ACTIVE")).toBe("Active");
+    expect(util.getStatusDesc("ROUTING_DRAFT")).toBe("Draft");
+    expect(util.getStatusDesc("CUSTOM_REVIEW_STATUS")).toBe("Custom Review Status");
+
+    util.statuses.ROUTING_ACTIVE = { description: "Enabled" };
+    expect(util.getStatusDesc("ROUTING_ACTIVE")).toBe("Enabled");
+  });
 });

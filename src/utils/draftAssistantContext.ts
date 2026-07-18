@@ -93,6 +93,24 @@ export function prepareDraftAssistantManifest(manifest: PageCapabilityManifest):
   };
 }
 
+/**
+ * Serializes the manifest for the deployed Circuit contract. Circuit's top-level manifest schema is
+ * strict and predates the local editor context field, while visibleEntities is its supported
+ * extension point. Keep context available to the assistant without sending an unknown top-level key.
+ */
+export function serializeDraftAssistantManifest(manifest: PageCapabilityManifest): Omit<PageCapabilityManifest, "context"> {
+  const { context, ...transportManifest } = manifest;
+  if (!context) return transportManifest;
+
+  return {
+    ...transportManifest,
+    visibleEntities: {
+      ...transportManifest.visibleEntities,
+      assistantContext: context
+    }
+  };
+}
+
 export function isVariationForbiddenTarget(target: string) {
   return /^(?:(?:brokeringRun|routingGroup|group|schedule|liveRun|newRouting|cloneRouting)(?:\.|$)|route\.(?:clone|create|schedule|run)(?:\.|$))/.test(String(target || ""));
 }

@@ -26,6 +26,9 @@ assert.deepStrictEqual(variationRequests.createVariation("100001").data, {});
 assert.deepStrictEqual(variationRequests.getVariation("VM100204"), {
   url: "sim-routing/variations/VM100204", method: "GET",
 });
+assert.deepStrictEqual(variationRequests.deleteVariation("VM100204"), {
+  url: "sim-routing/variations/VM100204", method: "DELETE",
+});
 
 // setRouting
 assert.deepStrictEqual(variationRequests.setRouting("VM100204", "VM100204_100008", { statusId: "ROUTING_ACTIVE" }), {

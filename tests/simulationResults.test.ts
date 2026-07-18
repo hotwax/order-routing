@@ -85,6 +85,29 @@ describe("SimulationResults container", () => {
     expect(w.find(".headline-stub").text()).toContain("2|");
   });
 
+  it("renders a baseline run without presenting it as a variation comparison", () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.baseline = { routings: [{ orderRoutingId: "P1", routingName: "Standard" }] };
+    sim.baselineRunResult = {
+      routingGroupId: "G1",
+      routingResults: [{
+        orderRoutingId: "P1",
+        sequenceNum: 1,
+        eligibleEntryCount: 5,
+        brokeredItemCount: 4,
+        queuedItemCount: 1
+      }]
+    } as any;
+
+    const wrapper = mountIt();
+
+    expect(wrapper.text()).toContain("Baseline results");
+    expect(wrapper.text()).toContain("Standard");
+    expect(wrapper.text()).toContain("Eligible5");
+    expect(wrapper.text()).not.toContain("Baseline → Variation");
+  });
+
   it("labels baseline and the active variation in per-routing comparison results", () => {
     const sim = simulationStore();
     sim.routingGroupId = "G1";

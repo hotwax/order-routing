@@ -37,6 +37,22 @@ export function buildCircuitProposalContextCards(
   return [...cards.values()];
 }
 
+export function circuitProposalCardKey(operation: DraftOperation): string {
+  return proposalCardIdentity(operation).key;
+}
+
+/** Keep only the proposal sections the user accepted in the card-level review. */
+export function selectCircuitProposalCards<T extends DraftProposal>(
+  proposal: T,
+  acceptedCardKeys: ReadonlySet<string>
+): T {
+  return {
+    ...proposal,
+    operations: proposal.operations.filter((operation) => acceptedCardKeys.has(circuitProposalCardKey(operation))),
+    newRouting: acceptedCardKeys.has("new-routing:routing") ? proposal.newRouting : undefined
+  };
+}
+
 function proposalCardIdentity(operation: DraftOperation) {
   const section = proposalCardSection(operation.target);
   const isRuleSetting = operation.target.startsWith("selectedRule.");

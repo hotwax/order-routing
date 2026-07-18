@@ -43,7 +43,8 @@
           <ion-button
             v-if="!activeVariationId"
             :disabled="!editorDirty || editorLocked"
-            :color="editorDirty && !editorLocked ? 'primary' : undefined"
+            :fill="editorDirty ? 'outline' : 'clear'"
+            :color="editorDirty ? 'primary' : undefined"
             :aria-label="editorDirty ? translate('Save changes') : translate('No unsaved changes')"
             @click="saveEditor"
           >
@@ -121,19 +122,36 @@
           <!-- The proposal is already applied live to the canvas (preview). Accept keeps it in the
                working copy; Reject reverts the canvas to the pre-proposal state. -->
           <div v-if="pendingDraftProposal" class="proposal-review">
-            <RoutingConfigSectionCard
+            <div
               v-for="card in proposalContextCards"
               :key="card.key"
-              :card="card"
-            />
+              class="proposal-card-review"
+              :class="{ 'discarded-proposal-card': proposalCardDecision(card.key) === 'discarded' }"
+            >
+              <RoutingConfigSectionCard :card="card" />
+              <ion-segment
+                class="proposal-card-decision"
+                :value="proposalCardDecision(card.key)"
+                :disabled="isApplyingDraft"
+                :aria-label="`${translate(card.title)}: ${translate('Accept')} or ${translate('Discard')}`"
+                @ionChange="setProposalCardDecision(card.key, $event.detail.value)"
+              >
+                <ion-segment-button value="accepted">
+                  <ion-label>{{ translate("Accept") }}</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="discarded">
+                  <ion-label>{{ translate("Discard") }}</ion-label>
+                </ion-segment-button>
+              </ion-segment>
+            </div>
             <div class="proposal-actions">
-              <ion-button expand="block" :disabled="isApplyingDraft" @click="acceptPendingProposal">
+              <ion-button expand="block" :disabled="isApplyingDraft || !hasSelectedProposalChanges" @click="acceptPendingProposal">
                 <ion-icon slot="start" :icon="checkmarkCircleOutline" />
-                {{ translate("Accept") }}
+                {{ translate("Accept selected") }} ({{ selectedProposalCardCount }})
               </ion-button>
               <ion-button expand="block" :disabled="isApplyingDraft" fill="outline" color="medium" @click="rejectPendingProposal">
                 <ion-icon slot="start" :icon="closeCircleOutline" />
-                {{ translate("Reject") }}
+                {{ translate("Reject all") }}
               </ion-button>
             </div>
           </div>
@@ -255,6 +273,8 @@ import {
   IonModal,
   IonNote,
   IonPage,
+  IonSegment,
+  IonSegmentButton,
   IonSpinner,
   IonTitle,
   IonToolbar
@@ -298,7 +318,7 @@ import {
 } from '@/utils/circuitFeedback';
 import { isFeatureEnabled } from '@/utils/simConfig';
 import { activeRoutingNavigationOperation } from '@/utils/routingWorkingCopy';
-import { buildCircuitProposalContextCards } from '@/utils/circuitProposalContext';
+import { buildCircuitProposalContextCards, selectCircuitProposalCards } from '@/utils/circuitProposalContext';
 
 const props = withDefaults(defineProps<{
   routingGroupId: string;
@@ -355,6 +375,8 @@ const editorRef = ref<{
 } | null>(null);
 const pendingDraftProposal = ref<CircuitDraftProposal | null>(null);
 const pendingDiscardFeedbackProposal = ref<CircuitDraftProposal | null>(null);
+type ProposalCardDecision = 'accepted' | 'discarded';
+const proposalCardDecisions = ref<Record<string, ProposalCardDecision>>({});
 const isPageActive = ref(false);
 const pageVariationId = ref("");
 let circuitContextGeneration = 0;
@@ -504,6 +526,29 @@ const isSavingEditor = ref(false);
 const editorLocked = computed(() => !!pendingDraftProposal.value || isApplyingDraft.value || isSavingEditor.value);
 const proposalContextCards = computed(() => editorRef.value?.getProposalContextCards?.(pendingDraftProposal.value)
   || buildCircuitProposalContextCards(pendingDraftProposal.value));
+const acceptedProposalCardKeys = computed(() => new Set(
+  proposalContextCards.value
+    .filter((card) => proposalCardDecision(card.key) === 'accepted')
+    .map((card) => card.key)
+));
+const selectedDraftProposal = computed<CircuitDraftProposal | null>(() => pendingDraftProposal.value
+  ? selectCircuitProposalCards(pendingDraftProposal.value, acceptedProposalCardKeys.value)
+  : null);
+const selectedProposalCardCount = computed(() => acceptedProposalCardKeys.value.size);
+const hasSelectedProposalChanges = computed(() => Boolean(
+  selectedDraftProposal.value?.newRouting || selectedDraftProposal.value?.operations.length
+));
+function proposalCardDecision(cardKey: string): ProposalCardDecision {
+  return proposalCardDecisions.value[cardKey] || 'accepted';
+}
+
+watch(() => pendingDraftProposal.value?.id, () => {
+  proposalCardDecisions.value = Object.fromEntries(
+    buildCircuitProposalContextCards(pendingDraftProposal.value)
+      .map((card) => [card.key, 'accepted' as ProposalCardDecision])
+  );
+}, { flush: 'sync' });
+
 const circuitLoadingMessage = computed(() => pendingDraftProposal.value
   ? translate("Circuit is applying your decision…")
   : translate("Circuit is preparing a response…"));
@@ -533,6 +578,7 @@ const hasPendingChanges = computed(() => activeVariationId.value
 function clearPendingProposalState() {
   pendingDraftProposal.value = null;
   pendingDiscardFeedbackProposal.value = null;
+  proposalCardDecisions.value = {};
 }
 
 function rollbackPendingProposal() {
@@ -747,8 +793,48 @@ async function showProposalLive(proposal: CircuitDraftProposal | null, circuitCo
   if (circuitContext) assertCurrentCircuitContext(circuitContext);
 }
 
+async function previewProposalSelection(proposal: CircuitDraftProposal | null) {
+  if (!editorRef.value) return;
+  if (proposal?.newRouting || proposal?.operations.length) {
+    await editorRef.value.previewDraftProposal(proposal);
+  } else {
+    editorRef.value.rejectDraftProposal();
+  }
+}
+
+async function setProposalCardDecision(cardKey: string, value: unknown) {
+  if (!pendingDraftProposal.value || !editorRef.value || isApplyingDraft.value) return;
+  if (value !== 'accepted' && value !== 'discarded') return;
+  if (proposalCardDecision(cardKey) === value) return;
+
+  const previousDecisions = { ...proposalCardDecisions.value };
+  const circuitContext = captureCircuitContext();
+  proposalCardDecisions.value = { ...previousDecisions, [cardKey]: value };
+  isApplyingDraft.value = true;
+  try {
+    await previewProposalSelection(selectedDraftProposal.value);
+    assertCurrentCircuitContext(circuitContext);
+  } catch (error) {
+    proposalCardDecisions.value = previousDecisions;
+    if (isCurrentCircuitContext(circuitContext) && pendingDraftProposal.value) {
+      const previousProposal = selectCircuitProposalCards(
+        pendingDraftProposal.value,
+        new Set(proposalContextCards.value
+          .filter((card) => (previousDecisions[card.key] || 'accepted') === 'accepted')
+          .map((card) => card.key))
+      );
+      await previewProposalSelection(previousProposal);
+    }
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+      await addCircuitMessage(error instanceof Error ? error.message : translate('Failed to apply draft changes'));
+    }
+  } finally {
+    isApplyingDraft.value = false;
+  }
+}
+
 const acceptPendingProposal = async () => {
-  if (!draftAssistantEnabled || !pendingDraftProposal.value || isApplyingDraft.value) return;
+  if (!draftAssistantEnabled || !pendingDraftProposal.value || !hasSelectedProposalChanges.value || isApplyingDraft.value) return;
 
   isApplyingDraft.value = true;
   try {
@@ -794,20 +880,19 @@ async function acceptPendingDraftProposal(userFeedback: string) {
     return;
   }
 
-  await savePendingDraftFeedback('approved', userFeedback);
+  const approvedProposal = selectedDraftProposal.value;
+  if (!approvedProposal || (!approvedProposal.newRouting && !approvedProposal.operations.length)) return;
+  const partiallyAccepted = selectedProposalCardCount.value < proposalContextCards.value.length;
+  await saveDraftFeedbackForProposal('approved', userFeedback, approvedProposal);
   editorRef.value.acceptDraftProposal();
   pendingDraftProposal.value = null;
-  await addCircuitMessage(activeVariationId.value
-    ? translate("Changes accepted. Use Update to save this variation, or Reset to revert.")
-    : translate("Changes accepted. Use Save to keep them, or Discard to revert."));
-}
-
-async function savePendingDraftFeedback(type: DraftFeedbackType, userFeedback: string) {
-  if (!pendingDraftProposal.value) {
-    return;
-  }
-
-  await saveDraftFeedbackForProposal(type, userFeedback, pendingDraftProposal.value);
+  await addCircuitMessage(partiallyAccepted
+    ? activeVariationId.value
+      ? translate("Selected changes accepted. Use Update to save this variation, or Reset to revert.")
+      : translate("Selected changes accepted. Use Save to keep them, or Discard to revert.")
+    : activeVariationId.value
+      ? translate("Changes accepted. Use Update to save this variation, or Reset to revert.")
+      : translate("Changes accepted. Use Save to keep them, or Discard to revert."));
 }
 
 async function saveDraftFeedbackForProposal(type: DraftFeedbackType, userFeedback: string, proposal: CircuitDraftProposal) {
@@ -988,6 +1073,22 @@ const formatDate = (timestamp: number) => {
   overflow-y: auto;
   padding: var(--spacer-sm);
   border-top: 1px solid var(--ion-color-step-150, rgba(0,0,0,0.12));
+}
+
+.proposal-card-review {
+  margin-block-end: var(--spacer-sm);
+}
+
+.proposal-card-review :deep(.routing-config-card) {
+  margin-block-end: 0;
+}
+
+.proposal-card-decision {
+  padding-inline: var(--spacer-xs);
+}
+
+.discarded-proposal-card {
+  opacity: 0.64;
 }
 
 .proposal-actions {

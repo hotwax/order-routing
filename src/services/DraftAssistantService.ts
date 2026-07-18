@@ -8,7 +8,7 @@ import {
   applyDraftProposal, summarizeDraftOperations, formatDraftProposalSections,
 } from "../utils/draftUtils";
 import { requireDraftAssistantUrl } from "../utils/simConfig";
-import { prepareDraftAssistantManifest } from "../utils/draftAssistantContext";
+import { prepareDraftAssistantManifest, serializeDraftAssistantManifest } from "../utils/draftAssistantContext";
 
 type DraftRequestOptions = {
   conversationHistory?: DraftConversationMessage[];
@@ -17,6 +17,7 @@ type DraftRequestOptions = {
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
   const assistantManifest = prepareDraftAssistantManifest(manifest);
+  const transportManifest = serializeDraftAssistantManifest(assistantManifest);
   const assistantUrl = requireDraftAssistantUrl();
   let response: any;
   try {
@@ -27,7 +28,7 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       // Never serialize the browser's OMS URL or bearer token into a request body. A deployed
       // assistant that needs OMS tools must authenticate server-to-server; that trust contract is
       // intentionally not manufactured by this PWA.
-      data: { prompt, conversationHistory, pageCapabilityManifest: assistantManifest, outputContract: assistantManifest.outputContract },
+      data: { prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract },
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {

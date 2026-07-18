@@ -50,6 +50,39 @@ describe("orderRoutingStore persisted detail state", () => {
     productStoreId.value = "STORE";
   });
 
+  it("clears persisted routing data when the authenticated instance or user changes", () => {
+    const store = orderRoutingStore();
+    store.$patch({
+      sessionContextKey: "instance-a::user-a",
+      groups: [{ routingGroupId: "M100459", productStoreId: "STORE" }],
+      currentGroup: { routingGroupId: "M100459", productStoreId: "STORE" },
+      baseline: { routingGroupId: "M100459", productStoreId: "STORE" },
+      currentRoutingId: "ROUTE_A",
+      currentRuleId: "RULE_A"
+    });
+
+    expect(store.activateSessionContext("instance-b::user-b")).toBe(true);
+    expect(store.sessionContextKey).toBe("instance-b::user-b");
+    expect(store.groups).toEqual([]);
+    expect(store.currentGroup).toEqual({});
+    expect(store.baseline).toEqual({});
+    expect(store.currentRoutingId).toBe("");
+    expect(store.currentRuleId).toBe("");
+  });
+
+  it("preserves persisted routing data when the authenticated session owner is unchanged", () => {
+    const store = orderRoutingStore();
+    store.$patch({
+      sessionContextKey: "instance-a::user-a",
+      groups: [{ routingGroupId: "G1", productStoreId: "STORE" }],
+      currentGroup: { ...rawGroup("Draft"), hasUnsavedChanges: true }
+    });
+
+    expect(store.activateSessionContext("INSTANCE-A::USER-A")).toBe(false);
+    expect(store.groups).toHaveLength(1);
+    expect(store.currentGroup.groupName).toBe("Draft");
+  });
+
   it("migrates a same-group persisted shell by fetching raw detail and a baseline", async () => {
     const store = orderRoutingStore();
     store.$patch({

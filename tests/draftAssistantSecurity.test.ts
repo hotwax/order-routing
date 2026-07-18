@@ -44,10 +44,12 @@ describe("DraftAssistantService production trust boundary", () => {
     expect(request.baseURL).toBe("https://circuit.example.test");
     expect(request.data).not.toHaveProperty("authToken");
     expect(request.data).not.toHaveProperty("omsBaseUrl");
+    expect(request.data.pageCapabilityManifest).not.toHaveProperty("context");
+    expect(request.data.pageCapabilityManifest.visibleEntities.assistantContext).toEqual({ mode: "live" });
     expect(Object.keys(request.headers)).toEqual(["Content-Type"]);
   });
 
-  it("sends only safe variation context and strips live group scheduling state", async () => {
+  it("moves safe variation context into the extensible visible entities and strips live group scheduling state", async () => {
     client.mockResolvedValue({
       data: {
         schemaVersion: "brokering-route-assistant.v1",
@@ -76,7 +78,8 @@ describe("DraftAssistantService production trust boundary", () => {
     await requestBrokeringRouteDraftOperations("Explain this variation", variationManifest);
 
     const body = client.mock.calls[0][0].data;
-    expect(body.pageCapabilityManifest.context).toEqual({
+    expect(body.pageCapabilityManifest).not.toHaveProperty("context");
+    expect(body.pageCapabilityManifest.visibleEntities.assistantContext).toEqual({
       mode: "variation",
       variationId: "VM100005",
       routingGroupId: "M100255",
@@ -84,8 +87,8 @@ describe("DraftAssistantService production trust boundary", () => {
     });
     expect(body.pageCapabilityManifest.visibleEntities.brokeringRun.schedule).toBeNull();
     expect(body.pageCapabilityManifest.editableTargets.map((target: any) => target.target)).toEqual(["route.statusId"]);
-    expect(body.pageCapabilityManifest.context).not.toHaveProperty("authToken");
-    expect(body.pageCapabilityManifest.context).not.toHaveProperty("omsBaseUrl");
+    expect(body.pageCapabilityManifest.visibleEntities.assistantContext).not.toHaveProperty("authToken");
+    expect(body.pageCapabilityManifest.visibleEntities.assistantContext).not.toHaveProperty("omsBaseUrl");
   });
 
   it("never forwards OMS credentials in runs-list inquiry requests", async () => {

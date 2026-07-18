@@ -52,6 +52,20 @@
               {{ translate("Clone") }}
             </ion-button>
           </div>
+          <ion-item v-if="isSandbox && sim.activeVariationId" class="variation-diff-summary" lines="none" color="light">
+            <ion-icon slot="start" :icon="gitCompareOutline" color="primary" />
+            <ion-label class="ion-text-wrap">
+              <h3>{{ translate("Variation changes") }}</h3>
+              <p v-if="variationDiff.total">
+                {{ variationDiff.total }} {{ translate(variationDiff.total === 1 ? "difference from baseline" : "differences from baseline") }}
+                <template v-if="sim.isDirty"> — {{ translate("Unsaved edits") }}</template>
+              </p>
+              <p v-else>{{ translate("Matches the baseline") }}</p>
+            </ion-label>
+            <ion-button slot="end" size="small" fill="outline" @click="openVariationDiff()">
+              {{ translate("Review") }}
+            </ion-button>
+          </ion-item>
         </div>
         <div>
           <ion-item>
@@ -656,6 +670,14 @@
       </div>
     </div>
   </div>
+  <VariationDiffModal
+    :is-open="showVariationDiff"
+    :diff="variationDiff"
+    :dirty="Boolean(sim.isDirty)"
+    @dismiss="showVariationDiff = false"
+    @restore-section="restoreVariationDiffSection"
+    @restore-all="confirmRestoreVariation"
+  />
 </template>
 
 <script setup lang="ts">
@@ -712,7 +734,8 @@ import {
   archiveOutline,
   addOutline,
   listOutline,
-  speedometerOutline
+  speedometerOutline,
+  gitCompareOutline
 } from 'ionicons/icons';
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
@@ -737,6 +760,7 @@ import ArchivedRoutingModal from "@/components/ArchivedRoutingModal.vue"
 import ArchivedRuleModal from "@/components/ArchivedRuleModal.vue"
 import RoutingConfigSectionCard from "@/components/circuit/RoutingConfigSectionCard.vue";
 import RoutingGroupEditorSkeleton from "@/components/circuit/RoutingGroupEditorSkeleton.vue";
+import VariationDiffModal from "@/components/simulation/VariationDiffModal.vue";
 import { DraftAssistantService } from "@/services/DraftAssistantService";
 import {
   RoutingPageOperationGuard,
@@ -774,6 +798,12 @@ import {
   serializeRuleWorkingCopy,
   updateRoutingFilterCondition
 } from "@/utils/routingWorkingCopy";
+import {
+  buildVariationConfigDiff,
+  restoreVariationSection,
+  restoreVariationToBaseline,
+  type VariationDiffTarget
+} from "@/utils/variationConfigDiff";
 
 const props = defineProps({
   routingGroupId: {
@@ -803,9 +833,43 @@ const product = productStore();
 const userStore = useUserStore();
 const utilStore = useUtilStore();
 const sim = simulationStore();
+const showVariationDiff = ref(false);
+const variationDiff = computed(() => buildVariationConfigDiff(sim.baseline, sim.working));
 const simReferences = useSimReferenceStore();
 const draftAssistantEnabled = isFeatureEnabled("draftAssistant");
 const testDriveEnabled = isFeatureEnabled("testDrive");
+
+function openVariationDiff() {
+  flushEditorDraft();
+  showVariationDiff.value = true;
+}
+
+async function restoreVariationDiffSection(target: VariationDiffTarget) {
+  flushEditorDraft();
+  restoreObjectInPlace(sim.working, restoreVariationSection(sim.working, sim.baseline, target));
+  await initializeFromWorking();
+  hasUnsavedChanges.value = true;
+  commonUtil.showToast(translate("Section reset to baseline. Update the variation to keep this change."));
+}
+
+async function confirmRestoreVariation() {
+  const alert = await alertController.create({
+    header: translate("Reset variation to baseline?"),
+    message: translate("Every variation difference will be removed from the working copy. Update the variation to keep this change."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      { text: translate("Reset"), role: "destructive" }
+    ]
+  });
+  await alert.present();
+  const { role } = await alert.onDidDismiss();
+  if (role !== "destructive") return;
+  flushEditorDraft();
+  restoreObjectInPlace(sim.working, restoreVariationToBaseline(sim.working, sim.baseline));
+  await initializeFromWorking();
+  hasUnsavedChanges.value = true;
+  commonUtil.showToast(translate("Variation reset to baseline. Update the variation to keep this change."));
+}
 
 // These descriptors are the stable UI identity for each routing JSON section. The canvas supplies
 // editable controls through the shared card's slot; Circuit supplies a normalized JSON slice to the
@@ -3499,6 +3563,16 @@ ion-chip > ion-select {
 
 .info > div:last-child {
   border-bottom: none;
+}
+
+.variation-diff-summary {
+  --padding-start: var(--spacer-sm);
+  --inner-padding-end: var(--spacer-sm);
+  margin: 0 var(--spacer-sm) var(--spacer-sm);
+}
+
+.variation-diff-summary h3 {
+  margin-block: 0 var(--spacer-2xs);
 }
 
 .header {

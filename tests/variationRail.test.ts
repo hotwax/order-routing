@@ -34,9 +34,11 @@ vi.mock("ionicons/icons", () => ({
   barChartOutline: "chart",
   chevronDownOutline: "down",
   chevronUpOutline: "up",
+  gitBranchOutline: "branch",
   playOutline: "play",
   refreshOutline: "reset",
-  saveOutline: "save"
+  saveOutline: "save",
+  trashOutline: "trash"
 }));
 
 vi.mock("@ionic/vue", () => {
@@ -57,12 +59,27 @@ vi.mock("@ionic/vue", () => {
     IonInput: {
       name: "IonInput",
       props: { modelValue: String, disabled: Boolean },
-      emits: ["update:modelValue", "keyup"],
-      template: '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />'
+      emits: ["update:modelValue", "ionFocus", "keyup"],
+      template: '<input :value="modelValue" :disabled="disabled" @focus="$emit(\'ionFocus\')" @input="$emit(\'update:modelValue\', $event.target.value)" />'
     },
     IonItem: passthrough("IonItem"),
     IonLabel: passthrough("IonLabel"),
-    IonModal: passthrough("IonModal"),
+    IonList: passthrough("IonList"),
+    IonModal: {
+      name: "IonModal",
+      inheritAttrs: false,
+      props: {
+        isOpen: Boolean,
+        breakpoints: Array,
+        initialBreakpoint: Number,
+        backdropBreakpoint: Number,
+        backdropDismiss: Boolean,
+        canDismiss: [Boolean, Function],
+        handleBehavior: String
+      },
+      emits: ["ionBreakpointDidChange", "didDismiss"],
+      template: '<div class="ion-modal" :data-open="String(isOpen)"><slot /></div>'
+    },
     IonNote: passthrough("IonNote"),
     IonRadio: passthrough("IonRadio"),
     IonRadioGroup: {
@@ -92,9 +109,12 @@ function createSimulation() {
     activeVariationId: "",
     dirty: false,
     isRunningVariationRun: false,
+    isRunningBaselineRun: false,
     isSavingVariation: false,
     variationRunResult: null,
+    baselineRunResult: null,
     runCompareError: null,
+    baselineRunError: null,
     interruptedVariationRun: null,
     loadError: null,
     get isSimulationReady() { return this.groupLoadState === "ready" && !!this.baseline && !!this.working; },
@@ -111,7 +131,13 @@ function createSimulation() {
     }),
     saveAsVariation: vi.fn(async () => true),
     updateVariation: vi.fn(async () => true),
+    discardVariation: vi.fn(async (id: string) => {
+      sim.variations = sim.variations.filter((variation: any) => variation.id !== id);
+      sim.activeVariationId = "";
+      return true;
+    }),
     runActiveVariation: vi.fn(async () => true),
+    runBaseline: vi.fn(async () => true),
     loadGroup: vi.fn(async () => true)
   });
   return sim;
@@ -136,6 +162,113 @@ describe("VariationRail interaction safety", () => {
       onDidDismiss: vi.fn(async () => ({ role: mocks.alertRole }))
     }));
     vi.clearAllMocks();
+  });
+
+  it("uses a route-owned native sheet without blocking the routing canvas", async () => {
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const sheet = wrapper.findAllComponents({ name: "IonModal" })[0];
+
+    expect(sheet.props("isOpen")).toBe(true);
+    expect(sheet.props("breakpoints")).toEqual([0.08, 0.5, 0.9]);
+    expect(sheet.props("initialBreakpoint")).toBe(0.08);
+    expect(sheet.props("backdropBreakpoint")).toBe(1);
+    expect(sheet.props("backdropDismiss")).toBe(false);
+    expect(sheet.props("handleBehavior")).toBe("cycle");
+    expect(sheet.props("canDismiss")()).toBe(false);
+
+    expect(wrapper.text()).toContain("Expand");
+    await wrapper.findAllComponents({ name: "IonButton" })[0].trigger("click");
+    expect(wrapper.text()).toContain("Minimize");
+
+    mocks.routeRef.value = { path: "/order-routing/G2" };
+    await flushPromises();
+    expect(sheet.props("isOpen")).toBe(false);
+    expect(sheet.props("canDismiss")()).toBe(true);
+  });
+
+  it("presents variation creation as a named branch and expands when naming it", async () => {
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const nameInput = wrapper.find('[data-testid="variation-name"]');
+    const createButton = wrapper.find('[data-testid="create-variation"]');
+
+    expect(wrapper.text()).toContain("Simulation");
+    expect(wrapper.text()).toContain("Branch from");
+    expect(wrapper.text()).toContain("Baseline");
+    expect(wrapper.text()).toContain("Live config");
+    expect(wrapper.text()).toContain("Create a variation");
+    expect(createButton.attributes("disabled")).toBeDefined();
+
+    await nameInput.trigger("focus");
+    expect(wrapper.text()).toContain("Minimize");
+
+    await nameInput.setValue("  Faster west coast  ");
+    expect(createButton.attributes("disabled")).toBeUndefined();
+    await createButton.trigger("click");
+    await flushPromises();
+
+    expect(mocks.sim.saveAsVariation).toHaveBeenCalledWith("Faster west coast");
+  });
+
+  it("leads with variation creation and hides the baseline selector for first-time use", () => {
+    mocks.sim.variations = [];
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const saveSectionText = wrapper.find(".save-section").text();
+
+    expect(radioGroup(wrapper).exists()).toBe(false);
+    expect(saveSectionText.indexOf("Create a variation")).toBeLessThan(saveSectionText.indexOf("Branch from"));
+    expect(wrapper.findAllComponents({ name: "IonFabButton" })[0].attributes("aria-label")).toBe("Run baseline");
+  });
+
+  it("runs the selected baseline and blocks it only while live edits are unresolved", async () => {
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const runButton = wrapper.findAllComponents({ name: "IonFabButton" })[0];
+
+    expect(runButton.attributes("aria-label")).toBe("Run baseline");
+    expect(runButton.attributes("disabled")).toBeUndefined();
+    await runButton.trigger("click");
+    await flushPromises();
+    expect(mocks.sim.runBaseline).toHaveBeenCalledOnce();
+
+    const dirtyWrapper = mount(VariationRail, {
+      props: { routingGroupId: "G1", liveDirty: true, editorDirty: true }
+    });
+    const dirtyRunButton = dirtyWrapper.findAllComponents({ name: "IonFabButton" })[0];
+    expect(dirtyRunButton.attributes("disabled")).toBeDefined();
+  });
+
+  it("shows the selected variation as the source and only enables update for dirty work", async () => {
+    mocks.sim.activeVariationId = "V1";
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const updateButton = wrapper.findAllComponents({ name: "IonButton" })
+      .find((button) => button.text() === "Update");
+
+    expect(wrapper.text()).toContain("Branch from");
+    expect(wrapper.text()).toContain("First");
+    expect(wrapper.text()).toContain("Saved variation");
+    expect(updateButton?.attributes("disabled")).toBeDefined();
+
+    mocks.sim.dirty = true;
+    await flushPromises();
+    expect(wrapper.text()).toContain("Unsaved variation changes");
+    expect(updateButton?.attributes("disabled")).toBeUndefined();
+  });
+
+  it("discards the selected variation only after destructive confirmation", async () => {
+    mocks.sim.activeVariationId = "V1";
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+    const discardButton = wrapper.find('[data-testid="discard-variation"]');
+
+    await discardButton.trigger("click");
+    await flushPromises();
+    expect(mocks.sim.discardVariation).not.toHaveBeenCalled();
+
+    mocks.alertRole = "destructive";
+    await discardButton.trigger("click");
+    await flushPromises();
+
+    expect(mocks.sim.discardVariation).toHaveBeenCalledWith("V1");
+    expect(mocks.sim.activeVariationId).toBe("");
+    expect(mocks.showToast).toHaveBeenCalledWith("Variation discarded");
   });
 
   it("switches between baseline and a saved variation through the store", async () => {
@@ -241,13 +374,15 @@ describe("VariationRail interaction safety", () => {
     const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
     const resultsButton = wrapper.findAllComponents({ name: "IonFabButton" })[1];
     await resultsButton.trigger("click");
-    expect(wrapper.findComponent({ name: "IonModal" }).attributes("is-open")).toBe("true");
+    const modals = wrapper.findAllComponents({ name: "IonModal" });
+    expect(modals[0].props("isOpen")).toBe(true);
+    expect(modals[1].props("isOpen")).toBe(true);
 
     mocks.routeRef.value = { path: "/order-routing/G2" };
     await flushPromises();
 
-    expect(wrapper.findComponent({ name: "IonModal" }).attributes("is-open")).toBe("false");
-    expect(wrapper.find("aside").isVisible()).toBe(false);
+    expect(modals[0].props("isOpen")).toBe(false);
+    expect(modals[1].props("isOpen")).toBe(false);
   });
 
   it("explains an interrupted run and safely reloads its saved variation before rerunning", async () => {

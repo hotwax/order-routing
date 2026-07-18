@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCircuitProposalContextCards } from "../src/utils/circuitProposalContext";
+import { buildCircuitProposalContextCards, selectCircuitProposalCards } from "../src/utils/circuitProposalContext";
 import { isRoutingRuleDraftDirty } from "../src/utils/routingWorkingCopy";
 
 describe("Circuit proposal review context", () => {
@@ -77,6 +77,35 @@ describe("Circuit proposal review context", () => {
       value: "",
       dirty: true
     });
+  });
+
+  it("keeps or discards an entire proposal card without splitting its settings", () => {
+    const proposal = {
+      operations: [
+        { op: "set" as const, target: "route.orderSorts.ORDER_DATE", value: true },
+        { op: "set" as const, target: "route.orderSorts.SHIPPING_METHOD", value: true },
+        {
+          op: "set" as const,
+          target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT",
+          value: false,
+          ruleKey: "RULE_3",
+          ruleName: "Hail mary"
+        }
+      ],
+      unansweredQuestions: [],
+      summary: "Drafted routing changes",
+      providerSummary: "Drafted routing changes",
+      newRouting: { routingKey: "new:holiday", name: "Holiday" }
+    };
+
+    const selected = selectCircuitProposalCards(proposal, new Set(["route:sort"]));
+
+    expect(selected.operations.map((operation) => operation.target)).toEqual([
+      "route.orderSorts.ORDER_DATE",
+      "route.orderSorts.SHIPPING_METHOD"
+    ]);
+    expect(selected.newRouting).toBeUndefined();
+    expect(proposal.operations).toHaveLength(3);
   });
 
   it("detects a changed rule independent of object key order", () => {

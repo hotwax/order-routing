@@ -315,6 +315,67 @@ describe("simulation batch submission and recovery", () => {
     expect(sim.lastSimulationId).toBeNull();
   });
 
+  it("archives and removes an active variation before returning the canvas to baseline", async () => {
+    const sim = prepareCanonicalVariationStore();
+    sim.variationRunResult = { routingGroupId: "V1", routingResults: [] } as any;
+    const discard = vi.spyOn(VariationService, "deleteVariation").mockResolvedValue(undefined);
+
+    await expect(sim.discardVariation("V1")).resolves.toBe(true);
+
+    expect(discard).toHaveBeenCalledWith("V1");
+    expect(sim.variations).toEqual([]);
+    expect(sim.activeVariationId).toBe("");
+    expect(sim.working).toEqual(sim.baseline);
+    expect(sim.variationRunResult).toBeNull();
+    expect(sim.isSavingVariation).toBe(false);
+  });
+
+  it("runs the live baseline as a first-class simulation source", async () => {
+    const sim = simulationStore();
+    const baseline = { routingGroupId: "G1", productStoreId: "STORE", routings: [] };
+    const result = {
+      simulationId: "S_BASE",
+      routingGroupId: "G1",
+      productStoreId: "STORE",
+      attemptedItemCount: 10,
+      brokeredItemCount: 8,
+      queuedItemCount: 2,
+      routingResults: []
+    };
+    sim.routingGroupId = "G1";
+    sim.groupLoadState = "ready";
+    sim.baseline = structuredClone(baseline);
+    sim.working = structuredClone(baseline);
+    const runParent = vi.spyOn(SimulationService, "runParentLiveConfig")
+      .mockImplementation(async (_groupId, _sampleCap, onProgress) => {
+        onProgress?.({ phaseLabel: "Brokering", ordersProcessed: 4 } as any);
+        return result;
+      });
+
+    await expect(sim.runBaseline(250)).resolves.toBe(true);
+
+    expect(runParent).toHaveBeenCalledWith("G1", 250, expect.any(Function), expect.any(AbortSignal));
+    expect(sim.baselineRunResult).toEqual(result);
+    expect(sim.parentRunByGroupId.G1).toEqual(result);
+    expect(sim.parentRunProgress).toMatchObject({ phaseLabel: "Brokering", ordersProcessed: 4 });
+    expect(sim.lastSimulationId).toBe("S_BASE");
+    expect(sim.isRunningBaselineRun).toBe(false);
+  });
+
+  it("refuses to run a baseline whose visible working copy is dirty", async () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.groupLoadState = "ready";
+    sim.baseline = { routingGroupId: "G1", routings: [] };
+    sim.working = { routingGroupId: "G1", routings: [{ orderRoutingId: "LOCAL" }] };
+    const runParent = vi.spyOn(SimulationService, "runParentLiveConfig");
+
+    await expect(sim.runBaseline()).resolves.toBe(false);
+
+    expect(runParent).not.toHaveBeenCalled();
+    expect(sim.baselineRunError).toBe("Save or discard live changes before running the baseline.");
+  });
+
   it("adopts a persisted variation simulation id before clearing the durable marker", async () => {
     const sim = prepareCanonicalVariationStore();
     const runResult = deferred<any>();

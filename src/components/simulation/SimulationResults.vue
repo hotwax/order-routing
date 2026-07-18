@@ -18,10 +18,37 @@
       {{ translate("View saved result") }}
     </ion-button>
 
+    <!-- A baseline run uses the parent job directly. Show its own progress and per-routing outcome
+         instead of pretending it is one side of a variation comparison. -->
+    <template v-if="sim.baselineRunResult || sim.isRunningBaselineRun || sim.baselineRunError">
+      <div v-if="sim.isRunningBaselineRun" class="vrun-progress">
+        <ion-label>{{ translate("Simulating baseline") }} — {{ translate("this can take 25–150s") }}</ion-label>
+        <ion-progress-bar type="indeterminate" />
+      </div>
+      <ion-note v-if="sim.baselineRunError" color="danger">{{ sim.baselineRunError }}</ion-note>
+
+      <ion-list v-if="sim.baselineRunResult">
+        <ion-list-header><ion-label>{{ translate("Baseline results") }}</ion-label></ion-list-header>
+        <ion-item v-for="row in baselineRows" :key="row.routingName + row.parentRoutingId">
+          <ion-label>
+            {{ row.routingName }}
+            <div class="cmp">
+              <span class="metric"><span class="lbl">{{ translate("Eligible") }}</span><span class="val">{{ n(row.parent?.eligibleEntryCount) }}</span></span>
+              <span class="metric"><span class="lbl">{{ translate("Brokered") }}</span><span class="val">{{ n(row.parent?.brokeredItemCount) }}</span></span>
+              <span class="metric"><span class="lbl">{{ translate("Queued") }}</span><span class="val">{{ n(row.parent?.queuedItemCount) }}</span></span>
+            </div>
+          </ion-label>
+        </ion-item>
+        <ion-note v-if="!baselineRows.length" color="medium" class="ion-padding-horizontal">
+          {{ translate("No per-routing results were returned for this run.") }}
+        </ion-note>
+      </ion-list>
+    </template>
+
     <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare.
          runCompareError is included so a failed run shows its error (the note below) instead of a blank
          pane — otherwise, on error (no result, not running) this whole block would render nothing. -->
-    <template v-if="sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError">
+    <template v-else-if="sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError">
       <div v-if="sim.isRunningVariationRun" class="vrun-progress">
         <ion-label>{{ translate("Simulating variation") }} — {{ translate("this can take 25–150s") }}</ion-label>
         <ion-progress-bar type="indeterminate" />
@@ -138,6 +165,12 @@ const router = useRouter();
 
 const rows = computed(() => toRows(sim.results));
 const failedRows = computed(() => rows.value.filter((row) => row.failed));
+const baselineRows = computed(() => joinRoutingResults({
+  variationGroupId: "",
+  parentResults: sim.baselineRunResult?.routingResults ?? [],
+  variationResults: [],
+  routingNameById: buildRoutingNameMap({ routings: sim.baseline?.routings ?? [] })
+}));
 const compareRows = computed(() => {
   if (!sim.variationRunResult) return [];
   const parent = sim.parentRunByGroupId[sim.routingGroupId];

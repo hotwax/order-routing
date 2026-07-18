@@ -48,6 +48,10 @@ function isMissingScheduleResponse(err: any) {
 export const orderRoutingStore = defineStore('orderRouting', {
   state: () => {
     return {
+      // Own persisted routing state by authenticated backend + user. Pinia restores this store
+      // before login completes, so productStoreId alone cannot distinguish two OMS instances that
+      // both use a common id such as "STORE".
+      sessionContextKey: "",
       groups: [] as Array<any>,
       // The editable working copy for the detail editor.
       currentGroup: {} as any,
@@ -113,6 +117,19 @@ export const orderRoutingStore = defineStore('orderRouting', {
     }
   },
   actions: {
+    activateSessionContext(contextKey: string) {
+      const nextContextKey = String(contextKey || "").trim().toLowerCase();
+      if (!nextContextKey) return false;
+
+      const contextChanged = this.sessionContextKey !== nextContextKey;
+      if (contextChanged) this.clearRouting();
+      this.sessionContextKey = nextContextKey;
+      return contextChanged;
+    },
+    clearSessionContext() {
+      this.clearRouting();
+      this.sessionContextKey = "";
+    },
     async fetchOrderRoutingGroups() {
       let routingGroups: any[] | null = null;
       const payload = {
@@ -132,7 +149,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
         }
       } catch(err) {
         logger.error(err);
-        return;
+        return false;
       }
   
       if(routingGroups.length) {
@@ -177,6 +194,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       // The server response is authoritative for persisted rows. Retain only local drafts for the
       // active product store; deleted rows and rows from a previously selected store must disappear.
       this.groups = commonUtil.sortSequence([...serverGroups, ...localNewGroups], "runTime")
+      return true;
     },
     // Fetches the raw routings/rules/filters for every group in state.groups that
     // is missing them. Used by the Routing groups assistant to give the agent full

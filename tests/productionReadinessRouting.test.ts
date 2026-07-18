@@ -285,6 +285,31 @@ describe("production-ready routing contracts", () => {
     expect(sim.isRunningVariationRun).toBe(false);
   });
 
+  it("ignores a completed baseline run after navigating to another group", async () => {
+    const sim = simulationStore();
+    const group = { routingGroupId: "G1", routings: [] };
+    sim.routingGroupId = "G1";
+    sim.groupLoadState = "ready";
+    sim.baseline = structuredClone(group);
+    sim.working = structuredClone(group);
+    const baselineRun = deferred<any>();
+    vi.spyOn(SimulationService, "runParentLiveConfig").mockReturnValue(baselineRun.promise);
+    sim.fetchSimGroupDetail = vi.fn(async () => ({ routingGroupId: "G2", routings: [] })) as any;
+    sim.fetchServerVariations = vi.fn(async () => []) as any;
+
+    const running = sim.runBaseline();
+    expect(sim.isRunningBaselineRun).toBe(true);
+    await sim.loadGroup("G2");
+    baselineRun.resolve({ routingGroupId: "G1", routingResults: [], simulationId: "S_BASE" });
+    expect(await running).toBe(false);
+
+    expect(sim.routingGroupId).toBe("G2");
+    expect(sim.baselineRunResult).toBeNull();
+    expect(sim.parentRunByGroupId.G1).toBeUndefined();
+    expect(sim.lastSimulationId).toBeNull();
+    expect(sim.isRunningBaselineRun).toBe(false);
+  });
+
   it("invalidates the parent comparison cache whenever a group baseline is reloaded", async () => {
     const sim = simulationStore();
     sim.parentRunByGroupId.G1 = { routingGroupId: "G1", routingResults: [] } as any;
@@ -326,7 +351,7 @@ describe("production-ready routing contracts", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("surfaces and refreshes a partially-created variation instead of orphaning it silently", async () => {
+  it("archives a partially-created variation when its config cannot be saved", async () => {
     const sim = simulationStore();
     sim.routingGroupId = "G1";
     sim.groupLoadState = "ready";
@@ -334,14 +359,32 @@ describe("production-ready routing contracts", () => {
     sim.working = { routingGroupId: "G1", routings: [] };
     vi.spyOn(VariationService, "createVariation").mockResolvedValue("V_ORPHAN");
     vi.spyOn(VariationService, "replaceVariationConfig").mockRejectedValue(new Error("replace failed"));
+    const discard = vi.spyOn(VariationService, "deleteVariation").mockResolvedValue(undefined);
+
+    expect(await sim.saveAsVariation("Needs recovery")).toBe(false);
+
+    expect(discard).toHaveBeenCalledWith("V_ORPHAN");
+    expect(sim.variations).toEqual([]);
+    expect(sim.loadError).toContain("could not be configured");
+  });
+
+  it("refreshes a partially-created variation when discard is unavailable on an older backend", async () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.groupLoadState = "ready";
+    sim.baseline = { routingGroupId: "G1", routings: [] };
+    sim.working = { routingGroupId: "G1", routings: [] };
+    vi.spyOn(VariationService, "createVariation").mockResolvedValue("V_ORPHAN");
+    vi.spyOn(VariationService, "replaceVariationConfig").mockRejectedValue(new Error("replace failed"));
+    vi.spyOn(VariationService, "deleteVariation").mockRejectedValue(new Error("delete unavailable"));
     vi.spyOn(VariationService, "listVariations").mockResolvedValue([
-      { variationGroupId: "V_ORPHAN", variationName: "Needs recovery" }
+      { variationGroupId: "V_ORPHAN", variationName: "Needs recovery", statusId: "VAR_DRAFT" }
     ] as any);
 
     expect(await sim.saveAsVariation("Needs recovery")).toBe(false);
 
-    expect(sim.variations.map((v) => v.id)).toContain("V_ORPHAN");
-    expect(sim.loadError).toContain("was created, but its configuration could not be saved");
+    expect(sim.variations.map((variation) => variation.id)).toContain("V_ORPHAN");
+    expect(sim.loadError).toContain("could not be configured");
   });
 
   it("cannot create or open a variation over unresolved live-group edits", async () => {

@@ -19,6 +19,7 @@ export const variationRequests = {
     ({ url: `sim-routing/routingGroups/${parentRoutingGroupId}/variations`, method: "POST",
       data: variationName ? { variationName } : {} }),
   getVariation: (vid: string) => ({ url: `sim-routing/variations/${vid}`, method: "GET" }),
+  deleteVariation: (vid: string) => ({ url: `sim-routing/variations/${vid}`, method: "DELETE" }),
   replaceConfig: (vid: string, routings: any[]) =>
     ({ url: `sim-routing/variations/${vid}/config`, method: "PUT", data: { routings } }),
   setRouting: (vid: string, rid: string, patch: { statusId?: string; sequenceNum?: number }) =>
@@ -77,6 +78,10 @@ export async function getVariation(vid: string, signal?: AbortSignal): Promise<V
   return data.variation;
 }
 
+export async function deleteVariation(vid: string, signal?: AbortSignal): Promise<void> {
+  await call(variationRequests.deleteVariation(vid), undefined, signal);
+}
+
 /** Persist-on-save: replace the variation's whole config (lossless whole-tree). Returns the canonical
  *  variation tree the backend re-inserted (adopt it as the new client state). */
 export async function replaceVariationConfig(vid: string, routings: any[], signal?: AbortSignal): Promise<VariationTree> {
@@ -122,6 +127,7 @@ export const VariationService = {
   listVariations,
   createVariation,
   getVariation,
+  deleteVariation,
   replaceVariationConfig,
   setRouting,
   upsertFilter,

@@ -41,6 +41,24 @@ const authGuard = async (to: any, _from: any, next: any) => {
   next();
 };
 
+// A persisted browser history entry must not be allowed to open a routing group from a previous
+// OMS instance. Session activation clears owned state; this guard also fails closed when a fresh,
+// successful list snapshot proves that the requested group is not present in the active store.
+const routingGroupGuard = (to: any, from: any, next: any) =>
+  authGuard(to, from, async (authRedirect?: any) => {
+    if (authRedirect !== undefined) return next(authRedirect);
+
+    const routingGroupId = String(to.params?.routingGroupId || "");
+    const store = orderRoutingStore();
+    let snapshotLoaded = true;
+    if (!(store.groups || []).length) snapshotLoaded = await store.fetchOrderRoutingGroups();
+    const groupExists = (store.groups || []).some(
+      (group: any) => String(group?.routingGroupId || "") === routingGroupId
+    );
+
+    return snapshotLoaded && !groupExists ? next("/order-routing") : next();
+  });
+
 // Same as authGuard, but first redirects away unless the complete fail-closed simulation deployment
 // contract is configured, so /simulate* cannot bypass the feature gate by URL or bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
@@ -71,8 +89,8 @@ export const routingTestDrivePermissionGuard = (to: any, _from: any, next: any) 
 };
 
 const routingTestDriveGuard = (to: any, from: any, next: any) =>
-  authGuard(to, from, (authRedirect?: any) => {
-    if (authRedirect !== undefined) return next(authRedirect);
+  routingGroupGuard(to, from, (groupRedirect?: any) => {
+    if (groupRedirect !== undefined) return next(groupRedirect);
     return routingTestDrivePermissionGuard(to, from, next);
   });
 
@@ -244,7 +262,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/order-routing/:routingGroupId",
     component: () => import("@/views/RoutingDetail.vue"),
-    beforeEnter: authGuard,
+    beforeEnter: routingGroupGuard,
     props: true
   },
   {

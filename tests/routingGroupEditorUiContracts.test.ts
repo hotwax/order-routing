@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import editorSource from "../src/components/circuit/RoutingGroupEditor.vue?raw";
 import canvasSource from "../src/components/circuit/RoutingDetailCanvas.vue?raw";
 import skeletonSource from "../src/components/circuit/RoutingGroupEditorSkeleton.vue?raw";
+import variationDiffModalSource from "../src/components/simulation/VariationDiffModal.vue?raw";
 
 describe("routing group editor UI contracts", () => {
   it("loads routing enum options for direct detail entry and Circuit manifests", () => {
@@ -20,6 +21,12 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain('translate("Changed")');
     expect(canvasSource).toContain(':interaction-locked="editorLocked"');
     expect(canvasSource).not.toContain(':inert="editorLocked');
+  });
+
+  it("highlights the baseline Save action whenever the live editor is dirty", () => {
+    expect(canvasSource).toContain(":fill=\"editorDirty ? 'outline' : 'clear'\"");
+    expect(canvasSource).toContain(":color=\"editorDirty ? 'primary' : undefined\"");
+    expect(canvasSource).toContain(':disabled="!editorDirty || editorLocked"');
   });
 
   it("combines the routing position and reorder handle in an outline chip", () => {
@@ -43,9 +50,14 @@ describe("routing group editor UI contracts", () => {
     expect(skeletonSource.match(/<ion-card/g)?.length).toBeGreaterThanOrEqual(7);
   });
 
-  it("replaces the prompt with proposal context and spaced decision actions", () => {
+  it("replaces the prompt with proposal context and card-level partial acceptance", () => {
     expect(canvasSource).toContain('v-if="!pendingDraftProposal"');
     expect(canvasSource).toContain('<RoutingConfigSectionCard');
+    expect(canvasSource).toContain('class="proposal-card-decision"');
+    expect(canvasSource).toContain('@ionChange="setProposalCardDecision(card.key, $event.detail.value)"');
+    expect(canvasSource).toContain('selectCircuitProposalCards(pendingDraftProposal.value, acceptedProposalCardKeys.value)');
+    expect(canvasSource).toContain('translate("Accept selected")');
+    expect(canvasSource).toContain('translate("Reject all")');
     expect(canvasSource).toContain('class="proposal-actions"');
     expect(canvasSource).toContain('class="circuit-loading"');
   });
@@ -78,6 +90,20 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain("isRuleConditionCardDirty('ENTCT_FILTER')");
     expect(editorSource).toContain("'dirty-setting-row'");
     expect(editorSource).toContain(':dirty="isRuleConditionCardDirty(\'ENTCT_FILTER\')"');
+  });
+
+  it("uses the AccxUI single-step modal and list-divider structure for variation differences", () => {
+    expect(variationDiffModalSource.match(/<ion-toolbar>/g)).toHaveLength(2);
+    expect(variationDiffModalSource).toContain('<ion-icon slot="icon-only" :icon="closeOutline" />');
+    expect(variationDiffModalSource).toContain('<ion-title>{{ modalTitle }}</ion-title>');
+    expect(variationDiffModalSource).toContain('<ion-list-header>');
+    expect(variationDiffModalSource).toContain('<ion-item-divider color="light">');
+    expect(variationDiffModalSource.match(/<ion-list(?:\s|>)/g)).toHaveLength(1);
+    expect(variationDiffModalSource).not.toContain('<ion-item-group');
+    expect(variationDiffModalSource).not.toMatch(/<ion-item[\s\S]*?<h[1-6]>/);
+    expect(variationDiffModalSource).not.toContain('<p>{{ section.routingName }}</p>');
+    expect(variationDiffModalSource).toContain('translate("Reset to baseline")');
+    expect(variationDiffModalSource).not.toContain('translate("Restore baseline")');
   });
 
   it("commits rule renames from a dedicated input draft before variation serialization", () => {

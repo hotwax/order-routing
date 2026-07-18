@@ -1,35 +1,49 @@
 <template>
-  <!-- In-page floating panel (NOT an ion-modal). An always-open sheet modal teleports to the app
-       root, which escapes the `ion-page-hidden` display:none Ionic puts on cached, navigated-away
-       pages — so it used to float over every other tab. As a plain element inside this page's
-       ion-page it is hidden automatically when the page is cached. `v-show="isActive"` is a
-       belt-and-suspenders guard on the same global-route signal. -->
-  <aside v-show="isActive" class="variation-rail" :class="{ expanded: isExpanded }">
-    <ion-toolbar class="rail-header">
-      <ion-title size="small">{{ translate("Variations") }}</ion-title>
-      <ion-buttons slot="end">
-        <ion-button
-          v-if="isExpanded"
-          fill="clear"
-          size="small"
-          @click="minimize()"
-        >
-          <ion-icon slot="start" :icon="chevronDownOutline" />
-          {{ translate("Minimize") }}
-        </ion-button>
-        <ion-button
-          v-else
-          fill="clear"
-          size="small"
-          @click="expand()"
-        >
-          <ion-icon slot="start" :icon="chevronUpOutline" />
-          {{ translate("Expand") }}
-        </ion-button>
-      </ion-buttons>
-    </ion-toolbar>
+  <!-- The sheet is teleported to the app root by Ionic, so visibility must follow the global
+       current route rather than this cached page's mounted state. Only the active routing-group
+       page opens a sheet; leaving the route closes and tears it down before another cached page
+       can become active. backdropBreakpoint=1 keeps the routing canvas interactive at every stop. -->
+  <ion-modal
+    ref="modalRef"
+    class="variation-modal"
+    :is-open="isActive"
+    :breakpoints="breakpoints"
+    :initial-breakpoint="MIN_BP"
+    :backdrop-breakpoint="1"
+    :backdrop-dismiss="false"
+    :can-dismiss="canDismissSheet"
+    handle-behavior="cycle"
+    @ionBreakpointDidChange="onBreakpointChange"
+    @didDismiss="onSheetDismissed"
+  >
+    <ion-header>
+      <ion-toolbar class="rail-header">
+        <ion-title size="small">{{ translate("Simulation") }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button
+            v-if="isExpanded"
+            fill="clear"
+            size="small"
+            @click="minimize()"
+          >
+            <ion-icon slot="start" :icon="chevronDownOutline" />
+            {{ translate("Minimize") }}
+          </ion-button>
+          <ion-button
+            v-else
+            fill="clear"
+            size="small"
+            @click="expand()"
+          >
+            <ion-icon slot="start" :icon="chevronUpOutline" />
+            {{ translate("Expand") }}
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
 
-    <div v-show="isExpanded" class="rail-body">
+    <ion-content>
+      <div class="rail-body">
       <div v-if="sim.groupLoadState === 'loading'" class="load-state">
         <ion-spinner name="dots" />
         <ion-note>{{ translate("Loading routing group and variations…") }}</ion-note>
@@ -40,13 +54,13 @@
       </div>
 
       <template v-if="sim.isSimulationReady">
-      <ion-radio-group :value="radioSelected" @ionChange="selectVariation($event.detail.value)">
+      <ion-radio-group v-if="hasSavedVariations" :value="radioSelected" @ionChange="selectVariation($event.detail.value)">
         <ion-item>
-          <ion-radio value="" :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
+          <ion-radio value="" :disabled="isRunningAnySource || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ translate("Baseline (live config)") }}</ion-radio>
         </ion-item>
 
         <ion-item v-for="v in sim.variations" :key="v.id">
-          <ion-radio :value="v.id" :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ v.label }}</ion-radio>
+          <ion-radio :value="v.id" :disabled="isRunningAnySource || isSaving || sim.isSavingVariation" label-placement="end" justify="start">{{ v.label }}</ion-radio>
         </ion-item>
       </ion-radio-group>
 
@@ -59,64 +73,105 @@
           slot="end"
           size="small"
           data-testid="rerun-interrupted-variation"
-          :disabled="sim.isRunningVariationRun || isSaving || sim.isSavingVariation || !interruptedVariationExists"
+          :disabled="isRunningAnySource || isSaving || sim.isSavingVariation || !interruptedVariationExists"
           @click="rerunInterruptedVariation()"
         >
           {{ translate("Run again") }}
         </ion-button>
       </ion-item>
 
-      <!-- Editing status + save-changes workflow: update the active variation, or save the current
-           working copy as a brand-new variation named inline. Replaces the old inline canvas card. -->
-      <div class="save-section">
-        <ion-chip :color="sim.activeVariationId ? 'primary' : 'medium'" :outline="true">
-          <ion-label>
-            <template v-if="sim.activeVariationId">{{ translate("Editing:") }} {{ sim.activeVariation?.label }}</template>
-            <template v-else>{{ translate("New variation (from Baseline)") }}</template>
-            <template v-if="effectiveVariationDirty"> — {{ translate("unsaved changes") }}</template>
+      <!-- A variation is a branch from the currently selected source. Keep that relationship visible
+           so "save as new" feels like an intentional simulation workflow, not a generic save form. -->
+      <ion-list class="save-section" inset>
+        <ion-item v-if="sim.activeVariationId" lines="none">
+          <ion-icon slot="start" :icon="saveOutline" color="primary" />
+          <ion-label class="ion-text-wrap">
+            <h2>{{ sim.activeVariation?.label }}</h2>
+            <p>{{ effectiveVariationDirty ? translate("Unsaved variation changes") : translate("Variation is up to date") }}</p>
           </ion-label>
-        </ion-chip>
+        </ion-item>
+        <div v-if="sim.activeVariationId" class="variation-save-actions">
+          <ion-button
+            fill="outline"
+            size="small"
+            :disabled="isRunningAnySource || isSaving || sim.isSavingVariation || !effectiveVariationDirty"
+            @click="updateActive()"
+          >
+            {{ translate("Update") }}
+          </ion-button>
+          <ion-button
+            fill="outline"
+            size="small"
+            color="danger"
+            data-testid="discard-variation"
+            :disabled="isRunningAnySource || isSaving || sim.isSavingVariation"
+            @click="discardActive()"
+          >
+            <ion-icon slot="start" :icon="trashOutline" />
+            {{ translate("Discard") }}
+          </ion-button>
+        </div>
 
-        <ion-button
-          v-if="sim.activeVariationId"
-          expand="block"
-          size="small"
-          color="primary"
-          :disabled="isSaving || sim.isSavingVariation"
-          @click="updateActive()"
-        >
-          <ion-icon slot="start" :icon="saveOutline" />
-          {{ translate("Update") }} {{ sim.activeVariation?.label }}
-        </ion-button>
+        <ion-item v-if="hasSavedVariations" lines="none" class="branch-source">
+          <ion-icon slot="start" :icon="gitBranchOutline" color="primary" />
+          <ion-label class="ion-text-wrap">
+            <p>{{ translate("Branch from") }}</p>
+            <h2>{{ variationSourceLabel }}</h2>
+          </ion-label>
+          <ion-chip slot="end" :color="sim.activeVariationId ? 'primary' : 'medium'" :outline="true">
+            <ion-label>{{ sim.activeVariationId ? translate("Saved variation") : translate("Live config") }}</ion-label>
+          </ion-chip>
+        </ion-item>
 
-        <div class="create-row">
+        <div class="branch-form">
+          <ion-label class="ion-text-wrap">
+            <h2>{{ translate("Create a variation") }}</h2>
+            <p>{{ translate("Test a new routing idea without changing the live configuration.") }}</p>
+          </ion-label>
           <ion-input
             v-model="newVariationName"
-            :placeholder="translate('New variation name')"
-            :disabled="isSaving || sim.isSavingVariation || (!sim.activeVariationId && props.liveDirty)"
+            fill="outline"
+            :label="translate('Variation name')"
+            label-placement="floating"
+            :placeholder="translate('For example, faster west coast routing')"
+            :disabled="isRunningAnySource || isSaving || sim.isSavingVariation || (!sim.activeVariationId && props.liveDirty)"
+            enterkeyhint="done"
+            data-testid="variation-name"
+            @ionFocus="expandForNaming()"
             @keyup.enter="saveAsNew()"
           />
           <ion-button
-            size="small"
-            :fill="sim.activeVariationId ? 'outline' : 'solid'"
+            expand="block"
             color="primary"
-            :disabled="isSaving || sim.isSavingVariation"
+            data-testid="create-variation"
+            :disabled="!canSaveAsNew"
             @click="saveAsNew()"
           >
             <ion-icon slot="start" :icon="addCircleOutline" />
-            {{ translate("Save as new") }}
+            {{ isSaving || sim.isSavingVariation ? translate("Creating variation…") : translate("Create variation") }}
           </ion-button>
         </div>
-      </div>
+
+        <ion-item v-if="!hasSavedVariations" lines="none" class="branch-source">
+          <ion-icon slot="start" :icon="gitBranchOutline" color="primary" />
+          <ion-label class="ion-text-wrap">
+            <p>{{ translate("Branch from") }}</p>
+            <h2>{{ variationSourceLabel }}</h2>
+          </ion-label>
+          <ion-chip slot="end" color="medium" :outline="true">
+            <ion-label>{{ translate("Live config") }}</ion-label>
+          </ion-chip>
+        </ion-item>
+      </ion-list>
 
       <!-- Select a variation above, then act on it from this row. -->
       <div class="actions">
         <div class="action">
-          <ion-fab-button class="success" size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || sim.isSavingVariation || effectiveVariationDirty" :aria-label="translate('Run variation')" @click="runActiveVariation()">
-            <ion-spinner v-if="sim.isRunningVariationRun" name="dots" />
+          <ion-fab-button class="success" size="small" :disabled="runDisabled" :aria-label="translate(sim.activeVariationId ? 'Run variation' : 'Run baseline')" @click="runSelectedSource()">
+            <ion-spinner v-if="isRunningSelectedSource" name="dots" />
             <ion-icon v-else :icon="playOutline" />
           </ion-fab-button>
-          <ion-note>{{ sim.isRunningVariationRun ? translate("Running…") : translate("Run") }}</ion-note>
+          <ion-note>{{ isRunningSelectedSource ? translate("Running…") : translate("Run") }}</ion-note>
         </div>
         <div class="action">
           <ion-fab-button size="small" :disabled="!hasResults" :aria-label="translate('View results')" @click="showResults = true">
@@ -125,19 +180,20 @@
           <ion-note>{{ translate("Results") }}</ion-note>
         </div>
         <div class="action">
-          <ion-fab-button size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || isSaving || sim.isSavingVariation" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
+          <ion-fab-button size="small" :disabled="!sim.activeVariationId || sim.isRunningVariationRun || sim.isRunningBaselineRun || isSaving || sim.isSavingVariation" :aria-label="translate('Reset to baseline')" @click="resetToBaseline()">
             <ion-icon :icon="refreshOutline" />
           </ion-fab-button>
           <ion-note>{{ translate("Reset") }}</ion-note>
         </div>
       </div>
       </template>
-    </div>
-  </aside>
+      </div>
+    </ion-content>
+  </ion-modal>
 
-  <!-- Results of running the active variation (parent-vs-variation compare). This IS still an
-       ion-modal (teleported), so it is force-closed by the isActive watcher when this page stops
-       being the current route — otherwise it would leak over other pages just like the old rail. -->
+  <!-- Results for the selected simulation source (baseline outcome or parent-vs-variation compare).
+       This is still a teleported modal, so it is force-closed when this cached page stops being the
+       current route; otherwise it could leak over another page just like the old rail. -->
   <ion-modal :is-open="showResults" @didDismiss="showResults = false">
     <ion-header>
       <ion-toolbar>
@@ -157,8 +213,8 @@
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { commonUtil, translate } from "@common";
-import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
-import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, playOutline, refreshOutline, saveOutline } from "ionicons/icons";
+import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
+import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, gitBranchOutline, playOutline, refreshOutline, saveOutline, trashOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import SimulationResults from "@/components/simulation/SimulationResults.vue";
 
@@ -181,8 +237,28 @@ const isSaving = ref(false);
 // Results modal for the active variation's run (compare vs. live parent). Enabled once a run has
 // been kicked off — while running, on success, or on error — so the user can open it to watch/read.
 const showResults = ref(false);
-const hasResults = computed(() => !!(sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError));
+const hasResults = computed(() => !!(
+  sim.baselineRunResult
+  || sim.isRunningBaselineRun
+  || sim.baselineRunError
+  || sim.variationRunResult
+  || sim.isRunningVariationRun
+  || sim.runCompareError
+));
 const effectiveVariationDirty = computed(() => !!sim.activeVariationId && (props.editorDirty || sim.isDirty));
+const hasSavedVariations = computed(() => sim.variations.length > 0);
+const isRunningAnySource = computed(() => sim.isRunningVariationRun || sim.isRunningBaselineRun);
+const isRunningSelectedSource = computed(() => sim.activeVariationId ? sim.isRunningVariationRun : sim.isRunningBaselineRun);
+const runDisabled = computed(() => !sim.isSimulationReady
+  || isRunningAnySource.value
+  || sim.isSavingVariation
+  || (sim.activeVariationId ? effectiveVariationDirty.value : props.liveDirty));
+const variationSourceLabel = computed(() => sim.activeVariation?.label || translate("Baseline"));
+const canSaveAsNew = computed(() => !!newVariationName.value.trim()
+  && !isRunningAnySource.value
+  && !isSaving.value
+  && !sim.isSavingVariation
+  && !(!sim.activeVariationId && props.liveDirty));
 const interruptedVariationExists = computed(() => !!sim.interruptedVariationRun
   && sim.variations.some((variation: any) => variation.id === sim.interruptedVariationRun?.variationId));
 // Local mirror of the selected radio so a cancelled discard can visually revert it
@@ -190,11 +266,31 @@ const interruptedVariationExists = computed(() => !!sim.interruptedVariationRun
 const radioSelected = ref(sim.activeVariationId || "");
 watch(() => sim.activeVariationId, (v) => { radioSelected.value = v || ""; });
 
-// Expand/minimize is a plain reactive state now (no ion-modal breakpoints). Starts collapsed so the
-// rail is an unobtrusive docked bar until the user opens it.
-const isExpanded = ref(false);
-const expand = () => { isExpanded.value = true; };
-const minimize = () => { isExpanded.value = false; };
+// Native sheet stops: a tucked-away toolbar, a useful review height, and a near-full workspace.
+// There is deliberately no zero breakpoint, so the user cannot swipe away a route-owned control.
+const MIN_BP = 0.08;
+const MAX_BP = 0.9;
+const breakpoints = [MIN_BP, 0.5, MAX_BP];
+const currentBreakpoint = ref(MIN_BP);
+const modalRef = ref<InstanceType<typeof IonModal> | null>(null);
+const isExpanded = computed(() => currentBreakpoint.value > MIN_BP);
+
+function onBreakpointChange(event: CustomEvent<{ breakpoint: number }>) {
+  currentBreakpoint.value = event.detail.breakpoint;
+}
+
+async function setBreakpoint(breakpoint: number) {
+  // Update local presentation immediately; the native element then animates to the requested stop.
+  currentBreakpoint.value = breakpoint;
+  const modalElement = (modalRef.value?.$el || modalRef.value) as (HTMLElement & {
+    setCurrentBreakpoint?: (value: number) => Promise<void>;
+  }) | undefined;
+  await modalElement?.setCurrentBreakpoint?.(breakpoint);
+}
+
+const expand = () => setBreakpoint(MAX_BP);
+const minimize = () => setBreakpoint(MIN_BP);
+const expandForNaming = () => currentBreakpoint.value === MIN_BP && setBreakpoint(0.5);
 
 // Is this rail's own detail page the page the user is actually looking at right now? Ionic caches
 // navigated-away pages in the DOM and freezes their per-page useRoute(); the router's GLOBAL
@@ -208,11 +304,21 @@ const isActive = computed(() => {
     : /^\/order-routing\/[^/]+$/.test(path);
 });
 
-// When this page stops being the current route, force the (teleported) results modal shut so it
-// can't linger over whatever page the user moved to. A standard modal tears down cleanly on
-// is-open=false.
+// Prevent Escape/backdrop/user gestures from orphaning a still-active sheet. Once the route changes,
+// Ionic may dismiss it normally in response to is-open=false.
+const canDismissSheet = () => !isActive.value;
+
+function onSheetDismissed() {
+  currentBreakpoint.value = MIN_BP;
+}
+
+// Both overlays are teleported. The main sheet follows isActive directly; the results overlay has
+// its own state, so clear it explicitly and reset the next sheet presentation to its compact stop.
 watch(isActive, (active) => {
-  if (!active) showResults.value = false;
+  if (!active) {
+    showResults.value = false;
+    currentBreakpoint.value = MIN_BP;
+  }
 });
 
 // Empty value is the baseline; anything else is a saved variation id.
@@ -221,7 +327,7 @@ watch(isActive, (active) => {
 async function selectVariation(id: string) {
   radioSelected.value = id;
   if (id === (sim.activeVariationId || "")) return;
-  if (!sim.isSimulationReady || sim.isRunningVariationRun || isSaving.value || sim.isSavingVariation) {
+  if (!sim.isSimulationReady || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) {
     radioSelected.value = sim.activeVariationId || "";
     commonUtil.showToast(translate("Wait for the current variation operation to finish."));
     return;
@@ -246,7 +352,7 @@ async function selectVariation(id: string) {
 
 // Reset also discards the working copy; same flush-then-guard.
 async function resetToBaseline() {
-  if (!sim.isSimulationReady || sim.isRunningVariationRun || isSaving.value || sim.isSavingVariation) return;
+  if (!sim.isSimulationReady || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) return;
   sim.flushWorkingCopy();
   if ((props.editorDirty || sim.isDirty) && !(await confirmDiscard())) return;
   sim.resetWorkingToBaseline();
@@ -268,7 +374,7 @@ async function confirmDiscard(): Promise<boolean> {
 
 // Save the current working copy as a brand-new variation, named inline in this sheet.
 async function saveAsNew() {
-  if (!sim.isSimulationReady || isSaving.value || sim.isSavingVariation) return;
+  if (!sim.isSimulationReady || !newVariationName.value.trim() || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) return;
   if (!sim.activeVariationId && props.liveDirty) {
     commonUtil.showToast(translate("Save or discard live changes before creating a variation."));
     return;
@@ -285,7 +391,7 @@ async function saveAsNew() {
 
 // Overwrite the active variation with the current working copy.
 async function updateActive() {
-  if (!sim.isSimulationReady || !sim.activeVariationId || isSaving.value || sim.isSavingVariation) return;
+  if (!sim.isSimulationReady || !sim.activeVariationId || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) return;
   isSaving.value = true;
   try {
     const isUpdated = await sim.updateVariation(sim.activeVariationId);
@@ -295,14 +401,50 @@ async function updateActive() {
   }
 }
 
+async function discardActive() {
+  if (!sim.isSimulationReady || !sim.activeVariationId || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) return;
+  const variationId = sim.activeVariationId;
+  const alert = await alertController.create({
+    header: translate("Discard variation?"),
+    message: translate("This variation will be removed from the active simulation list. Its live baseline will not be changed."),
+    buttons: [
+      { text: translate("Cancel"), role: "cancel" },
+      { text: translate("Discard"), role: "destructive" }
+    ]
+  });
+  await alert.present();
+  const { role } = await alert.onDidDismiss();
+  if (role !== "destructive") return;
+
+  isSaving.value = true;
+  try {
+    const discarded = await sim.discardVariation(variationId);
+    commonUtil.showToast(discarded ? translate("Variation discarded") : (sim.loadError || translate("Failed to discard variation")));
+  } finally {
+    isSaving.value = false;
+  }
+}
+
 async function runActiveVariation() {
-  if (!sim.isSimulationReady || !sim.activeVariationId || sim.isRunningVariationRun || sim.isSavingVariation) return;
+  if (!sim.isSimulationReady || !sim.activeVariationId || isRunningAnySource.value || sim.isSavingVariation) return;
   sim.flushWorkingCopy();
   if (props.editorDirty || sim.isDirty) {
     commonUtil.showToast(translate("Update the variation before running it."));
     return;
   }
   await sim.runActiveVariation();
+}
+
+async function runSelectedSource() {
+  if (sim.activeVariationId) {
+    await runActiveVariation();
+    return;
+  }
+  if (props.liveDirty) {
+    commonUtil.showToast(translate("Save or discard live changes before running the baseline."));
+    return;
+  }
+  await sim.runBaseline();
 }
 
 async function rerunInterruptedVariation() {
@@ -324,33 +466,21 @@ async function retryLoad() {
 </script>
 
 <style scoped>
-/* Docked panel pinned to the bottom-right of the routing detail page. It lives inside the ion-page,
-   so Ionic's cached-page `display:none` hides it when you navigate away — no teleport, no zombie. */
-.variation-rail {
-  position: absolute;
-  right: 16px;
-  bottom: 0;
-  z-index: 20;
-  width: 360px;
-  max-width: 90vw;
-  display: flex;
-  flex-direction: column;
-  background: var(--ion-background-color, #fff);
-  border: 1px solid var(--ion-color-step-150, rgba(0, 0, 0, 0.12));
-  border-bottom: none;
-  border-radius: 12px 12px 0 0;
-  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.18);
-  overflow: hidden;
+/* Keep the native sheet docked on the right instead of using Ionic's full-width centered default. */
+.variation-modal {
+  --width: 360px;
+  --max-width: 90vw;
+  --border-radius: 12px 12px 0 0;
 }
 
-/* Collapsed = just the toolbar bar; expanded = grow up to most of the viewport with its own scroll. */
-.variation-rail.expanded {
-  max-height: 75vh;
+.variation-modal::part(content) {
+  right: var(--spacer-base);
+  left: auto;
+  margin-inline: 0;
 }
 
 .rail-header {
   --min-height: 48px;
-  flex: 0 0 auto;
 }
 
 .load-state {
@@ -366,8 +496,39 @@ async function retryLoad() {
 }
 
 .rail-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
+  padding-block-end: var(--spacer-base);
+}
+
+.save-section {
+  margin-block: var(--spacer-sm);
+}
+
+.variation-save-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacer-sm);
+  padding: 0 var(--spacer-sm) var(--spacer-sm);
+}
+
+.variation-save-actions ion-button {
+  margin: 0;
+}
+
+.branch-source ion-icon {
+  align-self: flex-start;
+  margin-block-start: var(--spacer-sm);
+}
+
+.branch-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacer-sm);
+  padding: 0 var(--spacer-sm) var(--spacer-sm);
+}
+
+.branch-form h2,
+.branch-form p {
+  margin-block: 0 var(--spacer-2xs);
 }
 
 /* One row of circular actions: pick a variation above, then act on it here. */

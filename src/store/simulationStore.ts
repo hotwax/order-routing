@@ -81,11 +81,14 @@ export const simulationStore = defineStore("simulation", {
     lastSimulationId: null as string | null,
     // ---- H2 variation run + parent compare (persist-on-save flow) ----
     variationRunResult: null as GroupRunResult | null,
+    baselineRunResult: null as GroupRunResult | null,
     parentRunByGroupId: {} as Record<string, GroupRunResult>, // session cache, keyed by parent group id
     parentRunProgress: null as any,
     isRunningVariationRun: false,
+    isRunningBaselineRun: false,
     isSavingVariation: false,
     runCompareError: null as string | null,
+    baselineRunError: null as string | null,
     interruptedVariationRun: null as VariationRunRecoveryRecord | null,
 
     // ---- Variation Editor (optimistic-write, per-node save) ----
@@ -205,10 +208,13 @@ export const simulationStore = defineStore("simulation", {
       this.runStates = [];
       this.batchProgress = [];
       this.variationRunResult = null;
+      this.baselineRunResult = null;
       this.runCompareError = null;
+      this.baselineRunError = null;
       this.interruptedVariationRun = null;
       this.parentRunProgress = null;
       this.isRunningVariationRun = false;
+      this.isRunningBaselineRun = false;
       this.isSavingVariation = false;
       this.isRunning = false;
       delete this.parentRunByGroupId[routingGroupId];
@@ -244,7 +250,9 @@ export const simulationStore = defineStore("simulation", {
     // Load the server-persisted (H2) variations for the parent group into the rail.
     async fetchServerVariations(parentRoutingGroupId: string, signal?: AbortSignal): Promise<Variation[]> {
       const list = await VariationService.listVariations(parentRoutingGroupId, signal);
-      return list.map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
+      return list
+        .filter((v) => v.statusId !== "VAR_ARCHIVED")
+        .map((v) => ({ id: v.variationGroupId, label: v.variationName || v.variationGroupId, group: null, serverVid: v.variationGroupId }));
     },
     // A synchronous variation POST cannot be reattached after a reload. Even though successful new
     // responses include a simulation id, a reload or lost response can happen before the browser
@@ -297,17 +305,59 @@ export const simulationStore = defineStore("simulation", {
         logger.error(err);
         if (generation === variationMutationGeneration && this.routingGroupId === parentId) {
           if (createdVariationId) {
-            // The backend has no delete endpoint. Refresh the list so the partially-created record is
-            // visible/recoverable instead of silently orphaned while the UI claims nothing happened.
             try {
-              this.variations = await this.fetchServerVariations(parentId);
-            } catch (refreshError) {
-              logger.error(refreshError);
+              await VariationService.deleteVariation(createdVariationId);
+            } catch (cleanupError) {
+              // Older deployments may not have the discard endpoint yet. Refresh so a partially-created
+              // variation is still visible and recoverable instead of being silently orphaned.
+              logger.error(cleanupError);
+              try {
+                this.variations = await this.fetchServerVariations(parentId);
+              } catch (refreshError) {
+                logger.error(refreshError);
+              }
             }
-            this.loadError = `Variation ${createdVariationId} was created, but its configuration could not be saved. Retry after the backend is healthy.`;
+            this.loadError = `Variation ${createdVariationId} could not be configured. Retry after the backend is healthy.`;
           } else {
             this.loadError = err?.message || "Failed to create variation.";
           }
+        }
+        return false;
+      } finally {
+        if (generation === variationMutationGeneration) this.isSavingVariation = false;
+      }
+    },
+    // Discard a saved variation. The backend archives the registry row so it disappears from normal
+    // lists while retaining the H2 config for recovery/audit. If the active variation is discarded,
+    // return the canvas to the live baseline in the same state transition as removing the rail row.
+    async discardVariation(id: string): Promise<boolean> {
+      if (!this.isSimulationReady || this.isSavingVariation || this.isRunningVariationRun || this.isRunningBaselineRun) return false;
+      const variation = this.variations.find((candidate) => candidate.id === id);
+      if (!variation?.serverVid) return false;
+      const generation = ++variationMutationGeneration;
+      const parentId = this.routingGroupId;
+      this.isSavingVariation = true;
+      this.loadError = null;
+      try {
+        await VariationService.deleteVariation(variation.serverVid);
+        if (generation !== variationMutationGeneration || this.routingGroupId !== parentId || this.groupLoadState !== "ready") return false;
+
+        this.variations = this.variations.filter((candidate) => candidate.id !== id);
+        if (this.interruptedVariationRun?.variationId === id) {
+          SimulationStorage.clearVariationRun(parentId);
+          this.interruptedVariationRun = null;
+        }
+        if (this.activeVariationId === id) {
+          this.activeVariationId = "";
+          this.working = deepClone(this.baseline);
+          this.parentRunProgress = null;
+          this.clearRunResults();
+        }
+        return true;
+      } catch (err: any) {
+        logger.error(err);
+        if (generation === variationMutationGeneration && this.routingGroupId === parentId) {
+          this.loadError = err?.message || "Failed to discard variation.";
         }
         return false;
       } finally {
@@ -385,6 +435,59 @@ export const simulationStore = defineStore("simulation", {
         return false;
       }
     },
+    // Run the selected live baseline through the existing async parent job. This is deliberately a
+    // fresh run rather than a read from parentRunByGroupId: the user explicitly asked to simulate
+    // the current baseline, while the cache only exists to avoid duplicate comparison work.
+    async runBaseline(sampleCap = 500) {
+      workingFlushHook?.();
+      if (!this.isSimulationReady) {
+        this.baselineRunError = "Wait for the routing group and variations to finish loading.";
+        commonUtil.showToast(this.baselineRunError);
+        return false;
+      }
+      if (this.activeVariationId) {
+        this.baselineRunError = "Select Baseline before running it.";
+        commonUtil.showToast(this.baselineRunError);
+        return false;
+      }
+      if (this.hasUnresolvedLiveDraft() || this.isDirty) {
+        this.baselineRunError = "Save or discard live changes before running the baseline.";
+        commonUtil.showToast(this.baselineRunError);
+        return false;
+      }
+      if (this.isRunningBaselineRun || this.isRunningVariationRun) return false;
+
+      const generation = ++variationRunGeneration;
+      variationRunController?.abort();
+      variationRunController = new AbortController();
+      const signal = variationRunController.signal;
+      const parentId = this.routingGroupId;
+      this.clearRunResults();
+      this.parentRunProgress = null;
+      this.isRunningBaselineRun = true;
+      this.view = "results";
+      try {
+        const result = await SimulationService.runParentLiveConfig(parentId, sampleCap, (progress) => {
+          if (generation === variationRunGeneration && this.routingGroupId === parentId && !this.activeVariationId) {
+            this.parentRunProgress = progress;
+          }
+        }, signal);
+        if (generation !== variationRunGeneration || this.routingGroupId !== parentId || this.activeVariationId) return false;
+        this.baselineRunResult = result;
+        this.parentRunByGroupId[parentId] = result;
+        this.lastSimulationId = result?.simulationId ? String(result.simulationId) : null;
+        return true;
+      } catch (error: any) {
+        if (generation === variationRunGeneration && this.routingGroupId === parentId && !this.activeVariationId) {
+          this.baselineRunResult = null;
+          this.lastSimulationId = null;
+          this.baselineRunError = error?.message || "Baseline simulation failed.";
+        }
+        return false;
+      } finally {
+        if (generation === variationRunGeneration) this.isRunningBaselineRun = false;
+      }
+    },
     // Run the active H2 variation (synchronous) and the parent live-config (cached) for compare.
     async runActiveVariation(sampleCap = 500) {
       workingFlushHook?.();
@@ -398,6 +501,7 @@ export const simulationStore = defineStore("simulation", {
         commonUtil.showToast(this.runCompareError);
         return false;
       }
+      if (this.isRunningBaselineRun || this.isRunningVariationRun) return false;
       const v = this.activeVariationId ? this.variations.find((x) => x.id === this.activeVariationId) : null;
       if (!v?.serverVid) { this.runCompareError = "Save the variation before running it."; this.view = "results"; return false; }
       const generation = ++variationRunGeneration;
@@ -405,8 +509,7 @@ export const simulationStore = defineStore("simulation", {
       variationRunController = new AbortController();
       const signal = variationRunController.signal;
       const variationId = v.id;
-      this.runCompareError = null;
-      this.variationRunResult = null;
+      this.clearRunResults();
       this.isRunningVariationRun = true;
       this.view = "results";
       const parentId = this.routingGroupId;
@@ -473,15 +576,18 @@ export const simulationStore = defineStore("simulation", {
       this.working = deepClone(this.baseline);
       this.activeVariationId = "";
       this.isRunningVariationRun = false;
+      this.isRunningBaselineRun = false;
       this.parentRunProgress = null;
       this.clearRunResults();
     },
-    // Run results (variationRunResult/runCompareError/lastSimulationId) belong to ONE variation's
-    // last run; clear them whenever the active variation changes so the rail's "View results" modal
-    // can't show a different variation's numbers. parentRunByGroupId is a per-group cache — keep it.
+    // Run results belong to the selected source. Clear both baseline and variation presentation when
+    // the source changes so the rail can never show numbers from the previously selected source.
+    // parentRunByGroupId is a per-group comparison cache, so keep it.
     clearRunResults() {
       this.variationRunResult = null;
       this.runCompareError = null;
+      this.baselineRunResult = null;
+      this.baselineRunError = null;
       this.lastSimulationId = null;
     },
     // Flush the active editor's in-memory local state into `working` (via the registered

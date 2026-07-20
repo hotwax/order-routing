@@ -6,7 +6,7 @@
           <ion-icon slot="icon-only" :icon="closeOutline" />
         </ion-button>
       </ion-buttons>
-      <ion-title>{{ translate("Link threshold") }}</ion-title>
+      <ion-title>{{ props.title || translate("Link threshold") }}</ion-title>
     </ion-toolbar>
   </ion-header>
 
@@ -24,9 +24,9 @@
 
     <div v-else class="empty-state">
       <p>{{ translate("No facility found.") }}</p>
-    </div> 
+    </div>
 
-    <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
       <ion-fab-button :disabled="!isFacilityUpdated()" @click="saveFacility()">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
@@ -35,23 +35,23 @@
 </template>
 
 <script setup lang="ts">
+import { commonUtil, emitter, logger, translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonRadio, IonRadioGroup, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, saveOutline } from "ionicons/icons";
-import { commonUtil, emitter, logger, translate } from '@common';
+import { DateTime } from "luxon";
 import { computed, onMounted, ref } from "vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { useChannelStore } from "@/store/channel";
-import { DateTime } from "luxon";
 
 const productStore = useAtpProductStore();
 const channelStore = useChannelStore();
 const selectedFacilityId = ref("");
-const props = defineProps(["group", "selectedConfigFacilityId"]);
+const props = defineProps(["group", "selectedConfigFacilityId", "title"]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
 
 onMounted(() => {
-  selectedFacilityId.value = props.selectedConfigFacilityId?.facilityId ? JSON.parse(JSON.stringify(props.selectedConfigFacilityId.facilityId)) : '';
+  selectedFacilityId.value = props.selectedConfigFacilityId?.facilityId ? JSON.parse(JSON.stringify(props.selectedConfigFacilityId.facilityId)) : "";
 })
 
 function closeModal() {
@@ -61,10 +61,11 @@ function closeModal() {
 async function saveFacility() {
   if(!selectedFacilityId.value) {
     commonUtil.showToast(translate("Please select a facility to update."))
+
     return;
   }
   let resp = {} as any;
-  
+
   emitter.emit("presentLoader");
 
   try {
@@ -91,7 +92,7 @@ async function saveFacility() {
     } else {
       throw resp ? resp.data : "Failed to update threshold facility.";
     }
-  } catch(err: any) {
+  } catch (err: any) {
     logger.error(err)
     commonUtil.showToast(translate("Failed to update threshold facility."))
   }

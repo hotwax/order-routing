@@ -14,6 +14,10 @@ interface ProductFacility {
   isChecked: boolean;
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
 export function useProductFacility() {
   // Per-instance state. These refs were previously module-level singletons shared across every
   // caller, so the Inventory detail view (which fetches a single product) overwrote the Inventory
@@ -22,8 +26,11 @@ export function useProductFacility() {
   // same useProductFacility() call.
   const productFacility: Ref<ProductFacility[]> = ref([] as ProductFacility[])
   const inventoryLogs: Ref<any[]> = ref([])
+  let productFacilityRequestId = 0
+  let inventoryLogsRequestId = 0
 
-  async function fetchProductFacility(payload: any): Promise<number> {
+  async function fetchProductFacility(payload: any): Promise<number | undefined> {
+    const requestId = ++productFacilityRequestId
     try {
       const resp = await api({
         url: "oms/productFacilities/search",
@@ -31,13 +38,22 @@ export function useProductFacility() {
         params: payload
       }) as any
 
+      if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = resp.data?.products ?? []
+
       return resp.data?.totalCount ?? 0
-    } catch(err) {
-      logger.error("Failed to fetch product facility records", err)
+    } catch (err) {
+      logger.error("Failed to fetch product facility records", getErrorMessage(err))
+      if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = []
+
       return 0
     }
+  }
+
+  function clearProductFacility() {
+    productFacilityRequestId += 1
+    productFacility.value = []
   }
 
   async function updateProductFacility(payload: any) {
@@ -47,12 +63,13 @@ export function useProductFacility() {
         method: "POST",
         data: payload
       })
-    } catch(err) {
-      logger.error("Updated product facility records", err)
+    } catch (err) {
+      logger.error("Updated product facility records", getErrorMessage(err))
     }
   }
 
   async function fetchInventoryLogs(params: { productId: string, facilityId: string, pageSize: any }) {
+    const requestId = ++inventoryLogsRequestId
     try {
       const resp = await api({
         url: "oms/inventoryItem/detail",
@@ -63,14 +80,22 @@ export function useProductFacility() {
         }
       })
 
-      inventoryLogs.value = resp.data
-    } catch(err) {
-      logger.error("Failed to fetch product facility inventory logs", err)
+      if(requestId === inventoryLogsRequestId) {inventoryLogs.value = resp.data}
+    } catch (err) {
+      logger.error("Failed to fetch product facility inventory logs", getErrorMessage(err))
+      if(requestId === inventoryLogsRequestId) {inventoryLogs.value = []}
     }
+  }
+
+  function clearInventoryLogs() {
+    inventoryLogsRequestId += 1
+    inventoryLogs.value = []
   }
 
   return {
     productFacility,
+    clearProductFacility,
+    clearInventoryLogs,
     fetchInventoryLogs,
     fetchProductFacility,
     inventoryLogs,

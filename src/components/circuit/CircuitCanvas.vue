@@ -8,6 +8,7 @@
             <ion-card-title v-show="!isGroupNameUpdating">{{ groupName }}</ion-card-title>
             <ion-input ref="groupNameRef" :class="isGroupNameUpdating ? 'name' : ''" v-show="isGroupNameUpdating" aria-label="group name" v-model="groupName"></ion-input>
             <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
+            <p v-if="group.description" class="group-description">{{ group.description }}</p>
           </ion-card-header>
           <div class="ion-padding">
             <ion-button v-show="!isGroupNameUpdating" fill="outline" size="small" @click="editGroupName()">
@@ -50,8 +51,9 @@
               <ion-card-subtitle>{{ translate("Scheduler") }}</ion-card-subtitle>
               <ion-card-title>{{ getCronString() || translate("No schedule") }}</ion-card-title>
             </div>
-            <ion-button fill="clear" color="medium" @click="openScheduleModal()">
-              <ion-icon slot="icon-only" :icon="timerOutline" />
+            <ion-button fill="outline" size="small" color="medium" @click="openScheduleModal()">
+              <ion-icon slot="start" :icon="timerOutline" />
+              {{ job?.cronExpression ? translate("Edit schedule") : translate("Add schedule") }}
             </ion-button>
           </div>
         </ion-card-header>
@@ -111,6 +113,7 @@
             <ion-badge :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">
               {{ getStatusDesc(routing.statusId) }}
             </ion-badge>
+            <ion-badge slot="end" color="primary" v-if="activeRoutingId === routing.orderRoutingId">{{ translate("Selected") }}</ion-badge>
           </ion-item>
         </ion-card>
       </ion-reorder-group>
@@ -301,7 +304,7 @@
             <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="false">
               <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :disabled="isReordering" :color="rule.routingRuleId === activeRuleId ? 'light' : ''" @click="selectRule(rule)" button>
                 <ion-label>
-                  <h2>{{ rule.ruleName }}</h2>
+                  {{ rule.ruleName }}
                   <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                 </ion-label>
                 <!-- Don't display reordering option when there is a single rule -->
@@ -538,6 +541,7 @@ import {
   IonCard,
   IonCardContent,
   IonCardHeader,
+  IonCardSubtitle,
   IonCardTitle,
   IonChip, 
   IonIcon, 
@@ -547,6 +551,7 @@ import {
   IonItemGroup,
   IonLabel,
   IonList,
+  IonListHeader,
   IonNote,
   IonRippleEffect,
   IonReorder,
@@ -690,6 +695,12 @@ async function prepareCircuitDraftProposal(prompt: string, conversationHistory: 
   }
 
   const manifest = await buildCircuitDraftManifest();
+  circuitStore.setLastPrompt({
+    prompt,
+    conversationHistory,
+    pageCapabilityManifest: manifest,
+    outputContract: manifest.outputContract
+  });
   const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
   const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)
@@ -1008,6 +1019,7 @@ async function fetchRoutingGroupInformation() {
 
       await Promise.all([
         fetchGroupHistory(),
+        fetchGroupSchedule(),
         product.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId }),
         utilStore.fetchStatusInformation()
       ])
@@ -2261,6 +2273,15 @@ async function openArchivedRoutingModal() {
 
 <style scoped>
 
+/* The measurement-unit and operator selectors nest an ion-select inside an
+   ion-chip. The modern (non-legacy) ion-select applies its own min-height,
+   which makes those chips taller than the adjacent value chips and breaks the
+   row alignment (most visible in dark mode). Drop the inherited min-height so
+   the chip sizes to the select's content, matching BrokeringQuery.vue. */
+ion-chip > ion-select {
+  min-height: unset;
+}
+
 .circuit-canvas {
   display: grid;
   grid-template-columns: repeat(6, 350px);
@@ -2281,6 +2302,19 @@ ion-card {
 
 .routing {
   grid-column: 2/4;
+}
+
+/* Selected routing: a primary ring so the active card is obvious in light and dark mode.
+   outline (not box-shadow) keeps the card's default elevation shadow intact. */
+.routing.selected-path {
+  outline: 2px solid var(--ion-color-primary);
+}
+
+/* Routing group description: compact, muted, sits under the title/id. */
+.group-description {
+  margin: 4px 0 0;
+  color: var(--ion-color-medium);
+  font-size: 0.85rem;
 }
 
 .routing-rule {

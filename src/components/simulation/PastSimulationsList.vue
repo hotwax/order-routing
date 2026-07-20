@@ -27,7 +27,7 @@
     <ion-list v-else>
       <ion-item v-for="h in sim.list" :key="h.simulationId" button detail @click="open(h.simulationId)">
         <ion-label>
-          <h2>{{ h.routingGroupId }} <ion-badge v-if="h.statusId === 'FAILED'" color="danger">{{ translate("Failed") }}</ion-badge></h2>
+          {{ h.routingGroupId }} <ion-badge v-if="h.statusId === 'FAILED'" color="danger">{{ translate("Failed") }}</ion-badge>
           <p>{{ h.runType }} · {{ h.brokeredItemCount }}/{{ h.attemptedItemCount }} {{ translate("brokered") }} · {{ commonUtil.getDateAndTime(h.createdDate) }}</p>
         </ion-label>
       </ion-item>

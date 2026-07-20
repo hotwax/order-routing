@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { DateTime } from "luxon";
 
 export interface FacilityGroupState {
   groups: any[];
@@ -12,15 +13,11 @@ export interface FacilityGroupState {
 // Optional, friendlier labels for type IDs that are well-known across HotWax apps.
 // Anything else falls through to its raw ID.
 const TYPE_LABELS: Record<string, string> = {
-  FACILITY_GROUP: "Generic",
   BROKERING_GROUP: "Brokering",
   CHANNEL_FAC_GROUP: "Inventory channel",
   PICKUP: "Store pickup",
-  SHIPPING: "Shipping",
-  WAREHOUSE: "Warehouse",
   FULFILLMENT: "Fulfillment",
   AUTO_CANCEL_CONFIG: "Auto cancel",
-  SHOPIFY_GROUP_FAC: "Shopify group",
   SHIPPING_LABEL: "Shipping label"
 };
 
@@ -157,18 +154,6 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (idx >= 0) this.groups[idx] = { ...this.groups[idx], ...payload };
       return resp.data;
     },
-    async archiveGroup(facilityGroupId: string) {
-      const thruDate = Date.now();
-      const resp = await api({
-        url: `admin/facilityGroups/${facilityGroupId}`,
-        method: "PUT",
-        params: { facilityGroupId, thruDate }
-      }) as any;
-      if (commonUtil.hasError(resp)) throw resp.data;
-      this.groups = this.groups.filter((g: any) => g.facilityGroupId !== facilityGroupId);
-      delete this.facilitiesByGroup[facilityGroupId];
-      this.deriveGroupTypes();
-    },
     async addFacility(facilityGroupId: string, facilityId: string) {
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
@@ -178,11 +163,12 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);
     },
-    async removeFacility(facilityGroupId: string, facilityId: string) {
+    async removeFacility(facilityGroupId: string, facility: any) {
+      const facilityId = facility.facilityId;
       const resp = await api({
         url: `admin/facilityGroups/${facilityGroupId}/facilities/${facilityId}/association`,
         method: "POST",
-        data: { facilityGroupId, facilityId, thruDate: Date.now() }
+        data: { facilityGroupId, facilityId, fromDate: facility.fromDate, thruDate: DateTime.now().toMillis() }
       }) as any;
       if (commonUtil.hasError(resp)) throw resp.data;
       await this.fetchGroupFacilities(facilityGroupId);

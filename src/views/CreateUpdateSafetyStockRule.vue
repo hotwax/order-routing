@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-back-button slot="start" default-href="/safety-stock" />
         <ion-title>{{ ruleId ? translate("Edit safety stock rule") : translate("New safety stock rule") }}</ion-title>
@@ -32,13 +32,18 @@
       </section>
 
       <div class="section-header">
-        <h1>{{ translate("Facilities") }} <ion-text color="danger">*</ion-text></h1>
+        <h1>{{ translate("Facility Groups") }} <ion-text color="danger">*</ion-text></h1>
       </div>
 
       <section>
         <ion-item lines="none">
-          <ion-toggle v-model="formData.areAllFacilitiesSelected">{{ translate("Select all facilities") }}</ion-toggle>
+          <ion-toggle v-model="formData.areAllFacilitiesSelected">{{ translate("Select all facility groups") }}</ion-toggle>
         </ion-item>
+        <ion-button fill="clear" size="small" @click="openFacilityImpactModal()">
+          <ion-icon :icon="eyeOutline" slot="start" />
+          <ion-spinner v-if="isCountingNetFacilities" name="crescent" slot="end" />
+          <template v-else>{{ translate("View {count} impacted facilities", { count: netFacilityCount }) }}</template>
+        </ion-button>
       </section>
 
       <section v-if="facilityGroups.length">
@@ -73,6 +78,7 @@
             </ion-chip>
           </ion-card-content>
         </ion-card>
+
       </section>
       <EmptyState
         v-else
@@ -105,11 +111,12 @@
 </template>
 
 <script setup lang="ts">
-import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, addOutline, businessOutline, closeCircle, linkOutline, saveOutline } from 'ionicons/icons'
+import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonSpinner, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter  , onIonViewWillLeave } from '@ionic/vue';
+import { addCircleOutline, addOutline, businessOutline, closeCircle, eyeOutline, linkOutline, saveOutline } from 'ionicons/icons'
 import { emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import CreateUpdateFacilityGroupModal from '@/components/CreateUpdateFacilityGroupModal.vue';
 import LinkExistingGroupModal from '@/components/LinkExistingGroupModal.vue';
 import { computed, ref } from 'vue';
@@ -120,6 +127,7 @@ import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupMo
 import router from '@/router';
 import { ruleUtil } from '@/utils/ruleUtil';
 import { commonUtil } from '@common';
+import { useFacilityGroupNetOutcome } from '@/composables/useFacilityGroupNetOutcome';
 
 const userStore = useUserStore();
 const productStore = useAtpProductStore();
@@ -142,6 +150,9 @@ const rules = computed(() => ruleStore.getRules);
 const total = computed(() => ruleStore.getTotalRulesCount)
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
+const facilityGroupsSelection = computed(() => formData.value.selectedFacilityGroups)
+
+const { isCounting: isCountingNetFacilities, netFacilityCount } = useFacilityGroupNetOutcome(facilityGroupsSelection, computed(() => formData.value.areAllFacilitiesSelected))
 
 onIonViewDidEnter(async () => {
   emitter.on("productStoreOrConfigChanged", redirectLink);
@@ -228,6 +239,18 @@ async function linkExistingFacilityGroup() {
     if(res?.data?.linked) productStore.fetchFacilityGroups();
   });
   modal.present();
+}
+
+async function openFacilityImpactModal() {
+  const modal = await modalController.create({
+    component: FacilityGroupImpactModal,
+    componentProps: {
+      includedGroups: formData.value.selectedFacilityGroups.included,
+      excludedGroups: formData.value.selectedFacilityGroups.excluded,
+      areAllSelected: formData.value.areAllFacilitiesSelected
+    }
+  })
+  modal.present()
 }
 
 async function openProductFacilityGroupModal(type: string) {
@@ -352,4 +375,17 @@ function removeFacilityGroups(facilityGroupId: any, type: string) {
 </script>
 
 <style scoped>
+.facility-impact-summary {
+  grid-column: span 2;
+}
+
+.facility-impact-summary ion-chip {
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .facility-impact-summary {
+    grid-column: 1 / -1;
+  }
+}
 </style>

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { logger, commonUtil, api } from '@common'
+import { logger, commonUtil, api, translate } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
 
@@ -22,7 +22,18 @@ export const productStore = defineStore('productStore', {
       facilityGroups: {} as any,
       carriers: {} as any,
       productStoreFacilities: [] as any, // TODO: Storing productStore facilities separately to be used on inventory pages
-      selectedInventoryFacilityId: '' as string
+      selectedInventoryFacilityId: '' as string,
+      settings: {
+        productIdentifier: {
+          productIdentificationPref: {
+            primaryId: 'SKU',
+            secondaryId: 'productId'
+          },
+          productIdentificationOptions: [] as any[],
+          sampleProducts: [] as any[],
+          currentSampleProduct: null as any
+        }
+      } as any
     }
   },
   getters: {
@@ -67,6 +78,15 @@ export const productStore = defineStore('productStore', {
     },
     getProductStoreFacilities(state) {
       return state.productStoreFacilities
+    },
+    getProductIdentificationPref(state) {
+      return state.settings.productIdentifier.productIdentificationPref
+    },
+    getProductIdentificationOptions(state) {
+      return state.settings.productIdentifier.productIdentificationOptions
+    },
+    getCurrentSampleProduct(state) {
+      return state.settings.productIdentifier.currentSampleProduct
     }
   },
   actions: {
@@ -82,13 +102,14 @@ export const productStore = defineStore('productStore', {
         } else {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
+          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
           return Promise.resolve(resp.data);
         }
       } catch(error: any) {
         return Promise.reject(error)
       }
     },
-    setEcomStore(payload: any) {
+    async setEcomStore(payload: any) {
       let productStore = payload.productStore;
       if(!productStore) {
         productStore = this.ecomStores.find((store: any) => store.productStoreId === payload.productStoreId);
@@ -97,6 +118,154 @@ export const productStore = defineStore('productStore', {
       this.updateShippingMethods({});
       this.updateFacillityGroups({});
       useUtilStore().updateProductCategories({});
+      await this.fetchProductStoreSettings(productStore.productStoreId);
+    },
+    async fetchProductStoreSettings(productStoreId: string) {
+      const productStoreSettings = {} as any
+
+      if (productStoreId) {
+        try {
+          // Read via the admin ProductStoreSetting REST endpoint (same family as the write path in
+          // setProductStoreSetting). The "ProductStoreSetting" dataDocument is not registered on the OMS,
+          // so the previous POST /oms/dataDocumentView returned 400 ("No DataDocument found") and the
+          // identifier preference silently fell back to defaults (#454).
+          const resp = await api({
+            url: `admin/productStores/${productStoreId}/settings`,
+            method: "GET",
+            params: { settingTypeEnumId: "PRDT_IDEN_PREF" }
+          }) as any
+
+          if (resp && !commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+            resp.data.forEach((productSetting: any) => {
+              if (productSetting?.settingTypeEnumId) {
+                productStoreSettings[productSetting.settingTypeEnumId] = productSetting.settingValue
+              }
+            })
+          }
+        } catch (error) {
+          logger.error("Failed to fetch settings", error)
+        }
+      }
+
+      const defaultProductStoreSettings = {
+        "PRDT_IDEN_PREF": {
+          "stateKey": "productIdentifier.productIdentificationPref",
+          "value": {
+            "primaryId": "SKU",
+            "secondaryId": "productId"
+          }
+        }
+      } as any;
+
+      Object.entries(defaultProductStoreSettings).forEach(([settingTypeEnumId, setting]: any) => {
+        const { stateKey, value } = setting;
+        const settingValue = productStoreSettings[settingTypeEnumId];
+        let finalValue;
+        try {
+          finalValue = settingValue ? JSON.parse(settingValue) : value;
+        } catch (e) {
+          finalValue = settingValue; // fallback to raw value
+        }
+
+        const keys = stateKey.split('.');
+        let current = this.settings;
+
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+
+          if (i === keys.length - 1) {
+            current[key] = finalValue;
+          } else {
+            // ensure object exists at each level
+            if (!current[key] || typeof current[key] !== 'object') {
+              current[key] = {};
+            }
+            current = current[key];
+          }
+        }
+      })
+    },
+    async prepareProductIdentifierOptions() {
+      const productIdentificationOptions = [
+        { goodIdentificationTypeId: "productId", description: "Product ID" },
+        { goodIdentificationTypeId: "internalName", description: "Internal Name" },
+        { goodIdentificationTypeId: "parentProductName", description: "Parent Product Name" },
+        { goodIdentificationTypeId: "title", description: "Title" }
+      ]
+      let fetchedGoodIdentificationOptions = []
+      try {
+        const resp: any = await api({
+          url: "oms/goodIdentificationTypes",
+          method: "get",
+          params: {
+            parentTypeId: "HC_GOOD_ID_TYPE",
+            pageSize: 50
+          }
+        });
+        if(!commonUtil.hasError(resp) && Array.isArray(resp.data)) {
+          fetchedGoodIdentificationOptions = resp.data
+        }
+      } catch(error) {
+        logger.error("Failed to fetch good identification types", error)
+      }
+      this.settings.productIdentifier.productIdentificationOptions = [...productIdentificationOptions, ...fetchedGoodIdentificationOptions]
+    },
+    async fetchSampleProducts() {
+      try {
+        const resp: any = await api({
+          url: "admin/runSolrQuery",
+          method: "POST",
+          data: {
+            json: {
+              query: "*:*",
+              filter: "docType: PRODUCT AND productTypeId: FINISHED_GOOD AND isVirtual: false",
+              params: { rows: 10 }
+            }
+          }
+        })
+        this.settings.productIdentifier.sampleProducts = resp?.data?.response?.docs || []
+        this.shuffleProduct()
+      } catch(error) {
+        logger.error("Failed to fetch sample products", error)
+      }
+    },
+    shuffleProduct() {
+      const sampleProducts = this.settings.productIdentifier.sampleProducts
+      if(sampleProducts.length) {
+        const randomIndex = Math.floor(Math.random() * sampleProducts.length)
+        this.settings.productIdentifier.currentSampleProduct = sampleProducts[randomIndex]
+      } else {
+        this.settings.productIdentifier.currentSampleProduct = null
+      }
+    },
+    async setProductStoreSetting(productStoreId: string, settingTypeEnumId: string, settingValue: any) {
+      if(!productStoreId) {
+        logger.error("Product Store ID is missing")
+        return;
+      }
+      try {
+        const payloadSettingValue = typeof settingValue === "object" ? JSON.stringify(settingValue) : settingValue;
+        const resp = await api({
+          url: `admin/productStores/${productStoreId}/settings`,
+          method: "POST",
+          data: {
+            productStoreId,
+            settingTypeEnumId,
+            settingValue: payloadSettingValue
+          }
+        })
+        if(!commonUtil.hasError(resp)) {
+          if(settingTypeEnumId === "PRDT_IDEN_PREF") {
+            this.settings.productIdentifier.productIdentificationPref = settingValue
+          }
+          commonUtil.showToast(translate("Product Store setting updated successfully."))
+        } else {
+          throw resp
+        }
+      } catch(err) {
+        commonUtil.showToast(translate("Failed to update Product Store setting."))
+        logger.error(err)
+      }
     },
     async fetchFacilities() {
       let facilities = JSON.parse(JSON.stringify(this.facilities))

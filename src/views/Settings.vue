@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Settings") }}</ion-title>
@@ -48,7 +48,7 @@
           <ion-card-content>
             {{ translate('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
+          <ion-button v-if="!commonUtil.isMoqui()" :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
             {{ translate('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -75,6 +75,7 @@
       <hr />
       <DxpAppVersionInfo />
       <section>
+        <DxpProductIdentifier />
         <ion-card>
           <ion-card-header>
             <ion-card-title>
@@ -102,66 +103,13 @@
         </ion-card>
         <ion-card>
           <ion-card-header>
-            <ion-card-title>{{ translate("Preferences") }}</ion-card-title>
+            <ion-card-title>{{ translate("Developer") }}</ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            {{ translate("Show or hide the Circuit local-model card on this page.") }}
+            {{ translate("Developer mode shows extra debugging tools, such as Circuit's last-prompt log.") }}
           </ion-card-content>
           <ion-item lines="none">
-            <ion-toggle :checked="circuitEnabled" @ionChange="toggleCircuit($event)">
-              {{ translate("Show Circuit") }}
-            </ion-toggle>
-          </ion-item>
-        </ion-card>
-        <ion-card v-if="circuitEnabled">
-          <ion-card-header>
-            <ion-card-title>Circuit</ion-card-title>
-            <ion-card-subtitle>{{ modelInfo.size }}</ion-card-subtitle>
-          </ion-card-header>
-          <ion-card-content>
-            <div v-if="modelInfo.status === 'unsupported'" class="error-message">
-              {{ translate("WebGPU is not supported on this device.") }}
-              <p>{{ modelInfo.supportError }}</p>
-            </div>
-            <div v-else>
-              <div v-if="modelInfo.status === 'installing'">
-                <p>{{ modelInfo.progressText || translate("Installing...") }}</p>
-                <ion-progress-bar :value="modelInfo.progress"></ion-progress-bar>
-              </div>
-              <div v-else-if="modelInfo.status === 'installed'">
-                <p>{{ translate("Model is installed and ready.") }}</p>
-              </div>
-              <div v-else>
-                <p>{{ translate("Download the model to enable local Circuit testing.") }}</p>
-                {{ modelInfo.name || "Default Model" }}
-              </div>
-            </div>
-            <div v-if="gpuInfo.vendor && gpuInfo.vendor !== 'Unknown'" class="gpu-info ion-margin-top">
-              <p>{{ translate("GPU:") }} {{ gpuInfo.vendor }}</p>
-              <p>{{ translate("Max Buffer Size:") }} {{ gpuInfo.maxStorageBufferBindingSize }}</p>
-            </div>
-          </ion-card-content>
-          <ion-item lines="none" v-if="modelInfo.status !== 'unsupported'">
-            <ion-label>
-              {{ modelInfo.status === 'installed' ? translate("Installed") : translate("Status: Not Installed") }}
-            </ion-label>
-            <ion-button 
-              slot="end" 
-              fill="outline" 
-              color="danger"
-              v-if="modelInfo.status === 'installed'"
-              @click="unloadModel()"
-            >
-              {{ translate("Unload") }}
-            </ion-button>
-            <ion-button 
-              slot="end" 
-              fill="outline" 
-              :disabled="modelInfo.status === 'installing' || modelInfo.status === 'installed'"
-              @click="installModel()"
-            >
-              {{ modelInfo.status === 'installed' ? translate("Re-verify") : translate("Install Model") }}
-            </ion-button>
+            <ion-toggle v-model="isDevModeEnabled">{{ translate("Developer mode") }}</ion-toggle>
           </ion-item>
         </ion-card>
       </section>
@@ -171,9 +119,8 @@
 
 <script setup lang="ts">
 import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
-import { useCircuitStore } from "@/store/circuit";
 import { productStore } from "@/store/productStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
@@ -182,18 +129,21 @@ import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
+import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";
+import { usePreferencesStore } from "@/store/preferences";
 
 const userStore = useUserStore()
-const circuitStore = useCircuitStore()
+const preferencesStore = usePreferencesStore()
 
 const userProfile = computed(() => userStore.getUserProfile)
+const isDevModeEnabled = computed({
+  get: () => preferencesStore.isDevModeEnabled,
+  set: (value: boolean) => preferencesStore.setDevMode(value)
+})
 const currentEComStore = computed(() => productStore().getCurrentEComStore)
 const ecomStores = computed(() => productStore().ecomStores)
 const oms = computed(() => cookieHelper().get("oms"));
 const currentTimeZoneId = computed(() => userProfile.value?.timeZone)
-const modelInfo = computed(() => circuitStore.modelInfo)
-const gpuInfo = computed(() => circuitStore.gpuInfo)
-const circuitEnabled = computed(() => circuitStore.circuitEnabled)
 const browserTimeZone = ref({
   label: '',
   id: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -214,10 +164,6 @@ const props = defineProps({
     type: String,
     default: 't ZZZZ'
   }
-})
-
-onMounted(() => {
-  if (circuitStore.circuitEnabled) circuitStore.checkWebGPUSupport();
 })
 
 function setEComStore(event: CustomEvent) {
@@ -241,21 +187,6 @@ async function changeTimeZone() {
 
 function logout() {
   useAuth().logout({ isUserUnauthorised: false })
-}
-
-function installModel() {
-  circuitStore.initLLM();
-}
-
-function unloadModel() {
-  circuitStore.unloadLLM();
-}
-
-function toggleCircuit(event: CustomEvent) {
-  const enabled = !!event.detail.checked;
-  circuitStore.setCircuitEnabled(enabled);
-  // When re-enabling in-session, run the WebGPU probe that onMounted skipped while hidden.
-  if (enabled) circuitStore.checkWebGPUSupport();
 }
 
 function goToLaunchpad() {

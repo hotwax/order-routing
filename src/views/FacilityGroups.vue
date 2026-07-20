@@ -1,15 +1,9 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Facility groups") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button fill="solid" color="primary" @click="openCreateModal()">
-            {{ translate("New group") }}
-            <ion-icon slot="end" :icon="addOutline" />
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -48,7 +42,7 @@
               <ion-card-subtitle v-if="group.description">{{ group.description }}</ion-card-subtitle>
             </ion-card-header>
 
-            <ion-item lines="none">
+            <ion-item :lines="getFacilityCount(group.facilityGroupId) ? 'none' : 'full'">
               <ion-chip outline>
                 {{ getTypeLabel(group.facilityGroupTypeId) }}
               </ion-chip>
@@ -84,29 +78,31 @@
                 <ion-icon slot="start" :icon="createOutline" />
                 {{ translate("Edit") }}
               </ion-button>
-              <ion-button fill="clear" size="small" color="danger" @click="confirmArchive(group)">
-                <ion-icon slot="start" :icon="archiveOutline" />
-                {{ translate("Archive") }}
-              </ion-button>
             </div>
           </ion-card>
         </div>
       </main>
+
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" class="ion-margin">
+        <ion-fab-button @click="openCreateModal()">
+          <ion-icon :icon="addOutline" />
+        </ion-fab-button>
+      </ion-fab>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import {
-  alertController,
   IonButton,
-  IonButtons,
   IonCard,
   IonCardHeader,
   IonCardSubtitle,
   IonCardTitle,
   IonChip,
   IonContent,
+  IonFab,
+  IonFabButton,
   IonHeader,
   IonIcon,
   IonItem,
@@ -118,9 +114,9 @@ import {
   IonToolbar,
   modalController
 } from "@ionic/vue";
-import { addOutline, archiveOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
+import { addOutline, businessOutline, createOutline, searchOutline } from "ionicons/icons";
 import { commonUtil, logger, translate } from "@common";
-import { computed, onActivated, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useFacilityGroupStore } from "@/store/facilityGroupStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import EmptyState from "@/components/EmptyState.vue";
@@ -162,13 +158,8 @@ function getFacilitiesPreview(groupId: string) {
 }
 
 async function load() {
-  const productStoreId = productStore.getCurrentProductStore?.productStoreId;
-  if (!productStoreId) {
-    facilityGroupStore.$patch({ groups: [] });
-    return;
-  }
   try {
-    await facilityGroupStore.fetchGroups({ productStoreId });
+    await facilityGroupStore.fetchGroups({ productStoreId: productStore.getCurrentProductStore?.productStoreId });
   } catch (err) {
     logger.error("Failed to load facility groups", err);
   }
@@ -190,9 +181,6 @@ async function openEditModal(group: any) {
     component: CreateUpdateFacilityGroupModal,
     componentProps: { group }
   });
-  modal.onDidDismiss().then((res: any) => {
-    if (res?.data?.saved) load();
-  });
   await modal.present();
 }
 
@@ -207,32 +195,7 @@ async function openManageFacilities(group: any) {
   await modal.present();
 }
 
-async function confirmArchive(group: any) {
-  const alert = await alertController.create({
-    header: translate("Archive facility group?"),
-    message: translate("This will hide the group from rule selectors. The group's data is preserved server-side."),
-    buttons: [
-      { text: translate("Cancel"), role: "cancel" },
-      {
-        text: translate("Archive"),
-        role: "destructive",
-        handler: async () => {
-          try {
-            await facilityGroupStore.archiveGroup(group.facilityGroupId);
-            commonUtil.showToast(translate("Facility group archived."));
-          } catch (err) {
-            logger.error("Failed to archive facility group", err);
-            commonUtil.showToast(translate("Failed to archive facility group."));
-          }
-        }
-      }
-    ]
-  });
-  await alert.present();
-}
-
 onMounted(load);
-onActivated(load);
 </script>
 
 <style scoped>
@@ -246,12 +209,17 @@ main {
   gap: var(--spacer-base);
 }
 
+.group-grid > ion-card {
+  height: min-content;
+}
+
 .actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  align-items: center;
   padding: var(--spacer-2xs) var(--spacer-xs);
 }
+
 
 .empty-block {
   display: flex;
@@ -259,11 +227,5 @@ main {
   align-items: center;
   gap: var(--spacer-base);
   padding: var(--spacer-base) var(--spacer-base) var(--spacer-2xl);
-}
-
-@container (max-width: 600px) {
-  .actions {
-    justify-content: stretch;
-  }
 }
 </style>

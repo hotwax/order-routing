@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title>{{ translate(`Order Rule ${props.label}`) }}</ion-title>
+        <ion-title>{{ translate("Order Rule {label}", { label: props.label }) }}</ion-title>
         <ion-buttons slot="end">
           <ion-button @click="closeModal()">{{ translate("Close") }}</ion-button>
         </ion-buttons>
@@ -19,7 +19,7 @@
       </ion-segment>
 
       <div v-if="!enums[props.parentEnumId]" class="empty-state">
-        <p>{{ translate(`Failed to fetch ${$props.label?.toLowerCase()} options`) }}</p>
+        <p>{{ translate("Failed to fetch {label} options", { label: $props.label?.toLowerCase() }) }}</p>
       </div>
       <ion-list v-else>
         <div v-for="sort in (getOptions() as any[])" :key="sort.enumId">

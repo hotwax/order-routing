@@ -28,7 +28,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="sourcingItems.length">
+            <ion-list-header v-if="sourcingItems.length" color="light">
               <ion-label>{{ translate("Sourcing") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in sourcingItems" :key="`s-${index}`">
@@ -44,7 +44,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="routingItems.length">
+            <ion-list-header v-if="routingItems.length" color="light">
               <ion-label>{{ translate("Routing") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in routingItems" :key="`r-${index}`">
@@ -60,7 +60,7 @@
               </ion-item>
             </ion-menu-toggle>
 
-            <ion-list-header v-if="otherItems.length">
+            <ion-list-header v-if="otherItems.length" color="light">
               <ion-label>{{ translate("General") }}</ion-label>
             </ion-list-header>
             <ion-menu-toggle :auto-hide="false" v-for="(page, index) in otherItems" :key="`o-${index}`">
@@ -111,6 +111,8 @@
       </ion-menu>
       <ion-router-outlet id="main-content" />
     </ion-split-pane>
+    <!-- Fast Travel: Cmd/Ctrl+K app switcher + deep-link router across the HotWax suite -->
+    <FastTravel v-if="useAuth().isAuthenticated" current-app="order-routing" />
   </ion-app>
 </template>
 
@@ -141,7 +143,7 @@ import {
 import { computed, onBeforeMount, onMounted, onUnmounted, ref } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
-import { commonUtil, emitter, translate } from "@common";
+import { commonUtil, emitter, FastTravel, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";

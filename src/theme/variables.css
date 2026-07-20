@@ -420,13 +420,6 @@ ion-toolbar > ion-segment {
     display: none;
   }
 
-  .sort {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    margin-bottom: var(--spacer-lg);
-  }
-
   .sort > ion-item {
     flex-grow: 1;
   }

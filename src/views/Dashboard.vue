@@ -1,14 +1,9 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Dashboard") }}</ion-title>
-        <ion-buttons slot="end">
-          <ion-button @click="refresh()">
-            <ion-icon slot="icon-only" :icon="refreshOutline" />
-          </ion-button>
-        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -24,10 +19,10 @@
         :brokering="brokering"
         :facility-orders="facilityOrders"
         :facility-orders-date="facilityOrdersDate"
-        :facility-orders-is-today="facilityOrdersIsToday"
         :sourcing="sourcing"
         :foundations="foundations"
-        :jobs="jobs"
+        :channels="channels"
+        :channel-jobs="channelJobs"
         :total-sourcing="totalSourcing"
         @navigate="go"
       />
@@ -36,8 +31,8 @@
 </template>
 
 <script setup lang="ts">
-import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
-import { gridOutline, refreshOutline } from "ionicons/icons";
+import { IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { gridOutline } from "ionicons/icons";
 import { computed } from "vue";
 import { emitter, translate } from "@common";
 import router from "@/router";
@@ -54,9 +49,9 @@ const sourcing = computed(() => dashboardStore.getSourcing);
 const brokering = computed(() => dashboardStore.getBrokering);
 const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
 const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
-const facilityOrdersIsToday = computed(() => dashboardStore.getFacilityOrdersIsToday);
 const foundations = computed(() => dashboardStore.getFoundations);
-const jobs = computed(() => dashboardStore.getJobs);
+const channels = computed(() => dashboardStore.getChannels);
+const channelJobs = computed(() => dashboardStore.getChannelJobs);
 const totalSourcing = computed(() => dashboardStore.totalSourcingRules);
 
 onIonViewWillEnter(() => {
@@ -75,10 +70,6 @@ async function load() {
   } finally {
     emitter.emit("dismissLoader");
   }
-}
-
-function refresh() {
-  load();
 }
 
 function go(path: string) {

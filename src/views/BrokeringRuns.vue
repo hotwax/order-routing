@@ -1,6 +1,6 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
+    <ion-header>
       <ion-toolbar>
         <ion-title>{{ translate("Brokering Runs") }}</ion-title>
         <ion-buttons slot="end">
@@ -22,6 +22,19 @@
             </ion-select>
           </ion-item>
         </ion-buttons>
+      </ion-toolbar>
+      <ion-toolbar v-if="brokeringGroups.length">
+        <ion-segment v-model="selectedFilter" scrollable>
+          <ion-segment-button value="all">
+            <ion-label>{{ translate("All") }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="active">
+            <ion-label>{{ translate("Active") }}</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="draft">
+            <ion-label>{{ translate("Draft") }}</ion-label>
+          </ion-segment-button>
+        </ion-segment>
       </ion-toolbar>
     </ion-header>
 
@@ -46,11 +59,11 @@
           </ion-item>
         </main>
         <main v-else-if="brokeringGroups.length">
-          <section>
-            <ion-card class="pointer" v-for="group in brokeringGroups" :key="group.routingGroupId" @click="redirect(group)">
+          <section v-if="displayedGroups.length">
+            <ion-card class="pointer" v-for="group in displayedGroups" :key="group.routingGroupId" @click="redirect(group)">
               <ion-item>
                 <ion-label>
-                  <h1>{{ group.groupName }}</h1>
+                  {{ group.groupName }}
                   <p>{{ commonUtil.getDateAndTime(group.createdDate) }}</p>
                 </ion-label>
               </ion-item>
@@ -83,6 +96,10 @@
               </ion-item>
             </ion-card>
           </section>
+          <div v-else class="empty-block">
+            <p class="ion-text-center">{{ translate("No {filter} runs.", { filter: selectedFilter }) }}</p>
+            <ion-button fill="clear" @click="selectedFilter = 'all'">{{ translate("Show all runs") }}</ion-button>
+          </div>
         </main>
         <main v-else>
           <div class="empty-block">
@@ -103,7 +120,7 @@
       </div>
     </ion-content>
 
-    <brokering-runs-assistant-modal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
+    <BrokeringRunsAssistantModal :is-open="isAssistantOpen" @close="isAssistantOpen = false" />
   </ion-page>
 </template>
 
@@ -113,7 +130,7 @@ import GroupActionsPopover from "@/components/GroupActionsPopover.vue";
 import BrokeringRunsAssistantModal from "@/components/BrokeringRunsAssistantModal.vue";
 import { Group } from "@/types";
 import { emitter, translate, commonUtil } from "@common";
-import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
+import { IonBadge, IonButton, IonButtons, IonCard, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonPage, IonRadioGroup, IonRadio, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSpinner, IonTitle, IonToolbar, alertController, onIonViewWillEnter, popoverController } from "@ionic/vue";
 import { addOutline, ellipsisVerticalOutline, sparklesOutline } from "ionicons/icons"
 import cronstrue from "cronstrue";
 import { computed, ref } from "vue";
@@ -141,8 +158,31 @@ const isAssistantOpen = ref(false)
 function openAssistant() {
   isAssistantOpen.value = true
 }
-// Map: day (1-7) -> hour (0-23) -> { interval: Group[], single: Group[] }
-let weeklySchedule = ref<any>({})
+
+function isActive(group: any) {
+  return group.schedule?.paused === "N"
+}
+
+// Sort active runs first, then alphabetically by name within each status.
+function sortGroups(list: any[]) {
+  return [...list].sort((a: any, b: any) => {
+    const aActive = isActive(a)
+    const bActive = isActive(b)
+    if (aActive !== bActive) return aActive ? -1 : 1
+    return (a.groupName || "").localeCompare(b.groupName || "")
+  })
+}
+
+// Status filter ("all" | "active" | "draft") + sorting applied to the rendered list.
+const displayedGroups = computed(() => {
+  let list = brokeringGroups.value
+  if (selectedFilter.value === "active") {
+    list = list.filter((group: any) => isActive(group))
+  } else if (selectedFilter.value === "draft") {
+    list = list.filter((group: any) => !isActive(group))
+  }
+  return sortGroups(list)
+})
 
 onIonViewWillEnter(async () => {
   isLoading.value = true
@@ -213,6 +253,22 @@ function getScheduleFrequency(brokeringGroupObj: any) {
 
 function redirect(group: Group) {
   router.push(`brokering/${group.routingGroupId}/routes`)
+}
+
+async function groupActionsPopover(group: Group, event: Event) {
+  const popover = await popoverController.create({
+    component: GroupActionsPopover,
+    event,
+    showBackdrop: false,
+    componentProps: { group }
+  });
+
+  popover.present();
+
+  const result = await popover.onDidDismiss();
+  if (result.data && result.data.routingGroups) {
+    brokeringGroups.value = result.data.routingGroups;
+  }
 }
 
 </script>

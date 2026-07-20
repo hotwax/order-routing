@@ -1,6 +1,6 @@
 {
   "name": "order-routing",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Order Routing Rules + Available to Promise (Sourcing) — unified app",
   "scripts": {
@@ -55,7 +55,7 @@
     "eslint": "catalog:",
     "eslint-plugin-vue": "^8.0.3",
     "terser": "^5.16.0",
-    "typescript": "5.9.3",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-pwa": "1.2.0",
     "vitest": "catalog:",

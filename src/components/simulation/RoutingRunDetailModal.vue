@@ -48,7 +48,7 @@
         <ion-list>
           <ion-item v-for="f in facilityRows" :key="f.facilityId" lines="none">
             <ion-label>
-              <h3>{{ facilityName(f.facilityId) }}</h3>
+              {{ facilityName(f.facilityId) }}
               <p v-if="bothSides">{{ f.parentQty }} → {{ f.variationQty }} ({{ f.delta >= 0 ? "+" : "" }}{{ f.delta }})</p>
               <p v-else>{{ row.variation ? f.variationQty : f.parentQty }} {{ translate("items") }}</p>
             </ion-label>
@@ -74,7 +74,7 @@
         <ion-list>
           <ion-item v-for="t in visibleTraces" :key="traceKey(t)" button @click="toggle(traceKey(t))">
             <ion-label>
-              <h3>{{ t.orderId }}<span v-if="t.orderItemSeqId"> · {{ t.orderItemSeqId }}</span></h3>
+              {{ t.orderId }}<span v-if="t.orderItemSeqId"> · {{ t.orderItemSeqId }}</span>
               <p>{{ reasonLabel(t.finalReason || "UNKNOWN") }}</p>
               <!-- Rule narrative lines are intentionally untranslated: diagnostic content that embeds
                    backend error messages; only UI chrome (labels above) goes through translate(). -->

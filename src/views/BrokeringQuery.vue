@@ -225,7 +225,7 @@
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isTestEnabled">
                 <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
-                    <h2>{{ rule.ruleName }}</h2>
+                    {{ rule.ruleName }}
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
                   </ion-label>
                   <!-- Don't display reordering option when there is a single rule -->
@@ -1699,14 +1699,10 @@ async function openArchivedRuleModal() {
 
 async function getUserTestSession() {
   userTestingSession.value = await useUtilStore().getUserSession({
-    customParametersMap: {
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      userId: userProfile.value.userId,
-      productStoreId: currentEComStore.value.productStoreId
-    },
-    selectedEntity: "co.hotwax.user.UserSession",
-    pageLimit: 100,
-    filterByDate: true
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId: currentEComStore.value.productStoreId,
+    pageNoLimit: "true",
   });
 }
 
@@ -1714,7 +1710,7 @@ async function createUserTestSession() {
   await getUserTestSession();
 
   // If a test session already exists for the user do not create a new one
-  if(userTestingSession.value.userSessionId) {
+  if(userTestingSession.value?.userSessionId) {
     return;
   }
 
@@ -1727,7 +1723,7 @@ async function createUserTestSession() {
 }
 
 async function updateUserTestSession() {
-  if(!userTestingSession.value.userSessionId) {
+  if(!userTestingSession.value?.userSessionId) {
     return;
   }
 

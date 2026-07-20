@@ -11,9 +11,13 @@ export interface SparklineEntry {
 export interface PickupProductStat {
   productId: string;
   productName: string;
+  parentProductName?: string;
+  title?: string;
   imageUrl: string;
   orderCount: number;
   daily: SparklineEntry[];
+  goodIdentifications?: string[];
+  internalName?: string;
 }
 
 export interface PickupFacilityStat {
@@ -27,6 +31,8 @@ interface PickupAnalyticsState {
   loading: boolean;
   topProducts: PickupProductStat[];
   topFacilities: PickupFacilityStat[];
+  facilityOrderCounts: Record<string, number>;
+  facilityCountsLoading: boolean;
 }
 
 export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
@@ -34,7 +40,12 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
     loading: false,
     topProducts: [],
     topFacilities: [],
+    facilityOrderCounts: {},
+    facilityCountsLoading: false,
   }),
+  getters: {
+    getFacilityOrderCount: (state) => (facilityId: string) => state.facilityOrderCounts[facilityId] || 0,
+  },
   actions: {
     async loadAnalytics() {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
@@ -103,9 +114,13 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
           this.topProducts = buckets.map((bucket: any) => ({
             productId: bucket.val,
             productName: bucket.product_name?.buckets?.[0]?.val || productInfo[bucket.val]?.name || bucket.val,
+            parentProductName: productInfo[bucket.val]?.parentProductName || "",
+            title: productInfo[bucket.val]?.title || "",
             imageUrl: productInfo[bucket.val]?.imageUrl || "",
             orderCount: bucket.count,
-            daily: this.parseDailyBuckets(bucket.daily?.buckets)
+            daily: this.parseDailyBuckets(bucket.daily?.buckets),
+            goodIdentifications: productInfo[bucket.val]?.goodIdentifications || [],
+            internalName: productInfo[bucket.val]?.internalName || ""
           }));
         }
       } catch (err) {
@@ -117,6 +132,18 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
       try {
         const { start, end } = this.buildDateRange();
 
+        // Pickup analytics should only reflect physical facilities, never virtual ones,
+        // so scope the facet to the store's physical facilities.
+        const facilities = await this.fetchPhysicalFacilities(productStoreId);
+        if (!facilities.length) {
+          this.topFacilities = [];
+          return;
+        }
+
+        const nameMap: Record<string, string> = {};
+        for (const f of facilities) nameMap[f.facilityId] = f.facilityName || f.facilityId;
+        const facilityIds = facilities.map((f: any) => f.facilityId);
+
         const resp = await api({
           url: "admin/runSolrQuery",
           method: "POST",
@@ -124,7 +151,7 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
             "json": {
               "params": { "rows": "0" },
               "query": "*:*",
-              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${productStoreId} AND orderDate: [${start} TO ${end}]`,
+              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${productStoreId} AND orderDate: [${start} TO ${end}] AND facilityId:(${facilityIds.join(" OR ")})`,
               "facet": {
                 "top_facilities": {
                   "type": "terms",
@@ -153,13 +180,6 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
         const facets = resp.data?.facets || resp.data?.response?.facets;
         if (!commonUtil.hasError(resp) && facets?.top_facilities?.buckets) {
           const buckets = facets.top_facilities.buckets;
-          const unresolvedIds = buckets
-            .filter((b: any) => !b.facility_name?.buckets?.[0]?.val)
-            .map((b: any) => b.val);
-
-          const nameMap = unresolvedIds.length
-            ? await this.fetchFacilityNames(unresolvedIds, productStoreId)
-            : {};
 
           this.topFacilities = buckets.map((bucket: any) => ({
             facilityId: bucket.val,
@@ -173,6 +193,58 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
       }
     },
 
+    // Pickup order counts per facility over the last 30 days. Uses the exact same
+    // filter and count metric as loadTopFacilities so the per-card numbers match the
+    // "Top pickup facilities" widget; only the facet limit differs (all vs top 10).
+    async loadFacilityOrderCounts(productStoreId?: string) {
+      const storeId = productStoreId || useAtpProductStore().currentProductStore?.productStoreId;
+      if (!storeId) return;
+
+      this.facilityCountsLoading = true;
+      try {
+        // Scope to the store's physical facilities and apply the same facilityId
+        // filter as loadTopFacilities so the per-card counts match the widget.
+        const facilities = await this.fetchPhysicalFacilities(storeId);
+        if (!facilities.length) {
+          this.facilityOrderCounts = {};
+          this.facilityCountsLoading = false;
+          return;
+        }
+        const facilityIds = facilities.map((f: any) => f.facilityId);
+        const { start, end } = this.buildDateRange();
+        const resp = await api({
+          url: "admin/runSolrQuery",
+          method: "POST",
+          data: {
+            "json": {
+              "params": { "rows": "0" },
+              "query": "*:*",
+              "filter": `docType: ORDER AND orderTypeId: SALES_ORDER AND shipmentMethodTypeId: STOREPICKUP AND productStoreId: ${storeId} AND orderDate: [${start} TO ${end}] AND facilityId:(${facilityIds.join(" OR ")})`,
+              "facet": {
+                "facilities": {
+                  "type": "terms",
+                  "field": "facilityId",
+                  "limit": 1000
+                }
+              }
+            }
+          }
+        }) as any;
+
+        const facets = resp.data?.facets || resp.data?.response?.facets;
+        const counts: Record<string, number> = {};
+        if (!commonUtil.hasError(resp) && facets?.facilities?.buckets) {
+          for (const bucket of facets.facilities.buckets) {
+            counts[bucket.val] = bucket.count;
+          }
+        }
+        this.facilityOrderCounts = counts;
+      } catch (err) {
+        logger.error("pickupAnalytics: failed to load facility order counts", err);
+      }
+      this.facilityCountsLoading = false;
+    },
+
     parseDailyBuckets(buckets: any[]): SparklineEntry[] {
       if (!buckets?.length) return [];
       return buckets.map((b: any) => ({
@@ -181,29 +253,31 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
       }));
     },
 
-    async fetchFacilityNames(facilityIds: string[], productStoreId: string): Promise<Record<string, string>> {
-      const nameMap: Record<string, string> = {};
+    async fetchPhysicalFacilities(productStoreId: string): Promise<any[]> {
       try {
         const resp = await api({
           url: `admin/productStores/${productStoreId}/facilities`,
           method: "GET",
-          params: { pageSize: 250 }
+          params: {
+            productStoreId,
+            parentFacilityTypeId: "VIRTUAL_FACILITY",
+            parentFacilityTypeId_not: "Y",
+            facilityTypeId: "VIRTUAL_FACILITY",
+            facilityTypeId_not: "Y",
+            pageSize: 250
+          }
         }) as any;
         if (!commonUtil.hasError(resp) && resp.data?.length) {
-          for (const f of resp.data) {
-            if (facilityIds.includes(f.facilityId)) {
-              nameMap[f.facilityId] = f.facilityName || f.facilityId;
-            }
-          }
+          return resp.data;
         }
       } catch (err) {
-        logger.error("pickupAnalytics: failed to fetch facility names", err);
+        logger.error("pickupAnalytics: failed to fetch facilities", err);
       }
-      return nameMap;
+      return [];
     },
 
-    async fetchProductInfo(productIds: string[], productStoreId: string): Promise<Record<string, { name: string; imageUrl: string }>> {
-      const infoMap: Record<string, { name: string; imageUrl: string }> = {};
+    async fetchProductInfo(productIds: string[], productStoreId: string): Promise<Record<string, { name: string; parentProductName: string; title: string; imageUrl: string; goodIdentifications: string[]; internalName: string }>> {
+      const infoMap: Record<string, { name: string; parentProductName: string; title: string; imageUrl: string; goodIdentifications: string[]; internalName: string }> = {};
       try {
         const resp = await api({
           url: "admin/runSolrQuery",
@@ -212,8 +286,8 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
             "json": {
               "params": { "rows": String(productIds.length) },
               "query": `productId:(${productIds.join(" OR ")})`,
-              "filter": `docType: ORDER AND productStoreId: ${productStoreId}`,
-              "fields": "productId,productName,mainImageUrl"
+              "filter": `docType: PRODUCT`,
+              "fields": "productId,productName,parentProductName,title,mainImageUrl,goodIdentifications,internalName"
             }
           }
         }) as any;
@@ -222,7 +296,11 @@ export const usePickupAnalyticsStore = defineStore("pickupAnalytics", {
           if (doc.productId && !infoMap[doc.productId]) {
             infoMap[doc.productId] = {
               name: doc.productName || "",
-              imageUrl: doc.mainImageUrl || ""
+              parentProductName: doc.parentProductName || "",
+              title: doc.title || "",
+              imageUrl: doc.mainImageUrl || "",
+              goodIdentifications: doc.goodIdentifications || [],
+              internalName: doc.internalName || ""
             };
           }
         }

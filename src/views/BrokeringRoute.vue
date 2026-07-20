@@ -81,7 +81,7 @@
                 <ion-item lines="none">
                   <h2>{{ translate("Test drive") }}</h2>
                 </ion-item>
-                <ion-item class="ion-margin" lines="none">
+                <ion-item lines="none">
                   <ion-label>
                     {{ translate("Test drive your brokering run to see how specific orders are routed. Try different kind of orders to quickly verify if all flows are working as expected.") }}
                   </ion-label>
@@ -135,7 +135,7 @@
                 <p class="empty-state" v-if="!groupHistory.length || !groupHistory[0].startTime">{{ translate("No available history for this group") }}</p>
                 <ion-item v-else>
                   <ion-label>
-                    <h3>{{ commonUtil.getTime(groupHistory[0].startTime) }}</h3>
+                    {{ commonUtil.getTime(groupHistory[0].startTime) }}
                     <p>{{ commonUtil.getDate(groupHistory[0].startTime) }}</p>
                   </ion-label>
                   <ion-badge color="dark" v-if="groupHistory[0].endTime">{{ commonUtil.getRelativeTime(groupHistory[0].endTime) }}</ion-badge>
@@ -158,7 +158,7 @@
                 <ion-card :disabled="isReordering" :class="isReordering ? 'reordering-enabled pointer' : 'pointer'" v-for="(routing, index) in routingsForReorder" :key="routing.orderRoutingId" @click.prevent="redirect(routing)">
                   <ion-item lines="full">
                     <ion-label>
-                      <h1>{{ routing.routingName }}</h1>
+                      {{ routing.routingName }}
                     </ion-label>
                     <!-- Changing isReordering to true when user starts reordering the list and on the basis of this disabling the card -->
                     <ion-reorder @pointerdown="isReordering = true">
@@ -224,7 +224,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonPage, IonReorder, IonReorderGroup, IonSelect, IonSelectOption, IonTextarea, IonTitle, IonToggle, IonToolbar, alertController, modalController, onIonViewWillEnter } from "@ionic/vue";
-import { addCircleOutline, addOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
+import { addCircleOutline, addOutline, albumsOutline, archiveOutline, copyOutline, flashOutline, listOutline, pencilOutline, pulseOutline, reorderTwoOutline, saveOutline, speedometerOutline, timeOutline, timerOutline } from "ionicons/icons"
 import { onBeforeRouteLeave } from "vue-router";
 import router from "@/router";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
@@ -722,13 +722,9 @@ async function toggleReservation(event: CustomEvent) {
 async function getTestSessions() {
   activeTestSessions.value = 0
   const testSessions = await useUtilStore().getTestSessions({
-    customParametersMap: {
-      sessionTypeEnumId: "ROUTING_TEST_DRIVE",
-      productStoreId: currentEComStore.value.productStoreId
-    },
-    selectedEntity: "co.hotwax.user.UserSession",
-    pageLimit: 100,
-    filterByDate: true
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    productStoreId: currentEComStore.value.productStoreId,
+    pageNoLimit: "true",
   });
   activeTestSessions.value = testSessions.length
 }

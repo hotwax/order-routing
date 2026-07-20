@@ -5,7 +5,7 @@
         <ion-title data-testid="closed-page-title">{{ translate("Inventory")}}</ion-title>
       </ion-toolbar>
     </ion-header>
-    <ion-content data-testid="closed-content">      
+    <ion-content data-testid="closed-content">
       <ion-list data-testid="closed-list">
         <div class="filters">
           <ion-searchbar :placeholder="translate('Search')" :value="searchQuery" :debounce="300" @ionInput="updateSearchQuery($event)" data-testid="inventory-search-bar"/>
@@ -23,23 +23,46 @@
           <ion-button fill="clear" slot="icon-only" :disabled="pageIndex >= pageCount - 1 || isLoading" @click="goToNextPage">
             <ion-icon :icon="caretForwardOutline" />
           </ion-button>
+          <ion-button v-if="products?.length" class="select-toggle" fill="clear" size="small" @click="toggleSelectMode">
+            {{ selectMode ? translate("Done") : translate("Select") }}
+          </ion-button>
         </div>
-        <p v-if="!products?.length" class="empty-state" data-testid="closed-empty-state">
+        <template v-if="showLoadingState">
+          <div class="list-item inventory-skeleton-row" v-for="row in loadingRows" :key="`inventory-skeleton-${row}`">
+            <ion-item>
+              <ion-checkbox slot="start" disabled />
+              <ion-thumbnail class="inventory-skeleton-thumbnail">
+                <ion-skeleton-text animated />
+              </ion-thumbnail>
+              <ion-label class="inventory-skeleton-copy">
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-primary" />
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-secondary" />
+              </ion-label>
+            </ion-item>
+            <div v-for="column in 5" :key="`inventory-skeleton-${row}-${column}`">
+              <ion-label>
+                <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-metric" />
+                <p><ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-label" /></p>
+              </ion-label>
+            </div>
+          </div>
+        </template>
+        <p v-else-if="showEmptyState" class="empty-state" data-testid="closed-empty-state">
           {{ translate("No products found") }}
         </p>
         <template v-else>
-          <ion-item lines="none">
-            <ion-checkbox :checked="allSelected" :indeterminate="!allSelected && isAnyProductSelected" label-placement="end" @ionChange="selectAllProducts($event.detail.checked)">{{ "Select all" }}</ion-checkbox>
+          <ion-item v-if="selectMode" lines="none">
+            <ion-checkbox :checked="allCurrentPageSelected" :indeterminate="someCurrentPageSelected && !allCurrentPageSelected" label-placement="end" @ionChange="toggleCurrentPageSelection($event.detail.checked)">{{ translate("Select all") }}</ion-checkbox>
           </ion-item>
-          <div class="list-item" v-for="product in products" :key="product.productId" @click="viewInventoryDetail(product.productId)">
+          <div class="list-item" v-for="product in products" :key="product.productId" @click="onRowClick(product.productId)">
             <ion-item>
-              <ion-checkbox v-model="product.isChecked" slot="start" @click.stop></ion-checkbox>
+              <ion-checkbox v-if="selectMode" :checked="isSelected(product.productId)" slot="start" @click.stop="toggleProductSelection(product.productId)"></ion-checkbox>
               <ion-thumbnail data-testid="assigned-detail-product-thumbnail">
                 <DxpShopifyImg :src="productById(product.productId).mainImageUrl" data-testid="assigned-detail-product-img"/>
               </ion-thumbnail>
               <ion-label>
-                <h2 data-testid="assigned-detail-product-primary-id">{{ product.parentProductName }}</h2>
-                <p data-testid="assigned-detail-product-secondary-id">{{ product.productId }}</p>
+                <span data-testid="assigned-detail-product-primary-id">{{ getPrimaryProductIdentifier(product) }}</span>
+                <p data-testid="assigned-detail-product-secondary-id">{{ getSecondaryProductIdentifier(product) }}</p>
               </ion-label>
             </ion-item>
             <template v-if="product.inventoryConfig">
@@ -80,18 +103,21 @@
               <div></div>
               <div></div>
               <ion-button fill="clear" size="small" @click.stop="openProductFacilityConfigModal([product])">
-                {{ "Add Config" }}
+                {{ translate("Add Config") }}
               </ion-button>
             </template>
           </div>
         </template>
       </ion-list>
     </ion-content>
-    <ion-footer v-if="isAnyProductSelected">
+    <ion-footer v-if="selectMode && selectedProductIds.length">
       <ion-toolbar class="footer-actions">
-        <ion-buttons>
-          <ion-button @click="openBulkInventoryEditModal">{{ "Adjust Inventory" }}</ion-button>
-          <ion-button @click="openProductFacilityConfigModal()">{{ "Adjust Config" }}</ion-button>
+        <ion-buttons slot="start">
+          <ion-button disabled>{{ selectedProductIds.length }} {{ translate("selected") }}</ion-button>
+        </ion-buttons>
+        <ion-buttons slot="end">
+          <ion-button :disabled="!selectedProductIds.length" @click="openBulkInventoryEditModal">{{ translate("Adjust inventory") }}</ion-button>
+          <ion-button :disabled="!selectedProductIds.length" @click="openProductFacilityConfigModal()">{{ translate("Adjust config") }}</ion-button>
         </ion-buttons>
       </ion-toolbar>
     </ion-footer>
@@ -101,7 +127,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import router from '../router';
-import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
+import { IonButtons, IonButton, IonCheckbox, IonFooter, IonIcon, IonNote, IonPage, IonHeader, IonLabel, IonTitle, IonToolbar, IonContent, IonList, IonItem, IonSearchbar, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, onIonViewDidEnter, onIonViewDidLeave, modalController } from '@ionic/vue';
 import { DxpShopifyImg, emitter, translate } from '@common';
 import { productStore } from '@/store/productStore';
 import { productStore as productInfoStore } from '@/store/product';
@@ -110,6 +136,7 @@ import { caretBackOutline, caretForwardOutline } from 'ionicons/icons';
 import { useProductFacility } from '@/composables/useProductFacility';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
+import { getPrimaryProductIdentifier as getPrimaryIdentifier, getSecondaryProductIdentifier as getSecondaryIdentifier } from '@/utils/productIdentifier';
 
 const PAGE_SIZE = 50;
 const pageIndex = ref(0);
@@ -121,12 +148,23 @@ const { productFacility: products } = useProductFacility();
 const searchQuery = ref("");
 const selectedFacility = ref("");
 
+// Select mode: rows browse by default and only become selectable after the user enters select mode.
+// Selection is tracked by stable product id, not by mutating row objects (#448).
+const selectMode = ref(false);
+const selectedProductIds = ref<string[]>([]);
+
 const productStoreFacilities = computed(() => productStore().productStoreFacilities)
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
+const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
+const showLoadingState = computed(() => isLoading.value && !products.value?.length);
+const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
+const loadingRows = [1, 2, 3, 4, 5, 6];
 
-const isAnyProductSelected = computed(() => products.value.some((product: any) => product.isChecked))
-const allSelected = computed(() => products.value.every((product: any) => product.isChecked))
+const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId).filter(Boolean))
+const allCurrentPageSelected = computed(() => currentPageProductIds.value.length > 0 && currentPageProductIds.value.every((id: string) => selectedProductIds.value.includes(id)))
+const someCurrentPageSelected = computed(() => currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id)))
+const selectedProducts = computed(() => products.value.filter((product: any) => selectedProductIds.value.includes(product.productId)))
 
 async function onProductStoreOrConfigChanged() {
   const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
@@ -135,12 +173,13 @@ async function onProductStoreOrConfigChanged() {
   }
   pageIndex.value = 0;
   await productStore().fetchProductStoreFacilities();
-  
+
   const facilityId = (productStoreFacilities.value?.some((f: any) => f.facilityId === productStore().selectedInventoryFacilityId)
     ? productStore().selectedInventoryFacilityId
     : productStoreFacilities.value?.[0]?.facilityId) || '';
 
   if (selectedFacility.value === facilityId) {
+    exitSelectMode();
     await fetchProductFacility();
   } else {
     selectedFacility.value = facilityId;
@@ -159,11 +198,48 @@ onIonViewDidLeave(() => {
 
 watch(selectedFacility, (facilityId) => {
   productStore().setSelectedInventoryFacilityId(facilityId)
+  exitSelectMode()
   fetchProductFacility()
 })
 
-function selectAllProducts(checked: boolean) {
-  products.value.map((product: any) => product.isChecked = checked)
+function enterSelectMode() {
+  selectMode.value = true
+}
+
+function exitSelectMode() {
+  selectMode.value = false
+  selectedProductIds.value = []
+}
+
+function toggleSelectMode() {
+  selectMode.value ? exitSelectMode() : enterSelectMode()
+}
+
+function isSelected(productId: string) {
+  return selectedProductIds.value.includes(productId)
+}
+
+function toggleProductSelection(productId: string) {
+  if (selectedProductIds.value.includes(productId)) {
+    selectedProductIds.value = selectedProductIds.value.filter((id: string) => id !== productId)
+  } else {
+    selectedProductIds.value = [...selectedProductIds.value, productId]
+  }
+}
+
+function toggleCurrentPageSelection(checked: boolean) {
+  if (checked) {
+    const missingIds = currentPageProductIds.value.filter((id: string) => !selectedProductIds.value.includes(id))
+    if (!missingIds.length) return;
+    selectedProductIds.value = [...selectedProductIds.value, ...missingIds]
+  } else {
+    if (!currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id))) return;
+    selectedProductIds.value = selectedProductIds.value.filter((id: string) => !currentPageProductIds.value.includes(id))
+  }
+}
+
+function onRowClick(productId: string) {
+  selectMode.value ? toggleProductSelection(productId) : viewInventoryDetail(productId)
 }
 
 async function fetchProductFacility() {
@@ -184,12 +260,24 @@ async function fetchProductFacility() {
   }
 
   total.value = await useProductFacility().fetchProductFacility(params);
+
+  // Hydrate product info (image URLs, names) for the returned product ids so row thumbnails render.
+  // productFacilities/search does not return image data, so without this the product info store has
+  // no entry and DxpShopifyImg gets an empty src (issue #438). fetchProducts() skips already-cached ids.
+  const productIds = [...new Set((products.value || []).map((product: any) => product.productId).filter(Boolean))];
+  // Fire-and-forget: don't block the loader on image hydration. productById is reactive, so thumbnails
+  // render progressively once the product info store populates; fetchProducts() skips already-cached ids.
+  if (productIds.length) {
+    productInfoStore().fetchProducts(productIds);
+  }
+
   isLoading.value = false
 }
 
 async function updateSearchQuery(event: CustomEvent<{ value?: string | null }>) {
   searchQuery.value = event.detail.value || ''
   pageIndex.value = 0
+  selectedProductIds.value = []
   await fetchProductFacility()
 }
 
@@ -197,6 +285,7 @@ async function goToPreviousPage() {
   if (pageIndex.value === 0) return
 
   pageIndex.value -= 1
+  selectedProductIds.value = []
   await fetchProductFacility()
 }
 
@@ -204,6 +293,7 @@ async function goToNextPage() {
   if (pageIndex.value >= pageCount.value - 1) return
 
   pageIndex.value += 1
+  selectedProductIds.value = []
   await fetchProductFacility()
 }
 
@@ -211,33 +301,56 @@ function viewInventoryDetail(productId: string) {
   router.push(`/inventory/${productId}`)
 }
 
+function getDisplayProduct(product: any) {
+  return { ...product, ...productById.value(product.productId) };
+}
+
+function getPrimaryProductIdentifier(product: any) {
+  const displayProduct = getDisplayProduct(product);
+  return getPrimaryIdentifier(productIdentificationPref.value, displayProduct);
+}
+
+function getSecondaryProductIdentifier(product: any) {
+  const displayProduct = getDisplayProduct(product);
+  return getSecondaryIdentifier(productIdentificationPref.value, displayProduct);
+}
+
 async function openBulkInventoryEditModal() {
+  if (!selectedProducts.value.length) return;
   const bulkInventoryEditModal = await modalController.create({
     component: ProductInventoryEdit,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: products.value.filter((product: any) => product.isChecked)
+      selectedProducts: selectedProducts.value
     }
   })
 
   bulkInventoryEditModal.onDidDismiss().then((data) => {
-    data?.data?.updated && fetchProductFacility();
+    if (data?.data?.updated) {
+      exitSelectMode();
+      fetchProductFacility();
+    }
   })
 
   await bulkInventoryEditModal.present()
 }
 
-async function openProductFacilityConfigModal(selectedProducts?: any[]) {
+async function openProductFacilityConfigModal(selectedProductsArg?: any[]) {
+  const productsForModal = selectedProductsArg ? selectedProductsArg : selectedProducts.value;
+  if (!productsForModal.length) return;
   const productFacilityConfigEditModal = await modalController.create({
     component: ProductFacilityConfigEditModal,
     componentProps: {
       selectedFacility: selectedFacility.value,
-      selectedProducts: selectedProducts ? selectedProducts : products.value.filter((product: any) => product.isChecked)
+      selectedProducts: productsForModal
     }
   })
 
   productFacilityConfigEditModal.onDidDismiss().then((data) => {
-    data?.data?.updated && fetchProductFacility();
+    if (data?.data?.updated) {
+      exitSelectMode();
+      fetchProductFacility();
+    }
   })
 
   await productFacilityConfigEditModal.present()
@@ -260,6 +373,46 @@ ion-content {
   width: 100%;
 }
 
+.inventory-skeleton-row {
+  pointer-events: none;
+}
+
+.inventory-skeleton-thumbnail ion-skeleton-text {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
+.inventory-skeleton-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inventory-skeleton-line {
+  margin: 0;
+}
+
+.inventory-skeleton-line-primary {
+  width: 60%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-secondary {
+  width: 40%;
+  height: 14px;
+}
+
+.inventory-skeleton-line-metric {
+  width: 50%;
+  height: 18px;
+}
+
+.inventory-skeleton-line-label {
+  width: 70%;
+  height: 12px;
+}
+
 .filters {
   display: flex;
 }
@@ -278,6 +431,10 @@ ion-content {
   justify-content: flex-start;
   align-items: center;
   gap: 10px;
+}
+
+.pagination .select-toggle {
+  margin-inline-start: auto;
 }
 
 ion-toolbar::part(content) {

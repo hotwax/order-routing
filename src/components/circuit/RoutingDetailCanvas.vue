@@ -352,7 +352,7 @@ import {
   buildFeedbackSavedMessage,
   DraftFeedbackType
 } from '@/utils/circuitFeedback';
-import { isFeatureEnabled } from '@/utils/simConfig';
+import { isDeveloperFeatureEnabled } from '@/utils/simConfig';
 import { activeRoutingNavigationOperation } from '@/utils/routingWorkingCopy';
 import { buildCircuitProposalContextCards, selectCircuitProposalCards } from '@/utils/circuitProposalContext';
 
@@ -365,11 +365,14 @@ const props = withDefaults(defineProps<{
 
 const circuitStore = useCircuitStore();
 const preferencesStore = usePreferencesStore();
-const draftAssistantEnabled = isFeatureEnabled('draftAssistant');
+const isDevModeEnabled = computed(() => preferencesStore.isDevModeEnabled);
+const draftAssistantEnabled = computed(() => isDeveloperFeatureEnabled(
+  'draftAssistant',
+  isDevModeEnabled.value
+));
 // Park feedback collection until it can persist through the survey data model. Keeping the gate
 // local preserves the reviewed UI and payload work without exposing a control that cannot save.
 const circuitFeedbackEnabled = false;
-const isDevModeEnabled = computed(() => preferencesStore.isDevModeEnabled);
 const { 
   messages, 
   threads, 
@@ -444,7 +447,7 @@ function assertCurrentCircuitContext(context: CircuitContextIdentity) {
 }
 
 onMounted(async () => {
-  if (draftAssistantEnabled) circuitStore.loadAllThreads();
+  if (draftAssistantEnabled.value) circuitStore.loadAllThreads();
   await nextTick();
   updateChatWidthBounds();
   window.addEventListener('resize', updateChatWidthBounds);
@@ -562,7 +565,16 @@ let focusPromptAfterThreadDismiss = false;
 const showFeedbackModal = ref(false);
 // The chat panel can be collapsed to give the editor full width. v-show (not v-if) keeps the
 // chat mounted so its thread/messages state survives toggling.
-const chatVisible = ref(draftAssistantEnabled);
+const chatVisible = ref(draftAssistantEnabled.value);
+watch(draftAssistantEnabled, (enabled) => {
+  chatVisible.value = enabled;
+  if (enabled) {
+    circuitStore.loadAllThreads();
+  } else {
+    showPromptModal.value = false;
+    showThreadMenu.value = false;
+  }
+});
 // Live editor unsaved-changes state, surfaced by RoutingGroupEditor via @dirty-change, powering the
 // header Save button. (Variations save through the rail, so the header Save is hidden for them.)
 const editorDirty = ref(false);
@@ -727,7 +739,7 @@ async function confirmNavigationWithUnsavedChanges() {
 onBeforeRouteLeave(confirmNavigationWithUnsavedChanges);
 onBeforeRouteUpdate(confirmNavigationWithUnsavedChanges);
 
-const canSendFeedback = computed(() => draftAssistantEnabled && messages.value.length > 0);
+const canSendFeedback = computed(() => draftAssistantEnabled.value && messages.value.length > 0);
 
 function buildFeedbackMessages(): KnowledgeFeedbackMessage[] {
   return messages.value
@@ -747,7 +759,7 @@ const feedbackContext = computed(() => ({
 }));
 
 const onSend = async () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   const message = prompt.value.trim();
   if (!message || isApplyingDraft.value) return;
 
@@ -878,7 +890,7 @@ async function setProposalCardDecision(cardKey: string, value: unknown) {
 }
 
 const acceptPendingProposal = async () => {
-  if (!draftAssistantEnabled || !pendingDraftProposal.value || !hasSelectedProposalChanges.value || isApplyingDraft.value) return;
+  if (!draftAssistantEnabled.value || !pendingDraftProposal.value || !hasSelectedProposalChanges.value || isApplyingDraft.value) return;
 
   isApplyingDraft.value = true;
   try {
@@ -897,7 +909,7 @@ const acceptPendingProposal = async () => {
 }
 
 const rejectPendingProposal = async () => {
-  if (!draftAssistantEnabled || !pendingDraftProposal.value || isApplyingDraft.value) return;
+  if (!draftAssistantEnabled.value || !pendingDraftProposal.value || isApplyingDraft.value) return;
 
   isApplyingDraft.value = true;
   try {
@@ -920,7 +932,7 @@ const rejectPendingProposal = async () => {
 // The proposal is already applied to the active working copy. Accept keeps it there and drops the
 // reversible stash; live persistence uses Save, while a simulation variation uses rail Update.
 async function acceptPendingDraftProposal(userFeedback: string) {
-  if (!draftAssistantEnabled || !pendingDraftProposal.value || !editorRef.value) {
+  if (!draftAssistantEnabled.value || !pendingDraftProposal.value || !editorRef.value) {
     return;
   }
 
@@ -940,7 +952,7 @@ async function acceptPendingDraftProposal(userFeedback: string) {
 }
 
 async function saveDraftFeedbackForProposal(type: DraftFeedbackType, userFeedback: string, proposal: CircuitDraftProposal) {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   await circuitStore.saveDraftFeedback({
     type,
     userFeedback,
@@ -954,7 +966,7 @@ async function reviseDiscardedProposal(
   conversationHistory: DraftConversationMessage[],
   circuitContext: CircuitContextIdentity
 ) {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   if (!selectedContext.value || !editorRef.value) {
     await addCircuitMessage(buildFeedbackSavedMessage());
     return;
@@ -1012,14 +1024,14 @@ const buildConversationHistory = (): DraftConversationMessage[] => {
 }
 
 const createNewChat = async () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   await circuitStore.switchThread(null);
   circuitStore.setChatStarted(false);
   await focusPrompt();
 }
 
 const openThreadModal = () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   showThreadMenu.value = true;
 }
 

@@ -120,3 +120,18 @@ export function isFeatureEnabled(flag: string, env: Env = import.meta.env): bool
     default: return false;
   }
 }
+
+/**
+ * Circuit and Simulation are temporary developer-only surfaces. Developer mode is an additional
+ * visibility gate; it never bypasses the complete backend configuration and auth checks above.
+ */
+export function isDeveloperFeatureEnabled(
+  flag: string,
+  devModeEnabled: boolean,
+  env: Env = import.meta.env
+): boolean {
+  if (flag === "draftAssistant" || flag === "simulation") {
+    return Boolean(devModeEnabled) && isFeatureEnabled(flag, env);
+  }
+  return isFeatureEnabled(flag, env);
+}

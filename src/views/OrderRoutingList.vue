@@ -239,15 +239,20 @@ import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useUserStore } from "@/store/userStore";
 import { useRoutingGroups } from "@/composables/useRoutingGroups";
 import { Group } from "@/types";
-import { isFeatureEnabled } from "@/utils/simConfig";
+import { usePreferencesStore } from "@/store/preferences";
+import { isDeveloperFeatureEnabled } from "@/utils/simConfig";
 
 const userStore = useUserStore();
+const preferencesStore = usePreferencesStore();
 const timeZone = computed(() => userStore.getUserProfile?.timeZone);
-const draftAssistantEnabled = isFeatureEnabled("draftAssistant");
+const draftAssistantEnabled = computed(() => isDeveloperFeatureEnabled(
+  "draftAssistant",
+  preferencesStore.isDevModeEnabled
+));
 
 const isAssistantOpen = ref(false);
 function openAssistant() {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled.value) return;
   isAssistantOpen.value = true;
 }
 

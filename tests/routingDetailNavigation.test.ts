@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   deactivateCanvas: vi.fn(),
   setActiveContext: vi.fn(),
   fetchOrderRoutingGroups: vi.fn(async () => undefined),
+  devModeEnabled: true,
   simulation: {
     routingGroupId: "",
     groupLoadState: "idle",
@@ -64,7 +65,15 @@ vi.mock("@/store/simulationStore", () => ({
   simulationStore: () => mocks.simulation,
 }));
 
-vi.mock("@/utils/simConfig", () => ({ isFeatureEnabled: (flag: string) => flag === "simulation" }));
+vi.mock("@/store/preferences", () => ({
+  usePreferencesStore: () => ({
+    get isDevModeEnabled() { return mocks.devModeEnabled; },
+  }),
+}));
+
+vi.mock("@/utils/simConfig", () => ({
+  isDeveloperFeatureEnabled: (flag: string, devModeEnabled: boolean) => flag === "simulation" && devModeEnabled,
+}));
 
 import RoutingDetail from "../src/views/RoutingDetail.vue";
 
@@ -76,6 +85,7 @@ describe("regular order-routing detail navigation", () => {
     vi.clearAllMocks();
     mocks.simulation.routingGroupId = "";
     mocks.simulation.groupLoadState = "idle";
+    mocks.devModeEnabled = true;
   });
 
   it("lets the routed page activate the editor on entry and release it on cached-page leave", async () => {
@@ -109,6 +119,14 @@ describe("regular order-routing detail navigation", () => {
 
     expect(mocks.simulation.loadGroup).toHaveBeenLastCalledWith("G1");
     expect(mocks.setActiveContext).toHaveBeenLastCalledWith(expect.objectContaining({ routingGroupId: "G1" }));
+  });
+
+  it("does not load Simulation while developer mode is disabled", () => {
+    mocks.devModeEnabled = false;
+
+    mount(RoutingDetail, { props: { routingGroupId: "G1" } });
+
+    expect(mocks.simulation.loadGroup).not.toHaveBeenCalled();
   });
 
   it("switches the authoritative context and simulation load when the deep route param changes", async () => {

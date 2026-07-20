@@ -311,12 +311,14 @@ import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore } from "@/store/productStore";
-import { isFeatureEnabled } from "@/utils/simConfig";
+import { usePreferencesStore } from "@/store/preferences";
+import { isDeveloperFeatureEnabled } from "@/utils/simConfig";
 import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
 import router from "@/router";
 
 const userStore = useUserStore();
 const atpProductStore = useAtpProductStore();
+const preferencesStore = usePreferencesStore();
 const loaderLifecycle = createGlobalLoaderLifecycle(
   (options) => loadingController.create(options),
   translate
@@ -336,7 +338,10 @@ const menuItems = computed(() => {
         !route.meta.permissionId ||
         (userStore as any).hasPermission(route.meta.permissionId as string)
     )
-    .filter((route) => !route.meta.featureFlag || isFeatureEnabled(route.meta.featureFlag as string))
+    .filter((route) => !route.meta.featureFlag || isDeveloperFeatureEnabled(
+      route.meta.featureFlag as string,
+      preferencesStore.isDevModeEnabled
+    ))
     .sort((a, b) => (a.meta!.menuIndex as number) - (b.meta!.menuIndex as number))
     .map((route) => ({
       title: route.meta!.title as string,

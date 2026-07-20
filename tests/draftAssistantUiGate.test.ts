@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   assistantEnabled: false,
+  devModeEnabled: true,
   fetchRoutingEditorEnums: vi.fn(),
   fetchGroupDetails: vi.fn(),
   loadAllThreads: vi.fn(),
@@ -16,6 +17,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/utils/simConfig", () => ({
   isFeatureEnabled: vi.fn((flag: string) => flag === "draftAssistant" && mocks.assistantEnabled),
+  isDeveloperFeatureEnabled: vi.fn((flag: string, devModeEnabled: boolean) =>
+    flag === "draftAssistant" && devModeEnabled && mocks.assistantEnabled),
 }));
 
 vi.mock("@common", () => ({
@@ -158,7 +161,9 @@ vi.mock("@/store/userStore", () => ({
 }));
 
 vi.mock("@/store/preferences", () => ({
-  usePreferencesStore: () => ({ isDevModeEnabled: true }),
+  usePreferencesStore: () => ({
+    get isDevModeEnabled() { return mocks.devModeEnabled; },
+  }),
 }));
 
 vi.mock("@/store/circuit", () => ({
@@ -252,6 +257,7 @@ import OrderRoutingList from "../src/views/OrderRoutingList.vue";
 describe("draft assistant production UI gate", () => {
   beforeEach(() => {
     mocks.assistantEnabled = false;
+    mocks.devModeEnabled = true;
     mocks.messages = [];
     mocks.threads = [];
     vi.clearAllMocks();
@@ -283,6 +289,38 @@ describe("draft assistant production UI gate", () => {
     expect(mocks.fetchRoutingEditorEnums).not.toHaveBeenCalled();
     expect(mocks.fetchGroupDetails).not.toHaveBeenCalled();
     expect(mocks.requestListInquiry).not.toHaveBeenCalled();
+  });
+
+  it("keeps configured Circuit entry points hidden until developer mode is enabled", () => {
+    mocks.assistantEnabled = true;
+    mocks.devModeEnabled = false;
+
+    const list = mount(OrderRoutingList, {
+      global: {
+        stubs: {
+          EmptyState: true,
+          GroupActionsPopover: true,
+          RoutingAssistantModal: true,
+        },
+      },
+    });
+    const detail = mount(RoutingDetailCanvas, {
+      props: { routingGroupId: "G1", simulationEnabled: false },
+      global: {
+        stubs: {
+          CircuitFeedbackModal: true,
+          CircuitPromptArea: true,
+          RoutingGroupEditor: true,
+          VariationRail: true,
+        },
+      },
+    });
+
+    expect(list.find('[aria-label="Open Circuit"]').exists()).toBe(false);
+    expect(detail.find('[aria-label="Show chat"]').exists()).toBe(false);
+    expect(detail.find('[aria-label="Hide chat"]').exists()).toBe(false);
+    expect(detail.find(".chat-section").exists()).toBe(false);
+    expect(mocks.loadAllThreads).not.toHaveBeenCalled();
   });
 
   it("guards the editor's exposed draft action as well as its empty-state prompt", async () => {

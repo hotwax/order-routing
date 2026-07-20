@@ -11,22 +11,27 @@
 // editor + AI chat) reached at /order-routing/:routingGroupId. Replaces the old
 // BrokeringRoute.vue. It reuses RoutingDetailCanvas but seeds the group context from the
 // route param instead of the manual "add context" picker.
-import { nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { onIonViewDidEnter, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
 import { useRouter } from "vue-router";
 import RoutingDetailCanvas from "@/components/circuit/RoutingDetailCanvas.vue";
 import { useCircuitStore } from "@/store/circuit";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { simulationStore } from "@/store/simulationStore";
-import { isFeatureEnabled } from "@/utils/simConfig";
+import { usePreferencesStore } from "@/store/preferences";
+import { isDeveloperFeatureEnabled } from "@/utils/simConfig";
 
 const props = defineProps({
   routingGroupId: { type: String, required: true }
 });
 const circuitStore = useCircuitStore();
 const sim = simulationStore();
+const preferencesStore = usePreferencesStore();
 const router = useRouter();
-const simulationEnabled = isFeatureEnabled("simulation");
+const simulationEnabled = computed(() => isDeveloperFeatureEnabled(
+  "simulation",
+  preferencesStore.isDevModeEnabled
+));
 const canvasRef = ref<{
   activateForVisiblePage: () => Promise<void>;
   deactivateForHiddenPage: () => void;
@@ -38,7 +43,7 @@ function loadSimulation(groupId: string) {
   const shouldLoad = sim.routingGroupId !== groupId
     || sim.groupLoadState === "idle"
     || sim.groupLoadState === "error";
-  if (simulationEnabled && groupId && shouldLoad) {
+  if (simulationEnabled.value && groupId && shouldLoad) {
     void sim.loadGroup(groupId);
   }
 }
@@ -86,4 +91,7 @@ onIonViewDidEnter(async () => {
 });
 onIonViewWillLeave(() => canvasRef.value?.deactivateForHiddenPage?.());
 watch(() => props.routingGroupId, (id) => activateGroup(String(id)));
+watch(simulationEnabled, (enabled) => {
+  if (enabled) loadSimulation(String(props.routingGroupId));
+});
 </script>

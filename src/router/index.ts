@@ -1,8 +1,9 @@
 import Login from "@common/components/Login.vue";
 import { useAuth } from "@common/composables/useAuth";
 import { createRouter, createWebHistory } from "@ionic/vue-router";
-import { isFeatureEnabled } from "@/utils/simConfig";
+import { isDeveloperFeatureEnabled, isFeatureEnabled } from "@/utils/simConfig";
 import { useUserStore } from "@/store/userStore";
+import { usePreferencesStore } from "@/store/preferences";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import {
   albumsOutline,
@@ -62,7 +63,9 @@ const routingGroupGuard = (to: any, from: any, next: any) =>
 // Same as authGuard, but first redirects away unless the complete fail-closed simulation deployment
 // contract is configured, so /simulate* cannot bypass the feature gate by URL or bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
-  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
+  isDeveloperFeatureEnabled("simulation", usePreferencesStore().isDevModeEnabled)
+    ? authGuard(to, from, next)
+    : next("/order-routing");
 
 export const ROUTING_TEST_DRIVE_PERMISSION_ID = "ROUTING_TEST_DRIVE_VIEW";
 

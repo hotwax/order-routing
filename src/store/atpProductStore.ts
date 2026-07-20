@@ -3,6 +3,7 @@ import { api, logger, commonUtil } from '@common'
 import { DateTime } from 'luxon'
 import { useUserStore } from '@/store/userStore'
 import { buildProductQuery } from '@/utils/productSync'
+import { getOmsInstanceKey } from '@/utils/omsInstance'
 
 // SOLR facet fields the applied product filters map to.
 // Solr FILTER fields used to build runSolrQuery filters. Note: `tagsFacet` / `productFeaturesFacet`
@@ -16,6 +17,9 @@ const FILTER_FIELD_MAP: Record<string, string> = {
 export interface ProductStoreState {
   productStores: any[]
   currentProductStore: any
+  // OMS instance the persisted product stores were fetched from; state is dropped when it
+  // no longer matches the connected instance (see userStore.ensureInstanceScope).
+  omsInstanceKey: string
   configFacilities: any[];
   appliedFilters: {
     included: {
@@ -52,6 +56,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
   state: (): ProductStoreState => ({
     productStores: [],
     currentProductStore: {},
+    omsInstanceKey: "",
     configFacilities: [],
     appliedFilters: {
       included: {
@@ -115,6 +120,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
         // Disallow login if the user is not associated with any product store
         if (!commonUtil.hasError(resp)) {
           this.productStores = resp.data
+          this.omsInstanceKey = getOmsInstanceKey()
         } else {
           throw resp.data;
         }

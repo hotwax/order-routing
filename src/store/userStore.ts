@@ -8,6 +8,7 @@ import { productStore as useProduct } from './product'
 import { productStore } from './productStore'
 import { useProductInventoryStore } from './productInventory'
 import { initialize } from '@/services/appInitializer'
+import { isInstanceScopeStale } from '@/utils/omsInstance'
 import { useAtpProductStore } from './atpProductStore'
 import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
@@ -151,6 +152,9 @@ export const useUserStore = defineStore('user', {
         await this.fetchUserProfile()
         await this.setOms(cookieHelper().get("oms"))
         await initialize()
+        // Drop caches persisted while linked to a different OMS before refetching below,
+        // so a fetch failure can't leave another instance's product stores selected.
+        await this.ensureInstanceScope()
         await this.fetchPermissions()
         await productStore().fetchProductStores()
         await this.fetchAvailableTimeZones()
@@ -170,6 +174,13 @@ export const useUserStore = defineStore('user', {
       }
     },
     async postLogout() {
+      await this.clearInstanceScopedState()
+
+      this.$reset();
+    },
+    // Clears every store whose persisted data only makes sense on the OMS instance it was
+    // fetched from. Used on logout and when a login/hydrate detects an instance switch.
+    async clearInstanceScopedState(): Promise<void> {
       orderRoutingStore().clearRouting()
       orderRoutingStore().clearRoutingTestInfo()
       useUtilStore().clearUtilState()
@@ -179,8 +190,39 @@ export const useUserStore = defineStore('user', {
       useAtpProductStore().$reset()
       useRuleStore().$reset()
       useChannelStore().$reset()
+    },
+    // Persisted Pinia state survives OMS instance switches that happen without an explicit
+    // logout (launchpad switch, relogin to another instance), leaving product stores from
+    // the previously linked instance selected. Compares the instance key stamped on the
+    // product-store caches against the connected instance and drops all instance-scoped
+    // state on mismatch. Returns whether the persisted state was already valid.
+    async ensureInstanceScope(payload?: { refetch?: boolean }): Promise<boolean> {
+      const atp = useAtpProductStore()
+      const ecom = productStore()
+      const atpStale = isInstanceScopeStale(atp.omsInstanceKey, Boolean(atp.productStores?.length || atp.currentProductStore?.productStoreId))
+      const ecomStale = isInstanceScopeStale(ecom.omsInstanceKey, Boolean(ecom.ecomStores?.length || ecom.currentEComStore?.productStoreId))
+      if (!atpStale && !ecomStale) return true
 
-      this.$reset();
+      await this.clearInstanceScopedState()
+
+      // On app hydrate there is no login flow to repopulate the selector, so refetch here.
+      if (payload?.refetch) {
+        try {
+          await ecom.fetchProductStores()
+        } catch (error) {
+          logger.error("Failed to fetch product stores for the connected OMS", error)
+        }
+        try {
+          await atp.fetchUserProductStores()
+          const stores = atp.getProductStores
+          if (stores && stores.length) {
+            atp.setCurrentProductStore(stores[0])
+          }
+        } catch (error) {
+          logger.error("Failed to fetch sourcing product stores for the connected OMS", error)
+        }
+      }
+      return false
     },
     async setUserTimeZone(payload: any) {
       const current: any = this.current;

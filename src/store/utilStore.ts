@@ -5,6 +5,7 @@ import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 import { DateTime } from 'luxon'
 import { routingEditorCodeLabel } from '@/utils/routingWorkingCopy'
+import { withDemoCarrierPostalCodeMappingEnums } from '@/utils/demoCarrierPostalCodeMapping'
 
 export const ROUTING_EDITOR_ENUM_TYPE_IDS = [
   "ORD_FILTER_PRM_TYPE",
@@ -45,6 +46,7 @@ export const useUtilStore = defineStore('util', {
       for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
         await this.fetchEnums({ enumTypeId });
       }
+      this.enums = withDemoCarrierPostalCodeMappingEnums(this.enums);
     },
     async fetchEnums(payload: any) {
       let enums = { ...this.enums };

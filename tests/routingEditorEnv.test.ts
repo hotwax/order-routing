@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ACTION_ENUMS,
+  DEFAULT_CONDITION_FILTER_ENUMS,
+  DEFAULT_CONDITION_SORT_ENUMS,
   parseRoutingEditorEnvJson,
   parseRoutingStringRecordEnvJson
 } from "../src/utils/routingEditorEnv";
 
 describe("routing editor enum environment parsing", () => {
+  it("keeps the demo CPCM filter and sort in the hard-coded editor defaults", () => {
+    expect(DEFAULT_CONDITION_FILTER_ENUMS.CARRIER_POSTAL_CODE_MAPPING).toEqual({
+      id: "IIP_CPCM",
+      code: "carrierPostalCodeMapping"
+    });
+    expect(DEFAULT_CONDITION_SORT_ENUMS.CARRIER_POSTAL_CODE_MAPPING).toEqual({
+      id: "ISP_CPCM",
+      code: "carrierPostalCodeMapping"
+    });
+  });
+
   it.each([undefined, "", "{", "null", "[]", '"value"'])(
     "returns complete defaults for an unusable value (%s)",
     (value) => {

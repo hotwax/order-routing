@@ -176,6 +176,7 @@
   "Built: ": "Built: {builtDateTime}",
   "Busiest hour": "Busiest hour",
   "Cancel": "Cancel",
+  "Carrier postal code mapping": "Carrier postal code mapping",
   "CANCEL": "CANCEL",
   "Cancel job": "Cancel job",
   "Canceling this job will cancel this occurrence and all following occurrences. This job will have to be re-enabled manually to run it again.": "Canceling this job will cancel this occurrence and all following occurrences. This job will have to be re-enabled manually to run it again.",
@@ -431,6 +432,8 @@
   "Goal 100%": "Goal 100%",
   "greater": "greater",
   "greater than or equal to": "greater than or equal to",
+  "less than": "less than",
+  "less than or equal to": "less than or equal to",
   "Ground": "Ground",
   "group": "group",
   "Group": "Group",
@@ -1212,5 +1215,10 @@
   "Section reset to baseline. Update the variation to keep this change.": "Section reset to baseline. Update the variation to keep this change.",
   "This variation does not currently change any routing settings.": "This variation does not currently change any routing settings.",
   "Variation changes": "Variation changes",
-  "routings": "routings"
+  "routings": "routings",
+  "Zone": "Zone",
+  "Zone 1 (closest)": "Zone 1 (closest)",
+  "Zone 2": "Zone 2",
+  "Zone 3": "Zone 3",
+  "Zone 4 (furthest)": "Zone 4 (furthest)"
 }

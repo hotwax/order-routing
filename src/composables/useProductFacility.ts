@@ -12,6 +12,7 @@ interface ProductFacility {
   maximumStock: string;
   inventoryItemId: string;
   isChecked: boolean;
+  onlineAtp?: number | null;
   inventoryConfig?: {
     atp?: string | number | null;
     qoh?: string | number | null;

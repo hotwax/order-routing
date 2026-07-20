@@ -18,6 +18,10 @@ vi.mock("../src/store/productStore", () => ({
 }));
 
 import { ROUTING_EDITOR_ENUM_TYPE_IDS, useUtilStore } from "../src/store/utilStore";
+import {
+  DEMO_CPCM_FILTER_ENUM,
+  DEMO_CPCM_SORT_ENUM
+} from "../src/utils/demoCarrierPostalCodeMapping";
 
 describe("utilStore user testing sessions", () => {
   beforeEach(() => {
@@ -104,6 +108,8 @@ describe("utilStore user testing sessions", () => {
     for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
       expect(util.enums[enumTypeId]).toBeTruthy();
     }
+    expect(util.enums.INV_FILTER_PRM_TYPE[DEMO_CPCM_FILTER_ENUM.enumId]).toEqual(DEMO_CPCM_FILTER_ENUM);
+    expect(util.enums.INV_SORT_PARAM_TYPE[DEMO_CPCM_SORT_ENUM.enumId]).toEqual(DEMO_CPCM_SORT_ENUM);
   });
 
   it("never exposes routing status system IDs as display labels", () => {

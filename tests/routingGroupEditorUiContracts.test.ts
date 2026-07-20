@@ -93,6 +93,15 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain(':dirty="isRuleConditionCardDirty(\'ENTCT_FILTER\')"');
   });
 
+  it("renders the demo CPCM filter like the compact shipment-threshold row", () => {
+    expect(editorSource).toContain("item.target.endsWith('.CARRIER_POSTAL_CODE_MAPPING')");
+    expect(editorSource).toContain("@ionChange=\"updateOperator($event, 'CARRIER_POSTAL_CODE_MAPPING')\"");
+    expect(editorSource).toContain("@ionChange=\"updateRuleFilterValue($event, 'CARRIER_POSTAL_CODE_MAPPING')\"");
+    expect(editorSource).toContain('v-for="zone in DEMO_CPCM_ZONE_OPTIONS"');
+    expect(editorSource).toContain('<ion-select-option value="less">');
+    expect(editorSource).toContain('<ion-select-option value="less-equals">');
+  });
+
   it("uses the AccxUI single-step modal and list-divider structure for variation differences", () => {
     expect(variationDiffModalSource.match(/<ion-toolbar>/g)).toHaveLength(2);
     expect(variationDiffModalSource).toContain('<ion-icon slot="icon-only" :icon="closeOutline" />');

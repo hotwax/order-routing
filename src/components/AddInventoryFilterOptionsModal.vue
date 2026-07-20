@@ -47,6 +47,7 @@ import { computed, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
 import { translate } from "@common";
+import { demoCarrierPostalCodeMappingDefaults } from "@/utils/demoCarrierPostalCodeMapping";
 
 const utilStore = useUtilStore();
 const enums = computed(() => utilStore.getEnums)
@@ -124,7 +125,8 @@ function addConditionOption(condition: any) {
         fieldName: condition.enumCode,
         sequenceNum: Object.keys(inventoryRuleConditions.value).length && inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
         createdDate: DateTime.now().toMillis(),
-        operator: condition.enumCode.includes("_excluded") ? "not-equals" : ""
+        operator: condition.enumCode.includes("_excluded") ? "not-equals" : "",
+        ...demoCarrierPostalCodeMappingDefaults(condition.enumId)
       }
 
       // Adding associatedEnum out of ternary, as we will always get the conditionTypeEnumId, as the filter will already handle that

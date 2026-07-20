@@ -36,13 +36,15 @@ export const DEFAULT_CONDITION_FILTER_ENUMS: RoutingEditorEnumMap = {
   SPLIT_ITEM_GROUP: { id: "IIP_SPLIT_ITEM_GROUP", code: "splitOrderItemGroup" },
   FACILITY_ORDER_LIMIT: { id: "IFP_IGNORE_ORD_FAC_LIMIT", code: "ignoreFacilityOrderLimit" },
   SHIP_THRESHOLD: { id: "IFP_SHIP_THREHOLD", code: "shipmentThreshold" },
-  WOS: { id: "IFP_WOS", code: "weekOfSupply" }
+  WOS: { id: "IFP_WOS", code: "weekOfSupply" },
+  CARRIER_POSTAL_CODE_MAPPING: { id: "IIP_CPCM", code: "carrierPostalCodeMapping" }
 };
 
 export const DEFAULT_CONDITION_SORT_ENUMS: RoutingEditorEnumMap = {
   PROXIMITY: { id: "ISP_PROXIMITY", code: "distance" },
   INV_BALANCE: { id: "ISP_INV_BAL", code: "inventoryForAllocation" },
-  CUSTOMER_SEQ: { id: "ISP_CUST_SEQ", code: "facilitySequence" }
+  CUSTOMER_SEQ: { id: "ISP_CUST_SEQ", code: "facilitySequence" },
+  CARRIER_POSTAL_CODE_MAPPING: { id: "ISP_CPCM", code: "carrierPostalCodeMapping" }
 };
 
 export const DEFAULT_ACTION_ENUMS: RoutingEditorEnumMap = {

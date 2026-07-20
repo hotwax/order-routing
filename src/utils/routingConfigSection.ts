@@ -19,6 +19,7 @@ const settingLabels: Record<string, string> = {
   FACILITY_ORDER_LIMIT: "Facility order limit",
   SHIP_THRESHOLD: "Shipment threshold",
   WOS: "Week of supply",
+  CARRIER_POSTAL_CODE_MAPPING: "Carrier postal code mapping",
   QUEUE: "Queue",
   QUEUE_EXCLUDED: "Excluded queue",
   SHIPPING_METHOD: "Shipping method",

@@ -549,6 +549,24 @@
               <ion-label>{{ translate('Week of Supply') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
             </ion-item>
+            <ion-item v-else-if="item.target.endsWith('.CARRIER_POSTAL_CODE_MAPPING')" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-label>{{ translate('Carrier postal code mapping') }}</ion-label>
+              <div slot="end">
+                <ion-chip outline @click.stop="chipClickEvent(cpcmOperatorRef)">
+                  <ion-select @click.stop ref="cpcmOperatorRef" :placeholder="translate('operator')" aria-label="CPCM operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'CARRIER_POSTAL_CODE_MAPPING').operator" @ionChange="updateOperator($event, 'CARRIER_POSTAL_CODE_MAPPING')">
+                    <ion-select-option value="less">{{ translate("less than") }}</ion-select-option>
+                    <ion-select-option value="less-equals">{{ translate("less than or equal to") }}</ion-select-option>
+                  </ion-select>
+                </ion-chip>
+                <ion-chip outline @click.stop="chipClickEvent(cpcmZoneRef)">
+                  <ion-select @click.stop ref="cpcmZoneRef" :placeholder="translate('Zone')" aria-label="CPCM zone" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'CARRIER_POSTAL_CODE_MAPPING').fieldValue" @ionChange="updateRuleFilterValue($event, 'CARRIER_POSTAL_CODE_MAPPING')">
+                    <ion-select-option v-for="zone in DEMO_CPCM_ZONE_OPTIONS" :key="zone" :value="zone">
+                      {{ translate(zone === 1 ? "Zone 1 (closest)" : zone === 4 ? "Zone 4 (furthest)" : `Zone ${zone}`) }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-chip>
+              </div>
+            </ion-item>
             </template>
           </RoutingConfigSectionCard>
           <RoutingConfigSectionCard
@@ -780,6 +798,7 @@ import {
   parseRoutingEditorEnvJson
 } from "@/utils/routingEditorEnv";
 import { isFeatureEnabled } from "@/utils/simConfig";
+import { DEMO_CPCM_ZONE_OPTIONS } from "@/utils/demoCarrierPostalCodeMapping";
 import {
   applyPendingRoutingInlineEdits,
   applyRoutingProposalPreview,
@@ -1045,6 +1064,8 @@ const userProfile = computed(() => userStore.getUserProfile)
 
 const operatorRef = ref()
 const measurementRef = ref()
+const cpcmOperatorRef = ref()
+const cpcmZoneRef = ref()
 
 const currentRoutingGroup: any = computed(() => routingStore.getCurrentRoutingGroup)
 
@@ -2901,9 +2922,9 @@ function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
   hasUnsavedChanges.value = true
 }
 
-function updateOperator(event: any) {
+function updateOperator(event: any, parameter = "BRK_SAFETY_STOCK") {
   const filters = JSON.parse(JSON.stringify(inventoryRuleFilterOptions.value))
-  const filter = filters[conditionFilterEnums["BRK_SAFETY_STOCK"].code]
+  const filter = filters[conditionFilterEnums[parameter].code]
 
   if (filter) {
     filter.operator = event.detail.value

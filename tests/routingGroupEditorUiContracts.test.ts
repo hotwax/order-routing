@@ -98,8 +98,12 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain("@ionChange=\"updateOperator($event, 'CARRIER_POSTAL_CODE_MAPPING')\"");
     expect(editorSource).toContain("@ionChange=\"updateRuleFilterValue($event, 'CARRIER_POSTAL_CODE_MAPPING')\"");
     expect(editorSource).toContain('v-for="zone in DEMO_CPCM_ZONE_OPTIONS"');
-    expect(editorSource).toContain('<ion-select-option value="less">');
-    expect(editorSource).toContain('<ion-select-option value="less-equals">');
+    expect(editorSource).toContain("<ion-label class=\"cpcm-label\">{{ translate('CPCM') }}</ion-label>");
+    expect(editorSource).toContain('translate(`Z${zone}`)');
+    expect(editorSource).toContain('class="cpcm-setting-row"');
+    expect(editorSource).toContain('.cpcm-label {');
+    expect(editorSource).toContain('<ion-select-option value="less">&lt;</ion-select-option>');
+    expect(editorSource).toContain('<ion-select-option value="less-equals">≤</ion-select-option>');
   });
 
   it("uses the AccxUI single-step modal and list-divider structure for variation differences", () => {

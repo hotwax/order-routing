@@ -177,6 +177,7 @@
   "Busiest hour": "Busiest hour",
   "Cancel": "Cancel",
   "Carrier postal code mapping": "Carrier postal code mapping",
+  "CPCM": "CPCM",
   "CANCEL": "CANCEL",
   "Cancel job": "Cancel job",
   "Canceling this job will cancel this occurrence and all following occurrences. This job will have to be re-enabled manually to run it again.": "Canceling this job will cancel this occurrence and all following occurrences. This job will have to be re-enabled manually to run it again.",
@@ -432,8 +433,6 @@
   "Goal 100%": "Goal 100%",
   "greater": "greater",
   "greater than or equal to": "greater than or equal to",
-  "less than": "less than",
-  "less than or equal to": "less than or equal to",
   "Ground": "Ground",
   "group": "group",
   "Group": "Group",
@@ -1217,8 +1216,8 @@
   "Variation changes": "Variation changes",
   "routings": "routings",
   "Zone": "Zone",
-  "Zone 1 (closest)": "Zone 1 (closest)",
-  "Zone 2": "Zone 2",
-  "Zone 3": "Zone 3",
-  "Zone 4 (furthest)": "Zone 4 (furthest)"
+  "Z1": "Z1",
+  "Z2": "Z2",
+  "Z3": "Z3",
+  "Z4": "Z4"
 }

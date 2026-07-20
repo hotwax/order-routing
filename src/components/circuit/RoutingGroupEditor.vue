@@ -549,19 +549,19 @@
               <ion-label>{{ translate('Week of Supply') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
             </ion-item>
-            <ion-item v-else-if="item.target.endsWith('.CARRIER_POSTAL_CODE_MAPPING')" :class="{ 'dirty-setting-row': item.dirty }">
-              <ion-label>{{ translate('Carrier postal code mapping') }}</ion-label>
-              <div slot="end">
+            <ion-item v-else-if="item.target.endsWith('.CARRIER_POSTAL_CODE_MAPPING')" class="cpcm-setting-row" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-label class="cpcm-label">{{ translate('CPCM') }}</ion-label>
+              <div slot="end" class="cpcm-controls">
                 <ion-chip outline @click.stop="chipClickEvent(cpcmOperatorRef)">
                   <ion-select @click.stop ref="cpcmOperatorRef" :placeholder="translate('operator')" aria-label="CPCM operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'CARRIER_POSTAL_CODE_MAPPING').operator" @ionChange="updateOperator($event, 'CARRIER_POSTAL_CODE_MAPPING')">
-                    <ion-select-option value="less">{{ translate("less than") }}</ion-select-option>
-                    <ion-select-option value="less-equals">{{ translate("less than or equal to") }}</ion-select-option>
+                    <ion-select-option value="less">&lt;</ion-select-option>
+                    <ion-select-option value="less-equals">≤</ion-select-option>
                   </ion-select>
                 </ion-chip>
                 <ion-chip outline @click.stop="chipClickEvent(cpcmZoneRef)">
                   <ion-select @click.stop ref="cpcmZoneRef" :placeholder="translate('Zone')" aria-label="CPCM zone" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'CARRIER_POSTAL_CODE_MAPPING').fieldValue" @ionChange="updateRuleFilterValue($event, 'CARRIER_POSTAL_CODE_MAPPING')">
                     <ion-select-option v-for="zone in DEMO_CPCM_ZONE_OPTIONS" :key="zone" :value="zone">
-                      {{ translate(zone === 1 ? "Zone 1 (closest)" : zone === 4 ? "Zone 4 (furthest)" : `Zone ${zone}`) }}
+                      {{ translate(`Z${zone}`) }}
                     </ion-select-option>
                   </ion-select>
                 </ion-chip>
@@ -3519,6 +3519,26 @@ async function openArchivedRoutingModal() {
    the chip sizes to the select's content, matching BrokeringQuery.vue. */
 ion-chip > ion-select {
   min-height: unset;
+}
+
+.cpcm-label {
+  flex: 0 0 auto;
+  min-width: 3.25rem;
+  white-space: nowrap;
+}
+
+.cpcm-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.cpcm-controls ion-chip {
+  margin-inline: 2px;
+}
+
+.cpcm-controls ion-select {
+  font-size: 0.875rem;
 }
 
 .routing-group-editor {

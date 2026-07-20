@@ -234,7 +234,7 @@
                     <p class="overline">
                       #{{ run.jobRunId }}
                     </p>
-                    <h2>{{ run.jobDescription || run.jobName }}</h2>
+                    {{ run.jobDescription || run.jobName }}
                     <p>{{ run.shopName || translate("All configured channel shops") }}</p>
                     <p v-if="run.serviceName">
                       {{ run.serviceName }}
@@ -288,7 +288,7 @@
                         <ion-list>
                           <ion-item v-for="log in run.logs" :key="log.logId || log.fileName">
                             <ion-label class="ion-text-wrap">
-                              <h3>{{ log.fileName || `${translate("Data log")} ${log.logId || ''}` }}</h3>
+                              {{ log.fileName || `${translate("Data log")} ${log.logId || ''}` }}
                               <p v-if="log.statusId">
                                 {{ translate("Status") }}: {{ log.statusId }}
                               </p>
@@ -1443,6 +1443,10 @@ async function initializeDetailScope(forceScopeRefresh = false) {
   isInitializingScope.value = true;
   try {
     scopeError.value = "";
+    // Ionic caches and reuses this page, so re-read the product from the authoritative route each
+    // time rather than trusting the ref captured at setup, otherwise a reused instance shows the
+    // previous product's detail.
+    productId.value = String(router.currentRoute.value.params.productId || "");
     const routeScope = parseInventoryScope(router.currentRoute.value.query);
     scopeType.value = routeScope.type;
 
@@ -1457,13 +1461,20 @@ async function initializeDetailScope(forceScopeRefresh = false) {
 
     if(routeScope.type === "location") {
       const isAvailableFacility = (facilityId: string) => productStoreFacilities.value.some((facility: any) => facility.facilityId === facilityId);
-      selectedFacilityId.value = (isAvailableFacility(routeScope.facilityId)
-        ? routeScope.facilityId
-        : isAvailableFacility(productStore().selectedInventoryFacilityId)
-          ? productStore().selectedInventoryFacilityId
-          : productStoreFacilities.value[0]?.facilityId) || "";
-      productStore().setSelectedInventoryFacilityId(selectedFacilityId.value);
-      await syncInventoryDetailScopeUrl();
+      // An explicit but unavailable facility is a scope error, not a silent substitution — matches
+      // the inventory list, and prevents showing/adjusting inventory for a facility the deep link
+      // never asked for. Only an omitted facilityId falls back to the persisted/first facility.
+      if(routeScope.facilityId && !isAvailableFacility(routeScope.facilityId)) {
+        scopeError.value = "The selected facility is not available for this product store.";
+      } else {
+        selectedFacilityId.value = (isAvailableFacility(routeScope.facilityId)
+          ? routeScope.facilityId
+          : isAvailableFacility(productStore().selectedInventoryFacilityId)
+            ? productStore().selectedInventoryFacilityId
+            : productStoreFacilities.value[0]?.facilityId) || "";
+        productStore().setSelectedInventoryFacilityId(selectedFacilityId.value);
+        await syncInventoryDetailScopeUrl();
+      }
     } else if(routeScope.type === "channel") {
       selectedChannelId.value = routeScope.channelId;
       scopeError.value = channelScopeError(selectedChannel.value);

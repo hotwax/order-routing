@@ -190,7 +190,7 @@ describe("useChannelInventory", () => {
       url: "solr-query",
       data: {
         json: expect.objectContaining({
-          filter: expect.stringContaining("facilityId: (_NA_ OR BACKORDER_PARKING) AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)"),
+          filter: expect.stringContaining("productId: \"SKU_1\" AND facilityId: (\"_NA_\" OR \"BACKORDER_PARKING\") AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)"),
         }),
       },
     }));

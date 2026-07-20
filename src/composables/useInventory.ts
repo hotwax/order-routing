@@ -134,7 +134,11 @@ export function useInventory() {
 
   async function fetchVarianceAudit(inventoryItemId: string, physicalInventoryId: string): Promise<VarianceAudit | null> {
     if (!inventoryItemId || !physicalInventoryId) return null
-    if (physicalInventoryId in varianceCache) return varianceCache[physicalInventoryId]
+    // Key by both ids: one physical-inventory session can hold variances for several inventory
+    // items (e.g. sibling variants opened in the same detail view), so caching by
+    // physicalInventoryId alone would serve the first item's actor/comments for the rest.
+    const cacheKey = `${inventoryItemId}::${physicalInventoryId}`
+    if (cacheKey in varianceCache) return varianceCache[cacheKey]
 
     let result: VarianceAudit | null = null
     try {
@@ -158,7 +162,7 @@ export function useInventory() {
       logger.error("Variance audit lookup failed", err)
     }
 
-    varianceCache[physicalInventoryId] = result
+    varianceCache[cacheKey] = result
     return result
   }
 

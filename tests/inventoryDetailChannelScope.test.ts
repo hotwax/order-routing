@@ -153,4 +153,18 @@ describe("InventoryDetail Channel scope", () => {
       query: { channelId: "FAC_GRP" },
     });
   });
+
+  it("treats an explicit but unavailable facility as a scope error instead of substituting one", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "GONE_FACILITY" } };
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    // A deep link to a facility that isn't in this product store must not silently fall back to
+    // another facility and load its data — that would show/adjust inventory the link never asked for.
+    expect(wrapper.text()).toContain("The selected facility is not available for this product store.");
+    expect(fetchProductFacility).not.toHaveBeenCalled();
+    expect(fetchInventoryLogs).not.toHaveBeenCalled();
+  });
 });

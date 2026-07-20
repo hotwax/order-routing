@@ -34,9 +34,9 @@ export interface OrderImpact {
 }
 
 function endpointFor(orderTypeId?: string): (orderId: string) => string {
-  if (orderTypeId === "TRANSFER_ORDER") return (id) => `/oms/transferOrders/${id}`
-  if (orderTypeId === "PURCHASE_ORDER") return (id) => `/oms/purchaseOrders/${id}`
-  return (id) => `/oms/orders/${id}`
+  if (orderTypeId === "TRANSFER_ORDER") return (id) => `/oms/transferOrders/${encodeURIComponent(id)}`
+  if (orderTypeId === "PURCHASE_ORDER") return (id) => `/oms/purchaseOrders/${encodeURIComponent(id)}`
+  return (id) => `/oms/orders/${encodeURIComponent(id)}`
 }
 
 function personName(first?: string, last?: string, group?: string, fallbackId?: string): string | undefined {

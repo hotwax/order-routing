@@ -442,6 +442,10 @@ export function useChannelInventory() {
         return;
       }
 
+      // Quote the interpolated ids: this count feeds the displayed Computed ATP, so a productId
+      // carrying a Solr special character (e.g. a hyphen, read as a negation) must not silently
+      // skew the query into a wrong number.
+      const facilityClause = virtualFacilityIds.map((facilityId: string) => `"${facilityId}"`).join(" OR ");
       const response = await api({
         url: "solr-query",
         method: "post",
@@ -450,7 +454,7 @@ export function useChannelInventory() {
           json: {
             params: { rows: 0 },
             query: "*:*",
-            filter: `docType: ORDER AND orderTypeId: SALES_ORDER AND productStoreId: ${params.productStoreId} AND productId: ${params.productId} AND facilityId: (${virtualFacilityIds.join(" OR ")}) AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)`,
+            filter: `docType: ORDER AND orderTypeId: SALES_ORDER AND productStoreId: "${params.productStoreId}" AND productId: "${params.productId}" AND facilityId: (${facilityClause}) AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)`,
             facet: { queueDemand: "sum(quantity)" },
           },
         },

@@ -112,7 +112,7 @@
       <ion-router-outlet id="main-content" />
     </ion-split-pane>
     <!-- Fast Travel: Cmd/Ctrl+K app switcher + deep-link router across the HotWax suite -->
-    <FastTravel current-app="order-routing" />
+    <FastTravel v-if="useAuth().isAuthenticated" current-app="order-routing" />
   </ion-app>
 </template>
 
@@ -143,7 +143,7 @@ import {
 import { computed, onBeforeMount, onMounted, onUnmounted, ref } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
-import { commonUtil, emitter, translate, FastTravel } from "@common";
+import { commonUtil, emitter, FastTravel, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";

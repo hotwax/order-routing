@@ -22,6 +22,14 @@ export default defineConfig({
       manifest: manifest as any,
     })
   ].filter(Boolean) as any,
+  optimizeDeps: {
+    // The workspace carries multiple peer-variant copies of vue in the pnpm store. Pre-bundling
+    // vue lets esbuild wrap the runtime in lazy CJS-interop (__esm) blocks, and vue-router's
+    // module-scope defineComponent() call then runs before @vue/shared is initialized
+    // ("isFunction is not a function", app never mounts). Serving these ESM-native packages
+    // unbundled avoids the interop wrapper entirely.
+    exclude: ['vue', 'vue-router', '@vue/shared', '@vue/reactivity', '@vue/runtime-core', '@vue/runtime-dom'],
+  },
   resolve: {
     dedupe: ['vue', 'pinia'],
     alias: {

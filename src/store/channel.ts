@@ -1,8 +1,8 @@
-import { defineStore } from 'pinia'
+import { api, commonUtil, logger } from "@common"
+import { DateTime } from "luxon"
+import { defineStore } from "pinia"
 
-import { useAtpProductStore } from '@/store/atpProductStore'
-import { DateTime } from 'luxon'
-import { api, commonUtil, logger } from '@common'
+import { useAtpProductStore } from "@/store/atpProductStore"
 
 function isNotFoundError(error: any) {
   return error?.response?.status === 404 || error?.status === 404;
@@ -15,7 +15,7 @@ export interface ChannelState {
   temporalExp: any;
 }
 
-export const useChannelStore = defineStore('channel', {
+export const useChannelStore = defineStore("channel", {
   state: (): ChannelState => ({
     inventoryChannels: [],
     jobs: [],
@@ -36,9 +36,9 @@ export const useChannelStore = defineStore('channel', {
         const resp = await api({
           url: `admin/productStores/${productStore.currentProductStore.productStoreId}/facilityGroups`,
           method: "GET",
-          params: { facilityGroupTypeId: "CHANNEL_FAC_GROUP", productStoreId: productStore.currentProductStore.productStoreId, pageSize: 50 }
+          params: { facilityGroupTypeId: "CHANNEL_FAC_GROUP", productStoreId: productStore.currentProductStore.productStoreId, pageNoLimit: true }
         }) as any;
-        if (!commonUtil.hasError(resp)) {
+        if(!commonUtil.hasError(resp)) {
           inventoryChannels = resp?.data;
         } else {
           throw resp.data
@@ -51,21 +51,25 @@ export const useChannelStore = defineStore('channel', {
     },
     async fetchGroupFacilities(facilityGroupId?: string) {
       const groups = JSON.parse(JSON.stringify(this.inventoryChannels))
-      if (facilityGroupId) {
+      if(facilityGroupId) {
         try {
           const resp = await api({
             url: `admin/facilityGroups/${facilityGroupId}/facilities`,
             method: "GET",
-            params: { facilityGroupId, pageSize: 100 }
+            params: { facilityGroupId, pageNoLimit: true }
           }) as any;
-          if (!commonUtil.hasError(resp)) {
+          if(!commonUtil.hasError(resp)) {
             const currentGroup = groups.find((group: any) => group.facilityGroupId === facilityGroupId)
-            currentGroup.selectedConfigFacility = await resp.data.find((facility: any) => facility.facilityTypeId === "CONFIGURATION")
+            const configFacilities = resp.data.filter((facility: any) => facility.facilityTypeId === "CONFIGURATION")
+            currentGroup.selectedConfigFacility = configFacilities.length === 1 ? configFacilities[0] : undefined
+            currentGroup.facilityMembershipLoadState = configFacilities.length > 1 ? "ambiguous" : "loaded"
             currentGroup.selectedFacilities = await resp.data.filter((facility: any) => facility.parentFacilityTypeId !== "VIRTUAL_FACILITY" && facility.facilityTypeId !== "VIRTUAL_FACILITY")
           } else {
             throw resp.data
           }
         } catch (err: any) {
+          const currentGroup = groups.find((group: any) => group.facilityGroupId === facilityGroupId)
+          if(currentGroup) {currentGroup.facilityMembershipLoadState = "error"}
           logger.error(err)
         }
       } else {
@@ -74,15 +78,18 @@ export const useChannelStore = defineStore('channel', {
             const resp = await api({
               url: `admin/facilityGroups/${group.facilityGroupId}/facilities`,
               method: "GET",
-              params: { facilityGroupId: group.facilityGroupId, pageSize: 100 }
+              params: { facilityGroupId: group.facilityGroupId, pageNoLimit: true }
             }) as any;
-            if (!commonUtil.hasError(resp)) {
-              group.selectedConfigFacility = await resp.data.find((facility: any) => facility.facilityTypeId === "CONFIGURATION")
+            if(!commonUtil.hasError(resp)) {
+              const configFacilities = resp.data.filter((facility: any) => facility.facilityTypeId === "CONFIGURATION")
+              group.selectedConfigFacility = configFacilities.length === 1 ? configFacilities[0] : undefined
+              group.facilityMembershipLoadState = configFacilities.length > 1 ? "ambiguous" : "loaded"
               group.selectedFacilities = await resp.data.filter((facility: any) => (facility.parentFacilityTypeId !== "VIRTUAL_FACILITY" && facility.facilityTypeId !== "VIRTUAL_FACILITY"))
             } else {
               throw resp.data
             }
           } catch (err: any) {
+            group.facilityMembershipLoadState = "error"
             logger.error(err)
           }
         }))
@@ -92,7 +99,7 @@ export const useChannelStore = defineStore('channel', {
     updateGroup(payload: any) {
       const groups = JSON.parse(JSON.stringify(this.inventoryChannels))
       const selectedGroup = groups.find((group: any) => group.facilityGroupId === payload.facilityGroupId)
-      if (selectedGroup) {
+      if(selectedGroup) {
         selectedGroup.facilityGroupName = payload.facilityGroupName
         selectedGroup.description = payload.description
       }
@@ -107,7 +114,7 @@ export const useChannelStore = defineStore('channel', {
           method: "get",
           params: { productStoreId: productStore.currentProductStore.productStoreId }
         }) as any;
-        if (!commonUtil.hasError(resp)) {
+        if(!commonUtil.hasError(resp)) {
           shopifyConfigs = resp.data;
         } else {
           throw resp.data
@@ -115,13 +122,15 @@ export const useChannelStore = defineStore('channel', {
       } catch (error: any) {
         logger.error(error)
       }
+
       return shopifyConfigs;
     },
     async fetchJobs() {
       const productStore = useAtpProductStore()
       const shopifyConfigs = await this.fetchShopifyConfigs();
-      if (!shopifyConfigs.length) {
+      if(!shopifyConfigs.length) {
         this.jobs = [];
+
         return;
       }
       let params = {}, draftJob = {} as any;
@@ -136,7 +145,7 @@ export const useChannelStore = defineStore('channel', {
       }
 
       const draftJobs = await this.fetchJobInformation(params);
-      if (draftJobs.length) draftJob = draftJobs[0];
+      if(draftJobs.length) {draftJob = draftJobs[0];}
       params = {
         inputFields: {
           statusId: "SERVICE_PENDING",
@@ -149,7 +158,7 @@ export const useChannelStore = defineStore('channel', {
       const pendingJobs = await this.fetchJobInformation(params);
       const jobs = shopifyConfigs.map((shop: any) => {
         const pendingJob = pendingJobs.find((job: any) => job.shopId === shop.shopId)
-        if (pendingJob?.jobId) {
+        if(pendingJob?.jobId) {
           return { ...shop, ...pendingJob, runTimeValue: pendingJob.runTime }
         } else {
           return {
@@ -181,7 +190,7 @@ export const useChannelStore = defineStore('channel', {
           baseURL: commonUtil.getOmsURL(),
           cache: true
         }) as any;
-        if (!commonUtil.hasError(resp)) {
+        if(!commonUtil.hasError(resp)) {
           statusDescs = resp.data.docs;
         } else {
           throw resp.data;
@@ -208,18 +217,19 @@ export const useChannelStore = defineStore('channel', {
           "noConditionFind": "Y",
         },
       }) as any;
-      if (!commonUtil.hasError(resp)) {
+      if(!commonUtil.hasError(resp)) {
         temporalExpressions = resp.data.docs;
         temporalExpressions.forEach((temporalExpression: any) => {
           this.temporalExp[temporalExpression.tempExprId] = temporalExpression;
         })
       }
+
       return temporalExpressions;
     },
     updateJob(payload: any) {
       const jobs = JSON.parse(JSON.stringify(this.jobs))
       const selectedJob = jobs.find((job: any) => job.shopId === payload.shopId)
-      if (selectedJob) {
+      if(selectedJob) {
         selectedJob.runTime = payload.runTime
         selectedJob.runTimeValue = payload.runTime
         selectedJob.tempExprId = payload.jobStatus
@@ -259,9 +269,10 @@ export const useChannelStore = defineStore('channel', {
           baseURL: commonUtil.getOmsURL(),
           data: payload
         }) as any;
+
         return resp.data?.docs || [];
       } catch (error: any) {
-        if (isNotFoundError(error)) return [];
+        if(isNotFoundError(error)) {return [];}
         throw error;
       }
     },

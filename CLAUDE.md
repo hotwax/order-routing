@@ -14,12 +14,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Tests
 
-There are two unrelated test surfaces:
+`tests/*.test.ts` is a mix of two conventions:
 
-- `npm run test:unit` / `npm run test:e2e` — the `vue-cli-service` Jest/Cypress wiring inherited from the Vue CLI plugins. **No specs exist in `tests/unit/` or `tests/e2e/`**, so these commands currently have nothing to run.
-- `tests/*.test.ts` — standalone TypeScript scripts that import from `src/services/` and `src/draftTargets/` and use `node:assert`. They are not wired to a test runner in `package.json`. Run an individual one with `npx tsx tests/<name>.test.ts` (or `ts-node`). Each file ends with a `console.log("... tests passed")` line and throws on assertion failure. Mastra/brokering agent tests now live in `sandbox/circuit/src/mastra/test/brokering/`.
+- Newer specs — including all the channel/inventory-scope ones (`useChannelInventory`,
+  `channelSwitcherModal`, `inventoryScope`, `inventoryDetailChannelScope`,
+  `useProductFacility`, `inventoryMovementDeltas`, `inventoryListOnlineAtp`) — are real vitest specs
+  (`describe`/`it`/`expect`/`vi` imported from `"vitest"`). `npm run test:unit` runs
+  `vitest` directly; run a single file with `npx vitest run tests/<name>.test.ts`.
+- Older files still import `assert`/`node:assert` and run as standalone scripts via
+  `npx tsx tests/<name>.test.ts` (or `ts-node`), throwing on failure and logging a
+  `"... tests passed"` line on success. `vitest`'s default include pattern still picks
+  these up when you run the whole suite (`npm run test:unit` with no path), and reports
+  them as failed files since they have no `describe`/`it` — that's expected noise from
+  the older scripts, not a signal about the vitest specs sitting alongside them.
+- `npm run test:e2e` — vue-cli-service Cypress wiring; no specs exist in `tests/e2e/`,
+  nothing to run.
+- Mastra/brokering agent tests live in `sandbox/circuit/src/mastra/test/brokering/`.
 
-When adding new tests for brokering agent logic, add them to `sandbox/circuit/src/mastra/test/brokering/` following the existing `node:assert` + `tsx`-runnable pattern rather than introducing Jest.
+When adding new tests, prefer the vitest convention (already used by every
+channel/inventory-scope spec) over adding another `node:assert` script. Mastra/brokering
+agent tests still follow the existing `node:assert` + `tsx`-runnable pattern in
+`sandbox/circuit/src/mastra/test/brokering/`.
 
 ## Required env
 

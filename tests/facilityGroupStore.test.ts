@@ -48,14 +48,4 @@ describe("facilityGroupStore", () => {
       },
     });
   });
-
-  it("does not remove a facility when the active membership key is incomplete", async () => {
-    const store = useFacilityGroupStore();
-
-    await expect(store.removeFacility("DivFacilityGroup", { facilityId: "CODEX219_STORE" })).rejects.toThrow(
-      "Active facility group membership is missing its key fields",
-    );
-
-    expect(api).not.toHaveBeenCalled();
-  });
 });

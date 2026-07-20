@@ -64,6 +64,8 @@ describe("FacilityGroups view", () => {
       IonCardTitle: defineComponent({ name: "IonCardTitle", template: "<h2><slot /></h2>" }),
       IonChip: defineComponent({ name: "IonChip", template: "<span><slot /></span>" }),
       IonContent: defineComponent({ name: "IonContent", template: "<main><slot /></main>" }),
+      IonFab: defineComponent({ name: "IonFab", template: "<div><slot /></div>" }),
+      IonFabButton: defineComponent({ name: "IonFabButton", template: "<button><slot /></button>" }),
       IonHeader: defineComponent({ name: "IonHeader", template: "<header><slot /></header>" }),
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),

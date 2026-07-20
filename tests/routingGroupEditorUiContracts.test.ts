@@ -23,8 +23,9 @@ describe("routing group editor UI contracts", () => {
     expect(canvasSource).not.toContain(':inert="editorLocked');
   });
 
-  it("highlights the baseline Save action whenever the live editor is dirty", () => {
-    expect(canvasSource).toContain(":fill=\"editorDirty ? 'outline' : 'clear'\"");
+  it("keeps the baseline Save action clear-filled while highlighting dirty state", () => {
+    expect(canvasSource).toContain('fill="clear"');
+    expect(canvasSource).not.toContain(":fill=\"editorDirty ? 'outline' : 'clear'\"");
     expect(canvasSource).toContain(":color=\"editorDirty ? 'primary' : undefined\"");
     expect(canvasSource).toContain(':disabled="!editorDirty || editorLocked"');
   });

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   fetchGroupDetails: vi.fn(),
   loadAllThreads: vi.fn(),
   switchThread: vi.fn(),
+  messages: [] as any[],
   threads: [] as any[],
   requestRouteDraft: vi.fn(),
   requestListInquiry: vi.fn(),
@@ -166,7 +167,7 @@ vi.mock("@/store/circuit", () => ({
 
     return {
       __refs: {
-      messages: ref([]),
+      messages: ref(mocks.messages),
       threads: ref(mocks.threads),
       currentThreadId,
       lastPrompt: ref(null),
@@ -251,6 +252,7 @@ import OrderRoutingList from "../src/views/OrderRoutingList.vue";
 describe("draft assistant production UI gate", () => {
   beforeEach(() => {
     mocks.assistantEnabled = false;
+    mocks.messages = [];
     mocks.threads = [];
     vi.clearAllMocks();
     mocks.fetchRoutingEditorEnums.mockResolvedValue(undefined);
@@ -384,8 +386,9 @@ describe("draft assistant production UI gate", () => {
     expect(mocks.loadAllThreads).not.toHaveBeenCalled();
   });
 
-  it("restores the detail-page assistant controls and thread loading when enabled", () => {
+  it("restores the detail-page assistant controls and thread loading when enabled", async () => {
     mocks.assistantEnabled = true;
+    mocks.messages = [{ id: "existing", role: "circuit", content: "Existing response" }];
     const detail = mount(RoutingDetailCanvas, {
       props: { routingGroupId: "G1", simulationEnabled: false },
       global: {
@@ -401,10 +404,18 @@ describe("draft assistant production UI gate", () => {
     expect(detail.find('[aria-label="Hide chat"]').exists()).toBe(true);
     expect(detail.find(".chat-section").exists()).toBe(true);
     expect(detail.find("circuit-prompt-area-stub").exists()).toBe(true);
-    expect(detail.find("circuit-feedback-modal-stub").exists()).toBe(true);
+    expect(detail.find('[aria-label="Send feedback to improve Circuit"]').exists()).toBe(false);
+    expect(detail.find("circuit-feedback-modal-stub").exists()).toBe(false);
     expect(detail.text()).toContain("Start a conversation");
     expect(detail.text()).toContain("Ask Circuit a question about this routing or describe a change you want to make.");
     expect(detail.text()).toContain("Threads");
+    expect(detail.get(".chat-actions").text()).toContain("Threads");
+    expect(detail.find('[aria-label="New chat"]').exists()).toBe(false);
+    expect(detail.find('[aria-label="Clear chat history"]').exists()).toBe(false);
+    const threadModal = detail.findAll(".ion-modal").find((modal) => modal.text().includes("Chat Threads"));
+    expect(threadModal?.attributes("data-open")).toBe("false");
+    await detail.get('[aria-label="Threads"]').trigger("click");
+    expect(threadModal?.attributes("data-open")).toBe("true");
     expect(mocks.loadAllThreads).toHaveBeenCalledOnce();
   });
 
@@ -442,6 +453,15 @@ describe("draft assistant production UI gate", () => {
     await flushPromises();
     expect(mocks.switchThread).toHaveBeenCalledWith("second");
     expect(detail.text()).not.toContain("Start a conversation");
+    expect(detail.get(".chat-actions").text()).toContain("New chat");
+    expect(detail.get(".chat-actions").text()).toContain("Threads");
+    expect(document.activeElement).toBe(detail.get(".ion-textarea").element);
+
+    await detail.get('[aria-label="New chat"]').trigger("click");
+    await flushPromises();
+    expect(mocks.switchThread).toHaveBeenLastCalledWith(null);
+    expect(detail.text()).toContain("Start a conversation");
+    expect(detail.find('[aria-label="New chat"]').exists()).toBe(false);
     expect(document.activeElement).toBe(detail.get(".ion-textarea").element);
 
     detail.unmount();

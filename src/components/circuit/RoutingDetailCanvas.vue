@@ -43,7 +43,7 @@
           <ion-button
             v-if="!activeVariationId"
             :disabled="!editorDirty || editorLocked"
-            :fill="editorDirty ? 'outline' : 'clear'"
+            fill="clear"
             :color="editorDirty ? 'primary' : undefined"
             :aria-label="editorDirty ? translate('Save changes') : translate('No unsaved changes')"
             @click="saveEditor"
@@ -51,25 +51,15 @@
             <ion-icon slot="start" :icon="saveOutline" />
             {{ editorDirty ? translate("Save") : translate("Saved") }}
           </ion-button>
-          <ion-button v-if="draftAssistantEnabled && isChatStarted" :aria-label="translate('New chat')" @click="createNewChat">
-            <ion-icon slot="icon-only" :icon="addOutline" />
-          </ion-button>
-          <ion-button v-if="draftAssistantEnabled && messages.length" :disabled="isApplyingDraft" :aria-label="translate('Clear chat history')" @click="clearCurrentChatHistory">
-            <ion-icon slot="icon-only" :icon="trashOutline" />
-          </ion-button>
           <ion-button v-if="draftAssistantEnabled && isDevModeEnabled" @click="showPromptModal = true">
             <ion-icon slot="icon-only" :icon="terminalOutline" />
           </ion-button>
           <ion-button
-            v-if="draftAssistantEnabled && canSendFeedback"
+            v-if="circuitFeedbackEnabled && draftAssistantEnabled && canSendFeedback"
             :aria-label="translate('Send feedback to improve Circuit')"
             @click="showFeedbackModal = true"
           >
             <ion-icon slot="icon-only" :icon="bulbOutline" />
-          </ion-button>
-          <ion-button v-if="draftAssistantEnabled" @click="openThreadModal">
-            <ion-icon slot="start" :icon="chatbubblesOutline" />
-            {{ translate("Threads") }}
           </ion-button>
         </ion-buttons>
       </ion-toolbar>
@@ -178,6 +168,28 @@
               </ion-button>
             </div>
           </div>
+
+          <div class="chat-actions">
+            <ion-button
+              v-if="currentThreadId"
+              fill="clear"
+              size="small"
+              :aria-label="translate('New chat')"
+              @click="createNewChat"
+            >
+              <ion-icon slot="start" :icon="addOutline" />
+              {{ translate("New chat") }}
+            </ion-button>
+            <ion-button
+              fill="clear"
+              size="small"
+              :aria-label="translate('Threads')"
+              @click="openThreadModal"
+            >
+              <ion-icon slot="start" :icon="chatbubblesOutline" />
+              {{ translate("Threads") }}
+            </ion-button>
+          </div>
         </div>
 
         <!-- The separator is pointer- and keyboard-resizable so the conversation can expand without
@@ -266,7 +278,7 @@
       </ion-content>
     </ion-modal>
     <CircuitFeedbackModal
-      v-if="draftAssistantEnabled"
+      v-if="circuitFeedbackEnabled && draftAssistantEnabled"
       :is-open="showFeedbackModal"
       :messages="buildFeedbackMessages()"
       :context="feedbackContext"
@@ -354,6 +366,9 @@ const props = withDefaults(defineProps<{
 const circuitStore = useCircuitStore();
 const preferencesStore = usePreferencesStore();
 const draftAssistantEnabled = isFeatureEnabled('draftAssistant');
+// Park feedback collection until it can persist through the survey data model. Keeping the gate
+// local preserves the reviewed UI and payload work without exposing a control that cannot save.
+const circuitFeedbackEnabled = false;
 const isDevModeEnabled = computed(() => preferencesStore.isDevModeEnabled);
 const { 
   messages, 
@@ -361,7 +376,6 @@ const {
   currentThreadId, 
   lastPrompt, 
   activeContext: selectedContext,
-  isChatStarted
 } = storeToRefs(circuitStore);
 const prompt = ref('');
 const promptArea = ref<InstanceType<typeof CircuitPromptArea> | null>(null);
@@ -997,15 +1011,11 @@ const buildConversationHistory = (): DraftConversationMessage[] => {
     .slice(-12);
 }
 
-const createNewChat = () => {
+const createNewChat = async () => {
   if (!draftAssistantEnabled) return;
+  await circuitStore.switchThread(null);
   circuitStore.setChatStarted(false);
-  circuitStore.switchThread(null);
-}
-
-const clearCurrentChatHistory = () => {
-  if (!draftAssistantEnabled) return;
-  circuitStore.clearCurrentChatHistory();
+  await focusPrompt();
 }
 
 const openThreadModal = () => {
@@ -1087,6 +1097,14 @@ const formatDate = (timestamp: number) => {
 .recent-thread-item {
   --padding-start: var(--spacer-sm);
   --inner-padding-end: var(--spacer-sm);
+}
+
+.chat-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacer-xs);
+  padding: 0 var(--spacer-base) var(--spacer-base);
 }
 
 .overline {

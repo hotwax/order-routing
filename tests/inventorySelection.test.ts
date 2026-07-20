@@ -9,8 +9,8 @@ describe("Inventory product selection", () => {
   beforeEach(() => {
     vi.resetModules();
     products.value = [
-      { productId: "M102977", parentProductName: "Gift card", isChecked: true },
-      { productId: "M101833", parentProductName: "Teton Pullover Hoodie", isChecked: false },
+      { productId: "M102977", parentProductName: "Gift card" },
+      { productId: "M101833", parentProductName: "Teton Pullover Hoodie" },
     ];
     modalCreate.mockReset();
     modalCreate.mockResolvedValue({
@@ -20,6 +20,10 @@ describe("Inventory product selection", () => {
 
     vi.doMock("@common", () => ({
       DxpShopifyImg: defineComponent({ name: "DxpShopifyImg", template: "<img />" }),
+      commonUtil: {
+        getProductIdentificationValue: (identifier: string, product: any) => product?.[identifier] || "",
+      },
+      emitter: { on: vi.fn(), off: vi.fn() },
       translate: (label: string) => label,
     }));
     vi.doMock("../src/router", () => ({
@@ -42,16 +46,22 @@ describe("Inventory product selection", () => {
     }));
     vi.doMock("@/store/product", () => ({
       productStore: () => ({
+        fetchProducts: vi.fn(),
         getProductById: () => ({ mainImageUrl: "" }),
       }),
     }));
     vi.doMock("@/store/productStore", () => ({
       productStore: () => ({
         fetchProductStoreFacilities: vi.fn(() => Promise.resolve()),
+        getProductIdentificationPref: { primaryId: "productId", secondaryId: "SKU" },
         productStoreFacilities: [{ facilityId: "BROOKLYN", facilityName: "Brooklyn" }],
         selectedInventoryFacilityId: "BROOKLYN",
+        setEcomStore: vi.fn(),
         setSelectedInventoryFacilityId: vi.fn(),
       }),
+    }));
+    vi.doMock("@/store/atpProductStore", () => ({
+      useAtpProductStore: () => ({ currentProductStore: { productStoreId: "STORE" } }),
     }));
     vi.doMock("@ionic/vue", () => ({
       IonButton: defineComponent({ name: "IonButton", template: "<button><slot /></button>" }),
@@ -74,11 +84,13 @@ describe("Inventory product selection", () => {
       IonSearchbar: defineComponent({ name: "IonSearchbar", template: "<input />" }),
       IonSelect: defineComponent({ name: "IonSelect", template: "<select><slot /></select>" }),
       IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
+      IonSkeletonText: defineComponent({ name: "IonSkeletonText", template: "<span />" }),
       IonThumbnail: defineComponent({ name: "IonThumbnail", template: "<div><slot /></div>" }),
       IonTitle: defineComponent({ name: "IonTitle", template: "<h1><slot /></h1>" }),
       IonToolbar: defineComponent({ name: "IonToolbar", template: "<div><slot /></div>" }),
       modalController: { create: modalCreate },
       onIonViewDidEnter: vi.fn(),
+      onIonViewDidLeave: vi.fn(),
     }));
   });
 
@@ -86,12 +98,15 @@ describe("Inventory product selection", () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
 
-    const rowCheckboxes = wrapper.findAllComponents({ name: "IonCheckbox" }).slice(1);
-    await rowCheckboxes[0].vm.$emit("update:modelValue", false);
-    await rowCheckboxes[1].vm.$emit("update:modelValue", true);
+    const selectButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Select");
+    await selectButton?.trigger("click");
     await nextTick();
 
-    const adjustInventoryButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Adjust Inventory");
+    const rowCheckboxes = wrapper.findAllComponents({ name: "IonCheckbox" }).slice(1);
+    await rowCheckboxes[1].trigger("click");
+    await nextTick();
+
+    const adjustInventoryButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Adjust inventory");
     expect(adjustInventoryButton).toBeTruthy();
     await adjustInventoryButton?.trigger("click");
 

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("AddProductFiltersModal", () => {
   const fetchProductFilters = vi.fn();
+  const fetchProductFacetCounts = vi.fn();
+  const previewProducts = vi.fn();
   const facetOptions = [
     { id: "Size/L", label: "Size/L", value: "Size/L" },
     { id: "Size/XL", label: "Size/XL", value: "Size/XL" },
@@ -14,6 +16,10 @@ describe("AddProductFiltersModal", () => {
     vi.resetModules();
     fetchProductFilters.mockReset();
     fetchProductFilters.mockResolvedValue(undefined);
+    fetchProductFacetCounts.mockReset();
+    fetchProductFacetCounts.mockResolvedValue({ "Size/L": 4, "Size/XL": 2 });
+    previewProducts.mockReset();
+    previewProducts.mockResolvedValue({ total: 6 });
 
     vi.doMock("@common", () => ({
       translate: (label: string, params?: { label?: string }) => params?.label ? `${label} ${params.label}` : label,
@@ -21,9 +27,15 @@ describe("AddProductFiltersModal", () => {
     vi.doMock("@/store/atpProductStore", () => ({
       useAtpProductStore: () => ({
         fetchProductFilters,
+        fetchProductFacetCounts,
+        previewProducts,
         getAppliedFilters: {
           included: { tags: [], productFeatures: [] },
           excluded: { tags: [], productFeatures: [] },
+        },
+        getAppliedFiltersOperator: {
+          included: { tags: "", productFeatures: "" },
+          excluded: { tags: "", productFeatures: "" },
         },
         getFacetOptions: () => facetOptions,
         updateAppliedFilters: vi.fn(),

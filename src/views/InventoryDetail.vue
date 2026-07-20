@@ -160,7 +160,7 @@
 
           <template v-if="channelDetailSegment === 'reconciliation'">
             <p class="ion-padding-horizontal">
-              {{ translate("This channel's aggregate inventory is pushed to the Shopify location mapped to NA for each shop.") }}
+              {{ translate("This channel's aggregate inventory is pushed to the Shopify location mapped to {facilityName} for each shop.", { facilityName: naFacilityName || translate("the brokering queue") }) }}
             </p>
             <div v-if="reconciliationState === 'loading'" class="reconciliation-skeleton">
               <ion-skeleton-text v-for="n in 2" :key="n" animated class="ion-margin-vertical" />
@@ -1014,6 +1014,7 @@ const {
   channelJobRuns,
   contributingSafetyStock,
   facilityInventoryState,
+  naFacilityName,
   onlineAtp,
   onlineAtpState,
   outsideChannelInventory,

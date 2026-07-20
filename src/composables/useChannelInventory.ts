@@ -245,6 +245,10 @@ export function useChannelInventory() {
   const virtualQueueDemand = ref<number | null>(null);
   const virtualQueueDemandState = ref<"idle" | "loading" | "loaded" | "unavailable">("idle");
   const physicalFacilityCount = ref(0);
+  // Display name of the _NA_ facility (e.g. "Brokering Queue") that channel/aggregate inventory is
+  // pushed through — resolved from the virtual-facility fetch below and shown in the reconciliation
+  // copy instead of the raw "_NA_" code.
+  const naFacilityName = ref("");
   const channelHistoryState = ref<LoadState>("idle");
   const channelJobRuns = ref<ChannelInventoryJobRun[]>([]);
   const channelJobRunsUnavailableCount = ref(0);
@@ -319,6 +323,7 @@ export function useChannelInventory() {
     shopifyLocationNameByMapping.value = {};
     virtualQueueDemand.value = null;
     virtualQueueDemandState.value = "idle";
+    naFacilityName.value = "";
     channelHistoryState.value = "idle";
     channelJobRuns.value = [];
     channelJobRunsUnavailableCount.value = 0;
@@ -422,6 +427,7 @@ export function useChannelInventory() {
   async function loadVirtualQueueDemand(params: ChannelInventoryLoadParams, currentRequestId: number) {
     virtualQueueDemand.value = null;
     virtualQueueDemandState.value = "loading";
+    naFacilityName.value = "";
     try {
       const facilitiesResponse = await api({
         url: "oms/facilities",
@@ -431,10 +437,12 @@ export function useChannelInventory() {
       if(!isSuccessfulResponse(facilitiesResponse)) {throw facilitiesResponse;}
       // The endpoint does not honor the parentFacilityTypeId filter, so filter client-side.
       const facilities = Array.isArray((facilitiesResponse as any)?.data) ? (facilitiesResponse as any).data : (facilitiesResponse as any)?.data?.facilities || [];
+      if(currentRequestId !== requestId) {return;}
+      const naFacility = facilities.find((facility: any) => isNaFacility(facility.facilityId));
+      naFacilityName.value = naFacility?.facilityName || "";
       const virtualFacilityIds = facilities
         .filter((facility: any) => facility.parentTypeId === "VIRTUAL_FACILITY")
         .map((facility: any) => facility.facilityId);
-      if(currentRequestId !== requestId) {return;}
       if(!virtualFacilityIds.length) {
         virtualQueueDemand.value = 0;
         virtualQueueDemandState.value = "loaded";
@@ -678,6 +686,7 @@ export function useChannelInventory() {
     facilityInventoryState,
     facilityInventoryUnavailableCount,
     load,
+    naFacilityName,
     onlineAtp,
     onlineAtpState,
     outsideChannelInventory,

@@ -1635,9 +1635,40 @@ async function save() {
   // Added check to not fetch any rule related information as when a new route will be created no rule will be available thus no need to fetch any other information
   if(currentRouting.value["rules"]?.length) {
     inventoryRules.value = commonUtil.sortSequence(JSON.parse(JSON.stringify(currentRouting.value["rules"])))
-    // Passed true as when updating an existing rule we get seqIds in the response so to fetch the latest seqIds for the rule calling rule api again by passing true
-    // TODO: Need to update this logic by just updating the state instead of making an api call, this can also be handled when in the update api call we will get latest information again
-    await fetchRuleInformation(currentRuleId.value, true);
+    initializeInventoryRules()
+
+    selectedRoutingRule.value = rulesForReorder.value.find((rule: Rule) => rule.routingRuleId === currentRuleId.value) || {}
+
+    // Instead of making an api call to fetch rule information, we can just update the state by formatting the rule directly
+    let formattedRule = selectedRoutingRule.value ? JSON.parse(JSON.stringify(selectedRoutingRule.value)) : {}
+
+    if (formattedRule.routingRuleId) {
+      if(formattedRule["inventoryFilters"]?.length) {
+        formattedRule["inventoryFilters"] = formattedRule["inventoryFilters"].reduce((filters: any, filter: any) => {
+          if(filters[filter.conditionTypeEnumId]) {
+            filters[filter.conditionTypeEnumId][filter.fieldName] = filter
+          } else {
+            filters[filter.conditionTypeEnumId] = {
+              [filter.fieldName]: filter
+            }
+          }
+          return filters
+        }, {})
+      }
+      if(formattedRule["actions"]?.length) {
+        formattedRule["actions"] = formattedRule["actions"].reduce((actions: any, action: any) => {
+          actions[action.actionTypeEnumId] = action
+          return actions
+        }, {})
+      }
+    }
+
+    rulesInformation.value[currentRuleId.value] = formattedRule
+
+    if(!selectedRoutingRule.value || !rulesInformation.value[currentRuleId.value]?.routingRuleId) {
+      selectedRoutingRule.value = {}
+    }
+    initializeInventoryRule(rulesInformation.value[currentRuleId.value] ? JSON.parse(JSON.stringify(rulesInformation.value[currentRuleId.value])) : {})
   }
 
   hasUnsavedChanges.value = false

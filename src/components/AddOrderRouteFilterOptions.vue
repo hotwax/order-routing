@@ -116,7 +116,11 @@ function addSortOption(sort: any) {
         orderRoutingId: props.orderRoutingId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: sort.enumCode,
-        sequenceNum: Object.keys(routingFilters.value).length && routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]]?.sequenceNum >= 0 ? routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]].sequenceNum + 5 : 0  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+        sequenceNum: (() => {
+          const lastFilter: any = Object.values(routingFilters.value).pop()
+          // check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+          return lastFilter?.sequenceNum >= 0 ? lastFilter.sequenceNum + 5 : 0
+        })()
       }
     }
   }
@@ -126,9 +130,9 @@ function addSortOption(sort: any) {
 
 function saveSortOptions() {
   const currentTimestamp = DateTime.now().toMillis();
-  Object.keys(routingFilters.value).forEach((key) => {
-    if (!routingFilters.value[key].createdDate) {
-      routingFilters.value[key].createdDate = currentTimestamp;
+  Object.values(routingFilters.value).forEach((filter: any) => {
+    if (!filter.createdDate) {
+      filter.createdDate = currentTimestamp;
     }
   });
 

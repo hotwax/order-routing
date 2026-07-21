@@ -223,7 +223,7 @@
           <section id="inventory-sequence" class="menu">
             <ion-list>
               <ion-reorder-group @ionItemReorder="doReorder($event)" :disabled="isTestEnabled">
-                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
+                <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
                     {{ rule.ruleName }}
                     <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
@@ -915,7 +915,6 @@ async function addInventoryRule() {
         const archivedRuleIds = getArchivedOrderRules()?.map((rule: Rule) => rule.routingRuleId)
         const activeRuleIds = inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_ACTIVE")?.map((rule: Rule) => rule.routingRuleId)
         const draftRuleIds = inventoryRules.value.filter((rule: Rule) => rule.statusId === "RULE_DRAFT")?.map((rule: Rule) => rule.routingRuleId)
-        // TODO: Fix warning of duplicate keys when creating a new rule
         const routingRules = JSON.parse(JSON.stringify(currentRouting.value["rules"]))
         routingRules.map((rule: any) => {
           if(archivedRuleIds.includes(rule.routingRuleId)) {

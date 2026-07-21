@@ -261,8 +261,7 @@ function getEligibleRoutesForBrokering() {
       return
     }
 
-    // TODO: we can use some method here
-    const matchedFilters = orderFilters.filter((orderFilter: any) => {
+    const allFiltersMatched = orderFilters.every((orderFilter: any) => {
       const key = orderFilter.fieldName
       const value = orderFilter.fieldValue
 
@@ -285,7 +284,7 @@ function getEligibleRoutesForBrokering() {
     })
 
     // If all of the filters are matched and the corresponding route has some rules available
-    if(matchedFilters.length === orderFilters.length && routing.rules?.length) {
+    if(allFiltersMatched && routing.rules?.length) {
       eligibleRoutings.push(routing.orderRoutingId)
     }
   })

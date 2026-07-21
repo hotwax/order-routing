@@ -200,8 +200,7 @@ async function fetchRoutingGroupInformation() {
 }
 
 async function fetchRoutingsInformation() {
-  // TODO: update logic to fetch the routings in parallel
-  await group.value.routings.forEach(async (routing: any) => {
+  await Promise.all(group.value.routings.map(async (routing: any) => {
     let route = {} as any
     try {
       const resp = await api({
@@ -246,7 +245,7 @@ async function fetchRoutingsInformation() {
     } catch(err) {
       logger.error(err);
     }
-  })
+  }))
 }
 
 async function openRouteDetails(routing: any) {

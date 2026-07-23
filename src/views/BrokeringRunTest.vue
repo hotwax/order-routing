@@ -51,7 +51,7 @@
               <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
                 <ion-item lines="full">
                   <ion-label>
-                    <h1>{{ routing.routingName }}</h1>
+                    {{ routing.routingName }}
                   </ion-label>
                   {{ `${Number(index) + 1}/${group.routings.length}` }}
                 </ion-item>
@@ -78,8 +78,10 @@
                 <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
                 <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="[{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }, 'rule-item']" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
                   <ion-label>
-                    <h2>{{ rule.ruleName }}</h2>
-                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                    {{ rule.ruleName }}
+                    <p>
+                      <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                    </p>
                   </ion-label>
                 </ion-item>
               </ion-item-group>

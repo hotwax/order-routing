@@ -1,78 +1,139 @@
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createPinia, setActivePinia } from "pinia";
-import SimulationResults from "../src/components/simulation/SimulationResults.vue";
-import { simulationStore } from "../src/store/simulationStore";
-import { makeOutcomes, makeResults } from "./fixtures/outcomes";
+import { describe, expect, it } from "vitest";
+import {
+  compareFacilities,
+  describeRuleAttempts,
+  fillRateOf,
+  joinRoutingResults,
+  persistedSimulationAdapter,
+  queuedDiff,
+  toRows,
+} from "@/utils/simulationResults";
+import type { OrderTrace, RoutingRunResult } from "@/types/variation";
 
-vi.mock("@common", () => ({
-  translate: (s: string) => s,
-  commonUtil: { formatCurrency: (a: number, c: string) => `${c === "USD" ? "$" : ""}${Number(a).toFixed(2)}` },
-}));
+const run = (orderRoutingId: string, sequenceNum: number, eligibleEntryCount: number): RoutingRunResult => ({
+  orderRoutingId,
+  sequenceNum,
+  eligibleEntryCount,
+  attemptedItemCount: eligibleEntryCount,
+  brokeredItemCount: 0,
+  queuedItemCount: 0,
+});
 
-// SimulationResults calls useRouter() for the "View saved result" deep-link; provide a stub so the
-// component mounts without a real router (the link only renders when lastSimulationId is set).
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: () => {} }) }));
+const trace = (
+  orderId: string,
+  finalReason: string,
+  facilityId?: string,
+  shipGroupSeqId = "00001",
+  orderItemSeqId = "00101",
+): OrderTrace => ({
+  orderId,
+  shipGroupSeqId,
+  orderItemSeqId,
+  finalReason,
+  finalAssignments: facilityId ? [{
+    orderId,
+    shipGroupSeqId,
+    orderItemSeqId,
+    facilityId,
+    routedQty: 1,
+    itemQty: 1,
+  }] : [],
+});
 
-// Stub child panels + Ionic so the container test stays focused on composition.
-const childStubs = {
-  SimulationProgress: { template: "<div class='progress-stub' />" },
-  OutcomeHeadline: { props: ["rows", "winnerLabel"], template: "<div class='headline-stub'>{{ rows.length }}|{{ winnerLabel }}</div>" },
-  TradeoffChart: { props: ["rows"], template: "<div class='tradeoff-stub' />" },
-  ExpeditedPanel: { props: ["rows"], template: "<div class='expedited-stub' />" },
-  StockoutPanel: { props: ["rows"], template: "<div class='stockout-stub' />" },
-  FulfillmentMixPanel: { props: ["rows"], template: "<div class='mix-stub' />" },
-  CompositeScorePanel: { props: ["results"], emits: ["winner"], template: "<button class='score-stub' @click=\"$emit('winner','v1')\" />" },
-  AdvancedDetails: { props: ["results"], template: "<div class='advanced-stub' />" },
-  IonButton: { template: "<button><slot /></button>" },
-  IonCard: { template: "<div><slot /></div>" },
-  IonCardHeader: { template: "<div><slot /></div>" },
-  IonCardTitle: { template: "<div><slot /></div>" },
-  IonCardContent: { template: "<div><slot /></div>" },
-  IonIcon: { template: "<i />" },
-  IonAccordion: { template: "<div><slot /></div>" },
-  IonAccordionGroup: { template: "<div><slot /></div>" },
-  IonItem: { template: "<div><slot /></div>" },
-  IonLabel: { template: "<span><slot /></span>" },
-};
+describe("persisted simulation results", () => {
+  it("adapts the confirmed list/detail contract into baseline and variation rows", () => {
+    const adapted = persistedSimulationAdapter({
+      simulation: { simulationId: "SIM_1", partial: "N", simulationRan: "Y" },
+      variants: [
+        { isBaseline: "Y", attemptedItemCount: 100, brokeredItemCount: 80, queuedItemCount: 20 },
+        {
+          isBaseline: "N",
+          label: "Tighter distance",
+          attemptedItemCount: 100,
+          brokeredItemCount: 90,
+          queuedItemCount: 10,
+          diff: { routingBrokeredDelta: 10 },
+        },
+      ],
+    });
 
-function mountIt() {
-  return mount(SimulationResults, { global: { stubs: childStubs } });
-}
-
-describe("SimulationResults container", () => {
-  beforeEach(() => { setActivePinia(createPinia()); });
-
-  it("composes panels with baseline+variant rows and reflects the winner from the score panel", async () => {
-    const sim = simulationStore();
-    sim.results = makeResults(makeOutcomes(), [{ label: "v1", outcomes: makeOutcomes() }]) as any;
-    sim.isRunning = false;
-    const w = mountIt();
-    expect(w.find(".headline-stub").text()).toContain("2|"); // 2 rows
-    expect(w.find(".advanced-stub").exists()).toBe(true);
-
-    await w.find(".score-stub").trigger("click"); // emits winner = v1
-    expect(w.find(".headline-stub").text()).toContain("v1");
+    expect(adapted.baseline).toMatchObject({ attemptedItemCount: 100, brokeredItemCount: 80, queuedItemCount: 20 });
+    expect(adapted.variants).toEqual([expect.objectContaining({
+      label: "Tighter distance",
+      groupRun: expect.objectContaining({ brokeredItemCount: 90 }),
+      diff: { routingBrokeredDelta: 10 },
+      failed: false,
+    })]);
+    expect(toRows(adapted).map(({ label }) => label)).toEqual(["Baseline", "Tighter distance"]);
+    expect(fillRateOf(toRows(adapted)[1])).toBe(0.9);
   });
 
-  it("shows partial and simulationRan warnings", () => {
-    const sim = simulationStore();
-    sim.results = makeResults(makeOutcomes(), [], { partial: true, simulationRan: false }) as any;
-    sim.isRunning = false;
-    const w = mountIt();
-    const t = w.text();
-    expect(t).toContain("partial");
-    expect(t).toContain("did not run");
+  it("marks failed variants as partial and safely handles missing counts", () => {
+    const adapted = persistedSimulationAdapter({
+      simulation: { partial: "N", simulationRan: "N" },
+      variants: [
+        { isBaseline: "Y" },
+        { isBaseline: "N", label: "Broken", failed: "Y", failureReason: "timeout" },
+      ],
+    });
+
+    expect(adapted.baseline).toMatchObject({ attemptedItemCount: 0, brokeredItemCount: 0, queuedItemCount: 0 });
+    expect(adapted.variants[0]).toMatchObject({ failed: true, failureReason: "timeout" });
+    expect(adapted.partial).toBe(true);
+    expect(adapted.simulationRan).toBe(false);
+  });
+});
+
+describe("parent and variation comparison", () => {
+  it("joins prefixed variation routings with the parent and retains parent-only rows", () => {
+    const rows = joinRoutingResults({
+      variationGroupId: "VM100204",
+      parentResults: [run("100008", 5, 0), run("100009", 6, 12)],
+      variationResults: [run("VM100204_100008", 5, 150)],
+      routingNameById: {
+        "100008": "Standard",
+        "VM100204_100008": "Standard",
+        "100009": "Express",
+      },
+    });
+
+    expect(rows.map(({ routingName }) => routingName)).toEqual(["Standard", "Express"]);
+    expect(rows[0]).toMatchObject({ parentRoutingId: "100008", variationRoutingId: "VM100204_100008" });
+    expect(rows[1]).toMatchObject({ parentRoutingId: "100009", variationRoutingId: null, variation: null });
   });
 
-  it("falls back to the legacy headline when no outcomes block is present", () => {
-    const sim = simulationStore();
-    // baseline/variants with NO outcomes anywhere
-    sim.results = makeResults(null, [{ label: "v1", outcomes: null }]) as any;
-    sim.isRunning = false;
-    const w = mountIt();
-    // legacy headline still renders rows; tradeoff hidden path handled inside child
-    expect(w.find(".headline-stub").exists()).toBe(true);
-    expect(w.find(".headline-stub").text()).toContain("2|");
+  it("reports facility allocation and queue changes without inventing a baseline", () => {
+    const parent = [trace("O1", "FULLY_BROKERED", "WH"), trace("O2", "QUEUED")];
+    const variation = [
+      trace("O1", "FULLY_BROKERED", "STORE"),
+      trace("O2", "QUEUED"),
+      trace("O3", "QUEUED"),
+    ];
+
+    expect(compareFacilities(parent, variation)).toEqual([
+      { facilityId: "STORE", parentQty: 0, variationQty: 1, delta: 1 },
+      { facilityId: "WH", parentQty: 1, variationQty: 0, delta: -1 },
+    ]);
+    expect(queuedDiff(parent, variation)).toEqual([
+      { orderId: "O2", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: false },
+      { orderId: "O3", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: true },
+    ]);
+    expect(queuedDiff(undefined, [trace("O3", "QUEUED")])[0].newlyQueued).toBe(false);
+  });
+
+  it("turns ordered rule attempts into readable operational explanations", () => {
+    expect(describeRuleAttempts({
+      orderId: "O1",
+      finalReason: "FULLY_BROKERED",
+      ruleAttempts: [
+        { routingRuleId: "R2", sequenceNum: 2, outcome: "FULL_BROKER" },
+        { routingRuleId: "R1", sequenceNum: 1, outcome: "NO_INVENTORY" },
+        { routingRuleId: "R3", sequenceNum: 3, outcome: "ERROR", errorMessage: "timeout" },
+      ],
+    })).toEqual([
+      "Rule 1: no available inventory — fell through",
+      "Rule 2: fully brokered here",
+      "Rule 3: errored (timeout)",
+    ]);
   });
 });

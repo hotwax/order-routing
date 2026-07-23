@@ -6,9 +6,11 @@ vi.mock("@common", () => ({})); // store imports nothing from @common directly, 
 const fetchPastSimulations = vi.fn();
 const fetchPastSimulation = vi.fn();
 vi.mock("@/services/SimulationService", () => ({
-  fetchPastSimulations: (...a: any[]) => fetchPastSimulations(...a),
-  fetchPastSimulation: (...a: any[]) => fetchPastSimulation(...a),
-  isFilteredQuery: (f: any) => Boolean(f.routingGroupId || f.statusId || f.runType || f.fromDate || f.thruDate),
+  SimulationService: {
+    fetchPastSimulations: (...a: any[]) => fetchPastSimulations(...a),
+    fetchPastSimulation: (...a: any[]) => fetchPastSimulation(...a),
+    isFilteredQuery: (f: any) => Boolean(f.routingGroupId || f.statusId || f.runType || f.fromDate || f.thruDate),
+  },
 }));
 // In-memory storage so the cache module persists within the test.
 const store = new Map<string, string>();

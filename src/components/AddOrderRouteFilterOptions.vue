@@ -116,8 +116,11 @@ function addSortOption(sort: any) {
         orderRoutingId: props.orderRoutingId,
         conditionTypeEnumId: props.conditionTypeEnumId,
         fieldName: sort.enumCode,
-        sequenceNum: Object.keys(routingFilters.value).length && routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]]?.sequenceNum >= 0 ? routingFilters.value[Object.keys(routingFilters.value)[Object.keys(routingFilters.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
-        createdDate: DateTime.now().toMillis()  // TODO: need to create createdDate object when clicking save button, as adding it here will have difference between creation time when having multiple filters to create
+        sequenceNum: (() => {
+          const lastFilter: any = Object.values(routingFilters.value).pop()
+          // check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
+          return lastFilter?.sequenceNum >= 0 ? lastFilter.sequenceNum + 5 : 0
+        })()
       }
     }
   }
@@ -126,6 +129,13 @@ function addSortOption(sort: any) {
 }
 
 function saveSortOptions() {
+  const currentTimestamp = DateTime.now().toMillis();
+  Object.values(routingFilters.value).forEach((filter: any) => {
+    if (!filter.createdDate) {
+      filter.createdDate = currentTimestamp;
+    }
+  });
+
   closeModal("save");
 }
 

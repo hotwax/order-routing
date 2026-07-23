@@ -58,4 +58,3 @@ const getStarted = () => {
   height: 100%;
 }
 </style>
-

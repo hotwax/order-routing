@@ -226,7 +226,9 @@
                 <ion-item class="rule-item" lines="full" v-for="rule in rulesForReorder" :key="rule.routingRuleId && rulesForReorder.length" :color="rule.routingRuleId === selectedRoutingRule?.routingRuleId ? 'light' : ''" @click="!isTestEnabled && fetchRuleInformation(rule.routingRuleId)" button :class="{ 'selected-rule': testRoutingInfo.selectedRuleId === rule.routingRuleId }">
                   <ion-label>
                     {{ rule.ruleName }}
-                    <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
+                    <p>
+                      <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : rule.statusId === 'RULE_ARCHIVED' ? 'warning' : ''">{{ rule.statusId === "RULE_ACTIVE" ? translate("Active") : rule.statusId === "RULE_ARCHIVED" ? translate("Archived") : translate("Draft") }}</ion-note>
+                    </p>
                   </ion-label>
                   <!-- Don't display reordering option when there is a single rule -->
                   <ion-reorder v-show="rulesForReorder.length > 1" />
@@ -285,7 +287,7 @@
                   <ion-card>
                     <ion-item>
                       <ion-icon slot="start" :icon="filterOutline"/>
-                      <h4>{{ translate("Filters") }}</h4>
+                      <ion-label>{{ translate("Filters") }}</ion-label>
                       <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>
@@ -358,7 +360,7 @@
                   <ion-card>
                     <ion-item>
                       <ion-icon slot="start" :icon="swapVerticalOutline"/>
-                      <h4>{{ translate("Sort") }}</h4>
+                      <ion-label>{{ translate("Sort") }}</ion-label>
                       <ion-button size="default" v-if="inventoryRuleSortOptions && Object.keys(inventoryRuleSortOptions).length" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_SORT_PARAM_TYPE', 'ENTCT_SORT_BY', 'Sort')">
                         <ion-icon slot="icon-only" :icon="optionsOutline"/>
                       </ion-button>

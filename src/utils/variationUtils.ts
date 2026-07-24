@@ -82,6 +82,39 @@ export function toConfigPayload(routings: any[]): any[] {
   }));
 }
 
+function canonicalBySequence<T extends { sequenceNum?: number }>(items: T[] | undefined): T[] {
+  return (items ?? []).slice().sort((left, right) => {
+    const sequenceDifference = (left.sequenceNum ?? 0) - (right.sequenceNum ?? 0);
+    if (sequenceDifference) return sequenceDifference;
+    return JSON.stringify(left).localeCompare(JSON.stringify(right));
+  });
+}
+
+/**
+ * Compare only the persisted variation configuration, in the same normalized shape sent to the
+ * simulation API. The editor projection can legitimately reorder filter/sort arrays and carries
+ * client/server ids that are not part of that payload; neither should make a just-saved variation
+ * dirty. Sequence values and every persisted routing field still participate in the comparison.
+ */
+export function isEquivalentVariationConfig(leftGroup: any, rightGroup: any): boolean {
+  if (!leftGroup || !rightGroup) return leftGroup === rightGroup;
+
+  const canonicalize = (group: any) => canonicalBySequence(toConfigPayload(group?.routings ?? []))
+    .map((routing: any) => ({
+      ...routing,
+      filters: canonicalBySequence(routing.filters),
+      rules: canonicalBySequence(routing.rules).map((rule: any) => ({
+        ...rule,
+        inventoryConditions: canonicalBySequence(rule.inventoryConditions),
+        // Actions have no persisted sequence field and the editor stores them in a keyed map.
+        actions: (rule.actions ?? []).slice().sort((left: any, right: any) =>
+          JSON.stringify(left).localeCompare(JSON.stringify(right)))
+      }))
+    }));
+
+  return JSON.stringify(canonicalize(leftGroup)) === JSON.stringify(canonicalize(rightGroup));
+}
+
 function conditionIn(c: any) {
   return {
     conditionSeqId: c.conditionSeqId,

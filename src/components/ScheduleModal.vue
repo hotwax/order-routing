@@ -52,6 +52,7 @@ import { closeOutline, informationCircleOutline, saveOutline, timeOutline, timer
 import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { commonUtil } from "@common";
+import { parseRoutingStringRecordEnvJson } from "@/utils/routingEditorEnv";
 
 const props = defineProps({
   cronExpression: {
@@ -61,7 +62,7 @@ const props = defineProps({
 })
 
 let expression = ref(props.cronExpression)
-const cronExpressions = JSON.parse(import.meta.env?.VITE_CRON_EXPRESSIONS as string)
+const cronExpressions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined)
 const userProfile = computed(() => useUserStore().getUserProfile)
 
 const isExpressionValid = computed(() => {

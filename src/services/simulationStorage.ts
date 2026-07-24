@@ -3,6 +3,18 @@
 
 import type { StorageLike, PastSimHeader, DetailEntry, SimJobRecord } from "../types/simulation";
 
+export interface VariationRunRecoveryRecord {
+  routingGroupId: string;
+  variationId: string;
+  serverVariationId: string;
+  variationLabel: string;
+  sampleCap: number;
+  startedAt: number;
+  status: "running" | "interrupted";
+  interruptedAt?: number;
+  lastError?: string;
+}
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function defaultStorage(): StorageLike | null {
@@ -91,11 +103,20 @@ export function getDetail(id: string, now: number = Date.now(), storage: Storage
 
 const JOB_PRUNE_MS = 2 * 60 * 60_000; // 2h
 const keyFor = (routingGroupId: string) => `sim.inflight.${routingGroupId}`;
+const VARIATION_RUN_PRUNE_MS = 7 * 24 * 60 * 60_000; // keep an outcome-unknown warning for 7 days
+const variationRunKey = (routingGroupId: string) => `sim.variation-run.${routingGroupId}`;
 
 export function recordJobs(routingGroupId: string, jobs: SimJobRecord[], storage: StorageLike | null = defaultStorage()): void {
   if (!storage) return;
   try { storage.setItem(keyFor(routingGroupId), JSON.stringify(jobs)); }
   catch (e) { console.error("[simulationStorage] recordJobs failed", e); }
+}
+
+/** Persist one accepted job immediately so a reload during parallel submission can still recover it. */
+export function upsertJob(routingGroupId: string, job: SimJobRecord, storage: StorageLike | null = defaultStorage()): void {
+  if (!storage) return;
+  const jobs = getJobs(routingGroupId, Date.now(), storage).filter((existing) => existing.jobId !== job.jobId);
+  recordJobs(routingGroupId, [...jobs, job], storage);
 }
 
 export function clearJobs(routingGroupId: string, storage: StorageLike | null = defaultStorage()): void {
@@ -128,6 +149,47 @@ export function removeJob(routingGroupId: string, jobId: string, storage: Storag
   else clearJobs(routingGroupId, storage);
 }
 
+// ─── Canonical synchronous variation-run recovery marker ────────────────────
+
+export function setVariationRun(
+  record: VariationRunRecoveryRecord,
+  storage: StorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  writeJson(storage, variationRunKey(record.routingGroupId), record);
+}
+
+export function getVariationRun(
+  routingGroupId: string,
+  now: number = Date.now(),
+  storage: StorageLike | null = defaultStorage(),
+): VariationRunRecoveryRecord | null {
+  if (!storage) return null;
+  const record = readJson<VariationRunRecoveryRecord | null>(storage, variationRunKey(routingGroupId), null);
+  if (!record
+      || record.routingGroupId !== routingGroupId
+      || !record.variationId
+      || !record.serverVariationId
+      || !record.startedAt
+      || !["running", "interrupted"].includes(record.status)) {
+    return null;
+  }
+  if (now - record.startedAt > VARIATION_RUN_PRUNE_MS) {
+    try { storage.removeItem(variationRunKey(routingGroupId)); } catch { /* ignore */ }
+    return null;
+  }
+  return record;
+}
+
+export function clearVariationRun(
+  routingGroupId: string,
+  storage: StorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  try { storage.removeItem(variationRunKey(routingGroupId)); }
+  catch (e) { console.error("[simulationStorage] clearVariationRun failed", e); }
+}
+
 export const SimulationStorage = {
   setList,
   getList,
@@ -135,7 +197,11 @@ export const SimulationStorage = {
   putDetail,
   getDetail,
   recordJobs,
+  upsertJob,
   clearJobs,
   getJobs,
   removeJob,
+  setVariationRun,
+  getVariationRun,
+  clearVariationRun,
 };

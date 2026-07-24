@@ -1,0 +1,553 @@
+<template>
+  <ion-page>
+    <RouteDetails menu-id="route-details" side="end" :group="currentRoutingGroup" :routing="currentRoute" :unmatchedRoutingProperties="unmatchedRoutingProperties"/>
+    <RuleDetails menu-id="rule-details" side="end" :group="group" :rule="currentRule"/>
+
+    <ion-header>
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-back-button :default-href="'/order-routing/'+routingGroupId" />
+        </ion-buttons>
+        <ion-title>{{ translate("Test drive") }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content id="main-content">
+      <div>
+        <main>
+          <section class="activate-scroll">
+            <ion-card class="info">
+              <div>
+                <ion-card-header>
+                  <ion-card-title>{{ group.groupName || "" }}</ion-card-title>
+                  <ion-card-subtitle>{{ group.routingGroupId }}</ion-card-subtitle>
+                </ion-card-header>
+                <div class="ion-padding">
+                  <ion-button fill="outline" size="small" @click="exitTestMode()">
+                    <ion-icon slot="start" :icon="speedometerOutline"/>
+                    {{ translate("Exit test mode") }}
+                  </ion-button>
+                </div>
+              </div>
+              <div>
+                <ion-item>
+                  <ion-label>{{ translate("Created at") }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.createdDate) }}</ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-label>{{ translate("Updated at") }}</ion-label>
+                  <ion-label slot="end">{{ commonUtil.getDateAndTime(group.lastUpdatedStamp) }}</ion-label>
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-icon slot="start" :icon="pulseOutline" />
+                  <ion-label>{{ translate("Status") }}</ion-label>
+                  <ion-label slot="end">{{ job.paused === "N" ? "Active" : "Draft" }}</ion-label>
+                </ion-item>
+              </div>
+            </ion-card>
+            <RoutingTest
+              v-if="testDriveReady"
+              :routingGroupId="routingGroupId"
+              :routingGroup="group"
+              :userTestingSession="userTestingSession"
+              @mutation-state="testDriveMutationInFlight = $event"
+            />
+          </section>
+          <section class="routings activate-scroll">
+            <ion-list v-if="group.routings?.length">
+              <ion-card v-for="(routing, index) in group.routings" :key="routing.orderRoutingId" :class="[{ 'selected-rule': testRoutingInfo.eligibleOrderRoutings?.includes(routing.orderRoutingId) || testRoutingInfo.brokeringRoute === routing.orderRoutingId}, 'rule-item']" :id="'route-'+routing.orderRoutingId">
+                <ion-item lines="full">
+                  <ion-label>
+                    {{ routing.routingName }}
+                  </ion-label>
+                  {{ `${Number(index) + 1}/${group.routings.length}` }}
+                </ion-item>
+                <ion-item lines="full" v-if="routing.filtersCount">
+                  <ion-label>{{ routing.filtersCount }}{{ " filters" }}</ion-label>
+                  <ion-icon :icon="filterOutline" slot="end" />
+                </ion-item>
+                <ion-item lines="full" v-if="routing.sortCount">
+                  <ion-label>{{ routing.sortCount }}{{ " sortings" }}</ion-label>
+                  <ion-icon :icon="swapVerticalOutline" slot="end" />
+                </ion-item>
+                <ion-item lines="none">
+                  <ion-badge class="pointer" :color="routing.statusId === 'ROUTING_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(routing.statusId) }}</ion-badge>
+                  <ion-button fill="clear" slot="end" @click.stop="openRouteDetails(routing)">{{ translate("Details") }}</ion-button>
+                </ion-item>
+              </ion-card>
+            </ion-list>
+          </section>
+        </main>
+        <aside class="activate-scroll">
+          <ion-list v-if="areRuleExistsForRoutings">
+            <template v-for="routing in group.routings" :key="routing.orderRoutingId">
+              <ion-item-group v-if="routing.rules?.length" class="ion-margin-vertical">
+                <ion-item-divider color="light">{{ routing.routingName }}</ion-item-divider>
+                <ion-item v-for="rule in routing.rules" :key="rule.routingRuleId" :class="[{ 'selected-rule': testRoutingInfo.brokeringRule === rule.routingRuleId }, 'rule-item']" button @click.stop="openRuleDetails(rule)" :id="'rule-'+rule.routingRuleId">
+                  <ion-label>
+                    {{ rule.ruleName }}
+                    <p>
+                      <ion-note :color="rule.statusId === 'RULE_ACTIVE' ? 'success' : 'medium'">{{ getStatusDesc(rule.statusId) }}</ion-note>
+                    </p>
+                  </ion-label>
+                </ion-item>
+              </ion-item-group>
+            </template>
+          </ion-list>
+          <p class="ion-text-center" v-else>{{ translate("No rules available") }}</p>
+        </aside>
+      </div>
+    </ion-content>
+  </ion-page>
+</template>
+
+<script setup lang="ts">
+import { IonBackButton, IonBadge, IonButtons, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonItemGroup, IonItemDivider, IonLabel, IonList, IonNote, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, menuController, onIonViewWillLeave, alertController } from "@ionic/vue";
+import { filterOutline, pulseOutline, speedometerOutline, swapVerticalOutline } from "ionicons/icons"
+import { onBeforeRouteLeave } from "vue-router";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { useUserStore } from "@/store/userStore";
+import { useUtilStore } from "@/store/utilStore";
+import { productStore } from "@/store/productStore";
+import { computed, reactive, ref, watch } from "vue";
+import { Group } from "@/types";
+import { api, logger, emitter, translate, commonUtil } from "@common";
+import RouteDetails from "@/components/RouteDetails.vue"
+import RuleDetails from "@/components/RuleDetails.vue"
+import RoutingTest from "./RoutingTest.vue";
+import { DateTime } from "luxon";
+import router from "@/router";
+import { hasVerifiedTestDriveSession } from "@/utils/testDriveSession";
+
+const userStore = useUserStore();
+const utilStore = useUtilStore();
+const props = defineProps({
+  routingGroupId: {
+    type: String,
+    required: true
+  }
+})
+
+let group = ref({}) as any
+let currentRoute = ref({})
+let currentRule = ref({})
+
+// TODO: fetch job information for displaying status
+let job = ref({}) as any
+let orderRoutings = ref([]) as any
+let userTestingSession = ref({}) as any
+const testDriveReady = ref(false)
+const testDriveMutationInFlight = ref(false)
+
+const currentRoutingGroup: any = computed((): Group => {
+  const current = orderRoutingStore().getCurrentRoutingGroup;
+  return String(current?.routingGroupId || "") === String(props.routingGroupId)
+    ? current
+    : group.value;
+})
+const getStatusDesc = computed(() => (id: string) => utilStore.getStatusDesc(id))
+const testRoutingInfo = computed(() => orderRoutingStore().getTestRoutingInfo)
+const currentShipGroup = computed(() => testRoutingInfo.value.currentShipGroupId ? testRoutingInfo.value.currentOrder.groups[testRoutingInfo.value.currentShipGroupId] : [])
+const userProfile = computed(() => userStore.getUserProfile)
+const currentEComStore = computed(() => productStore().getCurrentEComStore)
+
+let unmatchedRoutingProperties = reactive({}) as Record<string, string>
+
+// Check if any of the routing contains rules or not
+const areRuleExistsForRoutings = computed(() => group.value.routings?.some((routing: any) => routing.rules?.length))
+
+// Checks if the testRouting info has been updated and scroll the route and rule into the view
+watch(testRoutingInfo.value, (routingInfo) => {
+  const routeEle = document.getElementById(`route-${routingInfo.brokeringRoute}`);
+  routeEle && (routeEle.scrollIntoView());
+
+  const ruleEle = document.getElementById(`rule-${routingInfo.brokeringRule}`);
+  ruleEle && (ruleEle.scrollIntoView());
+});
+
+onIonViewWillEnter(async () => {
+  testDriveReady.value = false;
+  testDriveMutationInFlight.value = false;
+  const routingStore = orderRoutingStore();
+  const current = String(routingStore.currentGroup?.routingGroupId || "") === String(props.routingGroupId)
+    ? routingStore.currentGroup
+    : null;
+  const listed = (routingStore.groups || []).find((candidate: any) => String(candidate?.routingGroupId || "") === String(props.routingGroupId));
+  if (current?.isNew || current?.hasUnsavedChanges || listed?.isNew || listed?.hasUnsavedChanges) {
+    await returnToEditor("Save or discard changes before opening Test Drive.");
+    return;
+  }
+
+  if (!(await fetchRoutingGroupInformation())) {
+    await returnToEditor("This routing group could not be loaded for Test Drive.");
+    return;
+  }
+
+  const groupProductStoreId = String(group.value.productStoreId || "");
+  const persistedTestState = routingStore.getTestRoutingInfo;
+  if (
+    String(persistedTestState.routingGroupId || "") !== String(props.routingGroupId)
+    || String(persistedTestState.productStoreId || "") !== groupProductStoreId
+  ) {
+    routingStore.clearRoutingTestInfo({
+      routingGroupId: String(props.routingGroupId),
+      productStoreId: groupProductStoreId
+    });
+  }
+  if (!(await fetchRoutingsInformation())) {
+    await returnToEditor("The routing configuration could not be loaded for Test Drive.");
+    return;
+  }
+
+  const referenceStore = productStore();
+  await Promise.all([
+    referenceStore.fetchRoutingReferenceData({ productStoreId: group.value.productStoreId, force: true }),
+    utilStore.fetchStatusInformation(),
+    orderRoutingStore().fetchRoutingHistory(props.routingGroupId)
+  ])
+
+  if (!Object.keys(referenceStore.getPhysicalFacilities || {}).length) {
+    await returnToEditor("Test Drive could not start because facility reference data was unavailable.");
+    return;
+  }
+
+  await fetchJobInformation()
+  if (!(await createUserTestSession())) {
+    await returnToEditor("Test Drive could not start because a testing session was not available.");
+    return;
+  }
+
+  orderRoutings.value = group.value["routings"] ? JSON.parse(JSON.stringify(group.value))["routings"] : []
+  testDriveReady.value = true;
+})
+
+async function returnToEditor(message: string) {
+  commonUtil.showToast(translate(message));
+  await router.replace(`/order-routing/${props.routingGroupId}`);
+}
+
+onIonViewWillLeave(async () => {
+  testDriveReady.value = false;
+  testDriveMutationInFlight.value = false;
+  await orderRoutingStore().clearRoutingTestInfo()
+})
+
+onBeforeRouteLeave(async (to: any) => {
+  if(to.path === '/login') return;
+
+  if (testDriveMutationInFlight.value) {
+    commonUtil.showToast(translate("Wait for the Test Drive operation to finish before leaving."));
+    return false;
+  }
+
+  if(testRoutingInfo.value.currentOrderId) {
+    return exitTestMode(false);
+  } else if (hasVerifiedTestDriveSession(userTestingSession.value)) {
+    await updateUserTestSession();
+  }
+  return true;
+})
+
+async function fetchRoutingGroupInformation(): Promise<boolean> {
+  emitter.emit("presentLoader", { message: "Fetching information", backdropDismiss: false })
+
+  try {
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}`,
+      method: "GET"
+    });
+
+    if(!commonUtil.hasError(resp) && resp.data) {
+      group.value = resp.data
+    } else {
+      throw resp.data
+    }
+    if(group.value.routings?.length) {
+      group.value.routings = commonUtil.sortSequence(group.value.routings)
+    } else if (!Array.isArray(group.value.routings)) {
+      group.value.routings = [];
+    }
+    return true;
+  } catch(err) {
+    logger.error(err);
+    group.value = {};
+    return false;
+  } finally {
+    emitter.emit("dismissLoader")
+  }
+}
+
+async function fetchRoutingsInformation(): Promise<boolean> {
+  const routings = Array.isArray(group.value.routings) ? group.value.routings : [];
+  const loaded = await Promise.all(routings.map(async (routing: any) => {
+    let route = {} as any
+    try {
+      const resp = await api({
+        url: `order-routing/routings/${routing.orderRoutingId}`,
+        method: "GET"
+      });
+  
+      if(!commonUtil.hasError(resp) && resp.data) {
+        route = resp.data
+  
+        if(route["orderFilters"]?.length) {
+          route["orderFilters"].map((filter: any) => {
+            if(filter.operator === "not-equals" || filter.operator === "not-in") {
+              filter.fieldName += "_excluded"
+            }
+          })
+        }
+        
+        route["rules"] = route["rules"]?.length ? commonUtil.sortSequence(route["rules"]) : []
+        
+        routing["orderFilters"] = route["orderFilters"] || []
+        routing["rules"] = route["rules"]
+
+        routing["filterConditions"] = routing["orderFilters"].reduce((filters: any, orderFilter: any) => {
+          if(orderFilter.conditionTypeEnumId === "ENTCT_FILTER") {
+            filters[orderFilter.fieldName] = orderFilter
+          }
+          return filters
+        }, {})
+        routing["sortConditions"] = routing["orderFilters"].reduce((sort: any, orderFilter: any) => {
+          if(orderFilter.conditionTypeEnumId === "ENTCT_SORT_BY") {
+            sort[orderFilter.fieldName] = orderFilter
+          }
+          return sort
+        }, {})
+        routing["filtersCount"] = Object.keys(routing["filterConditions"])?.length
+        routing["sortCount"] = Object.keys(routing["sortConditions"])?.length
+        routing["rulesCount"] = routing["rules"].length
+        return true;
+      } else {
+        throw resp.data
+      }
+    } catch(err) {
+      logger.error(err);
+      return false;
+    }
+  }));
+  return loaded.every(Boolean);
+}
+
+async function openRouteDetails(routing: any) {
+  currentRoute.value = routing
+  getEligibleRoutesForBrokering(routing)
+  await menuController.open("route-details");
+}
+
+async function openRuleDetails(rule: any) {
+  const ruleInfo = await orderRoutingStore().fetchInventoryRuleInformation(rule.routingRuleId)
+  currentRule.value = {
+    ...rule,
+    ...ruleInfo
+  }
+  await menuController.open("rule-details");
+}
+
+async function fetchJobInformation() {
+  job.value = {}
+  try {
+    const resp = await api({
+      url: `order-routing/groups/${props.routingGroupId}/schedule`,
+      method: "GET"
+    });
+
+    if(!commonUtil.hasError(resp) && resp.data?.schedule) {
+      job.value = resp.data.schedule
+    } else {
+      throw resp.data
+    }
+  } catch(err) {
+    logger.error(err);
+  }
+}
+
+// @params isTriggerManually - false, if the exit is triggered from the hook programmatically
+async function exitTestMode(isTriggerManually = true) {
+  // If the order is already in brokered state(means not brokered manually), then do not display the reset alert
+  if(!testRoutingInfo.value.isOrderAlreadyBrokered && (testRoutingInfo.value.isOrderBrokered || testRoutingInfo.value.brokeringRoute)) {
+    const alert = await alertController
+      .create({
+        header: translate("Reset order before leaving"),
+        message: translate("Testing an order also allocates it to inventory in the OMS. Make sure to reset tested orders before trying another order or exiting test mode."),
+        buttons: [{
+          text: translate("Dismiss"),
+          role: "cancel"
+        }]
+      });
+
+    alert.present();
+    return false; // passing boolean to let the routeLeave hook know to change the route or not
+  }
+
+  await orderRoutingStore().clearRoutingTestInfo()
+
+  if(isTriggerManually) {
+    router.go(-1);
+  } else {
+    await updateUserTestSession();
+  }
+
+  return true;
+}
+
+function getEligibleRoutesForBrokering(routing: any) {
+  unmatchedRoutingProperties = {}
+
+  // If no shipGroup is selected, then do not perform any computation, this is the case when we are on the search section of test drive
+  if(!currentShipGroup.value.length) {
+    return;
+  }
+
+  // Defined excluded filters as we are not directly getting information for these params in order, thus for now excluded these when checking for brokering possibility
+  // TODO: add support to honor the below excluded filters
+  const excludedFilters = ["priority", "promiseDaysCutoff", "originFacilityGroupId", "productCategoryId"]
+  const shipGroup = currentShipGroup.value[0]
+
+  // If the routing if not active, then it won't be used for brokering hence not adding the same in the eligible routings array
+  if(routing.statusId !== "ROUTING_ACTIVE") {
+    unmatchedRoutingProperties["statusId"] = routing.statusId
+  }
+
+  const orderFilters = routing.orderFilters?.filter((orderFilter: any) => orderFilter.conditionTypeEnumId === "ENTCT_FILTER")
+
+  // If the current routing do not have filters applied it means that this routing will pick all the orders
+  if(!orderFilters?.length) {
+    return
+  }
+
+  orderFilters.map((orderFilter: any) => {
+    const key = orderFilter.fieldName.includes("_excluded") ? orderFilter.fieldName.substring(0, orderFilter.fieldName.indexOf("_excluded")) : orderFilter.fieldName
+    const value = orderFilter.fieldValue
+
+    // If the current filter is in excluded filters list considering those filters to be as matched
+    if(excludedFilters.includes(key)) {
+      return;
+    }
+
+    if(orderFilter.operator === "in") {
+      const values = value.split(",")
+
+      !values.includes(shipGroup[key]) && (unmatchedRoutingProperties[key] = values)
+    }
+
+    if(orderFilter.operator === "not-in") {
+      const values = value.split(",")
+      // For now, used filter but we can replace it with find, as we will always have a single value that will match with shipGroup facility
+      const matchedValues = values.filter((val: string) => val === shipGroup[key])
+
+      if(matchedValues.length) {
+        unmatchedRoutingProperties[key + '_excluded'] = matchedValues
+      }
+    }
+
+    if(orderFilter.operator === "equals") {
+      shipGroup[key] !== value && (unmatchedRoutingProperties[key] = value)
+    }
+
+    if(orderFilter.operator === "not-equals") {
+      shipGroup[key] === value && (unmatchedRoutingProperties[key + '_excluded'] = value)
+    }
+  })
+}
+
+async function getUserTestSession() {
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
+  userTestingSession.value = await useUtilStore().getUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId,
+    pageNoLimit: "true"
+  });
+}
+
+async function createUserTestSession(): Promise<boolean> {
+  await getUserTestSession();
+
+  // If a test session already exists for the user do not create a new one
+  if(hasVerifiedTestDriveSession(userTestingSession.value)) {
+    return true;
+  }
+
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
+  userTestingSession.value = await useUtilStore().createUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    productStoreId,
+    fromDate: DateTime.now().toMillis()
+  });
+  return hasVerifiedTestDriveSession(userTestingSession.value);
+}
+
+async function updateUserTestSession() {
+  if (!hasVerifiedTestDriveSession(userTestingSession.value)) return false;
+  const productStoreId = group.value.productStoreId || currentEComStore.value?.productStoreId || "";
+  userTestingSession.value = await useUtilStore().expireUserSession({
+    sessionTypeEnumId: "ROUTING_TEST_DRIVE",
+    userId: userProfile.value.userId,
+    userSessionId: userTestingSession.value.userSessionId,
+    productStoreId,
+    thruDate: DateTime.now().toMillis()
+  });
+  return true;
+}
+</script>
+
+<style scoped>
+main {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  overflow-y: scroll;
+}
+
+ion-content > div {
+  display: grid;
+  grid-template-columns: 1fr minmax(375px, 25%);
+  height: 100%;
+  overflow-y: hidden;
+}
+
+aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 1px solid #92949C;
+}
+
+.info {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(345px, 1fr));
+}
+
+.info > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+ion-card > ion-button[expand="block"] {
+  margin-inline: var(--spacer-sm);
+  margin-bottom: var(--spacer-sm);
+}
+
+.selected-rule {
+  box-shadow: 0px 8px 10px 0px rgba(0, 0, 0, 0.14), 0px 3px 14px 0px rgba(0, 0, 0, 0.12), 0px 4px 5px 0px rgba(0, 0, 0, 0.20);
+  scale: 1.03;
+  margin-block: var(--spacer-sm);
+}
+
+.rule-item {
+  transition: scale .5s ease, box-shadow .5s ease;
+}
+
+.activate-scroll {
+  overflow-y: scroll;
+  scrollbar-width: none;  /* To hide the scrollbar from being visible */
+  scroll-behavior: smooth;
+}
+
+.routings > ion-list {
+  padding-inline: var(--spacer-xs);
+}
+</style>

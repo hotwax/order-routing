@@ -11,6 +11,8 @@ import { initialize } from '@/services/appInitializer'
 import { useAtpProductStore } from './atpProductStore'
 import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
+import { useCircuitStore } from './circuit'
+import { simulationStore } from './simulationStore'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -150,6 +152,16 @@ export const useUserStore = defineStore('user', {
       try {
         await this.fetchUserProfile()
         await this.setOms(cookieHelper().get("oms"))
+        const sessionChanged = orderRoutingStore().activateSessionContext([
+          commonUtil.getOMSInstanceName(),
+          this.current?.userId
+        ].map((value) => String(value || "").trim()).join("::"))
+        if (sessionChanged) {
+          // Circuit threads and simulation working copies can contain the same routing data. They
+          // must not survive an instance/user boundary either.
+          useCircuitStore().$reset()
+          simulationStore().$reset()
+        }
         await initialize()
         await this.fetchPermissions()
         await productStore().fetchProductStores()
@@ -170,8 +182,10 @@ export const useUserStore = defineStore('user', {
       }
     },
     async postLogout() {
-      orderRoutingStore().clearRouting()
+      orderRoutingStore().clearSessionContext()
       orderRoutingStore().clearRoutingTestInfo()
+      useCircuitStore().$reset()
+      simulationStore().$reset()
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
       productStore().$reset()

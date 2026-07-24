@@ -2,12 +2,53 @@
   <div class="ion-padding">
     <SimulationProgress v-if="sim.isRunning" />
 
-    <ion-button fill="clear" @click="sim.view = 'editor'">
+    <!-- "Back to editor" only applies to the standalone editor/results view toggle. When embedded
+         (e.g. in the Variations rail's results modal or the past-run detail page), the host owns
+         its own close/back affordance, so hide it. -->
+    <ion-button v-if="!embedded" fill="clear" @click="sim.view = 'editor'">
       <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Back to editor") }}
     </ion-button>
 
-    <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare. -->
-    <template v-if="sim.variationRunResult || sim.isRunningVariationRun">
+    <ion-button
+      v-if="sim.lastSimulationId"
+      data-testid="view-saved-simulation"
+      size="small" fill="outline"
+      @click="router.push(`/simulate/history/${sim.lastSimulationId}`)"
+    >
+      {{ translate("View saved result") }}
+    </ion-button>
+
+    <!-- A baseline run uses the parent job directly. Show its own progress and per-routing outcome
+         instead of pretending it is one side of a variation comparison. -->
+    <template v-if="sim.baselineRunResult || sim.isRunningBaselineRun || sim.baselineRunError">
+      <div v-if="sim.isRunningBaselineRun" class="vrun-progress">
+        <ion-label>{{ translate("Simulating baseline") }} — {{ translate("this can take 25–150s") }}</ion-label>
+        <ion-progress-bar type="indeterminate" />
+      </div>
+      <ion-note v-if="sim.baselineRunError" color="danger">{{ sim.baselineRunError }}</ion-note>
+
+      <ion-list v-if="sim.baselineRunResult">
+        <ion-list-header><ion-label>{{ translate("Baseline results") }}</ion-label></ion-list-header>
+        <ion-item v-for="row in baselineRows" :key="row.routingName + row.parentRoutingId">
+          <ion-label>
+            {{ row.routingName }}
+            <div class="cmp">
+              <span class="metric"><span class="lbl">{{ translate("Eligible") }}</span><span class="val">{{ n(row.parent?.eligibleEntryCount) }}</span></span>
+              <span class="metric"><span class="lbl">{{ translate("Brokered") }}</span><span class="val">{{ n(row.parent?.brokeredItemCount) }}</span></span>
+              <span class="metric"><span class="lbl">{{ translate("Queued") }}</span><span class="val">{{ n(row.parent?.queuedItemCount) }}</span></span>
+            </div>
+          </ion-label>
+        </ion-item>
+        <ion-note v-if="!baselineRows.length" color="medium" class="ion-padding-horizontal">
+          {{ translate("No per-routing results were returned for this run.") }}
+        </ion-note>
+      </ion-list>
+    </template>
+
+    <!-- H2 variation run: synchronous (no event stream) -> indeterminate bar; then per-routing compare.
+         runCompareError is included so a failed run shows its error (the note below) instead of a blank
+         pane — otherwise, on error (no result, not running) this whole block would render nothing. -->
+    <template v-else-if="sim.variationRunResult || sim.isRunningVariationRun || sim.runCompareError">
       <div v-if="sim.isRunningVariationRun" class="vrun-progress">
         <ion-label>{{ translate("Simulating variation") }} — {{ translate("this can take 25–150s") }}</ion-label>
         <ion-progress-bar type="indeterminate" />
@@ -16,7 +57,10 @@
 
       <ion-list v-if="sim.variationRunResult">
         <ion-list-header><ion-label>{{ translate("Per-routing results") }}</ion-label></ion-list-header>
-        <ion-item v-for="row in sim.variationCompareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
+        <ion-note class="compare-legend ion-padding-horizontal">
+          {{ translate("Baseline") }} → {{ sim.activeVariation?.label || translate("Variation") }}
+        </ion-note>
+        <ion-item v-for="row in compareRows" :key="row.routingName + (row.variationRoutingId || row.parentRoutingId)" button detail @click="openRowDetail(row)">
           <ion-label>
             {{ row.routingName }}
             <div class="cmp">
@@ -30,21 +74,22 @@
         <ion-note v-if="!sim.parentRunByGroupId[sim.routingGroupId]" color="medium" class="ion-padding-horizontal">
           {{ translate("Parent run unavailable — showing variation results only.") }}
         </ion-note>
+        <ion-note v-if="!compareRows.length" color="medium" class="ion-padding-horizontal">
+          {{ translate("No per-routing results were returned for this run.") }}
+        </ion-note>
       </ion-list>
     </template>
 
     <template v-else-if="sim.results">
       <p v-if="sim.results.simulationRan === false" class="warn">{{ translate("The simulator did not run — no numbers to report.") }}</p>
       <p v-if="sim.results.partial" class="warn">{{ translate("Some variations did not complete — results are partial.") }}</p>
-      <ion-button
-        v-if="sim.lastSimulationId"
-        size="small" fill="outline"
-        @click="router.push(`/simulate/history/${sim.lastSimulationId}`)"
-      >
-        {{ translate("View saved result") }}
-      </ion-button>
+      <div v-for="row in failedRows" :key="`${row.isBaseline ? 'baseline' : 'variation'}-${row.label}`" class="failed-run" role="alert">
+        <ion-note color="danger"><strong>{{ row.label }}</strong>: {{ row.failureReason || translate("Run failed") }}</ion-note>
+      </div>
+      <p v-if="!rows.length" class="empty-results">{{ translate("No result payload was returned for this simulation.") }}</p>
 
       <!-- ①②③ headline -->
+      <template v-if="rows.length">
       <ion-card>
         <ion-card-header><ion-card-title>{{ translate("Outcomes") }}</ion-card-title></ion-card-header>
         <ion-card-content>
@@ -86,6 +131,7 @@
         <ion-card-header><ion-card-title>{{ translate("Advanced / per-order details") }}</ion-card-title></ion-card-header>
         <ion-card-content><AdvancedDetails :results="sim.results" /></ion-card-content>
       </ion-card>
+      </template>
     </template>
   </div>
 </template>
@@ -98,7 +144,8 @@ import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonIco
 import { arrowBackOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
 import type { CompareRow } from "@/types/variation";
-import { toRows } from "@/utils/simulationResults";
+import { joinRoutingResults, toRows } from "@/utils/simulationResults";
+import { buildRoutingNameMap } from "@/utils/variationUtils";
 import SimulationProgress from "./SimulationProgress.vue";
 import OutcomeHeadline from "./OutcomeHeadline.vue";
 import TradeoffChart from "./TradeoffChart.vue";
@@ -109,10 +156,35 @@ import CompositeScorePanel from "./CompositeScorePanel.vue";
 import AdvancedDetails from "./AdvancedDetails.vue";
 import RoutingRunDetailModal from "./RoutingRunDetailModal.vue";
 
+/* eslint-disable no-undef */
+defineProps<{ embedded?: boolean }>();
+/* eslint-enable no-undef */
+
 const sim = simulationStore();
 const router = useRouter();
 
 const rows = computed(() => toRows(sim.results));
+const failedRows = computed(() => rows.value.filter((row) => row.failed));
+const baselineRows = computed(() => joinRoutingResults({
+  variationGroupId: "",
+  parentResults: sim.baselineRunResult?.routingResults ?? [],
+  variationResults: [],
+  routingNameById: buildRoutingNameMap({ routings: sim.baseline?.routings ?? [] })
+}));
+const compareRows = computed(() => {
+  if (!sim.variationRunResult) return [];
+  const parent = sim.parentRunByGroupId[sim.routingGroupId];
+  const names = {
+    ...buildRoutingNameMap({ routings: sim.baseline?.routings ?? [] }),
+    ...buildRoutingNameMap({ routings: sim.working?.routings ?? [] })
+  };
+  return joinRoutingResults({
+    variationGroupId: sim.variationRunResult.routingGroupId,
+    parentResults: parent?.routingResults ?? [],
+    variationResults: sim.variationRunResult.routingResults ?? [],
+    routingNameById: names
+  });
+});
 const hasClassification = computed(() => rows.value.some((r) => r.outcomes?.classification?.available));
 
 const winnerLabel = ref<string | undefined>(undefined);

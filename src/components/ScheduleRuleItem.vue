@@ -42,12 +42,13 @@ import { computed } from 'vue';
 import { commonUtil } from '@common'
 import { useRuleStore } from '@/store/rule';
 import { DateTime } from 'luxon';
+import { parseRoutingStringRecordEnvJson } from '@/utils/routingEditorEnv';
 
 const ruleStore = useRuleStore();
 const ruleGroup = computed(() => ruleStore.getRuleGroup);
 const isReorderActive = computed(() => ruleStore.isReorderActive);
 
-const cronExpressions = JSON.parse(import.meta.env.VITE_CRON_EXPRESSIONS)
+const cronExpressions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined)
 
 async function openScheduleActionsPopover(event: Event) {
   const popover = await popoverController.create({

@@ -12,6 +12,7 @@ export interface OutcomeRow {
   label: string;
   isBaseline: boolean;
   failed: boolean;
+  failureReason?: string;
   groupRun: any;
   outcomes: SimulationOutcomes | null;
 }
@@ -22,10 +23,24 @@ export function toRows(results: any): OutcomeRow[] {
   if (!results) return [];
   const rows: OutcomeRow[] = [];
   if (results.baseline) {
-    rows.push({ label: "Baseline", isBaseline: true, failed: false, groupRun: results.baseline, outcomes: (results.baseline.outcomes as SimulationOutcomes) ?? null });
+    rows.push({
+      label: "Baseline",
+      isBaseline: true,
+      failed: !!results.baseline.failed,
+      ...(results.baseline.failureReason ? { failureReason: results.baseline.failureReason } : {}),
+      groupRun: results.baseline,
+      outcomes: (results.baseline.outcomes as SimulationOutcomes) ?? null
+    });
   }
   for (const v of results.variants ?? []) {
-    rows.push({ label: v.label, isBaseline: false, failed: !!v.failed, groupRun: v.groupRun ?? null, outcomes: (v.groupRun?.outcomes as SimulationOutcomes) ?? null });
+    rows.push({
+      label: v.label || "Variation",
+      isBaseline: false,
+      failed: !!v.failed,
+      ...(v.failureReason ? { failureReason: v.failureReason } : {}),
+      groupRun: v.groupRun ?? null,
+      outcomes: (v.groupRun?.outcomes as SimulationOutcomes) ?? null
+    });
   }
   return rows;
 }
@@ -130,11 +145,38 @@ export function joinRoutingResults(args: JoinArgs): CompareRow[] {
   const parentById = new Map(parentResults.map((p) => [p.orderRoutingId, p]));
   const seenParent = new Set<string>();
   const rows: CompareRow[] = [];
+
+  const nameFor = (routingId: string): string => String(routingNameById[routingId] ?? "").trim();
+  const matchParent = (variation: RoutingRunResult): RoutingRunResult | null => {
+    // Cloned variations retain lineage in the id: <variationGroupId>_<parentRoutingId>.
+    const strippedId = stripVariationPrefix(variationGroupId, variation.orderRoutingId);
+    const direct = parentById.get(strippedId);
+    if (direct && !seenParent.has(direct.orderRoutingId)) return direct;
+
+    // Persist-on-save rewrites the variation tree with backend-assigned ids such as
+    // <variationGroupId>_r0. Those ids contain no parent id, so use the routing name that the
+    // already-loaded parent/variation trees provide. A unique name remains stable across reorder;
+    // when names are duplicated, sequence is only a disambiguator and ambiguous rows stay split.
+    const variationName = nameFor(variation.orderRoutingId);
+    if (!variationName) return null;
+    const namedCandidates = parentResults.filter((parent) =>
+      !seenParent.has(parent.orderRoutingId) && nameFor(parent.orderRoutingId) === variationName,
+    );
+    if (namedCandidates.length === 1) return namedCandidates[0];
+    const sameSequence = namedCandidates.filter((parent) => parent.sequenceNum === variation.sequenceNum);
+    return sameSequence.length === 1 ? sameSequence[0] : null;
+  };
+
   for (const v of variationResults) {
-    const parentId = stripVariationPrefix(variationGroupId, v.orderRoutingId);
-    const parent = parentById.get(parentId) || null;
-    if (parent) seenParent.add(parentId);
-    rows.push({ routingName: routingNameById[v.orderRoutingId] || routingNameById[parentId] || v.orderRoutingId, parentRoutingId: parent ? parentId : null, variationRoutingId: v.orderRoutingId, parent, variation: v });
+    const parent = matchParent(v);
+    if (parent) seenParent.add(parent.orderRoutingId);
+    rows.push({
+      routingName: nameFor(v.orderRoutingId) || (parent ? nameFor(parent.orderRoutingId) : "") || v.orderRoutingId,
+      parentRoutingId: parent?.orderRoutingId ?? null,
+      variationRoutingId: v.orderRoutingId,
+      parent,
+      variation: v,
+    });
   }
   for (const p of parentResults) {
     if (seenParent.has(p.orderRoutingId)) continue;
@@ -220,8 +262,16 @@ export function describeRuleAttempts(trace: OrderTrace): string[] {
 const yes = (v: any): boolean => v === "Y" || v === true;
 const num = (v: any): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 
-function counts(v: any): { brokeredItemCount: number; attemptedItemCount: number; queuedItemCount: number; outcomes: any } {
-  return { brokeredItemCount: num(v?.brokeredItemCount), attemptedItemCount: num(v?.attemptedItemCount), queuedItemCount: num(v?.queuedItemCount), outcomes: null };
+function counts(v: any): { brokeredItemCount: number; attemptedItemCount: number; queuedItemCount: number; outcomes: any; failed?: boolean; failureReason?: string } {
+  const failed = yes(v?.failed) || String(v?.statusId || "") === "FAILED";
+  return {
+    brokeredItemCount: num(v?.brokeredItemCount),
+    attemptedItemCount: num(v?.attemptedItemCount),
+    queuedItemCount: num(v?.queuedItemCount),
+    outcomes: null,
+    ...(failed ? { failed: true } : {}),
+    ...(v?.failureReason ? { failureReason: String(v.failureReason) } : {})
+  };
 }
 
 function parseJson(v: any): any {
@@ -235,6 +285,27 @@ export interface AdaptedResults {
   variants: Array<{ label: string; groupRun: any; diff: any; failed: boolean; failureReason?: string }>;
   partial: boolean;
   simulationRan: boolean;
+  identity: PersistedSimulationIdentity;
+}
+
+export interface PersistedSimulationIdentity {
+  kind: "baseline" | "variation";
+  label: string;
+  routingGroupId: string;
+  variationGroupId?: string;
+}
+
+/**
+ * Identify a persisted synchronous run from its explicit backend association fields. A variation
+ * and its parent comparison are separate SINGLE history records, so array position/timestamp must
+ * never be used to decide which is which.
+ */
+export function persistedSimulationIdentity(header: any): PersistedSimulationIdentity {
+  const routingGroupId = String(header?.routingGroupId || "").trim();
+  const variationGroupId = String(header?.variationGroupId || "").trim();
+  if (!variationGroupId) return { kind: "baseline", label: "Baseline", routingGroupId };
+  const label = String(header?.variationName || header?.variationLabel || variationGroupId).trim() || variationGroupId;
+  return { kind: "variation", label, routingGroupId, variationGroupId };
 }
 
 export function persistedSimulationAdapter(raw: any): AdaptedResults {
@@ -243,16 +314,31 @@ export function persistedSimulationAdapter(raw: any): AdaptedResults {
   const baselineVariant = all.find((v: any) => yes(v?.isBaseline)) ?? null;
   const nonBaseline = all.filter((v: any) => !yes(v?.isBaseline));
   const anyFailed = all.some((v: any) => yes(v?.failed));
+  const identity = persistedSimulationIdentity(header);
+  const singleRun = counts(baselineVariant ? { ...header, ...baselineVariant } : header);
+  // The synchronous variation endpoint persists its result as a SINGLE record whose only result
+  // row is marked isBaseline=Y. variationGroupId on the header is the authoritative discriminator:
+  // render that row as the named variation instead of falsely relabeling it Baseline.
+  const isSynchronousVariationRecord = identity.kind === "variation" && nonBaseline.length === 0;
   return {
-    baseline: baselineVariant ? counts(baselineVariant) : counts(header),
-    variants: nonBaseline.map((v: any) => ({
-      label: v?.label ?? "",
-      groupRun: counts(v),
-      diff: v?.diff ?? parseJson(v?.diffJson),
-      failed: yes(v?.failed),
-      ...(v?.failureReason ? { failureReason: v.failureReason } : {}),
-    })),
+    baseline: isSynchronousVariationRecord ? null : singleRun,
+    variants: isSynchronousVariationRecord
+      ? [{
+          label: identity.label,
+          groupRun: singleRun,
+          diff: undefined,
+          failed: !!singleRun.failed,
+          ...(singleRun.failureReason ? { failureReason: singleRun.failureReason } : {}),
+        }]
+      : nonBaseline.map((v: any) => ({
+          label: v?.label ?? "",
+          groupRun: counts(v),
+          diff: v?.diff ?? parseJson(v?.diffJson),
+          failed: yes(v?.failed),
+          ...(v?.failureReason ? { failureReason: v.failureReason } : {}),
+        })),
     partial: yes(header?.partial) || anyFailed,
     simulationRan: header?.simulationRan !== "N" && header?.simulationRan !== false,
+    identity,
   };
 }

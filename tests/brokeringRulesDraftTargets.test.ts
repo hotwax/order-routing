@@ -1,160 +1,714 @@
-import { describe, expect, it } from "vitest";
-import { applyDraftOperations } from "@/utils/draftUtils";
+import assert from "assert";
+import { it, vi } from "vitest";
+// @common's barrel eagerly imports .vue components, which node can't load. The src under test
+// reaches @common only via DraftAssistantService; mock its small surface so this runs under vitest.
+vi.mock("@common", () => ({
+  commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
+  cookieHelper: () => ({ get: () => "" }),
+}));
+import { applyDraftOperations } from "../src/utils/draftUtils";
+import type { DraftOperation } from "../src/types/draft";
 import {
-  buildBrokeringRulesBindings,
-  buildBrokeringRulesManifest,
-} from "@/utils/brokeringRulesManifest";
+  buildRoutingRulesBindings,
+  buildRoutingRulesManifest
+} from "../src/utils/routingRulesManifest";
+
+it("brokering rules draft targets", async () => {
 
 const ruleEnums = {
   QUEUE: { id: "OIP_QUEUE", code: "facilityId" },
+  QUEUE_EXCLUDED: { id: "OIP_QUEUE_EXCLUDED", code: "facilityId_excluded" },
+  PROD_CATEGORY: { id: "OIP_PROD_CATEGORY", code: "productCategoryId" },
+  PROD_CATEGORY_EXCLUDED: { id: "PROD_CATEGORY_EXCLUDED", code: "productCategoryId_excluded" },
+  SHIPPING_METHOD: { id: "OIP_SHIP_METH_TYPE", code: "shipmentMethodTypeId" },
+  SHIPPING_METHOD_EXCLUDED: { id: "OIP_SHIP_METH_TYPE_EXCLUDED", code: "shipmentMethodTypeId_excluded" },
+  PRIORITY: { id: "OIP_PRIORITY", code: "priority" },
+  PRIORITY_EXCLUDED: { id: "OIP_PRIORITY_EXCLUDED", code: "priority_excluded" },
+  PROMISE_DATE: { id: "OIP_PROMISE_DATE", code: "promiseDaysCutoff" },
+  PROMISE_DATE_EXCLUDED: { id: "OIP_PROMISE_DATE_EXCLUDED", code: "promiseDaysCutoff_excluded" },
+  SALES_CHANNEL: { id: "OIP_SALES_CHANNEL", code: "salesChannelEnumId" },
+  SALES_CHANNEL_EXCLUDED: { id: "OIP_SALES_CHANNEL_EXCLUDED", code: "salesChannelEnumId_excluded" },
+  ORIGIN_FACILITY_GROUP: { id: "OIP_ORIGIN_FAC_GRP", code: "originFacilityGroupId" },
+  ORIGIN_FACILITY_GROUP_EXCLUDED: { id: "OIP_ORIGIN_FAC_GRP_EXCLUDED", code: "originFacilityGroupId_excluded" },
+  SHIP_BY: { id: "OSP_SHIP_BY", code: "shipBeforeDate" },
+  SHIP_AFTER: { id: "OSP_SHIP_AFTER", code: "shipAfterDate" },
+  ORDER_DATE: { id: "OSP_ORDER_DATE", code: "orderDate" },
+  SHIPPING_METHOD_SORT: { id: "OSP_SHIP_METH", code: "deliveryDays" },
+  SORT_PRIORITY: { id: "OSP_PRIORITY", code: "priority" }
 };
+
 const conditionFilterEnums = {
   FACILITY_GROUP: { id: "IIP_FACILITY_GROUP", code: "facilityGroupId" },
+  FACILITY_GROUP_EXCLUDED: { id: "IIP_FACILITY_GROUP_EXCLUDED", code: "facilityGroupId_excluded" },
+  PROXIMITY: { id: "IIP_PROXIMITY", code: "distance" },
+  BRK_SAFETY_STOCK: { id: "IIP_BRK_SFTY_STOCK", code: "brokeringSafetyStock" },
+  MEASUREMENT_SYSTEM: { id: "IIP_MSMNT_SYSTEM", code: "measurementSystem" },
   SPLIT_ITEM_GROUP: { id: "IIP_SPLIT_ITEM_GROUP", code: "splitOrderItemGroup" },
+  FACILITY_ORDER_LIMIT: { id: "IFP_IGNORE_ORD_FAC_LIMIT", code: "ignoreFacilityOrderLimit" },
+  SHIP_THRESHOLD: { id: "IFP_SHIP_THREHOLD", code: "shipmentThreshold" },
+  WOS: { id: "IFP_WOS", code: "weekOfSupply" }
 };
+
 const conditionSortEnums = {
   PROXIMITY: { id: "ISP_PROXIMITY", code: "distance" },
+  INV_BALANCE: { id: "ISP_INV_BAL", code: "inventoryForAllocation" },
+  CUSTOMER_SEQ: { id: "ISP_CUST_SEQ", code: "facilitySequence" }
 };
+
 const actionEnums = {
   RM_AUTO_CANCEL_DATE: { id: "ORA_RM_CANCEL_DATE", code: "RM_AUTO_CANCEL_DATE" },
   AUTO_CANCEL_DAYS: { id: "ORA_AUTO_CANCEL_DAYS", code: "ADD_AUTO_CANCEL_DATE" },
   NEXT_RULE: { id: "ORA_NEXT_RULE", code: "NEXT_RULE" },
-  MOVE_TO_QUEUE: { id: "ORA_MV_TO_QUEUE", code: "MOVE_TO_QUEUE" },
+  MOVE_TO_QUEUE: { id: "ORA_MV_TO_QUEUE", code: "MOVE_TO_QUEUE" }
 };
 
-function fixture() {
-  const selectedRule = {
-    routingRuleId: "RULE_1",
-    ruleName: "Primary rule",
-    statusId: "RULE_DRAFT",
-    assignmentEnumId: "ORA_SINGLE",
-    sequenceNum: 1,
-  };
-  const inventoryRules = [{ ...selectedRule }];
-  const rulesInformation = {
-    RULE_1: {
-      ...selectedRule,
-      inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: {} },
-      actions: {
-        ORA_MV_TO_QUEUE: {
-          routingRuleId: "RULE_1",
-          actionTypeEnumId: "ORA_MV_TO_QUEUE",
-          actionValue: "BROKERING_QUEUE",
-        },
-      },
-    },
+function createFixture(overrides: any = {}) {
+  const selectedRoutingRule = { routingRuleId: "rule-1", ruleName: "Primary rule", statusId: "RULE_DRAFT", assignmentEnumId: "ORA_SINGLE" };
+  const inventoryRules = overrides.inventoryRules || [{ ...selectedRoutingRule, ...overrides.selectedRoutingRule, sequenceNum: 0 }];
+  const rulesInformation = overrides.rulesInformation || {
+    "rule-1": { ...selectedRoutingRule, ...overrides.selectedRoutingRule, inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: {} }, actions: {} }
   };
   const draft = {
-    orderRoutingId: "ROUTING_1",
-    selectedRoutingRule: { value: { ...selectedRule } },
-    routingStatus: { value: "ROUTING_DRAFT" },
-    orderRoutingFilterOptions: {
-      value: {
-        facilityId: {
-          conditionTypeEnumId: "ENTCT_FILTER" as const,
-          fieldName: "facilityId",
-          fieldValue: "BROKERING_QUEUE",
-        },
-      },
-    },
-    orderRoutingSortOptions: { value: {} },
-    inventoryRuleFilterOptions: { value: {} },
-    inventoryRuleSortOptions: { value: {} },
-    inventoryRuleActions: { value: { ...rulesInformation.RULE_1.actions } },
+    orderRoutingId: overrides.orderRoutingId || "route-1",
+    selectedRoutingRule: { value: { ...selectedRoutingRule, ...overrides.selectedRoutingRule } },
+    routingStatus: { value: overrides.routingStatus || "ROUTING_DRAFT" },
+    orderRoutingFilterOptions: { value: overrides.orderRoutingFilterOptions || {} },
+    orderRoutingSortOptions: { value: overrides.orderRoutingSortOptions || {} },
+    inventoryRuleFilterOptions: { value: overrides.inventoryRuleFilterOptions || {} },
+    inventoryRuleSortOptions: { value: overrides.inventoryRuleSortOptions || {} },
+    inventoryRuleActions: { value: overrides.inventoryRuleActions || {
+      ORA_MV_TO_QUEUE: {
+        routingRuleId: "rule-1",
+        actionTypeEnumId: "ORA_MV_TO_QUEUE",
+        actionValue: "QUEUE_A"
+      }
+    } },
     inventoryRules: { value: inventoryRules },
     rulesInformation: { value: rulesInformation },
     rulesForReorder: { value: inventoryRules },
-    ruleActionType: { value: "ORA_MV_TO_QUEUE" },
+    ruleActionType: { value: overrides.ruleActionType || "ORA_MV_TO_QUEUE" },
     hasUnsavedChanges: { value: false },
     ruleEnums,
     conditionFilterEnums,
     conditionSortEnums,
-    actionEnums,
+    actionEnums
   };
-  const manifest = buildBrokeringRulesManifest({
-    pageRoute: "/tabs/circuit",
-    orderRoutingId: "ROUTING_1",
-    routingName: "Primary",
+  const manifest = buildRoutingRulesManifest({
+    pageRoute: "/tabs/brokering/M100000/M100000/rules",
+    orderRoutingId: draft.orderRoutingId,
+    routingName: overrides.routingName || "Route A",
     routingStatus: draft.routingStatus.value,
-    brokeringRun: {
-      routingGroupId: "GROUP_1",
-      groupName: "US Brokering",
-      productStoreId: "STORE",
-      routings: [
-        { orderRoutingId: "ROUTING_1", routingName: "Primary", statusId: "ROUTING_DRAFT", sequenceNum: 1 },
-        { orderRoutingId: "ROUTING_2", routingName: "Fallback", statusId: "ROUTING_ACTIVE", sequenceNum: 2 },
-      ],
-    },
     selectedRoutingRule: draft.selectedRoutingRule.value,
     isTestEnabled: false,
     orderRoutingFilterOptions: draft.orderRoutingFilterOptions.value,
-    orderRoutingSortOptions: {},
-    inventoryRuleFilterOptions: {},
-    inventoryRuleSortOptions: {},
+    orderRoutingSortOptions: draft.orderRoutingSortOptions.value,
+    inventoryRuleFilterOptions: draft.inventoryRuleFilterOptions.value,
+    inventoryRuleSortOptions: draft.inventoryRuleSortOptions.value,
     inventoryRuleActions: draft.inventoryRuleActions.value,
-    inventoryRules,
-    rulesInformation,
+    inventoryRules: draft.inventoryRules.value,
+    rulesInformation: draft.rulesInformation.value,
     ruleActionType: draft.ruleActionType.value,
     ruleEnums,
     conditionFilterEnums,
     conditionSortEnums,
     actionEnums,
-    facilities: {
-      BROKERING_QUEUE: { facilityName: "Brokering Queue" },
-      UNFILLABLE_PARKING: { facilityName: "Unfillable Parking" },
-    },
-    shippingMethods: {},
-    salesChannels: {},
-    facilityGroups: {},
-    brokeringFacilityGroups: {},
+    brokeringRun: overrides.brokeringRun,
+    facilities: overrides.facilities || { QUEUE_A: { facilityName: "Queue A" }, QUEUE_B: { facilityName: "Queue B" } },
+    shippingMethods: overrides.shippingMethods || {},
+    salesChannels: { WEB_SALES_CHANNEL: { description: "Web" } },
+    facilityGroups: overrides.facilityGroups || { FG1: { facilityGroupName: "West" } },
+    brokeringFacilityGroups: overrides.brokeringFacilityGroups || { FG1: { facilityGroupName: "West", facilityGroupTypeId: "BROKERING_GROUP" } }
   });
 
   return { draft, manifest };
 }
 
-describe("Circuit brokering-rule manifest", () => {
-  it("exposes the current run, sibling routings, and readable active filters", () => {
-    const { manifest } = fixture();
-    const brokeringRun = manifest.visibleEntities.brokeringRun as any;
-    const route = manifest.visibleEntities.route as any;
-
-    expect(brokeringRun).toMatchObject({ routingGroupId: "GROUP_1", groupName: "US Brokering" });
-    expect(brokeringRun.availableSiblingRoutings.map((routing: any) => routing.routingName))
-      .toEqual(["Primary", "Fallback"]);
-    expect(route.currentOrderFilters).toEqual([expect.objectContaining({
-      target: "route.orderFilters.QUEUE",
-      valueLabel: "Brokering Queue",
-    })]);
-    expect(route.draftLimitations).toMatchObject({
-      canCreateInventoryRules: true,
-      canCreateSiblingRoutings: true,
-    });
+{
+  const variationRule = {
+    routingRuleId: "",
+    _tempId: "temp-variation-rule-1",
+    ruleName: "Variation working rule",
+    statusId: "RULE_DRAFT",
+    sequenceNum: 7,
+    assignmentEnumId: "ORA_MULTI"
+  };
+  const { manifest } = createFixture({
+    orderRoutingId: "VM100005_100008",
+    routingName: "Variation working route",
+    routingStatus: "ROUTING_ACTIVE",
+    selectedRoutingRule: variationRule,
+    inventoryRules: [variationRule],
+    rulesInformation: {
+      "temp-variation-rule-1": {
+        ...variationRule,
+        inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: {} },
+        actions: {}
+      }
+    },
+    brokeringRun: {
+      routingGroupId: "M100255",
+      groupName: "Working variation",
+      productStoreId: "STORE",
+      schedule: { jobName: "live-job-must-not-leak" },
+      routings: [
+        {
+          orderRoutingId: "VM100005_100008",
+          routingName: "Variation working route",
+          statusId: "ROUTING_ACTIVE",
+          sequenceNum: 5
+        },
+        {
+          orderRoutingId: "VM100005_100009",
+          routingName: "Variation sibling",
+          statusId: "ROUTING_DRAFT",
+          sequenceNum: 10
+        }
+      ]
+    }
   });
 
-  it("applies validated route, allocation, and unavailable-item changes to the local draft", () => {
-    const { draft, manifest } = fixture();
-    const result = applyDraftOperations([
-      { op: "set", target: "route.statusId", value: "ROUTING_ACTIVE" },
-      { op: "set", target: "selectedRule.partialAllocation", value: true },
-      { op: "set", target: "selectedRule.unavailableItemsQueueId", value: "unfillable queue" },
-    ], manifest, buildBrokeringRulesBindings(draft));
+  assert.deepEqual(manifest.context, {
+    mode: "variation",
+    variationId: "VM100005",
+    routingGroupId: "M100255",
+    unavailableOperations: ["newRouting", "cloneRouting", "schedule", "liveRun", "groupStatus"]
+  });
+  const run = manifest.visibleEntities.brokeringRun as any;
+  const route = manifest.visibleEntities.route as any;
+  const selectedRule = manifest.visibleEntities.selectedRule as any;
+  assert.equal(run.schedule, null, "a live group schedule must not be sent in variation context");
+  assert.equal(run.availableSiblingRoutings[1].routingName, "Variation sibling");
+  assert.equal(route.orderRoutingId, "VM100005_100008");
+  assert.equal(route.routingName, "Variation working route");
+  assert.equal(route.statusId, "ROUTING_ACTIVE");
+  assert.equal(route.draftLimitations.canCreateSiblingRoutings, false);
+  assert.equal(route.availableInventoryRules[0].routingRuleId, "temp-variation-rule-1");
+  assert.equal(selectedRule.routingRuleId, "temp-variation-rule-1");
+  assert.equal(selectedRule.assignmentEnumId, "ORA_MULTI");
+  assert.equal(manifest.editableTargets.some((target) => target.target === "route.statusId" && target.editable), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.statusId" && target.editable), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.partialAllocation"), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("route.orderFilters.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("route.orderSorts.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("selectedRule.inventoryFilters.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target.startsWith("selectedRule.inventorySorts.")), true);
+  assert.equal(manifest.editableTargets.some((target) => target.target === "selectedRule.unavailableItemsAction"), true);
+}
 
-    expect(result.appliedCount).toBe(3);
-    expect(draft.routingStatus.value).toBe("ROUTING_ACTIVE");
-    expect(draft.selectedRoutingRule.value.assignmentEnumId).toBe("ORA_MULTI");
-    expect(draft.inventoryRuleActions.value.ORA_MV_TO_QUEUE.actionValue).toBe("UNFILLABLE_PARKING");
-    expect(draft.hasUnsavedChanges.value).toBe(true);
+function apply(operations: DraftOperation[], overrides: any = {}) {
+  const fixture = createFixture(overrides);
+  const result = applyDraftOperations(operations, fixture.manifest, buildRoutingRulesBindings(fixture.draft));
+  return { ...fixture, result };
+}
+
+const queueFacilities = {
+  BROKERING_QUEUE: { facilityName: "Brokering Queue" },
+  UNFILLABLE_PARKING: { facilityName: "Unfillable Parking" },
+  UNFILLABLE_HOLD_PARKING: { facilityName: "Unfillable Hold Parking" }
+};
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.statusId", value: "RULE_ARCHIVED" }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.selectedRoutingRule.value.statusId, "RULE_ARCHIVED");
+  assert.equal(draft.inventoryRules.value[0].statusId, "RULE_ARCHIVED");
+  assert.equal(draft.hasUnsavedChanges.value, true);
+}
+
+{
+  const { manifest } = createFixture();
+  const routeEntity = manifest.visibleEntities.route as any;
+
+  assert.equal(routeEntity.draftLimitations.selectedRuleOnly, false);
+  assert.equal(routeEntity.draftLimitations.canCreateInventoryRules, true);
+  assert.equal(routeEntity.availableInventoryRules[0].routingRuleId, "rule-1");
+  assert.equal(routeEntity.availableInventoryRules[0].ruleName, "Primary rule");
+  assert.equal(routeEntity.availableInventoryRules[0].statusId, "RULE_DRAFT");
+  assert.equal(routeEntity.availableInventoryRules[0].sequenceNum, 0);
+}
+
+{
+  const { manifest } = createFixture({
+    brokeringRun: {
+      routingGroupId: "100051",
+      groupName: "Overnight Priority Orders",
+      productStoreId: "STORE"
+    }
+  });
+  const brokeringRun = manifest.visibleEntities.brokeringRun as any;
+
+  assert.equal(brokeringRun.routingGroupId, "100051");
+  assert.equal(brokeringRun.groupName, "Overnight Priority Orders");
+  assert.equal(brokeringRun.productStoreId, "STORE");
+}
+
+{
+  const { manifest } = createFixture({
+    orderRoutingFilterOptions: {
+      shipmentMethodTypeId: {
+        orderRoutingId: "route-1",
+        conditionTypeEnumId: "ENTCT_FILTER",
+        fieldName: "shipmentMethodTypeId",
+        fieldValue: "STANDARD",
+        operator: "equals",
+        sequenceNum: 0
+      }
+    },
+    orderRoutingSortOptions: {
+      orderDate: {
+        orderRoutingId: "route-1",
+        conditionTypeEnumId: "ENTCT_SORT_BY",
+        fieldName: "orderDate",
+        fieldValue: "",
+        sequenceNum: 0
+      }
+    },
+    shippingMethods: {
+      STANDARD: { description: "Standard shipping" }
+    }
+  });
+  const routeEntity = manifest.visibleEntities.route as any;
+
+  assert.deepEqual(routeEntity.currentOrderFilters, [{
+    target: "route.orderFilters.SHIPPING_METHOD",
+    label: "Shipping method filter",
+    value: "STANDARD",
+    valueLabel: "Standard shipping",
+    operator: "equals",
+    sequenceNum: 0
+  }]);
+  assert.deepEqual(routeEntity.currentOrderSorts, [{
+    target: "route.orderSorts.ORDER_DATE",
+    label: "Order date sort",
+    sequenceNum: 0
+  }]);
+}
+
+{
+  const rulesInformation = {
+    "rule-1": {
+      routingRuleId: "rule-1",
+      ruleName: "Test",
+      statusId: "RULE_ACTIVE",
+      assignmentEnumId: "ORA_MULTI",
+      sequenceNum: 0,
+      inventoryFilters: {
+        ENTCT_FILTER: {
+          facilityGroupId: {
+            routingRuleId: "rule-1",
+            conditionTypeEnumId: "ENTCT_FILTER",
+            fieldName: "facilityGroupId",
+            fieldValue: "FG1",
+            operator: "equals",
+            sequenceNum: 0
+          },
+          splitOrderItemGroup: {
+            routingRuleId: "rule-1",
+            conditionTypeEnumId: "ENTCT_FILTER",
+            fieldName: "splitOrderItemGroup",
+            fieldValue: "Y",
+            operator: "equals",
+            sequenceNum: 5
+          }
+        },
+        ENTCT_SORT_BY: {
+          distance: {
+            routingRuleId: "rule-1",
+            conditionTypeEnumId: "ENTCT_SORT_BY",
+            fieldName: "distance",
+            fieldValue: "",
+            sequenceNum: 0
+          }
+        }
+      },
+      actions: {
+        ORA_NEXT_RULE: {
+          routingRuleId: "rule-1",
+          actionTypeEnumId: "ORA_NEXT_RULE",
+          actionValue: ""
+        }
+      }
+    },
+    "rule-2": {
+      routingRuleId: "rule-2",
+      ruleName: "test2",
+      statusId: "RULE_DRAFT",
+      assignmentEnumId: "ORA_SINGLE",
+      sequenceNum: 5,
+      inventoryFilters: {
+        ENTCT_FILTER: {
+          ignoreFacilityOrderLimit: {
+            routingRuleId: "rule-2",
+            conditionTypeEnumId: "ENTCT_FILTER",
+            fieldName: "ignoreFacilityOrderLimit",
+            fieldValue: "N",
+            operator: "equals",
+            sequenceNum: 0
+          }
+        },
+        ENTCT_SORT_BY: {}
+      },
+      actions: {
+        ORA_MV_TO_QUEUE: {
+          routingRuleId: "rule-2",
+          actionTypeEnumId: "ORA_MV_TO_QUEUE",
+          actionValue: "QUEUE_A"
+        }
+      }
+    }
+  };
+  const { manifest } = createFixture({
+    selectedRoutingRule: {
+      ruleName: "Test",
+      statusId: "RULE_ACTIVE",
+      assignmentEnumId: "ORA_MULTI"
+    },
+    inventoryRules: [
+      { routingRuleId: "rule-1", ruleName: "Test", statusId: "RULE_ACTIVE", assignmentEnumId: "ORA_MULTI", sequenceNum: 0 },
+      { routingRuleId: "rule-2", ruleName: "test2", statusId: "RULE_DRAFT", assignmentEnumId: "ORA_SINGLE", sequenceNum: 5 }
+    ],
+    rulesInformation
+  });
+  const routeEntity = manifest.visibleEntities.route as any;
+  const firstRule = routeEntity.availableInventoryRules[0];
+  const secondRule = routeEntity.availableInventoryRules[1];
+
+  assert.equal(firstRule.currentValues.partialAllocation, true);
+  assert.equal(firstRule.currentValues.partialGroupedItemAllocation, true);
+  assert.deepEqual(firstRule.currentValues.inventoryFilters, [
+    {
+      target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+      label: "Inventory facility group filter",
+      value: "FG1",
+      valueLabel: "West",
+      operator: "equals",
+      sequenceNum: 0
+    },
+    {
+      target: "selectedRule.partialGroupItemsAllocation",
+      label: "Grouped item partial allocation",
+      value: true,
+      valueLabel: "Allowed",
+      operator: "equals",
+      sequenceNum: 5
+    }
+  ]);
+  assert.deepEqual(firstRule.currentValues.inventorySorts, [{
+    target: "selectedRule.inventorySorts.PROXIMITY",
+    label: "Inventory proximity sort",
+    sequenceNum: 0
+  }]);
+  assert.equal(firstRule.currentValues.unavailableItems.actionTypeEnumId, "ORA_NEXT_RULE");
+  assert.equal(firstRule.currentValues.unavailableItems.actionLabel, "Next rule");
+
+  assert.equal(secondRule.currentValues.partialAllocation, false);
+  assert.equal(secondRule.currentValues.partialGroupedItemAllocation, false);
+  assert.deepEqual(secondRule.currentValues.inventoryFilters, [{
+    target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT",
+    label: "Facility order limit check",
+    value: false,
+    valueLabel: "Respect facility order limits",
+    operator: "equals",
+    sequenceNum: 0
+  }]);
+  assert.equal(secondRule.currentValues.unavailableItems.actionTypeEnumId, "ORA_MV_TO_QUEUE");
+  assert.equal(secondRule.currentValues.unavailableItems.actionLabel, "Queue");
+  assert.equal(secondRule.currentValues.unavailableItems.queueId, "QUEUE_A");
+  assert.equal(secondRule.currentValues.unavailableItems.queueLabel, "Queue A");
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "route.statusId", value: "ROUTING_ACTIVE" }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.routingStatus.value, "ROUTING_ACTIVE");
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.partialAllocation", value: true }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.selectedRoutingRule.value.assignmentEnumId, "ORA_MULTI");
+  assert.equal(draft.inventoryRuleFilterOptions.value.splitOrderItemGroup.fieldValue, "Y");
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.unavailableItemsAction", value: "ORA_NEXT_RULE" }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.ruleActionType.value, "ORA_NEXT_RULE");
+  assert.ok(draft.inventoryRuleActions.value.ORA_NEXT_RULE);
+  assert.equal(draft.inventoryRuleActions.value.ORA_MV_TO_QUEUE, undefined);
+}
+
+{
+  const { draft, result } = apply([
+    { op: "set", target: "selectedRule.unavailableItemsAction", value: "ORA_MV_TO_QUEUE" },
+    { op: "set", target: "selectedRule.unavailableItemsQueueId", value: "QUEUE_B" }
+  ]);
+  assert.equal(result.appliedCount, 2);
+  assert.equal(draft.ruleActionType.value, "ORA_MV_TO_QUEUE");
+  assert.equal(draft.inventoryRuleActions.value.ORA_MV_TO_QUEUE.actionValue, "QUEUE_B");
+}
+
+{
+  const { manifest } = createFixture({ facilities: queueFacilities });
+  const queueTarget = manifest.editableTargets.find((target) => target.target === "selectedRule.unavailableItemsQueueId");
+  const unfillableParking = queueTarget?.options?.find((option) => option.id === "UNFILLABLE_PARKING");
+  const unfillableHoldParking = queueTarget?.options?.find((option) => option.id === "UNFILLABLE_HOLD_PARKING");
+
+  assert.ok(unfillableParking?.aliases?.includes("unfillable queue"));
+  assert.equal(unfillableHoldParking?.aliases?.includes("unfillable queue"), false);
+}
+
+{
+  const { draft, result } = apply(
+    [{ op: "set", target: "selectedRule.unavailableItemsQueueId", value: "unfillable queue" }],
+    { facilities: queueFacilities }
+  );
+
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.inventoryRuleActions.value.ORA_MV_TO_QUEUE.actionValue, "UNFILLABLE_PARKING");
+}
+
+{
+  const fixture = createFixture();
+  const result = applyDraftOperations([
+    {
+      op: "set",
+      target: "selectedRule.inventoryFilters.FACILITY_GROUP",
+      value: "FG1",
+      ruleKey: "new:warehouse-first",
+      ruleName: "Warehouse first",
+      ruleSequence: 10
+    } as any,
+    {
+      op: "set",
+      target: "selectedRule.inventorySorts.PROXIMITY",
+      value: true,
+      ruleKey: "new:stores-fallback",
+      ruleName: "Stores fallback",
+      ruleSequence: 20
+    } as any
+  ], fixture.manifest, buildRoutingRulesBindings(fixture.draft));
+
+  assert.equal(result.appliedCount, 2);
+  // The last scoped rule Circuit changed remains selected so the accepted preview is visible and
+  // the editor's Save flush serializes the same state the user reviewed on the canvas.
+  assert.equal(fixture.draft.selectedRoutingRule.value.routingRuleId, "new:stores-fallback");
+  assert.equal(fixture.draft.inventoryRuleSortOptions.value.distance.fieldName, "distance");
+  assert.ok(fixture.draft.inventoryRules.value.some((rule: any) => rule.routingRuleId === "new:warehouse-first"));
+  assert.ok(fixture.draft.inventoryRules.value.some((rule: any) => rule.routingRuleId === "new:stores-fallback"));
+  assert.equal(fixture.draft.rulesInformation.value["new:warehouse-first"].inventoryFilters.ENTCT_FILTER.facilityGroupId.fieldValue, "FG1");
+  assert.equal(fixture.draft.rulesInformation.value["new:stores-fallback"].inventoryFilters.ENTCT_SORT_BY.distance.fieldName, "distance");
+}
+
+{
+  const { draft, result } = apply(
+    [{ op: "set", target: "route.orderFilters.QUEUE_EXCLUDED", value: ["unfillable queue"] }],
+    { facilities: queueFacilities }
+  );
+
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.orderRoutingFilterOptions.value.facilityId_excluded.fieldValue, "UNFILLABLE_PARKING");
+}
+
+{
+  const { manifest } = createFixture();
+  const facilityOrderLimitTarget = manifest.editableTargets.find((target) => target.target === "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT");
+  const respectLimits = facilityOrderLimitTarget?.options?.find((option) => option.id === "false");
+  const bypassLimits = facilityOrderLimitTarget?.options?.find((option) => option.id === "true");
+
+  assert.equal(facilityOrderLimitTarget?.label, "Facility order limit check");
+  assert.ok(respectLimits?.aliases?.includes("cap store usage"));
+  assert.ok(respectLimits?.aliases?.includes("protect stores"));
+  assert.ok(bypassLimits?.aliases?.includes("bypass facility order limits"));
+}
+
+{
+  const { manifest } = createFixture();
+  const includeFacilityGroupTarget = manifest.editableTargets.find((target) => target.target === "selectedRule.inventoryFilters.FACILITY_GROUP");
+  const excludeFacilityGroupTarget = manifest.editableTargets.find((target) => target.target === "selectedRule.inventoryFilters.FACILITY_GROUP_EXCLUDED");
+
+  assert.equal(includeFacilityGroupTarget?.aliases?.includes("all brokering locations"), false);
+  assert.ok(excludeFacilityGroupTarget?.aliases?.includes("all brokering locations except"));
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT", value: "cap store usage" }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.inventoryRuleFilterOptions.value.ignoreFacilityOrderLimit.fieldValue, "N");
+  assert.equal(draft.hasUnsavedChanges.value, true);
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT", value: "bypass facility order limits" }]);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.inventoryRuleFilterOptions.value.ignoreFacilityOrderLimit.fieldValue, "Y");
+}
+
+{
+  const facilityGroups = {
+    FG_PRIORITY_FULFILLMENT: {
+      facilityGroupId: "FG_PRIORITY_FULFILLMENT",
+      facilityGroupName: "Priority Fulfillment Stores",
+      facilityGroupTypeId: "BROKERING_GROUP"
+    },
+    FG_STANDARD: {
+      facilityGroupId: "FG_STANDARD",
+      facilityGroupName: "Standard Stores",
+      facilityGroupTypeId: "BROKERING_GROUP"
+    }
+  };
+  const { manifest } = createFixture({
+    facilityGroups,
+    brokeringFacilityGroups: facilityGroups
+  });
+  const facilityGroupTarget = manifest.editableTargets.find((target) => target.target === "selectedRule.inventoryFilters.FACILITY_GROUP");
+  const priorityOption = facilityGroupTarget?.options?.find((option) => option.id === "FG_PRIORITY_FULFILLMENT");
+
+  assert.ok(priorityOption?.aliases?.includes("priority fulfillment group"));
+}
+
+{
+  const facilityGroups = {
+    FG_PRIORITY_FULFILLMENT: {
+      facilityGroupId: "FG_PRIORITY_FULFILLMENT",
+      facilityGroupName: "Priority Fulfillment Stores",
+      facilityGroupTypeId: "BROKERING_GROUP"
+    },
+    FG_STANDARD: {
+      facilityGroupId: "FG_STANDARD",
+      facilityGroupName: "Standard Stores",
+      facilityGroupTypeId: "BROKERING_GROUP"
+    }
+  };
+  const { draft, result } = apply(
+    [{ op: "set", target: "selectedRule.inventoryFilters.FACILITY_GROUP", value: "priority fulfillment group" }],
+    {
+      facilityGroups,
+      brokeringFacilityGroups: facilityGroups
+    }
+  );
+
+  assert.equal(result.appliedCount, 1);
+  assert.equal(draft.inventoryRuleFilterOptions.value.facilityGroupId.fieldValue, "FG_PRIORITY_FULFILLMENT");
+}
+
+{
+  const { draft, result } = apply([{ op: "set", target: "selectedRule.statusId", value: "RULE_DELETED" }]);
+  assert.equal(result.appliedCount, 0);
+  assert.equal(draft.selectedRoutingRule.value.statusId, "RULE_DRAFT");
+  assert.equal(draft.hasUnsavedChanges.value, false);
+  assert.equal(result.unansweredQuestions.length, 1);
+}
+
+{
+  const promiseDateFilter = {
+    promiseDaysCutoff: {
+      orderRoutingId: "route-1",
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName: "promiseDaysCutoff",
+      fieldValue: 3
+    }
+  };
+  const { draft, result } = apply(
+    [{ op: "set", target: "selectedRule.partialAllocation", value: false }],
+    {
+      selectedRoutingRule: { assignmentEnumId: "ORA_MULTI" },
+      orderRoutingFilterOptions: promiseDateFilter
+    }
+  );
+  assert.equal(result.appliedCount, 0);
+  assert.equal(draft.selectedRoutingRule.value.assignmentEnumId, "ORA_MULTI");
+  assert.equal(draft.hasUnsavedChanges.value, false);
+  assert.equal(result.unansweredQuestions.length, 1);
+}
+
+// --- targetRouting/sibling-routing manifest fields ---
+{
+  const manifest = buildRoutingRulesManifest({
+    pageRoute: "/tabs/circuit",
+    orderRoutingId: "ROUTING_A",
+    routingName: "East Coast",
+    routingStatus: "ROUTING_DRAFT",
+    brokeringRun: {
+      routingGroupId: "GROUP_1",
+      groupName: "US Brokering",
+      productStoreId: "STORE_1",
+      schedule: null,
+      routings: [
+        { orderRoutingId: "ROUTING_A", routingName: "East Coast", statusId: "ROUTING_ACTIVE", sequenceNum: 20 },
+        { orderRoutingId: "ROUTING_B", routingName: "West Coast", statusId: "ROUTING_DRAFT", sequenceNum: 25 }
+      ]
+    },
+    selectedRoutingRule: {},
+    isTestEnabled: false,
+    orderRoutingFilterOptions: {},
+    orderRoutingSortOptions: {},
+    inventoryRuleFilterOptions: {},
+    inventoryRuleSortOptions: {},
+    inventoryRuleActions: {},
+    inventoryRules: [],
+    rulesInformation: {},
+    ruleActionType: "",
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums,
+    facilities: {},
+    shippingMethods: {},
+    salesChannels: {},
+    facilityGroups: {},
+    brokeringFacilityGroups: {}
   });
 
-  it("rejects values outside the manifest instead of mutating the draft", () => {
-    const { draft, manifest } = fixture();
-    const result = applyDraftOperations([
-      { op: "set", target: "selectedRule.statusId", value: "RULE_DELETED" },
-    ], manifest, buildBrokeringRulesBindings(draft));
+  const brokeringRun = (manifest.visibleEntities as any).brokeringRun;
+  assert.equal(Array.isArray(brokeringRun.availableSiblingRoutings), true, "brokeringRun.availableSiblingRoutings must be an array");
+  assert.equal(brokeringRun.availableSiblingRoutings.length, 2);
+  assert.equal(brokeringRun.availableSiblingRoutings[0].orderRoutingId, "ROUTING_A");
+  assert.equal(brokeringRun.availableSiblingRoutings[1].routingName, "West Coast");
 
-    expect(result.appliedCount).toBe(0);
-    expect(result.unansweredQuestions).toHaveLength(1);
-    expect(draft.selectedRoutingRule.value.statusId).toBe("RULE_DRAFT");
-    expect(draft.hasUnsavedChanges.value).toBe(false);
+  const route = (manifest.visibleEntities as any).route;
+  assert.equal(route.draftLimitations.canCreateSiblingRoutings, true, "route.draftLimitations.canCreateSiblingRoutings must default to true");
+}
+
+// Sibling routings array must be empty (not undefined) when group has no routings
+{
+  const manifest = buildRoutingRulesManifest({
+    pageRoute: "/tabs/circuit",
+    orderRoutingId: "ROUTING_A",
+    routingName: "East Coast",
+    routingStatus: "ROUTING_DRAFT",
+    brokeringRun: {
+      routingGroupId: "GROUP_1",
+      groupName: "US Brokering",
+      productStoreId: "STORE_1",
+      schedule: null
+      // routings omitted entirely
+    },
+    selectedRoutingRule: {},
+    isTestEnabled: false,
+    orderRoutingFilterOptions: {},
+    orderRoutingSortOptions: {},
+    inventoryRuleFilterOptions: {},
+    inventoryRuleSortOptions: {},
+    inventoryRuleActions: {},
+    inventoryRules: [],
+    rulesInformation: {},
+    ruleActionType: "",
+    ruleEnums,
+    conditionFilterEnums,
+    conditionSortEnums,
+    actionEnums,
+    facilities: {},
+    shippingMethods: {},
+    salesChannels: {},
+    facilityGroups: {},
+    brokeringFacilityGroups: {}
   });
+
+  const brokeringRun = (manifest.visibleEntities as any).brokeringRun;
+  assert.deepStrictEqual(brokeringRun.availableSiblingRoutings, []);
+}
+
+console.log("Brokering rules draft target tests passed");
+
 });

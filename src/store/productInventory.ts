@@ -184,7 +184,7 @@ export const useProductInventoryStore = defineStore('productInventory', {
       this.productSyncCompletedAt = 0
     },
     async fetchStock(productIds: Array<string>, facilityId: string) {
-      for (const productId of productIds) {
+      const fetchPromises = productIds.map(async (productId) => {
         try {
           const resp: any = await api({
             url: "poorti/getInventoryAvailableByFacility",
@@ -206,7 +206,9 @@ export const useProductInventoryStore = defineStore('productInventory', {
         } catch (err) {
           logger.error(err)
         }
-      }
+      })
+
+      await Promise.all(fetchPromises);
     }
   }
 })

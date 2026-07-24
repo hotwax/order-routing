@@ -3,7 +3,6 @@ import { CircuitStorageService } from '@/services/CircuitStorageService';
 import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
 
 export interface CircuitState {
-  isIntroDone: boolean;
   isChatStarted: boolean;
   threads: ChatThread[];
   currentThreadId: string | null;
@@ -14,7 +13,6 @@ export interface CircuitState {
 
 export const useCircuitStore = defineStore('circuit', {
   state: (): CircuitState => ({
-    isIntroDone: false,
     isChatStarted: false,
     threads: [],
     currentThreadId: null,
@@ -29,18 +27,8 @@ export const useCircuitStore = defineStore('circuit', {
     getLastPrompt: (state) => state.lastPrompt
   },
   actions: {
-    setIntroDone(payload: boolean) {
-      this.isIntroDone = payload;
-    },
     setChatStarted(payload: boolean) {
       this.isChatStarted = payload;
-    },
-    resetCircuit() {
-      this.isIntroDone = false;
-      this.isChatStarted = false;
-      this.currentThreadId = null;
-      this.messages = [];
-      this.activeContext = null;
     },
     async clearCurrentChatHistory() {
       if (this.currentThreadId) {
@@ -70,18 +58,18 @@ export const useCircuitStore = defineStore('circuit', {
       };
       try {
         await CircuitStorageService.saveThread(thread);
-        await this.switchThread(thread.id, { preserveContext: true });
+        await this.switchThread(thread.id);
         await this.loadAllThreads();
         return thread.id;
       } catch (error) {
         console.error('Failed to create thread', error);
       }
     },
-    async switchThread(threadId: string | null, options: { preserveContext?: boolean } = {}) {
+    // Routing-group context (activeContext) is derived from the page route, not from the thread,
+    // so switching or starting a thread must never touch it — doing so used to strand the detail
+    // page with no group (canvas + chat lose their routing group until you re-navigate).
+    async switchThread(threadId: string | null) {
       this.currentThreadId = threadId;
-      if (!options.preserveContext) {
-        this.activeContext = null;
-      }
       if (!threadId) {
         this.messages = [];
         return;
@@ -178,5 +166,7 @@ export const useCircuitStore = defineStore('circuit', {
       this.activeContext = payload;
     }
   },
-  persist: true
+  // Persist chat history/threads, but NOT activeContext — the routing-group context is derived
+  // from the page route (RoutingDetail seeds it) and a stale persisted value would fight the URL.
+  persist: { omit: ['activeContext'] }
 });

@@ -29,6 +29,7 @@ import "./theme/variables.css";
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { logger, createDxpI18n, initialiseConfig } from "@common";
+import { useAuth } from "@common/composables/useAuth";
 import localeMessages from "./locales"
 import { useUserStore } from "@/store/userStore";
 import { initialize } from "@/services/appInitializer";
@@ -61,6 +62,14 @@ router.isReady().then(async () => {
     await initialize()
   } catch (error) {
     logger.error('[IndexedDB] Failed to open CommonDB', error)
+  }
+
+  // Hydrated Pinia state may belong to a previously linked OMS instance (switch without
+  // logout); validate before mount so no page renders another instance's product stores.
+  try {
+    await useUserStore().ensureInstanceScope({ refetch: useAuth().isAuthenticated.value })
+  } catch (error) {
+    logger.error('Failed to validate OMS instance scope on hydrate', error)
   }
 
   app.mount("#app");

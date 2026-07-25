@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { logger, commonUtil, api, translate } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
+import { getOmsInstanceKey } from '@/utils/omsInstance'
 
 interface ProductStoreReferenceDataPayload {
   productStoreId?: string;
@@ -17,6 +18,9 @@ export const productStore = defineStore('productStore', {
     return {
       ecomStores: [] as any,
       currentEComStore: {} as any,
+      // OMS instance the persisted ecomStores were fetched from; state is dropped when it
+      // no longer matches the connected instance (see userStore.ensureInstanceScope).
+      omsInstanceKey: '' as string,
       facilities: {} as any,
       shippingMethods: {} as any,
       facilityGroups: {} as any,
@@ -102,6 +106,7 @@ export const productStore = defineStore('productStore', {
         } else {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
+          this.omsInstanceKey = getOmsInstanceKey();
           await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
           return Promise.resolve(resp.data);
         }

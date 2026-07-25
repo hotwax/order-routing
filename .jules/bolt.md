@@ -1,3 +1,6 @@
 ## 2026-07-21 - Parallelize stock fetching in stores
 **Learning:** Found sequential API calls (N+1 queries) inside `for...of` loops in `fetchStock` methods of Pinia stores (`product.ts` and `productInventory.ts`). This blocked the main execution flow unnecessarily as each request waited for the previous one.
 **Action:** Replaced sequential `for...of` loops with `await Promise.all(productIds.map(async (productId) => {...}))` to fire network requests concurrently, significantly reducing data load latency for large product groupings (like ship groups).
+## 2026-07-25 - Parallelize enum fetching in Pinia stores
+**Learning:** Found sequential API calls inside `for...of` loops in `fetchRoutingEditorEnums` of `src/store/utilStore.ts`. The loop awaited `fetchEnums({ enumTypeId })` one by one because the original `fetchEnums` logic snapshotted `this.enums` at the start of the function and saved it at the end, causing a race condition if run in parallel.
+**Action:** Changed the global state snapshot to happen immediately before merging the new data inside the response handling block, modifying `this.enums` atomically. This allowed the sequential `for...of` in `fetchRoutingEditorEnums` to be upgraded to a `Promise.all`, reducing network waterfalls for initial configuration loading.

@@ -42,12 +42,12 @@ export const useUtilStore = defineStore('util', {
     // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
     // and sequentially because fetchEnums merges into the current store snapshot after each request.
     async fetchRoutingEditorEnums() {
-      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
-        await this.fetchEnums({ enumTypeId });
-      }
+      // ⚡ Bolt: Parallelize enum fetching to reduce network waterfall
+      await Promise.all(
+        ROUTING_EDITOR_ENUM_TYPE_IDS.map(enumTypeId => this.fetchEnums({ enumTypeId }))
+      );
     },
     async fetchEnums(payload: any) {
-      let enums = { ...this.enums };
       let pageIndex = 0;
       const pageSize = 500;
   
@@ -100,17 +100,23 @@ export const useUtilStore = defineStore('util', {
                 "description": "Facility group"
               } as any
             }
-            enums = {
-              ...enums,
-              ...respEnums
+            // ⚡ Bolt: Safely merge at the type level directly into this.enums
+            // inside the response handler to prevent race conditions during parallel requests
+            const updatedEnums = { ...this.enums };
+            for (const typeId in respEnums) {
+              updatedEnums[typeId] = {
+                ...(updatedEnums[typeId] || {}),
+                ...respEnums[typeId]
+              };
             }
+            this.enums = updatedEnums;
           }
           pageIndex++;
         } while(resp.data.length == pageSize)
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
+
     },
     async fetchOmsEnums(payload: any) {
       let enums = { ...this.enums };

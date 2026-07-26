@@ -39,15 +39,15 @@ export const useUtilStore = defineStore('util', {
     }
   },
   actions: {
-    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
-    // and sequentially because fetchEnums merges into the current store snapshot after each request.
+    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly.
+    // fetchEnums is safe to call concurrently as it merges into the live store snapshot after each request.
     async fetchRoutingEditorEnums() {
-      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
-        await this.fetchEnums({ enumTypeId });
-      }
+      await Promise.all(
+        ROUTING_EDITOR_ENUM_TYPE_IDS.map((enumTypeId) => this.fetchEnums({ enumTypeId }))
+      );
     },
     async fetchEnums(payload: any) {
-      let enums = { ...this.enums };
+      let enums = {} as any;
       let pageIndex = 0;
       const pageSize = 500;
   
@@ -110,10 +110,10 @@ export const useUtilStore = defineStore('util', {
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
+      this.enums = { ...this.enums, ...enums };
     },
     async fetchOmsEnums(payload: any) {
-      let enums = { ...this.enums };
+      let enums = {} as any;
   
       try {
         const resp = await api({
@@ -140,7 +140,7 @@ export const useUtilStore = defineStore('util', {
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
+      this.enums = { ...this.enums, ...enums };
     },
 
     async fetchCategories() {

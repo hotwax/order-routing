@@ -19,6 +19,7 @@ interface ProductFacility {
     allowPickup?: string | null;
     allowBrokering?: string | null;
   };
+  onlineAtp: string;
 }
 
 function getErrorMessage(error: unknown) {

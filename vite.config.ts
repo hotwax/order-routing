@@ -43,7 +43,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['tests/**/*.test.ts']
+    include: ['tests/**/*.test.ts'],
+    server: {
+      deps: { inline: ['@ionic/core'] }
+    }
   },
   server: {
     port: 8100

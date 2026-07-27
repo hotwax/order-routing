@@ -40,11 +40,11 @@ export const useUtilStore = defineStore('util', {
   },
   actions: {
     // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
-    // and sequentially because fetchEnums merges into the current store snapshot after each request.
+    // and concurrently to improve loading performance.
     async fetchRoutingEditorEnums() {
-      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
-        await this.fetchEnums({ enumTypeId });
-      }
+      await Promise.all(
+        ROUTING_EDITOR_ENUM_TYPE_IDS.map((enumTypeId) => this.fetchEnums({ enumTypeId }))
+      );
     },
     async fetchEnums(payload: any) {
       let enums = { ...this.enums };
@@ -100,9 +100,12 @@ export const useUtilStore = defineStore('util', {
                 "description": "Facility group"
               } as any
             }
-            enums = {
-              ...enums,
-              ...respEnums
+            // Deep merge to avoid race conditions when fetched concurrently
+            for (const [enumTypeId, enumData] of Object.entries(respEnums)) {
+              enums[enumTypeId as string] = {
+                ...(enums[enumTypeId as string] || {}),
+                ...(enumData as any)
+              }
             }
           }
           pageIndex++;
@@ -110,7 +113,15 @@ export const useUtilStore = defineStore('util', {
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
+      // Important: merge with latest state in case of concurrent updates
+      const latestEnums = { ...this.enums };
+      for (const [enumTypeId, enumData] of Object.entries(enums)) {
+        latestEnums[enumTypeId] = {
+          ...(latestEnums[enumTypeId] || {}),
+          ...(enumData as any)
+        }
+      }
+      this.enums = latestEnums;
     },
     async fetchOmsEnums(payload: any) {
       let enums = { ...this.enums };
@@ -140,7 +151,15 @@ export const useUtilStore = defineStore('util', {
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
+      // Important: merge with latest state in case of concurrent updates
+      const latestEnums = { ...this.enums };
+      for (const [enumTypeId, enumData] of Object.entries(enums)) {
+        latestEnums[enumTypeId] = {
+          ...(latestEnums[enumTypeId] || {}),
+          ...(enumData as any)
+        }
+      }
+      this.enums = latestEnums;
     },
 
     async fetchCategories() {

@@ -102,7 +102,7 @@ The same "read URL from env" function exists in three service files under three 
 | `simBaseURL(env?)` | `services/SimulationService.ts` | `simBaseURL` |
 | `simApiBaseUrl(env?)` | `services/SimulationService.ts` | `simApiBaseUrl` |
 | `simRoutingApiBaseUrl(env?)` | `services/SimulationService.ts` | `simRoutingApiBaseUrl` |
-| `simMoquiUrl(env?)` | `services/SimulationService.ts` | `simMoquiUrl` |
+| `simMoquiUrl(env?)` | `services/SimulationService.ts` | `simMoquiUrl` (since removed entirely; no successor in `simConfig.ts`) |
 | `mastraUrl(env?)` | `services/CircuitKnowledgeFeedbackService.ts` | `resolveMastraUrl` |
 | — | `services/BrokeringRunsAssistantService.ts` | `getMastraUrl` |
 
@@ -203,7 +203,7 @@ After merge, `StorageLike` type goes to `types/simulation.ts` (one definition sh
 
 ### `services/BrokeringRunsAssistantService.ts` — DELETE
 
-Absorb its single function (`requestBrokeringRunsListInquiry`) into `services/DraftAssistantService.ts`. Both call Mastra endpoints with the same `omsBaseUrl + authToken + manifest + prompt` pattern. The `getMastraUrl()` in this file is the same as `resolveMastraUrl()` in `CircuitKnowledgeFeedbackService.ts` — consolidate to `util/simConfig.ts`.
+Absorb its single function (`requestBrokeringRunsListInquiry`) into `services/DraftAssistantService.ts`. Both call the explicitly enabled Circuit origin with prompt + manifest data only. Browser OMS URLs and bearer tokens must never be forwarded; OMS tools require reviewed server-side authentication. Consolidate URL validation in `utils/simConfig.ts`.
 
 ### `services/CircuitDraftFeedbackService.ts` — DELETE
 

@@ -1,139 +1,184 @@
-import { describe, expect, it } from "vitest";
-import {
-  compareFacilities,
-  describeRuleAttempts,
-  fillRateOf,
-  joinRoutingResults,
-  persistedSimulationAdapter,
-  queuedDiff,
-  toRows,
-} from "@/utils/simulationResults";
-import type { OrderTrace, RoutingRunResult } from "@/types/variation";
+import { flushPromises, mount } from "@vue/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
+import SimulationResults from "../src/components/simulation/SimulationResults.vue";
+import { simulationStore } from "../src/store/simulationStore";
+import { modalController } from "@ionic/vue";
+import { makeOutcomes, makeResults } from "./fixtures/outcomes";
 
-const run = (orderRoutingId: string, sequenceNum: number, eligibleEntryCount: number): RoutingRunResult => ({
-  orderRoutingId,
-  sequenceNum,
-  eligibleEntryCount,
-  attemptedItemCount: eligibleEntryCount,
-  brokeredItemCount: 0,
-  queuedItemCount: 0,
-});
+vi.mock("@common", () => ({
+  translate: (s: string) => s,
+  commonUtil: { formatCurrency: (a: number, c: string) => `${c === "USD" ? "$" : ""}${Number(a).toFixed(2)}` },
+}));
 
-const trace = (
-  orderId: string,
-  finalReason: string,
-  facilityId?: string,
-  shipGroupSeqId = "00001",
-  orderItemSeqId = "00101",
-): OrderTrace => ({
-  orderId,
-  shipGroupSeqId,
-  orderItemSeqId,
-  finalReason,
-  finalAssignments: facilityId ? [{
-    orderId,
-    shipGroupSeqId,
-    orderItemSeqId,
-    facilityId,
-    routedQty: 1,
-    itemQty: 1,
-  }] : [],
-});
+// SimulationResults calls useRouter() for the "View saved result" deep-link; provide a stub so the
+// component mounts without a real router (the link only renders when lastSimulationId is set).
+const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("vue-router", () => ({ useRouter: () => ({ push: routerMocks.push }) }));
 
-describe("persisted simulation results", () => {
-  it("adapts the confirmed list/detail contract into baseline and variation rows", () => {
-    const adapted = persistedSimulationAdapter({
-      simulation: { simulationId: "SIM_1", partial: "N", simulationRan: "Y" },
-      variants: [
-        { isBaseline: "Y", attemptedItemCount: 100, brokeredItemCount: 80, queuedItemCount: 20 },
-        {
-          isBaseline: "N",
-          label: "Tighter distance",
-          attemptedItemCount: 100,
-          brokeredItemCount: 90,
-          queuedItemCount: 10,
-          diff: { routingBrokeredDelta: 10 },
-        },
-      ],
-    });
+// Stub child panels + Ionic so the container test stays focused on composition.
+const childStubs = {
+  SimulationProgress: { template: "<div class='progress-stub' />" },
+  OutcomeHeadline: { props: ["rows", "winnerLabel"], template: "<div class='headline-stub'>{{ rows.length }}|{{ winnerLabel }}</div>" },
+  TradeoffChart: { props: ["rows"], template: "<div class='tradeoff-stub' />" },
+  ExpeditedPanel: { props: ["rows"], template: "<div class='expedited-stub' />" },
+  StockoutPanel: { props: ["rows"], template: "<div class='stockout-stub' />" },
+  FulfillmentMixPanel: { props: ["rows"], template: "<div class='mix-stub' />" },
+  CompositeScorePanel: { props: ["results"], emits: ["winner"], template: "<button class='score-stub' @click=\"$emit('winner','v1')\" />" },
+  AdvancedDetails: { props: ["results"], template: "<div class='advanced-stub' />" },
+  IonButton: { template: "<button><slot /></button>" },
+  IonCard: { template: "<div><slot /></div>" },
+  IonCardHeader: { template: "<div><slot /></div>" },
+  IonCardTitle: { template: "<div><slot /></div>" },
+  IonCardContent: { template: "<div><slot /></div>" },
+  IonIcon: { template: "<i />" },
+  IonAccordion: { template: "<div><slot /></div>" },
+  IonAccordionGroup: { template: "<div><slot /></div>" },
+  IonItem: { name: "IonItem", template: "<div><slot /></div>" },
+  IonLabel: { template: "<span><slot /></span>" },
+  IonList: { template: "<div><slot /></div>" },
+  IonListHeader: { template: "<div><slot /></div>" },
+  IonNote: { template: "<span><slot /></span>" },
+  IonProgressBar: { template: "<div class='progress-bar-stub' />" },
+};
 
-    expect(adapted.baseline).toMatchObject({ attemptedItemCount: 100, brokeredItemCount: 80, queuedItemCount: 20 });
-    expect(adapted.variants).toEqual([expect.objectContaining({
-      label: "Tighter distance",
-      groupRun: expect.objectContaining({ brokeredItemCount: 90 }),
-      diff: { routingBrokeredDelta: 10 },
-      failed: false,
-    })]);
-    expect(toRows(adapted).map(({ label }) => label)).toEqual(["Baseline", "Tighter distance"]);
-    expect(fillRateOf(toRows(adapted)[1])).toBe(0.9);
+function mountIt() {
+  return mount(SimulationResults, { global: { stubs: childStubs } });
+}
+
+describe("SimulationResults container", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    routerMocks.push.mockReset();
   });
 
-  it("marks failed variants as partial and safely handles missing counts", () => {
-    const adapted = persistedSimulationAdapter({
-      simulation: { partial: "N", simulationRan: "N" },
-      variants: [
-        { isBaseline: "Y" },
-        { isBaseline: "N", label: "Broken", failed: "Y", failureReason: "timeout" },
-      ],
-    });
+  it("composes panels with baseline+variant rows and reflects the winner from the score panel", async () => {
+    const sim = simulationStore();
+    sim.results = makeResults(makeOutcomes(), [{ label: "v1", outcomes: makeOutcomes() }]) as any;
+    sim.isRunning = false;
+    const w = mountIt();
+    expect(w.find(".headline-stub").text()).toContain("2|"); // 2 rows
+    expect(w.find(".advanced-stub").exists()).toBe(true);
 
-    expect(adapted.baseline).toMatchObject({ attemptedItemCount: 0, brokeredItemCount: 0, queuedItemCount: 0 });
-    expect(adapted.variants[0]).toMatchObject({ failed: true, failureReason: "timeout" });
-    expect(adapted.partial).toBe(true);
-    expect(adapted.simulationRan).toBe(false);
-  });
-});
-
-describe("parent and variation comparison", () => {
-  it("joins prefixed variation routings with the parent and retains parent-only rows", () => {
-    const rows = joinRoutingResults({
-      variationGroupId: "VM100204",
-      parentResults: [run("100008", 5, 0), run("100009", 6, 12)],
-      variationResults: [run("VM100204_100008", 5, 150)],
-      routingNameById: {
-        "100008": "Standard",
-        "VM100204_100008": "Standard",
-        "100009": "Express",
-      },
-    });
-
-    expect(rows.map(({ routingName }) => routingName)).toEqual(["Standard", "Express"]);
-    expect(rows[0]).toMatchObject({ parentRoutingId: "100008", variationRoutingId: "VM100204_100008" });
-    expect(rows[1]).toMatchObject({ parentRoutingId: "100009", variationRoutingId: null, variation: null });
+    await w.find(".score-stub").trigger("click"); // emits winner = v1
+    expect(w.find(".headline-stub").text()).toContain("v1");
   });
 
-  it("reports facility allocation and queue changes without inventing a baseline", () => {
-    const parent = [trace("O1", "FULLY_BROKERED", "WH"), trace("O2", "QUEUED")];
-    const variation = [
-      trace("O1", "FULLY_BROKERED", "STORE"),
-      trace("O2", "QUEUED"),
-      trace("O3", "QUEUED"),
-    ];
-
-    expect(compareFacilities(parent, variation)).toEqual([
-      { facilityId: "STORE", parentQty: 0, variationQty: 1, delta: 1 },
-      { facilityId: "WH", parentQty: 1, variationQty: 0, delta: -1 },
-    ]);
-    expect(queuedDiff(parent, variation)).toEqual([
-      { orderId: "O2", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: false },
-      { orderId: "O3", shipGroupSeqId: "00001", orderItemSeqId: "00101", newlyQueued: true },
-    ]);
-    expect(queuedDiff(undefined, [trace("O3", "QUEUED")])[0].newlyQueued).toBe(false);
+  it("shows partial and simulationRan warnings", () => {
+    const sim = simulationStore();
+    sim.results = makeResults(makeOutcomes(), [], { partial: true, simulationRan: false }) as any;
+    sim.isRunning = false;
+    const w = mountIt();
+    const t = w.text();
+    expect(t).toContain("partial");
+    expect(t).toContain("did not run");
   });
 
-  it("turns ordered rule attempts into readable operational explanations", () => {
-    expect(describeRuleAttempts({
-      orderId: "O1",
-      finalReason: "FULLY_BROKERED",
-      ruleAttempts: [
-        { routingRuleId: "R2", sequenceNum: 2, outcome: "FULL_BROKER" },
-        { routingRuleId: "R1", sequenceNum: 1, outcome: "NO_INVENTORY" },
-        { routingRuleId: "R3", sequenceNum: 3, outcome: "ERROR", errorMessage: "timeout" },
-      ],
-    })).toEqual([
-      "Rule 1: no available inventory — fell through",
-      "Rule 2: fully brokered here",
-      "Rule 3: errored (timeout)",
-    ]);
+  it("falls back to the legacy headline when no outcomes block is present", () => {
+    const sim = simulationStore();
+    // baseline/variants with NO outcomes anywhere
+    sim.results = makeResults(null, [{ label: "v1", outcomes: null }]) as any;
+    sim.isRunning = false;
+    const w = mountIt();
+    // legacy headline still renders rows; tradeoff hidden path handled inside child
+    expect(w.find(".headline-stub").exists()).toBe(true);
+    expect(w.find(".headline-stub").text()).toContain("2|");
+  });
+
+  it("renders a baseline run without presenting it as a variation comparison", () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.baseline = { routings: [{ orderRoutingId: "P1", routingName: "Standard" }] };
+    sim.baselineRunResult = {
+      routingGroupId: "G1",
+      routingResults: [{
+        orderRoutingId: "P1",
+        sequenceNum: 1,
+        eligibleEntryCount: 5,
+        brokeredItemCount: 4,
+        queuedItemCount: 1
+      }]
+    } as any;
+
+    const wrapper = mountIt();
+
+    expect(wrapper.text()).toContain("Baseline results");
+    expect(wrapper.text()).toContain("Standard");
+    expect(wrapper.text()).toContain("Eligible5");
+    expect(wrapper.text()).not.toContain("Baseline → Variation");
+  });
+
+  it("labels baseline and the active variation in per-routing comparison results", () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.activeVariationId = "V1";
+    sim.variations = [{ id: "V1", label: "Faster routing", serverVid: "V1", group: null }] as any;
+    sim.baseline = { routings: [{ orderRoutingId: "P1", routingName: "Standard" }] };
+    sim.working = { routings: [{ orderRoutingId: "V1_r0", routingName: "Standard" }] };
+    sim.parentRunByGroupId.G1 = { routingGroupId: "G1", routingResults: [{ orderRoutingId: "P1", sequenceNum: 1, eligibleEntryCount: 2 }] } as any;
+    sim.variationRunResult = { routingGroupId: "V1", routingResults: [{ orderRoutingId: "V1_r0", sequenceNum: 1, eligibleEntryCount: 3 }] } as any;
+
+    const wrapper = mountIt();
+
+    expect(wrapper.find(".compare-legend").text()).toBe("Baseline → Faster routing");
+    expect(wrapper.text()).toContain("Standard");
+    expect(wrapper.text()).toContain("2 → 3");
+  });
+
+  it("opens canonical history for a persisted synchronous variation result", async () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.activeVariationId = "V1";
+    sim.variations = [{ id: "V1", label: "Faster routing", serverVid: "V1", group: null }] as any;
+    sim.variationRunResult = { simulationId: "M100374", routingGroupId: "V1", routingResults: [] } as any;
+    sim.lastSimulationId = "M100374";
+
+    const wrapper = mountIt();
+    const link = wrapper.find('[data-testid="view-saved-simulation"]');
+    expect(link.exists()).toBe(true);
+    await link.trigger("click");
+    expect(routerMocks.push).toHaveBeenCalledWith("/simulate/history/M100374");
+  });
+
+  it("renders explicit empty, partial, and failed payload states", () => {
+    const sim = simulationStore();
+    sim.results = { baseline: null, variants: [], partial: true, simulationRan: false } as any;
+    let wrapper = mountIt();
+    expect(wrapper.text()).toContain("No result payload was returned");
+    expect(wrapper.find(".headline-stub").exists()).toBe(false);
+
+    sim.results = {
+      baseline: { failed: true, failureReason: "Parent timed out" },
+      variants: [{ label: "Candidate", failed: true, failureReason: "No inventory snapshot", groupRun: null }],
+      partial: true,
+      simulationRan: true
+    } as any;
+    wrapper = mountIt();
+    expect(wrapper.text()).toContain("Baseline: Parent timed out");
+    expect(wrapper.text()).toContain("Candidate: No inventory snapshot");
+  });
+
+  it("shows a failed variation run and opens routing detail from a rendered row", async () => {
+    const sim = simulationStore();
+    sim.routingGroupId = "G1";
+    sim.activeVariationId = "V1";
+    sim.variations = [{ id: "V1", label: "Candidate", serverVid: "V1", group: null }] as any;
+    sim.baseline = { routings: [] };
+    sim.working = { routings: [{ orderRoutingId: "V1_r0", routingName: "Only variation" }] };
+    sim.variationRunResult = { routingGroupId: "V1", routingResults: [{ orderRoutingId: "V1_r0", sequenceNum: 1, eligibleEntryCount: 0 }] } as any;
+    sim.runCompareError = "Parent comparison failed";
+    const present = vi.fn(async () => undefined);
+    vi.spyOn(modalController, "create").mockResolvedValue({ present } as any);
+
+    const wrapper = mountIt();
+    expect(wrapper.text()).toContain("Parent comparison failed");
+    expect(wrapper.text()).toContain("Parent run unavailable");
+    await wrapper.find(".cmp").trigger("click");
+    await flushPromises();
+
+    expect(modalController.create).toHaveBeenCalledWith(expect.objectContaining({
+      componentProps: { row: expect.objectContaining({ routingName: "Only variation", parent: null }) }
+    }));
+    expect(present).toHaveBeenCalledOnce();
   });
 });

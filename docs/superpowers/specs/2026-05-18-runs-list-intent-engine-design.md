@@ -4,6 +4,10 @@
 **Date:** 2026-05-18
 **Owners:** Order Routing PWA — Brokering Runs List assistant
 
+> Security amendment (2026-07-16): this historical design predates the production trust review.
+> The PWA must not send an OMS base URL or bearer token to Circuit. Any OMS-backed prefetch/tool
+> execution requires reviewed server-side authentication. See `docs/simulation-login-technical.md`.
+
 ---
 
 ## 1. Problem
@@ -42,7 +46,7 @@ POST /brokering-runs-list-inquiry
   ├── 2. resolveRequiredTools(intent, matchedPatternId, diagnosticPatterns)
   │       returns string[] of tool IDs to prefetch
   │
-  ├── 3. prefetchToolContext(requiredTools, productStoreId, omsBaseUrl, authToken)
+  ├── 3. prefetchToolContext(requiredTools, productStoreId, serverAuthContext)
   │       runs requested tools in PARALLEL
   │       per tool: success → { ok: true, data } ; failure → { ok: false, unavailable: true, reason }
   │       returns a structured toolContext object keyed by tool ID

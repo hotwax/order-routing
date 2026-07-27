@@ -221,6 +221,7 @@ export interface SubmitBatchArgs {
   routingGroupId: string;
   variants: SimVariant[];
   sampleCap?: number;
+  signal?: AbortSignal;
 }
 
 export interface PastSimulationsFilters {
@@ -245,6 +246,11 @@ export interface StorageLike {
 export interface PastSimHeader {
   simulationId: string;
   routingGroupId?: string;
+  /** Present on a synchronous saved variation run; absent on the parent baseline run. */
+  variationGroupId?: string;
+  /** Optional backend-provided display metadata. The stable variationGroupId remains the fallback. */
+  variationName?: string;
+  variationLabel?: string;
   productStoreId?: string;
   runType?: string;
   statusId?: string;

@@ -59,9 +59,10 @@ export const productStore = defineStore('product', {
     async fetchStock(shipGroup: Array<any>) {
       const productIds = shipGroup.map((item: any) => item.productId)
       const facilityId = shipGroup[0].facilityId
-      for(const productId of productIds) {
+
+      const fetchPromises = productIds.map(async (productId) => {
         if(this.stock[productId]?.[facilityId]) {
-          continue;
+          return;
         }
   
         try {
@@ -90,7 +91,9 @@ export const productStore = defineStore('product', {
         } catch (err) {
           logger.error(err)
         }
-      }
+      })
+
+      await Promise.all(fetchPromises);
     },
     async clearProductState() {
       this.products = {};

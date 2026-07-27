@@ -1,5 +1,5 @@
-import { api, commonUtil } from "@common";
-import { simApiBaseUrl } from "../utils/simConfig";
+import { commonUtil } from "@common";
+import { simApi } from "./SimApiService";
 import { interpretJobStatus, pastSimulationsQuery, isFilteredQuery } from "../utils/simulationCompute";
 import type { SubmitBatchArgs, PastSimulationsFilters } from "../types/simulation";
 import { GroupRunProgress, JobStatusResponse } from "../types/simulation";
@@ -14,14 +14,15 @@ const POLL_INTERVAL_MS = import.meta.env.VITE_SIM_POLL_INTERVAL_MS
 const MAX_POLL_DURATION_MS = import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS
   ? Number(import.meta.env.VITE_SIM_MAX_POLL_DURATION_MS)
   : 90 * 60_000;
+const MAX_CONSECUTIVE_POLL_ERRORS = 3;
 
 /** POST one batch (≤5 variants). Returns the jobId. Throws on non-2xx. */
-export async function submitBatch({ routingGroupId, variants, sampleCap }: SubmitBatchArgs): Promise<string> {
-  const resp: any = await api({
+export async function submitBatch({ routingGroupId, variants, sampleCap, signal }: SubmitBatchArgs): Promise<string> {
+  const resp: any = await simApi({
     url: `sim-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs`,
     method: "POST",
-    baseURL: simApiBaseUrl(),
     data: { variants, ...(sampleCap != null ? { sampleCap } : {}) },
+    ...(signal ? { signal } : {}),
   });
   if (commonUtil.hasError(resp) || !resp.data?.jobId) {
     throw new Error(`Failed to submit simulation batch: ${JSON.stringify(resp?.data ?? resp)?.slice(0, 300)}`);
@@ -29,68 +30,122 @@ export async function submitBatch({ routingGroupId, variants, sampleCap }: Submi
   return resp.data.jobId;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export class SimulationPollError extends Error {
+  readonly recoverable: boolean;
+
+  constructor(message: string, recoverable: boolean, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SimulationPollError";
+    this.recoverable = recoverable;
+  }
+}
+
+export function isRecoverableSimulationPollError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as any).recoverable === true);
+}
+
+const abortError = () => Object.assign(
+  new DOMException("Simulation request was cancelled.", "AbortError"),
+  { recoverable: true },
+);
+
+const isTransientRequestError = (error: any): boolean => {
+  const status = Number(error?.response?.status);
+  return !Number.isFinite(status) || status === 408 || status === 429 || status >= 500;
+};
+
+const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
+  if (signal?.aborted) return reject(abortError());
+  const onAbort = () => {
+    clearTimeout(timer);
+    reject(abortError());
+  };
+  const timer = setTimeout(() => {
+    signal?.removeEventListener("abort", onAbort);
+    resolve();
+  }, ms);
+  signal?.addEventListener("abort", onAbort, { once: true });
+});
 
 /** Poll a job to completion with a sinceSeq cursor for the live progress feed.
  *  Resolves with { groupRun?, variation? } on success; throws on failure/timeout.
  *  `onPhase` gets the raw status each poll; `onProgress` gets the `progress` object each poll
  *  that carries one (running ticks and the terminal flush). */
-export async function pollJob(routingGroupId: string, jobId: string, onPhase?: (status: string) => void, onProgress?: (progress: GroupRunProgress) => void): Promise<{ groupRun?: any; variation?: any }> {
+export async function pollJob(routingGroupId: string, jobId: string, onPhase?: (status: string) => void, onProgress?: (progress: GroupRunProgress) => void, signal?: AbortSignal): Promise<{ groupRun?: any; variation?: any }> {
   const deadline = Date.now() + MAX_POLL_DURATION_MS;
   let sinceSeq = 0;
+  let consecutivePollErrors = 0;
   while (Date.now() < deadline) {
-    const resp: any = await api({
-      url: `sim-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
-      method: "GET",
-      baseURL: simApiBaseUrl(),
-      params: { sinceSeq },
-    });
+    if (signal?.aborted) throw abortError();
+    let resp: any;
+    try {
+      resp = await simApi({
+        url: `sim-routing/routingGroups/${routingGroupId}/brokeringSimulation/jobs/${jobId}`,
+        method: "GET",
+        params: { sinceSeq },
+        ...(signal ? { signal } : {}),
+      });
+      consecutivePollErrors = 0;
+    } catch (error: any) {
+      if (signal?.aborted) throw abortError();
+      if (!isTransientRequestError(error)) throw error;
+      consecutivePollErrors += 1;
+      if (consecutivePollErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+        throw new SimulationPollError(
+          "Simulation status could not be refreshed. Reopen this routing group to resume the run.",
+          true,
+          { cause: error },
+        );
+      }
+      await sleep(POLL_INTERVAL_MS, signal);
+      continue;
+    }
     if (commonUtil.hasError(resp)) throw new Error(`Polling failed: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
     const status = resp.data as JobStatusResponse;
     onPhase?.(status.status);
     if (status.progress) {
       onProgress?.(status.progress);
-      if (typeof status.progress.nextSeq === "number") sinceSeq = status.progress.nextSeq;
+      if (typeof status.progress.nextSeq === "number") sinceSeq = Math.max(sinceSeq, status.progress.nextSeq);
     }
     const outcome = interpretJobStatus(status); // same module — call directly
     if (outcome.done) {
       if (outcome.error) throw new Error(outcome.error);
-      return outcome.result ?? {};
+      if (!outcome.result || (outcome.result.groupRun == null && outcome.result.variation == null)) {
+        throw new Error("Simulation completed without a result. Please re-run this batch.");
+      }
+      return outcome.result;
     }
-    await sleep(POLL_INTERVAL_MS);
+    await sleep(POLL_INTERVAL_MS, signal);
   }
-  throw new Error("Simulation timed out. Please re-run this batch.");
+  throw new SimulationPollError(
+    "Simulation timed out. Reopen this routing group to resume the run, or re-run the batch.",
+    true,
+  );
 }
 
 /** Run the parent group's live config (no variants) via the existing job endpoint, returning its
  *  GroupRunResult. Reuses submitBatch (empty variants -> baseline groupRun) + pollJob for live
  *  progress. `onProgress` receives each progress tick for the parent-side progress bar. */
-export async function runParentLiveConfig(parentRoutingGroupId: string, sampleCap: number | undefined, onProgress?: (progress: GroupRunProgress) => void): Promise<any> {
-  const jobId = await submitBatch({ routingGroupId: parentRoutingGroupId, variants: [], sampleCap });
-  const result = await pollJob(parentRoutingGroupId, jobId, undefined, onProgress);
+export async function runParentLiveConfig(parentRoutingGroupId: string, sampleCap: number | undefined, onProgress?: (progress: GroupRunProgress) => void, signal?: AbortSignal): Promise<any> {
+  const jobId = await submitBatch({ routingGroupId: parentRoutingGroupId, variants: [], sampleCap, signal });
+  const result = await pollJob(parentRoutingGroupId, jobId, undefined, onProgress, signal);
 
   return (result as any).groupRun ?? (result as any).variation ?? result;
 }
 
 // ---- Past simulations (read-only: backend request R1/R2) -------------------------------------
 
-
-
-
-// Flip to true (or wire VITE_SIM_USE_MOCK) until backend R1/R2 are live in your environment.
-function useMock(env: Record<string, any> = import.meta.env): boolean {
-  return (env && String(env.VITE_SIM_USE_MOCK)) === "true";
-}
-
 /** List persisted simulations (R1). Returns { headers, total }. */
-export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{ headers: any[]; total: number }> {
-  if (useMock()) { const { mockPastSimulations } = await import("../mock/pastSimulationsMock"); return mockPastSimulations(f); }
+export async function fetchPastSimulations(f: PastSimulationsFilters, signal?: AbortSignal): Promise<{ headers: any[]; total: number }> {
+  if (!String(f.productStoreId || "").trim()) {
+    throw new Error("A product store is required to load simulation history.");
+  }
   const params = pastSimulationsQuery(f);
-  const resp: any = await api({
+  const resp: any = await simApi({
     url: "sim-routing/brokeringSimulations",
     method: "GET",
-    baseURL: simApiBaseUrl(),
     params,
+    ...(signal ? { signal } : {}),
   });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load past simulations: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
   // Confirmed contract: { simulationList: [...headers], totalCount }.
@@ -100,14 +155,42 @@ export async function fetchPastSimulations(f: PastSimulationsFilters): Promise<{
 }
 
 /** Fetch one persisted simulation with its variants (R2). Returns the raw response for the adapter. */
-export async function fetchPastSimulation(simulationId: string): Promise<any> {
-  if (useMock()) { const { mockPastSimulation } = await import("../mock/pastSimulationsMock"); return mockPastSimulation(simulationId); }
-  const resp: any = await api({
+export async function fetchPastSimulation(simulationId: string, signal?: AbortSignal): Promise<any> {
+  const resp: any = await simApi({
     url: `sim-routing/brokeringSimulations/${simulationId}`,
     method: "GET",
-    baseURL: simApiBaseUrl(),
+    ...(signal ? { signal } : {}),
   });
   if (commonUtil.hasError(resp)) throw new Error(`Failed to load simulation ${simulationId}: ${JSON.stringify(resp?.data)?.slice(0, 300)}`);
+  return resp.data;
+}
+
+/** List routing groups from the simulation instance without touching the live OMS routing store. */
+export async function fetchRoutingGroups(productStoreId: string, signal?: AbortSignal): Promise<any[]> {
+  const scopedStoreId = String(productStoreId || "").trim();
+  if (!scopedStoreId) throw new Error("A product store is required to load simulation routing groups.");
+  const resp: any = await simApi({
+    url: "order-routing/groups",
+    method: "GET",
+    params: { productStoreId: scopedStoreId, pageSize: 200 },
+    ...(signal ? { signal } : {}),
+  });
+  if (commonUtil.hasError(resp) || !Array.isArray(resp.data)) {
+    throw new Error("Failed to load routing groups from the simulation backend.");
+  }
+  return resp.data;
+}
+
+/** Fetch the authoritative raw group tree from the simulation instance. */
+export async function fetchRoutingGroupDetail(routingGroupId: string, signal?: AbortSignal): Promise<any> {
+  const resp: any = await simApi({
+    url: `order-routing/groups/${routingGroupId}/raw`,
+    method: "GET",
+    ...(signal ? { signal } : {}),
+  });
+  if (commonUtil.hasError(resp) || !resp.data || typeof resp.data !== "object" || Array.isArray(resp.data)) {
+    throw new Error(`Routing group ${routingGroupId} could not be loaded from the simulation backend.`);
+  }
   return resp.data;
 }
 
@@ -117,5 +200,7 @@ export const SimulationService = {
   runParentLiveConfig,
   fetchPastSimulations,
   fetchPastSimulation,
+  fetchRoutingGroups,
+  fetchRoutingGroupDetail,
   isFilteredQuery,
 };

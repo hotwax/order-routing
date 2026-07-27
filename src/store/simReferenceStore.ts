@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
-import { api, commonUtil, logger } from '@common'
-import { SimulationService } from '@/services/SimulationService'
-import { simBaseURL } from '@/utils/simConfig'
+import { commonUtil, logger } from '@common'
+import { simApi } from '@/services/SimApiService'
+
+let referenceRequestController: AbortController | null = null
 
 // Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
 // sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
 // groups / shipping methods / sales channels must come from — and stay scoped to — the sim instance.
 // Keeping this data here (instead of the shared productStore/utilStore) is what guarantees the two
-// backends never share in-memory state. SimulationCanvas is the only consumer.
+// backends never share in-memory state. The sandbox-mode RoutingGroupEditor is the only consumer.
 export const useSimReferenceStore = defineStore('simReference', {
   state: () => {
     return {
@@ -18,6 +19,9 @@ export const useSimReferenceStore = defineStore('simReference', {
       facilityGroups: {} as Record<string, any>,
       shippingMethods: {} as Record<string, any>,
       salesChannels: {} as Record<string, any>,
+      loadState: "idle" as "idle" | "loading" | "ready" | "error",
+      loadError: null as string | null,
+      loadGeneration: 0,
     }
   },
   getters: {
@@ -40,29 +44,42 @@ export const useSimReferenceStore = defineStore('simReference', {
     },
   },
   actions: {
-    async fetchReferenceData(payload: { productStoreId: string; force?: boolean }) {
+    async fetchReferenceData(payload: { productStoreId: string; force?: boolean }): Promise<boolean> {
       const { productStoreId, force } = payload
       // Cache by productStoreId: the same group's data is reused across sim-tab visits.
       if (!force && productStoreId === this.productStoreId && Object.keys(this.facilities).length) {
-        return
+        return true
       }
 
-      const baseURL = simBaseURL()
-      // Mirrors the old productStore guard: without a store there is nothing meaningful to scope the
-      // store-level slices to, and interpolating a blank id would request /productStores/undefined/...
+      const generation = ++this.loadGeneration
+      referenceRequestController?.abort()
+      referenceRequestController = new AbortController()
+      const signal = referenceRequestController.signal
+      this.loadError = null
+      // Simulation reference data must always be product-store scoped. An unscoped request can mix
+      // stores and is not a safe fallback for a missing deployment/session context.
       if (!productStoreId) {
-        logger.warn("Skipping store-scoped sim reference fetches because productStoreId is missing.")
+        this.productStoreId = ""
+        this.facilities = {}
+        this.shippingMethods = {}
+        this.facilityGroups = {}
+        this.salesChannels = {}
+        this.loadState = "error"
+        this.loadError = "A product store is required to load simulation reference data."
+        logger.warn(this.loadError)
+        return false
       }
+      this.loadState = "loading"
 
       /** Fetch one reference slice from the sim instance, reduced to a map keyed by `keyField`.
        *  Returns {} for an empty/garbage body and null when the request errored. */
       const fetchMap = async (url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> => {
         try {
-          const resp = await api({
+          const resp = await simApi({
             url,
             method: "GET",
-            baseURL,
             params,
+            signal,
           })
           if (commonUtil.hasError(resp)) return null
           if (Array.isArray(resp.data) && resp.data.length) {
@@ -86,13 +103,27 @@ export const useSimReferenceStore = defineStore('simReference', {
         fetchMap(`order-routing/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
       ])
 
-      this.facilities = facilities ?? {}
-      this.shippingMethods = shippingMethods ?? {}
-      this.facilityGroups = facilityGroups ?? {}
-      this.salesChannels = salesChannels ?? {}
+      if (generation !== this.loadGeneration) return false
       // null = that slice errored: leave the cache key uncommitted so the next visit refetches.
       const failed = [facilities, shippingMethods, facilityGroups, salesChannels].some((r) => r === null)
-      this.productStoreId = failed ? "" : productStoreId
+      if (failed) {
+        this.productStoreId = ""
+        this.facilities = {}
+        this.shippingMethods = {}
+        this.facilityGroups = {}
+        this.salesChannels = {}
+        this.loadState = "error"
+        this.loadError = "Simulation reference data could not be loaded completely."
+        return false
+      }
+
+      this.facilities = facilities!
+      this.shippingMethods = shippingMethods!
+      this.facilityGroups = facilityGroups!
+      this.salesChannels = salesChannels!
+      this.productStoreId = productStoreId
+      this.loadState = "ready"
+      return true
     },
   },
 })

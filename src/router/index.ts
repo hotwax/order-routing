@@ -1,4 +1,7 @@
 import Login from "@common/components/Login.vue";
+import { isFeatureEnabled } from "@/utils/simConfig";
+import { useUserStore } from "@/store/userStore";
+import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { useAuth } from "@common/composables/useAuth";
 import { createRouter, createWebHistory } from "@ionic/vue-router";
 import {
@@ -11,12 +14,9 @@ import {
   pulseOutline,
   sendOutline,
   settingsOutline,
-  shuffleOutline,
-  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 import { RouteRecordRaw } from "vue-router";
-import { isFeatureEnabled } from "@/utils/simConfig";
 
 
 declare module "vue-router" {
@@ -41,10 +41,58 @@ const authGuard = async (to: any, _from: any, next: any) => {
   next();
 };
 
-// Same as authGuard, but first redirects away when the simulation feature is disabled for this
-// deployment (VITE_SIMULATION_ENABLED="false"), so /simulate* can't be reached by URL/bookmark.
+// A persisted browser history entry must not be allowed to open a routing group from a previous
+// OMS instance. Session activation clears owned state; this guard also fails closed when a fresh,
+// successful list snapshot proves that the requested group is not present in the active store.
+const routingGroupGuard = (to: any, from: any, next: any) =>
+  authGuard(to, from, async (authRedirect?: any) => {
+    if (authRedirect !== undefined) return next(authRedirect);
+
+    const routingGroupId = String(to.params?.routingGroupId || "");
+    const store = orderRoutingStore();
+    let snapshotLoaded = true;
+    if (!(store.groups || []).length) snapshotLoaded = await store.fetchOrderRoutingGroups();
+    const groupExists = (store.groups || []).some(
+      (group: any) => String(group?.routingGroupId || "") === routingGroupId
+    );
+
+    return snapshotLoaded && !groupExists ? next("/order-routing") : next();
+  });
+
+// Same as authGuard, but first redirects away unless the complete fail-closed simulation deployment
+// contract is configured, so /simulate* cannot bypass the feature gate by URL or bookmark.
 const simulateGuard = (to: any, from: any, next: any) =>
-  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/brokering");
+  isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
+
+export const ROUTING_TEST_DRIVE_PERMISSION_ID = "ROUTING_TEST_DRIVE_VIEW";
+
+export function routingGroupRequiresSaveBeforeTest(routingGroupId: string): boolean {
+  const store = orderRoutingStore();
+  const targetId = String(routingGroupId || "");
+  const current = String(store.currentGroup?.routingGroupId || "") === targetId
+    ? store.currentGroup
+    : null;
+  const listed = (store.groups || []).find((group: any) => String(group?.routingGroupId || "") === targetId);
+  return Boolean(current?.isNew || current?.hasUnsavedChanges || listed?.isNew || listed?.hasUnsavedChanges);
+}
+
+// Export the permission portion independently so the direct-URL contract can be verified without
+// manufacturing an authenticated browser session in unit tests. The composed route guard below
+// always runs auth first, then applies this check.
+export const routingTestDrivePermissionGuard = (to: any, _from: any, next: any) => {
+  const routingGroupId = String(to.params?.routingGroupId || "");
+  const fallback = routingGroupId ? `/order-routing/${routingGroupId}` : "/order-routing";
+  if (!isFeatureEnabled("testDrive")) return next(fallback);
+  if (!useUserStore().hasPermission(ROUTING_TEST_DRIVE_PERMISSION_ID)) return next(fallback);
+  if (routingGroupRequiresSaveBeforeTest(routingGroupId)) return next(fallback);
+  return next();
+};
+
+const routingTestDriveGuard = (to: any, from: any, next: any) =>
+  routingGroupGuard(to, from, (groupRedirect?: any) => {
+    if (groupRedirect !== undefined) return next(groupRedirect);
+    return routingTestDrivePermissionGuard(to, from, next);
+  });
 
 const routes: Array<RouteRecordRaw> = [
   { path: "/", redirect: "/dashboard" },
@@ -197,57 +245,52 @@ const routes: Array<RouteRecordRaw> = [
     props: true
   },
 
-  // -------------------- Routing (Brokering) --------------------
+  // -------------------- Order Routing --------------------
   {
-    path: "/brokering",
-    name: "Brokering",
-    component: () => import("@/views/BrokeringRuns.vue"),
+    path: "/order-routing",
+    name: "Order Routing",
+    component: () => import("@/views/OrderRoutingList.vue"),
     beforeEnter: authGuard,
     meta: {
-      title: "Brokering",
-      icon: shuffleOutline,
-      section: "routing",
-      menuIndex: 10,
-      childRoutes: ["/brokering/"]
-    }
-  },
-  {
-    path: "/brokering-calendar",
-    name: "Brokering calendar",
-    component: () => import("@/views/BrokeringRunsCalendar.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Brokering calendar",
+      title: "Order Routing",
       icon: calendarOutline,
       section: "routing",
-      menuIndex: 11
+      menuIndex: 10,
+      childRoutes: ["/order-routing/"]
     }
   },
   {
-    path: "/brokering/:routingGroupId/routes",
-    component: () => import("@/views/BrokeringRoute.vue"),
-    beforeEnter: authGuard,
+    path: "/order-routing/:routingGroupId",
+    component: () => import("@/views/RoutingDetail.vue"),
+    beforeEnter: routingGroupGuard,
     props: true
   },
   {
-    path: "/brokering/:routingGroupId/routes/test",
-    component: () => import("@/views/BrokeringRunTest.vue"),
-    beforeEnter: authGuard,
-    props: true
+    path: "/order-routing/:routingGroupId/test",
+    component: () => import("@/views/RoutingGroupTest.vue"),
+    beforeEnter: routingTestDriveGuard,
+    props: true,
+    meta: {
+      permissionId: ROUTING_TEST_DRIVE_PERMISSION_ID,
+      featureFlag: "testDrive"
+    }
   },
+  // Redirect the pre-rename paths so existing bookmarks / deep links keep working.
+  { path: "/brokering", redirect: "/order-routing" },
+  { path: "/brokering-calendar", redirect: "/order-routing" },
+  { path: "/brokering/:routingGroupId/routes", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/brokering/:routingGroupId/routes/test", redirect: (to) => `/order-routing/${to.params.routingGroupId}/test` },
+  { path: "/brokering/:routingGroupId/:orderRoutingId/rules", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/circuit", redirect: "/order-routing" },
   {
-    path: "/brokering/:routingGroupId/:orderRoutingId/rules",
-    component: () => import("@/views/BrokeringQuery.vue"),
-    beforeEnter: authGuard,
-    props: true
-  },
-  {
+    // Simulating a routing group now happens on its detail page (the Variations rail); this route is
+    // the cross-group archive of past simulation runs. Editing at /simulate/:id was removed.
     path: "/simulate",
-    name: "Simulate",
+    name: "Simulation history",
     component: () => import("@/views/SimulationHome.vue"),
     beforeEnter: simulateGuard,
     meta: {
-      title: "Simulate",
+      title: "Simulation history",
       icon: flaskOutline,
       section: "routing",
       menuIndex: 11,
@@ -256,18 +299,24 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
-    path: "/simulate/:routingGroupId",
-    component: () => import("@/views/Simulation.vue"),
-    beforeEnter: simulateGuard,
-    props: true
-  },
-  {
     path: "/simulate/history/:simulationId",
     name: "PastSimulationDetail",
     component: () => import("@/views/PastSimulationDetail.vue"),
     beforeEnter: simulateGuard,
     props: true
   },
+  { path: "/simulate/:routingGroupId", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+
+  // The Ionic-v3 shell exposed every workflow below /tabs. Preserve those bookmarks while routing
+  // them to the canonical pages introduced by the consolidation.
+  { path: "/tabs", redirect: "/order-routing" },
+  { path: "/tabs/brokering", redirect: "/order-routing" },
+  { path: "/tabs/settings", redirect: "/settings" },
+  { path: "/tabs/simulate", redirect: "/simulate" },
+  { path: "/tabs/simulate/:routingGroupId", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/tabs/brokering/:routingGroupId/routes", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
+  { path: "/tabs/brokering/:routingGroupId/routes/test", redirect: (to) => `/order-routing/${to.params.routingGroupId}/test` },
+  { path: "/tabs/brokering/:routingGroupId/:orderRoutingId/rules", redirect: (to) => `/order-routing/${to.params.routingGroupId}` },
 
   {
     path: "/facility-groups",
@@ -279,18 +328,6 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
-    }
-  },
-  {
-    path: "/circuit",
-    name: "Circuit",
-    component: () => import("@/views/Circuit.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Circuit",
-      icon: sparklesOutline,
-      section: "routing",
-      menuIndex: 12
     }
   },
 
@@ -312,28 +349,8 @@ const routes: Array<RouteRecordRaw> = [
     component: Login
   },
 
-  // -------------------- Legacy /tabs/* redirects --------------------
-  { path: "/tabs", redirect: "/brokering" },
-  { path: "/tabs/brokering", redirect: "/brokering" },
-  { path: "/tabs/settings", redirect: "/settings" },
-  { path: "/tabs/simulate", redirect: "/simulate" },
-  {
-    path: "/tabs/simulate/:routingGroupId",
-    redirect: (to) => `/simulate/${to.params.routingGroupId}`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/routes",
-    redirect: (to) => `/brokering/${to.params.routingGroupId}/routes`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/routes/test",
-    redirect: (to) => `/brokering/${to.params.routingGroupId}/routes/test`
-  },
-  {
-    path: "/tabs/brokering/:routingGroupId/:orderRoutingId/rules",
-    redirect: (to) =>
-      `/brokering/${to.params.routingGroupId}/${to.params.orderRoutingId}/rules`
-  }
+  { path: "/:pathMatch(.*)*", redirect: "/dashboard" }
+
 ];
 
 const router = createRouter({

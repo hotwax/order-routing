@@ -116,6 +116,169 @@
   </ion-app>
 </template>
 
+<script lang="ts">
+export interface GlobalLoaderOptions {
+  message?: string;
+  backdropDismiss?: boolean;
+}
+
+interface LoaderOverlay {
+  present: () => Promise<void>;
+  dismiss: () => Promise<boolean | void>;
+  remove?: () => void;
+  onDidDismiss?: () => Promise<unknown>;
+}
+
+interface LoaderLifecycle {
+  version: number;
+  ready: Promise<void>;
+}
+
+/**
+ * Coordinates the app-wide Ionic loader without allowing an older async lifecycle to affect
+ * the loader that replaced it. Each present/dismiss pair owns one request; the visible loader
+ * is dismissed only after the final concurrent request finishes.
+ */
+export function createGlobalLoaderLifecycle(
+  createOverlay: (options: {
+    message: string;
+    translucent: boolean;
+    backdropDismiss?: boolean;
+  }) => Promise<LoaderOverlay>,
+  translateMessage: (message: string) => string
+) {
+  let activeOverlay: LoaderOverlay | null = null;
+  let activeRequestCount = 0;
+  let lifecycle: LoaderLifecycle | null = null;
+  let lifecycleVersion = 0;
+
+  async function safelyDismiss(candidate: LoaderOverlay) {
+    try {
+      await candidate.dismiss();
+    } catch {
+      // Ionic can reject when an overlay was already removed or dismissed. The lifecycle's
+      // identity checks still ensure that a rejection cannot affect the replacement loader.
+    }
+  }
+
+  function removeUnpresented(candidate: LoaderOverlay) {
+    try {
+      candidate.remove?.();
+    } catch {
+      // The candidate was superseded before it could present and may already be detached.
+    }
+  }
+
+  async function activate(record: LoaderLifecycle, options: GlobalLoaderOptions) {
+    let candidate: LoaderOverlay;
+    try {
+      candidate = await createOverlay({
+        message: options.message
+          ? translateMessage(options.message)
+          : translateMessage("Click the backdrop to dismiss."),
+        translucent: true,
+        backdropDismiss: options.backdropDismiss
+      });
+    } catch (error) {
+      if (lifecycle === record) lifecycle = null;
+      throw error;
+    }
+
+    // A newer presentation or a final dismiss arrived while Ionic was creating this overlay.
+    // It was never presented, so remove its host element rather than letting it become current.
+    if (
+      lifecycle !== record ||
+      lifecycleVersion !== record.version ||
+      activeRequestCount === 0
+    ) {
+      removeUnpresented(candidate);
+      return;
+    }
+
+    activeOverlay = candidate;
+    try {
+      await candidate.present();
+    } catch (error) {
+      if (activeOverlay === candidate) activeOverlay = null;
+      if (lifecycle === record) lifecycle = null;
+      removeUnpresented(candidate);
+      throw error;
+    }
+
+    // Ionic ignores a dismiss while its present animation is in flight. Reconcile after that
+    // animation settles, but only against this exact overlay so a stale completion cannot
+    // dismiss or retain the current replacement.
+    if (
+      lifecycle !== record ||
+      lifecycleVersion !== record.version ||
+      activeOverlay !== candidate ||
+      activeRequestCount === 0
+    ) {
+      await safelyDismiss(candidate);
+      if (activeOverlay === candidate) activeOverlay = null;
+      return;
+    }
+
+    // Keep internal state accurate when the user dismisses a backdrop-enabled loader directly.
+    if (candidate.onDidDismiss) {
+      void candidate.onDidDismiss().then(() => {
+        if (
+          lifecycle === record &&
+          lifecycleVersion === record.version &&
+          activeOverlay === candidate
+        ) {
+          activeOverlay = null;
+          // Backdrop dismissal only removes the visual overlay. Keep request ownership intact:
+          // every caller that presented the loader must still release its own count. Resetting the
+          // aggregate here lets an older caller's later dismiss consume a newer request's ownership
+          // and prematurely dismiss the replacement overlay.
+          lifecycle = null;
+          lifecycleVersion += 1;
+        }
+      }).catch(() => undefined);
+    }
+  }
+
+  function start(options: GlobalLoaderOptions) {
+    lifecycleVersion += 1;
+    const record: LoaderLifecycle = {
+      version: lifecycleVersion,
+      ready: Promise.resolve()
+    };
+    const previous = activeOverlay;
+
+    activeOverlay = null;
+    lifecycle = record;
+    if (previous) void safelyDismiss(previous);
+
+    record.ready = activate(record, options);
+    return record.ready;
+  }
+
+  function present(options: GlobalLoaderOptions = { message: "", backdropDismiss: true }) {
+    activeRequestCount += 1;
+
+    // A message-bearing request represents a new visible operation and replaces the existing
+    // visual loader. Message-less concurrent requests share the current global loader.
+    if (!lifecycle || options.message) return start(options);
+    return lifecycle.ready;
+  }
+
+  function dismiss() {
+    if (activeRequestCount > 0) activeRequestCount -= 1;
+    if (activeRequestCount > 0) return;
+
+    lifecycleVersion += 1;
+    const candidate = activeOverlay;
+    activeOverlay = null;
+    lifecycle = null;
+    if (candidate) void safelyDismiss(candidate);
+  }
+
+  return { present, dismiss };
+}
+</script>
+
 <script setup lang="ts">
 import {
   alertController,
@@ -140,7 +303,7 @@ import {
   loadingController,
   SelectCustomEvent
 } from "@ionic/vue";
-import { computed, onBeforeMount, onMounted, onUnmounted, ref } from "vue";
+import { computed, onBeforeMount, onMounted, onUnmounted } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
 import { commonUtil, emitter, FastTravel, translate } from "@common";
@@ -149,11 +312,15 @@ import { useUserStore } from "@/store/userStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore } from "@/store/productStore";
 import { isFeatureEnabled } from "@/utils/simConfig";
+import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
 import router from "@/router";
 
 const userStore = useUserStore();
 const atpProductStore = useAtpProductStore();
-const loader = ref<any>(null);
+const loaderLifecycle = createGlobalLoaderLifecycle(
+  (options) => loadingController.create(options),
+  translate
+);
 
 const userProfile = computed(() => userStore.getUserProfile);
 const currentProductStore = computed(() => atpProductStore.getCurrentProductStore);
@@ -191,24 +358,12 @@ function isSelected(page: { url: string; childRoutes: string[] }) {
   return page.childRoutes?.some((r) => path === r || path.includes(r));
 }
 
-async function presentLoader(options = { message: "", backdropDismiss: true }) {
-  if (options.message && loader.value) dismissLoader();
-
-  if (!loader.value) {
-    loader.value = await loadingController.create({
-      message: options.message ? translate(options.message) : translate("Click the backdrop to dismiss."),
-      translucent: true,
-      backdropDismiss: options.backdropDismiss
-    });
-  }
-  loader.value.present();
+async function presentLoader(options: GlobalLoaderOptions = { message: "", backdropDismiss: true }) {
+  await loaderLifecycle.present(options);
 }
 
 function dismissLoader() {
-  if (loader.value) {
-    loader.value.dismiss();
-    loader.value = null;
-  }
+  loaderLifecycle.dismiss();
 }
 
 async function setProductStore(event: SelectCustomEvent) {
@@ -224,6 +379,14 @@ async function setProductStore(event: SelectCustomEvent) {
   ];
   const path = router.currentRoute.value.path;
   if (productStores.value) {
+    if (isRoutingRecordRoute(path)) {
+      // A detail/Test Drive page is bound to the routing group's own product-store context. Keep
+      // the selector aligned with that record; the user can return to the list (resolving any
+      // unsaved-change guard) before switching stores.
+      (event.target as any).value = currentProductStore.value?.productStoreId || event.detail.value;
+      commonUtil.showToast(translate("Return to the routing list before changing product store."));
+      return;
+    }
     if (createUpdateRoutes.some((route) => path.includes(route))) {
       const alert = await alertController.create({
         header: translate("Leave page"),

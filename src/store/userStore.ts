@@ -164,6 +164,7 @@ export const useUserStore = defineStore('user', {
         }
         await initialize()
         await this.fetchPermissions()
+        await useUtilStore().fetchSystemInformation()
         await productStore().fetchProductStores()
         await this.fetchAvailableTimeZones()
         // ATP (sourcing rules) initialisation

@@ -28,6 +28,7 @@ declare module "vue-router" {
     section?: "sourcing" | "routing";
     childRoutes?: string[];
     featureFlag?: string;
+    minVersion?: string;  // Define min backend version to enable the feature
   }
 }
 
@@ -182,7 +183,8 @@ const routes: Array<RouteRecordRaw> = [
       icon: albumsOutline,
       section: "sourcing",
       menuIndex: 6,
-      childRoutes: ["/inventory/"]
+      childRoutes: ["/inventory/"],
+      minVersion: "v6.0.0"
     }
   },
   {

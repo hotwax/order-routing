@@ -19,7 +19,8 @@ export const useUtilStore = defineStore('util', {
     return {
       enums: {} as any,
       categories: {} as any,
-      statuses: {} as any
+      statuses: {} as any,
+      systemInformation: {} as any
     }
   },
   getters: {
@@ -302,6 +303,17 @@ export const useUtilStore = defineStore('util', {
         method: "GET",
         baseURL: commonUtil.getMaargURL()
       })
+    },
+    async fetchSystemInformation() {
+      try {
+        const resp = await api({
+          url: "admin/maarg",
+          method: "GET"
+        });
+        this.systemInformation = resp.data
+      } catch(error: any) {
+        logger.error("Failed to fetch system information");
+      }
     }
   },
   persist: true

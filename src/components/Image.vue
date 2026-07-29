@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUpdated } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { IonSkeletonText } from '@ionic/vue'
 import { logger } from "@common";
 import defaultImageUrl from "@/assets/images/defaultImage.png";
@@ -62,7 +62,12 @@ onMounted(() => {
   setImageUrl();
 })
 
-onUpdated(() => {
+// ⚡ Bolt Optimization:
+// Why: `onUpdated` runs on *every* component re-render, causing redundant image existence
+// checks and layout thrashing even when the source hasn't changed.
+// What: Switched to explicitly watching the `src` prop.
+// Impact: Eliminates unnecessary network checks and DOM updates on unrelated component re-renders.
+watch(() => props.src, () => {
   setImageUrl();
 })
 </script>

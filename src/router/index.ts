@@ -360,4 +360,11 @@ const router = createRouter({
   routes
 });
 
+router.beforeEach(() => {
+  // Enforce the canonical version URL on every navigation (no-op until the version is resolved, or if
+  // already canonical). Redirect cancels this navigation. Logic lives in useAuth so it's shared. Runs
+  // globally (routes here use per-route beforeEnter guards, so this must be a top-level beforeEach).
+  if (useAuth().checkAppVersionRedirect()) return false;
+});
+
 export default router;

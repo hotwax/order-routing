@@ -4,6 +4,15 @@ import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 import { DateTime } from 'luxon'
+import { routingEditorCodeLabel } from '@/utils/routingWorkingCopy'
+
+export const ROUTING_EDITOR_ENUM_TYPE_IDS = [
+  "ORD_FILTER_PRM_TYPE",
+  "ORD_SORT_PARAM_TYPE",
+  "INV_FILTER_PRM_TYPE",
+  "INV_SORT_PARAM_TYPE",
+  "ORDER_SALES_CHANNEL"
+] as const;
 
 export const useUtilStore = defineStore('util', {
   state: () => {
@@ -26,10 +35,17 @@ export const useUtilStore = defineStore('util', {
       }, {})
     },
     getStatusDesc: (state) => (id: any) => {
-      return state.statuses[id]?.description ? state.statuses[id]?.description : id
+      return state.statuses[id]?.description || routingEditorCodeLabel(id)
     }
   },
   actions: {
+    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
+    // and sequentially because fetchEnums merges into the current store snapshot after each request.
+    async fetchRoutingEditorEnums() {
+      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
+        await this.fetchEnums({ enumTypeId });
+      }
+    },
     async fetchEnums(payload: any) {
       let enums = { ...this.enums };
       let pageIndex = 0;

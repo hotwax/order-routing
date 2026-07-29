@@ -14,8 +14,8 @@ export function useCreateRouting() {
     if (!opts.routingGroupId) return;
 
     const alert = await alertController.create({
-      header: translate("New Order Route"),
-      inputs: [{ name: "routingName", placeholder: translate("route name") }],
+      header: translate("New routing"),
+      inputs: [{ name: "routingName", placeholder: translate("routing name") }],
       buttons: [
         { text: translate("Cancel"), role: "cancel" },
         {

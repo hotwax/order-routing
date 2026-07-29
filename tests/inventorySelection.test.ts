@@ -63,9 +63,22 @@ describe("Inventory product selection", () => {
     vi.doMock("@/store/atpProductStore", () => ({
       useAtpProductStore: () => ({ currentProductStore: { productStoreId: "STORE" } }),
     }));
+    vi.doMock("@/store/channel", () => ({
+      useChannelStore: () => ({
+        fetchGroupFacilities: vi.fn(() => Promise.resolve()),
+        fetchInventoryChannels: vi.fn(() => Promise.resolve()),
+        getInventoryChannels: [],
+      }),
+    }));
+    vi.doMock("@/composables/useChannelInventory", () => ({
+      fetchProductOnlineAtpMap: vi.fn(() => Promise.resolve({})),
+      mergeOnlineAtpIntoRows: (rows: any[]) => rows,
+    }));
     vi.doMock("@ionic/vue", () => ({
       IonButton: defineComponent({ name: "IonButton", template: "<button><slot /></button>" }),
       IonButtons: defineComponent({ name: "IonButtons", template: "<div><slot /></div>" }),
+      IonCard: defineComponent({ name: "IonCard", template: "<article><slot /></article>" }),
+      IonCardContent: defineComponent({ name: "IonCardContent", template: "<div><slot /></div>" }),
       IonCheckbox: defineComponent({
         name: "IonCheckbox",
         props: ["checked", "indeterminate", "modelValue"],
@@ -82,6 +95,8 @@ describe("Inventory product selection", () => {
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSearchbar: defineComponent({ name: "IonSearchbar", template: "<input />" }),
+      IonSegment: defineComponent({ name: "IonSegment", template: "<div><slot /></div>" }),
+      IonSegmentButton: defineComponent({ name: "IonSegmentButton", template: "<button><slot /></button>" }),
       IonSelect: defineComponent({ name: "IonSelect", template: "<select><slot /></select>" }),
       IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
       IonSkeletonText: defineComponent({ name: "IonSkeletonText", template: "<span />" }),

@@ -14,26 +14,34 @@
     <ion-list>
       <ion-item>
         <ion-select v-model="allowBrokering" :label="translate('Allow Brokering')" placeholder="Select" interface="popover">
-          <ion-select-option value="Y">{{ "Y" }}</ion-select-option>
-          <ion-select-option value="N">{{ "N" }}</ion-select-option>
+          <ion-select-option value="Y">
+            {{ "Y" }}
+          </ion-select-option>
+          <ion-select-option value="N">
+            {{ "N" }}
+          </ion-select-option>
         </ion-select>
       </ion-item>
       <ion-item>
         <ion-select v-model="allowPickup" :label="translate('Allow Pickup')" placeholder="Select" interface="popover">
-          <ion-select-option value="Y">{{ "Y" }}</ion-select-option>
-          <ion-select-option value="N">{{ "N" }}</ion-select-option>
+          <ion-select-option value="Y">
+            {{ "Y" }}
+          </ion-select-option>
+          <ion-select-option value="N">
+            {{ "N" }}
+          </ion-select-option>
         </ion-select>
       </ion-item>
       <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="minimumStock" label="Safety stock" @keydown="isValidPositiveNumber"></ion-input>
+        <ion-input v-model="minimumStock" type="number" min="0" placeholder="0" :label="translate(isChannelScope ? 'Threshold' : 'Safety stock')" @keydown="isValidPositiveNumber" />
       </ion-item>
-      <ion-item>
-        <ion-input type="number" min="0" placeholder="0" v-model="daysToShip" label="Days to Ship" @keydown="isValidPositiveNumber"></ion-input>
+      <ion-item v-if="!isChannelScope">
+        <ion-input v-model="daysToShip" type="number" min="0" placeholder="0" label="Days to Ship" @keydown="isValidPositiveNumber" />
       </ion-item>
     </ion-list>
   </ion-content>
 
-  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
     <ion-fab-button @click="updateConfig()">
       <ion-icon :icon="saveOutline" />
     </ion-fab-button>
@@ -41,12 +49,13 @@
 </template>
 
 <script setup lang="ts">
+import { api, commonUtil, logger, translate } from "@common";
 import { IonButton, IonButtons, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { closeOutline, saveOutline } from "ionicons/icons";
-import { api, commonUtil, logger, translate } from '@common';
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
-const props = defineProps(["selectedProducts", "selectedFacility", "currentConfig"])
+const props = defineProps(["selectedProducts", "selectedFacility", "currentConfig", "scopeType"])
+const isChannelScope = computed(() => props.scopeType === "channel");
 
 const allowPickup = ref("");
 const allowBrokering = ref("")
@@ -54,7 +63,7 @@ const minimumStock = ref();
 const daysToShip = ref();
 
 onMounted(() => {
-  if (props.currentConfig) {
+  if(props.currentConfig) {
     allowBrokering.value = props.currentConfig.allowBrokering ?? "";
     allowPickup.value = props.currentConfig.allowPickup ?? "";
     minimumStock.value = props.currentConfig.minimumStock;
@@ -67,7 +76,7 @@ function closeModal() {
 }
 
 function isValidPositiveNumber(event: KeyboardEvent) {
-  if (event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
+  if(event.key.length === 1 && !/^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
   }
 }
@@ -78,29 +87,31 @@ async function updateConfig() {
   } as Record<string, string | number>
 
   if(allowBrokering.value) {
-    params["allowBrokering"] = allowBrokering.value
+    params.allowBrokering = allowBrokering.value
   }
 
   if(allowPickup.value) {
-    params["allowPickup"] = allowPickup.value
+    params.allowPickup = allowPickup.value
   }
 
   if(minimumStock.value === 0 || minimumStock.value) {
     const minStockVal = Number(minimumStock.value);
-    if (minStockVal < 0 || !Number.isInteger(minStockVal)) {
-      commonUtil.showToast(translate("Safety stock must be a non-negative integer."));
+    if(minStockVal < 0 || !Number.isInteger(minStockVal)) {
+      commonUtil.showToast(translate(isChannelScope.value ? "Threshold must be a non-negative integer." : "Safety stock must be a non-negative integer."));
+
       return;
     }
-    params["minimumStock"] = minStockVal;
+    params.minimumStock = minStockVal;
   }
 
-  if(daysToShip.value === 0 || daysToShip.value) {
+  if(!isChannelScope.value && (daysToShip.value === 0 || daysToShip.value)) {
     const daysToShipVal = Number(daysToShip.value);
-    if (daysToShipVal < 0 || !Number.isInteger(daysToShipVal)) {
+    if(daysToShipVal < 0 || !Number.isInteger(daysToShipVal)) {
       commonUtil.showToast(translate("Days to Ship must be a non-negative integer."));
+
       return;
     }
-    params["daysToShip"] = daysToShipVal;
+    params.daysToShip = daysToShipVal;
   }
 
   const selectedProductIds = props.selectedProducts.map((product: any) => product.productId)
@@ -119,7 +130,7 @@ async function updateConfig() {
     })
     modalController.dismiss({ updated: true });
     commonUtil.showToast(translate("Inventory config update for selected products"))
-  } catch(err) {
+  } catch (err) {
     logger.error("Failed to update inventory config for product facilities");
   }
 }

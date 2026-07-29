@@ -107,6 +107,8 @@ export interface RoutingRunResult {
 }
 
 export interface GroupRunResult {
+  /** Present when the backend persisted this run to canonical simulation history. */
+  simulationId?: string;
   routingGroupId: string;
   productStoreId: string;
   attemptedItemCount: number;

@@ -39,15 +39,14 @@ export const useUtilStore = defineStore('util', {
     }
   },
   actions: {
-    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly
-    // and sequentially because fetchEnums merges into the current store snapshot after each request.
+    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly.
+    // fetchEnums is safe for concurrent calls, so we can fetch all families in parallel.
     async fetchRoutingEditorEnums() {
-      for (const enumTypeId of ROUTING_EDITOR_ENUM_TYPE_IDS) {
-        await this.fetchEnums({ enumTypeId });
-      }
+      await Promise.all(
+        ROUTING_EDITOR_ENUM_TYPE_IDS.map(enumTypeId => this.fetchEnums({ enumTypeId }))
+      );
     },
     async fetchEnums(payload: any) {
-      let enums = { ...this.enums };
       let pageIndex = 0;
       const pageSize = 500;
   
@@ -100,21 +99,24 @@ export const useUtilStore = defineStore('util', {
                 "description": "Facility group"
               } as any
             }
-            enums = {
-              ...enums,
-              ...respEnums
+
+            // Deep merge needed since values are nested by enumTypeId
+            const newEnums = { ...this.enums }
+            for (const typeId of Object.keys(respEnums)) {
+              newEnums[typeId] = {
+                ...(newEnums[typeId] || {}),
+                ...respEnums[typeId]
+              }
             }
+            this.enums = newEnums
           }
           pageIndex++;
         } while(resp.data.length == pageSize)
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
     },
     async fetchOmsEnums(payload: any) {
-      let enums = { ...this.enums };
-  
       try {
         const resp = await api({
           url: "admin/enums",
@@ -126,7 +128,7 @@ export const useUtilStore = defineStore('util', {
         });
   
         if(!commonUtil.hasError(resp) && resp.data.length) {
-          enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+          const respEnums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
             if(enumerations[data.enumTypeId]) {
               enumerations[data.enumTypeId][data.enumId] = data
             } else {
@@ -135,12 +137,21 @@ export const useUtilStore = defineStore('util', {
               }
             }
             return enumerations
-          }, enums)
+          }, {})
+
+          // Deep merge needed since values are nested by enumTypeId
+          const newEnums = { ...this.enums }
+          for (const typeId of Object.keys(respEnums)) {
+            newEnums[typeId] = {
+              ...(newEnums[typeId] || {}),
+              ...respEnums[typeId]
+            }
+          }
+          this.enums = newEnums
         }
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
     },
 
     async fetchCategories() {

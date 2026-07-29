@@ -10,10 +10,18 @@
     <ion-content>
       <main>
         <ion-searchbar v-model="query" :placeholder="translate('Search facility groups')" />
+        <ion-item lines="none">
+          <ion-select v-model="selectedGroupType" :label="translate('Filter by Type')" interface="popover">
+            <ion-select-option value="">{{ translate("All Types") }}</ion-select-option>
+            <ion-select-option v-for="type in groupTypes" :key="type.facilityGroupTypeId" :value="type.facilityGroupTypeId">
+              {{ translate(type.description || type.facilityGroupTypeId) }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
 
         <div class="empty-block" v-if="!filteredGroups.length">
           <EmptyState
-            v-if="query.trim()"
+            v-if="isFiltered"
             variant="compact"
             :icon="searchOutline"
             :title="translate('No groups match your search')"
@@ -110,6 +118,8 @@ import {
   IonMenuButton,
   IonPage,
   IonSearchbar,
+  IonSelect,
+  IonSelectOption,
   IonTitle,
   IonToolbar,
   modalController
@@ -129,18 +139,25 @@ const productStore = useAtpProductStore();
 const DEFAULT_GROUP_TYPE = "BROKERING_GROUP";
 
 const query = ref("");
+const selectedGroupType = ref("");
 
 const groups = computed(() => facilityGroupStore.getGroups);
 const groupTypes = computed(() => facilityGroupStore.getGroupTypes);
 
+const isFiltered = computed(() => query.value.trim() !== "" || selectedGroupType.value !== "");
+
 const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase();
-  if (!q) return groups.value;
-  return groups.value.filter((g: any) =>
-    (g.facilityGroupName || "").toLowerCase().includes(q) ||
-    (g.facilityGroupId || "").toLowerCase().includes(q) ||
-    (g.description || "").toLowerCase().includes(q)
-  );
+  return groups.value.filter((g: any) => {
+    const matchesSearch = !q || 
+      (g.facilityGroupName || "").toLowerCase().includes(q) ||
+      (g.facilityGroupId || "").toLowerCase().includes(q) ||
+      (g.description || "").toLowerCase().includes(q);
+      
+    const matchesType = !selectedGroupType.value || g.facilityGroupTypeId === selectedGroupType.value;
+    
+    return matchesSearch && matchesType;
+  });
 });
 
 function getTypeLabel(typeId: string) {

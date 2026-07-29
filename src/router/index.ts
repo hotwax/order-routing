@@ -1,10 +1,9 @@
-import { createRouter, createWebHistory } from "@ionic/vue-router";
-import { RouteRecordRaw } from "vue-router";
-import { useAuth } from "@common/composables/useAuth";
 import Login from "@common/components/Login.vue";
 import { isFeatureEnabled } from "@/utils/simConfig";
 import { useUserStore } from "@/store/userStore";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
+import { useAuth } from "@common/composables/useAuth";
+import { createRouter, createWebHistory } from "@ionic/vue-router";
 import {
   albumsOutline,
   businessOutline,
@@ -17,8 +16,8 @@ import {
   settingsOutline,
   storefrontOutline
 } from "ionicons/icons";
+import { RouteRecordRaw } from "vue-router";
 
-import "vue-router";
 
 declare module "vue-router" {
   interface RouteMeta {
@@ -34,8 +33,9 @@ declare module "vue-router" {
 
 const authGuard = async (to: any, _from: any, next: any) => {
   const { isAuthenticated } = useAuth();
-  if (!isAuthenticated.value) {
+  if(!isAuthenticated.value) {
     to.fullPath !== "/" && localStorage.setItem("requestedPagePath", to.fullPath);
+
     return next("/login");
   }
   next();
@@ -166,7 +166,7 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import("@/views/InventoryChannels.vue"),
     beforeEnter: authGuard,
     meta: {
-      title: "Inventory channels",
+      title: "Channels",
       icon: cloudUploadOutline,
       section: "sourcing",
       menuIndex: 5

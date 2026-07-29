@@ -76,10 +76,6 @@
     
                 <div class="actions">
                   <ion-button fill="clear" @click="openEditGroupModal(channel)">{{ translate("Edit group") }}</ion-button>
-                  <!-- Functionality is not defined for this button hence commented it for now. -->
-                  <!-- <ion-button color="medium" fill="clear" slot="end">
-                    <ion-icon :icon="ellipsisVerticalOutline" slot="icon-only"/>
-                  </ion-button> -->
                 </div>
               </ion-list>
             </ion-card>

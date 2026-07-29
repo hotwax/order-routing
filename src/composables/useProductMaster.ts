@@ -95,63 +95,6 @@ async function clearCache() {
   })
 }
 
-// const primaryId = (product?: any) => {
-//   if (!product) return ''
-//   const pref = useProductStore().getPrimaryId
-
-//   const parsedGoodIds = Array.isArray(product.goodIdentifications) ? product.goodIdentifications.map((goodIdentification: any) => {
-//     if (typeof goodIdentification === 'string' && goodIdentification.includes('/')) {
-//       const [type, value] = goodIdentification.split('/', 2)
-//       return { type: type?.trim(), value: value?.trim() }
-//     }
-//     return goodIdentification
-//   }) : []
-
-//   const resolve = (type: string) => {
-//     if (!type) return ''
-//     if (['SKU', 'SHOPIFY_PROD_SKU'].includes(type))
-//       return parsedGoodIds.find((goodIdentification: any) => goodIdentification.type === 'SKU')?.value || ''
-//     if (type === 'internalName') return product.internalName || ''
-//     if (type === 'productId') return product.productId || ''
-//     if (type === 'parentProductName' || type === 'groupName') return product.parentProductName || ''
-//     if (type === 'title') return product.title || ''
-//     if (type === 'primaryProductCategoryName') return product.primaryProductCategoryName || ''
-//     return parsedGoodIds.find((goodIdentification: any) => goodIdentification.type === type)?.value || ''
-//   }
-
-//   // Try preference, then fallback to SKU or productId
-//   return resolve(pref) || resolve('SKU') || product.productId || ''
-// }
-
-// const secondaryId = (product: any) => {
-//   if (!product) return ''
-//   const pref = useProductStore().getSecondaryId
-
-//   // Parse any flat "TYPE/VALUE" strings (from Solr)
-//   const parsedGoodIds = Array.isArray(product.goodIdentifications) ? product.goodIdentifications.map((goodIdentification: any) => {
-//     if (typeof goodIdentification === 'string' && goodIdentification.includes('/')) {
-//       const [type, value] = goodIdentification.split('/', 2)
-//       return { type: type?.trim(), value: value?.trim() }
-//     }
-//     return goodIdentification
-//   }) : []
-
-//   const resolve = (type: string) => {
-//     if (!type) return ''
-//     if (['SKU', 'SHOPIFY_PROD_SKU'].includes(type))
-//       return parsedGoodIds.find((goodIdentification: any) => goodIdentification.type === 'SKU')?.value || ''
-//     if (type === 'internalName') return product.internalName || ''
-//     if (type === 'productId') return product.productId || ''
-//     if (type === 'parentProductName' || type === 'groupName') return product.parentProductName || ''
-//     if (type === 'title') return product.title || ''
-//     if (type === 'primaryProductCategoryName') return product.primaryProductCategoryName || ''
-//     return parsedGoodIds.find((goodIdentification: any) => goodIdentification.type === type)?.value || ''
-//   }
-
-//   // Try preference, then fallback to productId
-//   return resolve(pref) || product.productId || ''
-// }
-
 export function useProductMaster() {
   return {
     getById,

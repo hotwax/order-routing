@@ -69,9 +69,9 @@ const generateRuleActions = (ruleId: string, actionTypeEnumId: string, actionVal
 
   let condition;
   if (actionTypeEnumId === "ATP_THRESHOLD" || actionTypeEnumId === "ATP_SAFETY_STOCK") {
-    condition = [{ ruleId, actionTypeEnumId, "fieldName": "facility-safety-stock", "fieldValue": actionValue ? actionValue : 0 }]
+    condition = [{ ruleId, actionTypeEnumId, "fieldName": "minimumStock", "fieldValue": actionValue ? actionValue : 0 }]
   } else {
-    condition = [{ ruleId, actionTypeEnumId, "fieldName": actionTypeEnumId === "ATP_ALLOW_PICKUP" ? "allow-pickup" : "allow-brokering", "fieldValue": actionValue ? "Y" : "N" }]
+    condition = [{ ruleId, actionTypeEnumId, "fieldName": actionTypeEnumId === "ATP_ALLOW_PICKUP" ? "allowPickup" : "allowBrokering", "fieldValue": actionValue ? "Y" : "N" }]
   }
   return condition
 }

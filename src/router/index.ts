@@ -17,6 +17,7 @@ import {
   storefrontOutline
 } from "ionicons/icons";
 import { RouteRecordRaw } from "vue-router";
+import Actions from "@/authorization/actions";
 
 
 declare module "vue-router" {
@@ -65,7 +66,7 @@ const routingGroupGuard = (to: any, from: any, next: any) =>
 const simulateGuard = (to: any, from: any, next: any) =>
   isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
 
-export const ROUTING_TEST_DRIVE_PERMISSION_ID = "ROUTING_TEST_DRIVE_VIEW";
+export const ROUTING_TEST_DRIVE_PERMISSION_ID = Actions.APP_TEST_DRIVE_VIEW;
 
 export function routingGroupRequiresSaveBeforeTest(routingGroupId: string): boolean {
   const store = orderRoutingStore();

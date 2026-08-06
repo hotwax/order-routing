@@ -112,7 +112,7 @@
         </ion-item>
       </ion-card>
 
-      <ion-card v-if="!isSandbox && testDriveEnabled && userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+      <ion-card v-if="!isSandbox && testDriveEnabled && userStore.hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
         <ion-card-header>
           <ion-card-subtitle>{{ translate("Test drive") }}</ion-card-subtitle>
         </ion-card-header>
@@ -804,6 +804,7 @@ import {
   restoreVariationToBaseline,
   type VariationDiffTarget
 } from "@/utils/variationConfigDiff";
+import Actions from "@/authorization/actions";
 
 const props = defineProps({
   routingGroupId: {

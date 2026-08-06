@@ -143,9 +143,9 @@ export function useInventory() {
     let result: VarianceAudit | null = null
     try {
       const resp = await api({
-        url: "/oms/inventoryItemVariances",
+        url: `/oms/inventoryItem/${inventoryItemId}/variances`,
         method: "GET",
-        params: { inventoryItemId, physicalInventoryId, pageSize: 1 }
+        params: { physicalInventoryId, pageSize: 1 }
       }) as any
 
       const row = Array.isArray(resp?.data) ? resp.data[0] : (resp?.data?.list?.[0] ?? null)

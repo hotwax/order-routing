@@ -17,8 +17,8 @@
           <div slot="label">{{ translate("Name") }} <ion-text color="danger">*</ion-text></div>
         </ion-input>
       </ion-item>
-      <ion-item lines="none">
-        <ion-input :label="translate('ID')" labelPlacement="floating" ref="facilityGroupId" v-model="formData.facilityGroupId" @ionInput="validateFacilityGroupId" @ionBlur="markFacilityGroupIdTouched" :error-text="translate('Internal ID cannot be more than 20 characters.')" />
+      <ion-item>
+        <ion-input :label="translate('ID')" labelPlacement="floating" v-model="formData.facilityGroupId" :maxlength="20" />
       </ion-item>
       <ion-item>
         <ion-textarea :label="translate('Description')" v-model="formData.description" labelPlacement="floating" :maxlength="255" />
@@ -61,7 +61,6 @@ const formData = ref({
   description: "",
 }) as any;
 const selectedConfigFacilityId = ref("new");
-const facilityGroupId = ref("") as any;
 
 const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const configFacilities = computed(() => productStore.getConfigFacilities)
@@ -145,21 +144,5 @@ async function createGroup() {
 
 function setFacilityGroupId(event: any) {
   formData.value.facilityGroupId = commonUtil.generateInternalId(event.target.value)
-}
-
-function validateFacilityGroupId(event: any) {
-  const value = event.target.value;
-  facilityGroupId.value.$el.classList.remove('ion-valid');
-  facilityGroupId.value.$el.classList.remove('ion-invalid');
-
-  if (value === '') return;
-
-  formData.value.facilityGroupId.length <= 20
-    ? facilityGroupId.value.$el.classList.add('ion-valid')
-    : facilityGroupId.value.$el.classList.add('ion-invalid');
-}
-
-function markFacilityGroupIdTouched() {
-  facilityGroupId.value.$el.classList.add('ion-touched');
 }
 </script>

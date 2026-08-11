@@ -5,7 +5,8 @@ import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
 import { normalizeRoutingGroupHierarchy } from '@/utils/ruleUtil'
 import { v4 as uuidv4 } from 'uuid';
-import { buildRoutingGroupSavePayload, stripRoutingGroupSaveIds } from '@/utils/routingGroupEditorPayload';
+import { buildRoutingGroupSavePayload, diffRoutingGroupChildDeletions, hasRoutingGroupChildDeletions, stripRoutingGroupSaveIds } from '@/utils/routingGroupEditorPayload';
+import type { RoutingGroupChildDeletions } from '@/utils/routingGroupEditorPayload';
 
 export interface SaveRoutingGroupRawOptions {
   /** Schedule changes are committed by their own explicit UI actions. */
@@ -261,6 +262,11 @@ export const orderRoutingStore = defineStore('orderRouting', {
     async saveRoutingGroupRaw(payload: any, options: SaveRoutingGroupRawOptions = {}) {
       const isNewRoutingGroup = Boolean(payload?.isNew);
       const stateRoutingGroupId = payload?.routingGroupId;
+      // Computed against the untransformed group (buildRoutingGroupSavePayload clones, and the
+      // id-stripping step below drops the very seq ids this diff needs to read).
+      const childDeletions = isNewRoutingGroup
+        ? { orderFilters: [], inventoryFilters: [], actions: [] }
+        : diffRoutingGroupChildDeletions(this.baseline, payload);
       const transformedPayload = buildRoutingGroupSavePayload(
         payload,
         import.meta.env.VITE_FILTER_SORT_DESC || ""
@@ -293,6 +299,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
             this.groups = this.groups.filter((group: any) => group.routingGroupId !== stateRoutingGroupId)
           }
 
+          // Run after the upsert (so a failed save never destroys rows the user still has on screen)
+          // but before the readback, so the refetched group reflects the removals.
+          await this.deleteRemovedRoutingGroupChildren(childDeletions);
+
           const getResp = await api({
             url: `order-routing/groups/${routingGroupId}/raw`,
             method: "GET"
@@ -315,6 +325,39 @@ export const orderRoutingStore = defineStore('orderRouting', {
         logger.error(err);
         throw err;
       }
+    },
+    /**
+     * Delete the persisted child rows that the just-saved group no longer contains.
+     *
+     * The group POST only upserts, so removals have to be issued explicitly or the row stays on the
+     * backend and comes back with the readback. Failures are logged and surfaced as a toast rather
+     * than thrown: the group write already succeeded, and the readback will show whatever survived
+     * so the user can retry instead of losing the rest of the save.
+     */
+    async deleteRemovedRoutingGroupChildren(deletions: RoutingGroupChildDeletions) {
+      if (!hasRoutingGroupChildDeletions(deletions)) return true;
+
+      const results = await Promise.all([
+        ...deletions.orderFilters.map((filter) => this.deleteRoutingFilters({
+          orderRoutingId: filter.orderRoutingId,
+          filters: [{ conditionSeqId: filter.conditionSeqId }]
+        })),
+        ...deletions.inventoryFilters.map((condition) => this.deleteRuleConditions({
+          routingRuleId: condition.routingRuleId,
+          conditions: [{ conditionSeqId: condition.conditionSeqId }]
+        })),
+        ...deletions.actions.map((action) => this.deleteRuleActions({
+          routingRuleId: action.routingRuleId,
+          actions: [{ actionSeqId: action.actionSeqId }]
+        }))
+      ]);
+
+      const deletedEverything = results.every(Boolean);
+      if (!deletedEverything) {
+        logger.error("Failed to delete one or more removed routing group children", deletions);
+        commonUtil.showToast(translate("Some removed conditions could not be deleted. Please try saving again."));
+      }
+      return deletedEverything;
     },
     setHasUnsavedChanges(value: boolean) {
       this.currentGroup.hasUnsavedChanges = value;

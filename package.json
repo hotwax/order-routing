@@ -58,7 +58,7 @@
     "terser": "^5.16.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-pwa": "1.2.0",
+    "vite-plugin-pwa": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "3.3.4"
   }

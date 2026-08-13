@@ -138,6 +138,18 @@ describe("dashboardStore.loadRouting", () => {
 
     await useDashboardStore().loadRouting();
 
+    expect(mockedRunSolrQuery).toHaveBeenCalledTimes(1);
+    expect(useDashboardStore().getRouting.queueDepth).toBeNull();
+    expect(useDashboardStore().getRouting.oldestQueued).toBeNull();
+  });
+
+  it("keeps the queue count unavailable when the Solr response is malformed", async () => {
+    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    mockedRunSolrQuery.mockResolvedValue({ data: {} });
+
+    await useDashboardStore().loadRouting();
+
+    expect(mockedRunSolrQuery).toHaveBeenCalledTimes(1);
     expect(useDashboardStore().getRouting.queueDepth).toBeNull();
     expect(useDashboardStore().getRouting.oldestQueued).toBeNull();
   });

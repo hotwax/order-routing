@@ -161,8 +161,11 @@ async function fetchQueueSummary(productStoreId: string): Promise<{ count: numbe
 
     if (commonUtil.hasError(response)) return null;
 
-    const count = Number(response.data?.response?.numFound || 0);
-    const doc = response.data?.response?.docs?.[0];
+    const result = response.data?.response;
+    const count = Number(result?.numFound);
+    if (result?.numFound == null || !Number.isFinite(count)) return null;
+
+    const doc = result.docs?.[0];
     const oldest: OldestQueuedOrder | null = doc
       ? {
           orderId: doc.orderId,

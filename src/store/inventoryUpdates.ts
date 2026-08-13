@@ -1,8 +1,10 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { useRuleStore } from "@/store/rule";
 import {
   ATP_DATA_MANAGER_CONFIG_ID,
+  DATA_MANAGER_PAGE_SIZE,
   DATA_MANAGER_STATUSES,
   FAILED_DATA_MANAGER_STATUSES,
   inventoryUpdateName,
@@ -80,10 +82,11 @@ export const useInventoryUpdatesStore = defineStore("inventoryUpdates", {
             method: "GET"
           }),
           group.jobName
-            ? api({
-                url: `admin/serviceJobs/${encodeURIComponent(group.jobName)}/runs`,
-                method: "GET",
-                params: { pageSize: 20, pageIndex: 0, orderByField: "-startTime" }
+            ? useRuleStore().fetchRuleGroupHistory({
+                jobName: group.jobName,
+                pageSize: 20,
+                pageIndex: 0,
+                orderByField: "-startTime"
               })
             : Promise.resolve({ data: [] })
         ]);
@@ -110,6 +113,11 @@ export const useInventoryUpdatesStore = defineStore("inventoryUpdates", {
         } as InventoryUpdateSchedule;
       }));
 
+      // The product store can change while these requests are in flight. Dropping a response that
+      // no longer belongs to the selected store keeps Manage controls from binding to rule groups
+      // the user is no longer looking at.
+      if (useAtpProductStore().currentProductStore?.productStoreId !== productStoreId) return;
+
       this.schedules = schedules.sort((a, b) => a.groupName.localeCompare(b.groupName));
       this.stats.activeRuns = this.schedules.filter((schedule) => schedule.activeRun).length;
       if (hadDetailError) throw new Error("Some inventory update monitoring data could not be loaded.");
@@ -122,30 +130,27 @@ export const useInventoryUpdatesStore = defineStore("inventoryUpdates", {
       if (commonUtil.hasError(response)) throw response.data;
       return response.data?.schedule || {};
     },
+    // Rule-group mutations and run history are owned by the rule store, which the rule pages
+    // already drive through ScheduleRuleItem/ScheduleActionsPopover. These wrappers only add the
+    // hasError-to-throw handling this page's callers expect.
     async fetchJobRuns(jobName: string, pageSize = 5) {
       if (!jobName) return [];
-      const response = await api({
-        url: `admin/serviceJobs/${encodeURIComponent(jobName)}/runs`,
-        method: "GET",
-        params: { pageSize, pageIndex: 0, orderByField: "-startTime" }
+      const response = await useRuleStore().fetchRuleGroupHistory({
+        jobName,
+        pageSize,
+        pageIndex: 0,
+        orderByField: "-startTime"
       }) as any;
       if (commonUtil.hasError(response)) throw response.data;
       return Array.isArray(response.data) ? response.data : [];
     },
     async updateSchedule(payload: { ruleGroupId: string; paused: string; cronExpression?: string }) {
-      const response = await api({
-        url: `available-to-promise/ruleGroups/${payload.ruleGroupId}/schedule`,
-        method: "POST",
-        data: payload
-      }) as any;
+      const response = await useRuleStore().scheduleRuleGroup(payload) as any;
       if (commonUtil.hasError(response)) throw response.data;
       return response.data?.schedule || response.data || {};
     },
     async runNow(ruleGroupId: string) {
-      const response = await api({
-        url: `available-to-promise/ruleGroups/${ruleGroupId}/runNow`,
-        method: "POST"
-      }) as any;
+      const response = await useRuleStore().runNow(ruleGroupId) as any;
       if (commonUtil.hasError(response)) throw response.data;
       return response.data;
     },
@@ -158,7 +163,7 @@ export const useInventoryUpdatesStore = defineStore("inventoryUpdates", {
           statusId: statuses.join(","),
           statusId_op: "in",
           orderByField: "createdDate DESC",
-          pageSize: 10,
+          pageSize: DATA_MANAGER_PAGE_SIZE,
           pageIndex
         }
       }) as any;
@@ -219,14 +224,6 @@ export const useInventoryUpdatesStore = defineStore("inventoryUpdates", {
       } finally {
         this.loading = false;
       }
-    },
-    clear() {
-      this.schedules = [];
-      this.logs = [];
-      this.logsCount = 0;
-      this.stats = emptyStats();
-      this.lastUpdated = null;
-      this.loadError = "";
     }
   }
 });

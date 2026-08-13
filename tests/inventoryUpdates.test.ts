@@ -1,4 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Mirrors vue-i18n against the en locale, where a key resolves to itself with {placeholder}
+// interpolation applied.
+vi.mock("@common", () => ({
+  translate: (key: string, params?: Record<string, any>) => (params
+    ? key.replace(/\{(\w+)\}/g, (_match, name) => String(params[name] ?? `{${name}}`))
+    : key)
+}));
+
 import {
   formatFileSize,
   formatRunDuration,
@@ -13,6 +22,15 @@ describe("inventory update monitoring helpers", () => {
     expect(isActiveJobRun({ startTime: 1710000000000 })).toBe(true);
     expect(isActiveJobRun({ startTime: 1710000000000, endTime: 1710000005000 })).toBe(false);
     expect(isActiveJobRun({})).toBe(false);
+    expect(isActiveJobRun(null)).toBe(false);
+  });
+
+  it("does not treat a failed or terminated run as active", () => {
+    // A failed run can be reported with hasError "Y" and no endTime. Counting it as active would
+    // inflate the active-run KPI and keep Run now disabled until it aged out of the fetched page.
+    expect(isActiveJobRun({ startTime: 1710000000000, hasError: "Y" })).toBe(false);
+    expect(isActiveJobRun({ startTime: 1710000000000, endTime: 1710000005000, hasError: "Y" })).toBe(false);
+    expect(isActiveJobRun({ startTime: 1710000000000, hasError: "N" })).toBe(true);
   });
 
   it("formats Data Manager file sizes without hiding small files", () => {

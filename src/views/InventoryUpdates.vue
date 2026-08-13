@@ -20,38 +20,30 @@
             <p>{{ translate("Last refreshed") }}</p>
             {{ commonUtil.formatDateTimeValue(lastUpdated) }}
           </ion-label>
-          <ion-note slot="end">{{ translate("Across this OMS instance") }}</ion-note>
         </ion-item>
 
         <ion-card v-if="loadError" color="light">
           <ion-card-content>{{ translate(loadError) }}</ion-card-content>
         </ion-card>
 
+        <!--
+          Active rule runs is scoped to the selected product store, while the file counts come
+          from the Data Manager filtered only by configId and so cover the whole OMS instance.
+          Each card states its own scope rather than relying on one page-level note.
+        -->
         <div class="kpi-grid">
-          <ion-card class="kpi-card">
-            <ion-card-header>
-              <ion-card-subtitle>{{ translate("Active rule runs") }}</ion-card-subtitle>
-              <ion-card-title><AnimatedNumber :value="stats.activeRuns" /></ion-card-title>
-            </ion-card-header>
-          </ion-card>
-          <ion-card class="kpi-card">
-            <ion-card-header>
-              <ion-card-subtitle>{{ translate("Files waiting") }}</ion-card-subtitle>
-              <ion-card-title><AnimatedNumber :value="stats.queuedFiles" /></ion-card-title>
-            </ion-card-header>
-          </ion-card>
-          <ion-card class="kpi-card">
-            <ion-card-header>
-              <ion-card-subtitle>{{ translate("Files processing") }}</ion-card-subtitle>
-              <ion-card-title><AnimatedNumber :value="stats.processingFiles" /></ion-card-title>
-            </ion-card-header>
-          </ion-card>
-          <ion-card class="kpi-card">
-            <ion-card-header>
-              <ion-card-subtitle>{{ translate("Failed files") }}</ion-card-subtitle>
-              <ion-card-title><AnimatedNumber :value="stats.failedFiles" /></ion-card-title>
-            </ion-card-header>
-          </ion-card>
+          <StatCard :title="translate('Active rule runs')" :subtitle="translate('This store')">
+            <template #stat><AnimatedNumber :value="stats.activeRuns" /></template>
+          </StatCard>
+          <StatCard :title="translate('Files waiting')" :subtitle="translate('Across this OMS instance')">
+            <template #stat><AnimatedNumber :value="stats.queuedFiles" /></template>
+          </StatCard>
+          <StatCard :title="translate('Files processing')" :subtitle="translate('Across this OMS instance')">
+            <template #stat><AnimatedNumber :value="stats.processingFiles" /></template>
+          </StatCard>
+          <StatCard :title="translate('Failed files')" :subtitle="translate('Across this OMS instance')">
+            <template #stat><AnimatedNumber :value="stats.failedFiles" /></template>
+          </StatCard>
         </div>
 
         <ion-card>
@@ -148,7 +140,7 @@
       :schedule="selectedSchedule"
       @updated="refresh"
       @close="showManageModal = false"
-      @dismissed="selectedSchedule = null"
+      @dismissed="handleModalDismissed"
     />
   </ion-page>
 </template>
@@ -161,7 +153,6 @@ import {
   IonCard,
   IonCardContent,
   IonCardHeader,
-  IonCardSubtitle,
   IonCardTitle,
   IonContent,
   IonHeader,
@@ -182,11 +173,12 @@ import {
 } from "@ionic/vue";
 import { documentTextOutline, refreshOutline, syncOutline, timeOutline } from "ionicons/icons";
 import { computed, ref } from "vue";
-import { commonUtil, emitter, translate } from "@common";
+import { commonUtil, emitter, StatCard, translate } from "@common";
 import AnimatedNumber from "@/components/AnimatedNumber.vue";
 import InventoryUpdateJobModal from "@/components/InventoryUpdateJobModal.vue";
 import { useInventoryUpdatesStore, type InventoryUpdateSchedule } from "@/store/inventoryUpdates";
 import {
+  DATA_MANAGER_PAGE_SIZE,
   DATA_MANAGER_STATUSES,
   DATA_MANAGER_STATUS_LABELS,
   FAILED_DATA_MANAGER_STATUSES,
@@ -200,7 +192,6 @@ const selectedView = ref("all");
 const selectedSchedule = ref<InventoryUpdateSchedule | null>(null);
 const showManageModal = ref(false);
 const pageIndex = ref(0);
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const schedules = computed(() => store.schedules);
 const logs = computed(() => store.logs);
@@ -209,7 +200,7 @@ const loading = computed(() => store.loading);
 const lastUpdated = computed(() => store.lastUpdated);
 const loadError = computed(() => store.loadError);
 const nextSchedule = computed(() => store.nextSchedule);
-const pageCount = computed(() => Math.max(Math.ceil(store.logsCount / 10), 1));
+const pageCount = computed(() => Math.max(Math.ceil(store.logsCount / DATA_MANAGER_PAGE_SIZE), 1));
 
 function statusesForView(view = selectedView.value) {
   if (view === "queue") return [...QUEUED_DATA_MANAGER_STATUSES, "DmlsRunning"];
@@ -250,22 +241,28 @@ function openManage(schedule: InventoryUpdateSchedule) {
   showManageModal.value = true;
 }
 
+function handleModalDismissed() {
+  // A dismiss can settle after the user has already opened another schedule. Clearing
+  // unconditionally would blank that new selection and fall the modal back to a generic title.
+  if (!showManageModal.value) selectedSchedule.value = null;
+}
+
 async function handleProductStoreChange() {
   pageIndex.value = 0;
   await refresh();
 }
 
+// Refresh is driven by entering the page, the toolbar button, a product store change, and by the
+// manage modal after a save or run. A background poll here would cost 5 + 2N requests per tick
+// against the OMS for as long as the tab stays open.
 onIonViewDidEnter(async () => {
   await refresh();
   emitter.off("productStoreOrConfigChanged", handleProductStoreChange);
   emitter.on("productStoreOrConfigChanged", handleProductStoreChange);
-  refreshTimer = setInterval(refresh, 30000);
 });
 
 onIonViewDidLeave(() => {
   emitter.off("productStoreOrConfigChanged", handleProductStoreChange);
-  if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = null;
 });
 </script>
 
@@ -281,10 +278,6 @@ onIonViewDidLeave(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--spacer-sm);
-}
-
-.kpi-card {
-  margin: 0;
 }
 
 .card-head {

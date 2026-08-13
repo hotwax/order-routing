@@ -1,6 +1,10 @@
 import { DateTime } from "luxon";
+import { translate } from "@common";
 
 export const ATP_DATA_MANAGER_CONFIG_ID = "IMP_ATP_PROD_FAC";
+
+// Shared by the store's fetch and the view's page-count maths, which must agree.
+export const DATA_MANAGER_PAGE_SIZE = 10;
 
 export const DATA_MANAGER_STATUSES = [
   "DmlsCancelled",
@@ -36,7 +40,11 @@ export const DATA_MANAGER_STATUS_LABELS: Record<string, string> = {
   DmlsRunning: "Running"
 };
 
+// A failed or terminated run can come back with hasError "Y" and no endTime. Checking the error
+// state first keeps this aligned with getJobRunStatus() in composables/useChannelInventory.ts,
+// so such a run is not counted as active and does not block Run now.
 export function isActiveJobRun(run: any): boolean {
+  if (run?.hasError === "Y") return false;
   return Boolean(run?.startTime && !run?.endTime);
 }
 
@@ -45,12 +53,16 @@ export function isInventoryRuleGroup(group: any): boolean {
 }
 
 export function inventoryUpdateName(group: any): string {
-  const typeLabel = RULE_GROUP_TYPE_LABELS[group?.groupTypeEnumId] || "Inventory";
   const configuredName = String(group?.groupName || "").trim();
   const isTechnicalName = !configuredName
     || configuredName === String(group?.ruleGroupId || "")
     || /^M\d+$/.test(configuredName);
-  return isTechnicalName ? `${typeLabel} inventory update` : configuredName;
+  // A merchant-configured name is user data and is shown as-is; only the generated fallback
+  // goes through translate, so it is not frozen to English.
+  if (!isTechnicalName) return configuredName;
+
+  const typeLabel = RULE_GROUP_TYPE_LABELS[group?.groupTypeEnumId] || "Inventory";
+  return translate("{type} inventory update", { type: translate(typeLabel) });
 }
 
 export function formatFileSize(size: string | number | null | undefined): string {

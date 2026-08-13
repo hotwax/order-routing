@@ -1263,5 +1263,13 @@
   "Scheduled runs are paused.": "Scheduled runs are paused.",
   "Service job": "Service job",
   "This update will run on its schedule.": "This update will run on its schedule.",
-  "You have unsaved job changes. Discard them?": "You have unsaved job changes. Discard them?"
+  "You have unsaved job changes. Discard them?": "You have unsaved job changes. Discard them?",
+  "{type} inventory update": "{type} inventory update",
+  "Cancelled": "Cancelled",
+  "Crashed": "Crashed",
+  "failed": "failed",
+  "Finished": "Finished",
+  "Next": "Next",
+  "Previous": "Previous",
+  "This store": "This store"
 }

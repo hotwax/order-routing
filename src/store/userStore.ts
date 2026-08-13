@@ -13,6 +13,7 @@ import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
 import { useCircuitStore } from './circuit'
 import { simulationStore } from './simulationStore'
+import { useInventoryUpdatesStore } from './inventoryUpdates'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -200,6 +201,7 @@ export const useUserStore = defineStore('user', {
       useAtpProductStore().$reset()
       useRuleStore().$reset()
       useChannelStore().$reset()
+      useInventoryUpdatesStore().$reset()
 
       this.$reset();
     },

@@ -32,7 +32,7 @@
             {{ translate("Inventory update details unavailable") }}
             <p>{{ translate("Failed to load inventory update details.") }}</p>
           </ion-label>
-          <ion-button slot="end" fill="outline" @click="load">{{ translate("Retry") }}</ion-button>
+          <ion-button slot="end" fill="outline" @click="load()">{{ translate("Retry") }}</ion-button>
         </ion-item>
       </ion-list>
 
@@ -97,7 +97,7 @@
               <ion-item>
                 <ion-label>
                   {{ translate("Schedule preview") }}
-                  <p>{{ isScheduleValid ? scheduleDescription : translate("Provide a valid cron expression") }}</p>
+                  <p>{{ scheduleDescription }}</p>
                 </ion-label>
               </ion-item>
               <ion-list-header>{{ translate("Schedule Options") }}</ion-list-header>
@@ -179,6 +179,8 @@ import { closeOutline, refreshOutline, saveOutline } from "ionicons/icons";
 import { computed, ref, watch } from "vue";
 import { commonUtil, logger, translate } from "@common";
 import { useInventoryUpdatesStore, type InventoryUpdateSchedule } from "@/store/inventoryUpdates";
+import { useUserStore } from "@/store/userStore";
+import { isCronExpressionValid } from "@/utils/cronValidation";
 import { isActiveJobRun } from "@/utils/inventoryUpdates";
 import { parseRoutingStringRecordEnvJson } from "@/utils/routingEditorEnv";
 
@@ -199,59 +201,68 @@ const draftActive = ref(false);
 
 const configuredOptions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined);
 const scheduleOptions = Object.entries(configuredOptions).map(([label, expression]) => ({ label, expression }));
+const userTimeZone = computed(() => useUserStore().getCurrentTimeZone);
 const originalCronExpression = computed(() => String(details.value.cronExpression || ""));
 const originalActive = computed(() => String(details.value.paused || "Y") !== "Y");
 const activeRun = computed(() => recentRuns.value.find(isActiveJobRun) || null);
-const isDirty = computed(() => draftCronExpression.value !== originalCronExpression.value || draftActive.value !== originalActive.value);
-const isScheduleValid = computed(() => {
-  if (!draftCronExpression.value) return false;
-  try {
-    commonUtil.getCronString(draftCronExpression.value);
-    return true;
-  } catch (_error) {
-    return false;
-  }
-});
-const canSave = computed(() => isDirty.value && (!draftActive.value || isScheduleValid.value));
+const cronChanged = computed(() => draftCronExpression.value !== originalCronExpression.value);
+const isDirty = computed(() => cronChanged.value || draftActive.value !== originalActive.value);
+const isScheduleValid = computed(() => isCronExpressionValid(draftCronExpression.value, userTimeZone.value));
+const canSave = computed(() => isDirty.value
+  && (!cronChanged.value || isScheduleValid.value)
+  && (!draftActive.value || isScheduleValid.value));
 const scheduleDescription = computed(() => {
   if (!draftCronExpression.value) return translate("Not scheduled");
-  try {
-    return commonUtil.getCronString(draftCronExpression.value) || translate("Not scheduled");
-  } catch (_error) {
-    return translate("Provide a valid cron expression");
-  }
+  if (!isScheduleValid.value) return translate("Provide a valid cron expression");
+  return commonUtil.getCronString(draftCronExpression.value);
 });
 const nextRunLabel = computed(() => draftActive.value && details.value.nextExecutionDateTime
   ? commonUtil.formatDateTimeValue(details.value.nextExecutionDateTime)
   : translate("Not scheduled"));
 
-watch(() => [props.isOpen, props.schedule?.ruleGroupId], ([open]) => {
-  if (open && props.schedule?.ruleGroupId) void load();
+let loadRequestId = 0;
+
+watch(() => [props.isOpen, props.schedule?.ruleGroupId], ([open, ruleGroupId]) => {
+  if (!open || !ruleGroupId) return;
+  // Drop the previously viewed group's details so the spinner shows while the newly selected
+  // group loads, instead of rendering the old group's id, job and cron.
+  if (details.value.ruleGroupId && details.value.ruleGroupId !== ruleGroupId) {
+    details.value = {};
+    recentRuns.value = [];
+  }
+  void load();
 });
 
-async function load() {
-  if (!props.schedule?.ruleGroupId) return;
+async function load(preserveDraft = false) {
+  const schedule = props.schedule;
+  const ruleGroupId = schedule?.ruleGroupId;
+  if (!ruleGroupId) return;
+
+  // The selected schedule can change while this runs, so the group is captured up front and every
+  // continuation is tagged. A slower response for a previously selected group is discarded rather
+  // than merged into the group now open. Same generation guard as useChannelInventory.ts.
+  const currentRequestId = ++loadRequestId;
   loading.value = true;
   loadError.value = "";
   try {
-    const scheduleDetails = await store.fetchSchedule(props.schedule.ruleGroupId);
-    const jobName = scheduleDetails.jobName || props.schedule.jobName;
+    const scheduleDetails = await store.fetchSchedule(ruleGroupId);
+    if (currentRequestId !== loadRequestId) return;
+
+    const jobName = scheduleDetails.jobName || schedule?.jobName || "";
     const runs = await store.fetchJobRuns(jobName, 5);
-    details.value = {
-      ...props.schedule,
-      ...scheduleDetails,
-      ruleGroupId: props.schedule.ruleGroupId,
-      jobName
-    };
+    if (currentRequestId !== loadRequestId) return;
+
+    details.value = { ...(schedule || {}), ...scheduleDetails, ruleGroupId, jobName };
     recentRuns.value = runs;
-    resetDraft();
+    if (!preserveDraft) resetDraft();
   } catch (error) {
+    if (currentRequestId !== loadRequestId) return;
     logger.error("inventory updates: failed to load schedule details", error);
     loadError.value = "Failed to load inventory update details.";
     details.value = {};
     recentRuns.value = [];
   } finally {
-    loading.value = false;
+    if (currentRequestId === loadRequestId) loading.value = false;
   }
 }
 
@@ -298,14 +309,17 @@ async function requestRefresh() {
 }
 
 async function save() {
-  if (!props.schedule?.ruleGroupId || !canSave.value) return;
+  const ruleGroupId = props.schedule?.ruleGroupId;
+  if (!ruleGroupId || !canSave.value) return;
   saving.value = true;
   try {
     const payload: { ruleGroupId: string; paused: string; cronExpression?: string } = {
-      ruleGroupId: props.schedule.ruleGroupId,
+      ruleGroupId,
       paused: draftActive.value ? "N" : "Y"
     };
-    if (isScheduleValid.value) payload.cronExpression = draftCronExpression.value;
+    // canSave guarantees a changed expression is a valid one, and an unchanged expression is left
+    // out entirely so a pause/resume never rewrites the stored schedule.
+    if (cronChanged.value) payload.cronExpression = draftCronExpression.value;
     await store.updateSchedule(payload);
     commonUtil.showToast(translate("Inventory update schedule saved."));
     await load();
@@ -319,7 +333,8 @@ async function save() {
 }
 
 async function confirmRunNow() {
-  if (!props.schedule?.ruleGroupId || activeRun.value) return;
+  const ruleGroupId = props.schedule?.ruleGroupId;
+  if (!ruleGroupId || activeRun.value) return;
   const alert = await alertController.create({
     header: translate("Run now"),
     message: translate("Generate an inventory update file now without changing this schedule?"),
@@ -334,12 +349,16 @@ async function confirmRunNow() {
 
   running.value = true;
   try {
+    // runNow needs an existing scheduler entry. When the group has never been scheduled, one is
+    // created in a paused state purely so the run can be triggered, matching ScheduleActionsPopover.
     if (!details.value.jobName) {
-      await store.updateSchedule({ ruleGroupId: props.schedule.ruleGroupId, paused: "Y" });
+      await store.updateSchedule({ ruleGroupId, paused: "Y" });
     }
-    await store.runNow(props.schedule.ruleGroupId);
+    await store.runNow(ruleGroupId);
     commonUtil.showToast(translate("Job queued successfully."));
-    await load();
+    // Running does not change the schedule, so unsaved edits in the form are kept rather than
+    // being silently reset by the reload.
+    await load(true);
     emit("updated");
   } catch (error) {
     logger.error("inventory updates: failed to run schedule", error);

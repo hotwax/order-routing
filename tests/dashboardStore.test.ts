@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { useDashboardStore } from "@/store/dashboardStore";
-import { api } from "@common";
+import { api, useSolrSearch } from "@common";
 
 vi.mock("@common", () => ({
   api: vi.fn(),
@@ -11,14 +11,24 @@ vi.mock("@common", () => ({
   },
   logger: {
     error: vi.fn()
-  }
+  },
+  useSolrSearch: vi.fn()
 }));
 
 vi.mock("@/store/userStore", () => ({
   useUserStore: vi.fn(() => ({}))
 }));
 
+vi.mock("@/store/orderRoutingStore", () => ({
+  orderRoutingStore: vi.fn(() => ({
+    fetchOrderRoutingGroups: vi.fn().mockResolvedValue(true),
+    getRoutingGroups: []
+  }))
+}));
+
 const mockedApi = vi.mocked(api);
+const mockedUseSolrSearch = vi.mocked(useSolrSearch);
+const mockedRunSolrQuery = vi.fn();
 
 describe("dashboardStore.loadFoundations", () => {
   beforeEach(() => {
@@ -74,5 +84,61 @@ describe("dashboardStore.loadFoundations", () => {
       facilityGroupsByType: {},
       channels: 0
     });
+  });
+});
+
+describe("dashboardStore.loadRouting", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockedApi.mockReset();
+    mockedRunSolrQuery.mockReset();
+    mockedUseSolrSearch.mockReset();
+    mockedUseSolrSearch.mockReturnValue({ runSolrQuery: mockedRunSolrQuery } as ReturnType<typeof useSolrSearch>);
+  });
+
+  it("loads the queue summary through the backend-aware Solr adapter", async () => {
+    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    mockedRunSolrQuery.mockResolvedValue({
+      data: {
+        response: {
+          numFound: 1874,
+          docs: [{
+            orderId: "M100001",
+            orderName: "100001",
+            customerPartyName: "Test Customer",
+            facilityName: "Brokering Queue",
+            orderDate: "2026-08-12T10:00:00Z",
+            orderStatusDesc: "Approved",
+            salesChannelDesc: "Web Channel"
+          }]
+        }
+      }
+    });
+
+    await useDashboardStore().loadRouting();
+
+    expect(mockedRunSolrQuery).toHaveBeenCalledWith({
+      json: {
+        params: expect.objectContaining({ rows: "1", sort: "orderDate asc" }),
+        query: "*:*",
+        filter: "docType: ORDER AND orderTypeId: SALES_ORDER AND facilityId: (_NA_ OR UNFILLABLE_PARKING OR REJECTED_ITM_PARKING OR RELEASED_ORD_PARKING OR UNF_HOLD_PARKING) AND productStoreId: STORE"
+      }
+    });
+    expect(mockedApi).not.toHaveBeenCalledWith(expect.objectContaining({ url: "solr-query" }));
+    expect(useDashboardStore().getRouting.queueDepth).toBe(1874);
+    expect(useDashboardStore().getRouting.oldestQueued).toEqual(expect.objectContaining({
+      orderId: "M100001",
+      orderName: "100001"
+    }));
+  });
+
+  it("keeps the queue count unavailable when the Solr request fails", async () => {
+    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    mockedRunSolrQuery.mockRejectedValue(new Error("Request failed"));
+
+    await useDashboardStore().loadRouting();
+
+    expect(useDashboardStore().getRouting.queueDepth).toBeNull();
+    expect(useDashboardStore().getRouting.oldestQueued).toBeNull();
   });
 });

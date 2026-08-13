@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { api, commonUtil, logger } from "@common";
+import { api, commonUtil, logger, useSolrSearch } from "@common";
 import { DateTime } from "luxon";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
@@ -84,7 +84,7 @@ export interface RoutingState {
   nextRun: number | null;
   errorCount: number;
   runs: RoutingRun[];
-  queueDepth: number;
+  queueDepth: number | null;
   oldestQueued: OldestQueuedOrder | null;
   totalAttempted: number;
   totalBrokered: number;
@@ -138,33 +138,28 @@ function toMillis(isoDate: string): number | null {
 // Single query serves both the queue size (numFound) and the oldest queued line
 // (docs[0], sorted by orderDate asc). Returns line-item count to match the OMS
 // Find Order page for the same facilities.
-async function fetchQueueSummary(productStoreId: string): Promise<{ count: number; oldest: OldestQueuedOrder | null }> {
+async function fetchQueueSummary(productStoreId: string): Promise<{ count: number; oldest: OldestQueuedOrder | null } | null> {
   try {
-    const response = await api({
-      url: "solr-query",
-      method: "post",
-      baseURL: commonUtil.getOmsURL(),
-      data: {
-        json: {
-          params: {
-            rows: "1",
-            sort: "orderDate asc",
-            fl: "orderId,orderName,customerPartyName,facilityName,orderDate,orderStatusDesc,salesChannelDesc",
-            "q.op": "AND",
-            start: 0
-          },
-          query: "*:*",
-          filter: [
-            "docType: ORDER",
-            "orderTypeId: SALES_ORDER",
-            `facilityId: (${QUEUE_FACILITY_IDS.map(escapeSolrValue).join(" OR ")})`,
-            `productStoreId: ${escapeSolrValue(productStoreId)}`
-          ].join(" AND ")
-        }
+    const response = await useSolrSearch().runSolrQuery({
+      json: {
+        params: {
+          rows: "1",
+          sort: "orderDate asc",
+          fl: "orderId,orderName,customerPartyName,facilityName,orderDate,orderStatusDesc,salesChannelDesc",
+          "q.op": "AND",
+          start: 0
+        },
+        query: "*:*",
+        filter: [
+          "docType: ORDER",
+          "orderTypeId: SALES_ORDER",
+          `facilityId: (${QUEUE_FACILITY_IDS.map(escapeSolrValue).join(" OR ")})`,
+          `productStoreId: ${escapeSolrValue(productStoreId)}`
+        ].join(" AND ")
       }
     }) as any;
 
-    if (commonUtil.hasError(response)) return { count: 0, oldest: null };
+    if (commonUtil.hasError(response)) return null;
 
     const count = Number(response.data?.response?.numFound || 0);
     const doc = response.data?.response?.docs?.[0];
@@ -182,7 +177,7 @@ async function fetchQueueSummary(productStoreId: string): Promise<{ count: numbe
     return { count, oldest };
   } catch (err) {
     logger.error("dashboard: failed to load queue summary", err);
-    return { count: 0, oldest: null };
+    return null;
   }
 }
 
@@ -212,7 +207,7 @@ export const useDashboardStore = defineStore("dashboard", {
     loading: false,
     loadedAt: null,
     sourcing: [],
-    routing: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
+    routing: { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: null, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null },
     facilityOrders: [],
     facilityOrdersDate: null,
     foundations: { facilityGroups: 0, facilityGroupsByType: {}, channels: 0 },
@@ -298,7 +293,7 @@ export const useDashboardStore = defineStore("dashboard", {
     async loadRouting() {
       const routingStore = orderRoutingStore();
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
-      const routing: RoutingState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: 0, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null };
+      const routing: RoutingState = { total: 0, scheduled: 0, paused: 0, draft: 0, nextRun: null, errorCount: 0, runs: [], queueDepth: null, oldestQueued: null, totalAttempted: 0, totalBrokered: 0, lastRun: null, lastGroupRun: null };
       try {
         await routingStore.fetchOrderRoutingGroups();
         const routingGroups = routingStore.getRoutingGroups || [];
@@ -351,8 +346,8 @@ export const useDashboardStore = defineStore("dashboard", {
 
         if (productStoreId) {
           const queueSummary = await fetchQueueSummary(productStoreId);
-          routing.queueDepth = queueSummary.count;
-          routing.oldestQueued = queueSummary.oldest;
+          routing.queueDepth = queueSummary?.count ?? null;
+          routing.oldestQueued = queueSummary?.oldest ?? null;
         }
       } catch (err) {
         logger.error("dashboard: failed to load routing groups", err);

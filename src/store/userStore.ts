@@ -95,7 +95,6 @@ export const useUserStore = defineStore('user', {
           resp = await api({
             url: "admin/user/permissions",
             method: "get",
-            baseURL: commonUtil.getMaargURL(),
             params: { viewIndex, viewSize }
           }) as any
 

@@ -146,14 +146,6 @@ export const useUserStore = defineStore('user', {
         return Promise.reject(error)
       }
     },
-    async checkPermission(payload: any): Promise <any> {
-      return api({
-        url: "checkPermission",
-        method: "post",
-        baseURL: commonUtil.getOmsURL(),
-        ...payload
-      });
-    },
     async postLogin() {
       try {
         await this.fetchUserProfile()

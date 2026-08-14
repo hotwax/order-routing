@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { defineComponent, nextTick } from "vue";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("AddProductFiltersModal", () => {
   const fetchProductFilters = vi.fn();
@@ -14,8 +14,11 @@ describe("AddProductFiltersModal", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    vi.useFakeTimers();
     fetchProductFilters.mockReset();
-    fetchProductFilters.mockResolvedValue(undefined);
+    fetchProductFilters.mockImplementation(async ({ queryString }: { queryString: string }) => (
+      facetOptions.filter((option) => option.label.includes(queryString))
+    ));
     fetchProductFacetCounts.mockReset();
     fetchProductFacetCounts.mockResolvedValue({ "Size/L": 4, "Size/XL": 2 });
     previewProducts.mockReset();
@@ -69,7 +72,11 @@ describe("AddProductFiltersModal", () => {
     }));
   });
 
-  it("filters loaded feature options without refetching from Solr", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("opens without prefetching facets and searches the server after typing", async () => {
     const { default: AddProductFiltersModal } = await import("../src/components/AddProductFiltersModal.vue");
     const wrapper = mount(AddProductFiltersModal, {
       props: {
@@ -83,16 +90,24 @@ describe("AddProductFiltersModal", () => {
     await flushPromises();
     await nextTick();
 
-    expect(fetchProductFilters).toHaveBeenCalledTimes(1);
-    expect(wrapper.text()).toContain("Size/L");
-    expect(wrapper.text()).toContain("Size/XL");
+    expect(fetchProductFilters).not.toHaveBeenCalled();
+    expect(fetchProductFacetCounts).not.toHaveBeenCalled();
+    expect(wrapper.text()).not.toContain("Size/L");
 
     const searchbar = wrapper.find("input");
     await searchbar.setValue("Size/XL");
-    await searchbar.trigger("keyup", { key: "Enter" });
-    await nextTick();
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
 
     expect(fetchProductFilters).toHaveBeenCalledTimes(1);
+    expect(fetchProductFilters).toHaveBeenCalledWith({
+      facetToSelect: "productFeaturesFacet",
+      searchfield: "productFeatures",
+      queryString: "Size/XL",
+      limit: 100,
+      maxResults: 100,
+    });
+    expect(fetchProductFacetCounts).toHaveBeenCalledTimes(1);
     expect(wrapper.text()).toContain("Size/XL");
     expect(wrapper.text()).not.toContain("Size/L");
     expect(wrapper.text()).not.toContain("Color/Blue");

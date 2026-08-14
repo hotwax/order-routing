@@ -310,10 +310,17 @@ export const useAtpProductStore = defineStore('atpProductStore', {
     },
     async fetchProductFilters(params: any) {
       const filters = JSON.parse(JSON.stringify(this.facetOptions));
-      if (filters[params.searchfield]?.length && !params.queryString) return;
+      if (filters[params.searchfield]?.length && !params.queryString) return filters[params.searchfield];
       let allFacets = [] as any;
       let offset = 0;
       let currentFacets = [];
+      const configuredMax = Number(import.meta.env.VITE_MAX_FACETS);
+      const requestedMax = Number(params.maxResults);
+      const maxResults = Number.isFinite(requestedMax) && requestedMax > 0
+        ? requestedMax
+        : Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 5000;
+      const requestedLimit = Number(params.limit);
+      const limit = Math.min(Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 1000, maxResults);
       try {
         do {
           const payload = {
@@ -322,7 +329,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
             coreName: 'enterpriseSearch',
             jsonQuery: '{"query":"*:*","filter":["docType:PRODUCT"]}',
             noConditionFind: 'Y',
-            limit: 1000,
+            limit,
             offset,
             searchfield: params.searchfield,
             term: params.queryString || "",
@@ -335,17 +342,22 @@ export const useAtpProductStore = defineStore('atpProductStore', {
           }) as any;
           if (resp && !commonUtil.hasError(resp)) {
             currentFacets = resp.data.facetResponse ? resp.data.facetResponse.response : resp.data.response
-            allFacets = allFacets.concat(currentFacets)
+            allFacets = allFacets.concat(currentFacets).slice(0, maxResults)
             offset = offset + payload.limit
           } else {
             throw resp.data;
           }
-        } while (currentFacets.length && allFacets.length < (import.meta.env.VITE_MAX_FACETS as any))
+        } while (currentFacets.length === limit && allFacets.length < maxResults)
       } catch (error) {
         logger.error(error);
       }
-      filters[params.searchfield] = allFacets
-      this.facetOptions = filters;
+      // Search results are intentionally not cached as the complete facet list. Otherwise a later
+      // unfiltered request could incorrectly reuse the first capped search result.
+      if (!params.queryString) {
+        filters[params.searchfield] = allFacets
+        this.facetOptions = filters;
+      }
+      return allFacets;
     },
     // Per-value product counts for a facet field (e.g. how many products carry each tag), via a Solr
     // terms facet. The admin/solrFacets options response only carries id/label/value, not counts.

@@ -535,11 +535,7 @@
             </ion-item>
 
             <ion-item v-else-if="item.target.endsWith('.FACILITY_ORDER_LIMIT')" :class="{ 'dirty-setting-row': item.dirty }">
-              <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
-                <ion-label class="ion-text-wrap">
-                  {{ translate("Turn off the facility order limit check") }}
-                </ion-label>
-              </ion-toggle>
+              <ion-label class="ion-text-wrap">{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
             <ion-item v-else-if="item.target.endsWith('.SHIP_THRESHOLD')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
@@ -918,7 +914,11 @@ const ruleFiltersSectionCard = computed<RoutingConfigSection>(() => ({
     (code, parameter) => isRuleConditionCodeDirty("ENTCT_FILTER", code)
       || isRuleConditionDirty("ENTCT_FILTER", parameter)
       || (parameter === "PROXIMITY" && isRuleConditionDirty("ENTCT_FILTER", "MEASUREMENT_SYSTEM"))
-  ).filter((item) => !item.target.endsWith(".SPLIT_ITEM_GROUP") && !item.target.endsWith(".MEASUREMENT_SYSTEM"))
+  ).filter((item) => (
+    !item.target.endsWith(".SPLIT_ITEM_GROUP")
+    && !item.target.endsWith(".MEASUREMENT_SYSTEM")
+    && (!item.target.endsWith(".FACILITY_ORDER_LIMIT") || [true, "Y", "true"].includes(getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "FACILITY_ORDER_LIMIT")?.fieldValue))
+  ))
 }));
 const ruleSortSectionCard = computed<RoutingConfigSection>(() => ({
   key: "canvas:rule:sort",

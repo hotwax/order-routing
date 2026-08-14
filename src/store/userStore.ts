@@ -82,9 +82,6 @@ export const useUserStore = defineStore('user', {
       const permissionId = import.meta.env.VITE_PERMISSION_ID;
       const serverPermissions = [] as any;
 
-      // TODO Make it configurable from the environment variables.
-      // Though this might not be an server specific configuration, 
-      // we will be adding it to environment variable for easy configuration at app level
       const viewSize = 200;
 
       let viewIndex = 0;

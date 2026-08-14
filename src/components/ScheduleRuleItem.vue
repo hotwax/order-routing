@@ -65,7 +65,9 @@ async function saveSchedule() {
     ruleGroupId: ruleGroup.value.ruleGroupId,
     paused: 'N',
     ...ruleGroup.value,
-    cronExpression: "0 0 0 * * ?"
+    cronExpression: "0 0 0 * * ?",
+    // Hardcoding for now, need to fetch system message remote id for the ftp server config.
+    systemMessageRemoteId: "RemoteSftp"
   }
 
   emitter.emit("presentLoader");

@@ -114,7 +114,7 @@ function checkFilters() {
 }
 
 function addConditionOption(condition: any) {
-  const isConditionOptionAlreadyApplied = isConditionOptionSelected(condition.enumCode)?.fieldName
+  const isConditionOptionAlreadyApplied = Boolean(isConditionOptionSelected(condition.enumCode))
   const associatedEnum = enums.value[props.parentEnumId][associatedOptions[condition.enumId]?.enum]
   if(isConditionOptionAlreadyApplied) {
     delete inventoryRuleConditions.value[condition.enumCode]

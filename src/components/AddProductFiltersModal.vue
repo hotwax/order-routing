@@ -133,6 +133,7 @@ watch(queryString, (value) => {
     return;
   }
 
+  currentSearchRequestId += 1;
   isLoading.value = true;
   searchTimer = setTimeout(search, SEARCH_DEBOUNCE_MS);
 })

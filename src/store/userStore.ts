@@ -181,6 +181,8 @@ export const useUserStore = defineStore('user', {
     // Clears every store whose persisted data only makes sense on the OMS instance it was
     // fetched from. Used on logout and when a login/hydrate detects an instance switch.
     async clearInstanceScopedState(): Promise<void> {
+      this.current = null
+      this.permissions = []
       orderRoutingStore().clearRouting()
       orderRoutingStore().clearRoutingTestInfo()
       useUtilStore().clearUtilState()
@@ -207,6 +209,12 @@ export const useUserStore = defineStore('user', {
 
       // On app hydrate there is no login flow to repopulate the selector, so refetch here.
       if (payload?.refetch) {
+        try {
+          await this.fetchUserProfile()
+          await this.fetchPermissions()
+        } catch (error) {
+          logger.error("Failed to fetch user profile or permissions for the connected OMS", error)
+        }
         try {
           await ecom.fetchProductStores()
         } catch (error) {

@@ -95,18 +95,23 @@ export const productStore = defineStore('productStore', {
   },
   actions: {
     async fetchProductStores(): Promise<any> {
+      const requestedInstanceKey = getOmsInstanceKey();
       try {
         const resp = await api({
           url: "admin/user/productStore",
           method: "GET",
           baseURL : commonUtil.getMaargURL(),
         });
+        if (getOmsInstanceKey() !== requestedInstanceKey) {
+          logger.warn("Discarding product stores response because OMS instance changed in flight");
+          return Promise.resolve([]);
+        }
         if (commonUtil.hasError(resp) || resp.data.length === 0) {
           throw resp.data;
         } else {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
-          this.omsInstanceKey = getOmsInstanceKey();
+          this.omsInstanceKey = requestedInstanceKey;
           await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
           return Promise.resolve(resp.data);
         }

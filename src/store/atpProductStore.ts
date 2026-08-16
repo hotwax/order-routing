@@ -112,15 +112,20 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       this.currentProductStore = productStore;
     },
     async fetchUserProductStores() {
+      const requestedInstanceKey = getOmsInstanceKey();
       try {
         const resp = await api({
           url: "admin/user/productStore",
           method: "GET"
         });
+        if (getOmsInstanceKey() !== requestedInstanceKey) {
+          logger.warn("Discarding ATP product stores response because OMS instance changed in flight");
+          return;
+        }
         // Disallow login if the user is not associated with any product store
         if (!commonUtil.hasError(resp)) {
           this.productStores = resp.data
-          this.omsInstanceKey = getOmsInstanceKey()
+          this.omsInstanceKey = requestedInstanceKey
         } else {
           throw resp.data;
         }

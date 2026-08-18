@@ -20,11 +20,11 @@
       </ion-item>
       <ion-item>
         <ion-icon slot="start" :icon="timerOutline"/>
-        <ion-label>{{ isExpressionValid && getCronString ? getCronString : "-" }}</ion-label>
+        <ion-label>{{ isExpressionValid ? getCronString : "-" }}</ion-label>
       </ion-item>
       <ion-item>
         <ion-icon slot="start" :icon="timeOutline"/>
-        <ion-label>{{ isExpressionValid && getCronString ? getNextExecutionTime : translate("Provide a valid cron expression") }}</ion-label>
+        <ion-label>{{ isExpressionValid ? getNextExecutionTime : translate("Provide a valid cron expression") }}</ion-label>
       </ion-item>
     </ion-list>
 
@@ -38,7 +38,7 @@
       </ion-radio-group>
     </ion-list>
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-      <ion-fab-button @click="saveChanges()" :disabled="!isExpressionUpdated() || !isExpressionValid || getCronString.length <= 0">
+      <ion-fab-button @click="saveChanges()" :disabled="!isExpressionUpdated() || !isExpressionValid">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
     </ion-fab>
@@ -53,6 +53,7 @@ import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { commonUtil } from "@common";
 import { parseRoutingStringRecordEnvJson } from "@/utils/routingEditorEnv";
+import { isCronExpressionValid } from "@/utils/cronValidation";
 
 const props = defineProps({
   cronExpression: {
@@ -65,15 +66,9 @@ let expression = ref(props.cronExpression)
 const cronExpressions = parseRoutingStringRecordEnvJson(import.meta.env.VITE_CRON_EXPRESSIONS as string | undefined)
 const userProfile = computed(() => useUserStore().getUserProfile)
 
-const isExpressionValid = computed(() => {
-  try {
-    commonUtil.parseCronExpression(expression.value, userProfile.value.timeZone)
-    return true
-  } catch(e) {
-    logger.warn("Invalid expression", e)
-    return false
-  }
-})
+// Shared with InventoryUpdateJobModal: an expression must parse *and* be describable, otherwise the
+// UI cannot show the user what they are about to save.
+const isExpressionValid = computed(() => isCronExpressionValid(expression.value, userProfile.value.timeZone))
 
 const getCronString = computed(() => {
   try {

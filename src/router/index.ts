@@ -9,6 +9,7 @@ import {
   businessOutline,
   calendarOutline,
   cloudUploadOutline,
+  documentsOutline,
   flaskOutline,
   globeOutline,
   pulseOutline,
@@ -186,6 +187,18 @@ const routes: Array<RouteRecordRaw> = [
       menuIndex: 6,
       childRoutes: ["/inventory/"],
       minVersion: "v6.0.0"
+    }
+  },
+  {
+    path: "/inventory-updates",
+    name: "Inventory updates",
+    component: () => import("@/views/InventoryUpdates.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Inventory updates",
+      icon: documentsOutline,
+      section: "sourcing",
+      menuIndex: 7
     }
   },
   {

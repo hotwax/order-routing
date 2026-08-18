@@ -23,7 +23,7 @@
           </ion-item>
           <ion-item>
             <ion-label>{{ translate("In queue now") }}</ion-label>
-            <ion-label slot="end">{{ routing.queueDepth }}</ion-label>
+            <ion-label slot="end">{{ routing.queueDepth === null ? translate("Unavailable") : routing.queueDepth }}</ion-label>
           </ion-item>
           <ion-item v-if="routing.oldestQueued" lines="none">
             <ion-label class="ion-text-wrap">

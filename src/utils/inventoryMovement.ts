@@ -13,10 +13,11 @@ import {
 import { buildAppUrl } from "@common";
 
 /**
- * Decodes a raw InventoryItemDetail row (from oms/inventoryItem/detail) into a classified
- * "movement" that explains WHICH record impacted inventory — a sales order reservation/shipment,
- * a transfer order, a purchase receipt, a return, a cycle-count variance, an item rollover, the
- * initial receipt, or a manual adjustment.
+ * Decodes a raw InventoryItemDetail row (from the inventory-history endpoint,
+ * oms/products/{productId}/facilities/{facilityId}/inventoryDetail) into a classified "movement"
+ * that explains WHICH record impacted inventory — a sales order reservation/shipment, a transfer
+ * order, a purchase receipt, a return, a cycle-count variance, an item rollover, the initial
+ * receipt, or a manual adjustment.
  *
  * The raw row only carries reference ids (orderId, physicalInventoryId, returnId, …) plus the
  * ATP/QOH/accounting deltas. Order *type* (sales vs transfer vs purchase) is not on the row, so the

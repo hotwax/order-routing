@@ -51,18 +51,28 @@
 
       <ion-item v-if="!scopeError" lines="none">
         <ion-checkbox v-if="selectMode" slot="start" :checked="allCurrentPageSelected" :indeterminate="someCurrentPageSelected && !allCurrentPageSelected" @ion-change="toggleCurrentPageSelection($event.detail.checked)" />
-        <ion-label>{{ translate("products found", { count: total }) }}</ion-label>
+        <!-- The count and page position describe the scope being left, so they skeleton out alongside
+             the rows while a new facility or channel loads. -->
+        <ion-label v-if="showLoadingState">
+          <ion-skeleton-text animated class="inventory-skeleton-line inventory-skeleton-line-secondary" />
+        </ion-label>
+        <ion-label v-else>
+          {{ translate("products found", { count: total }) }}
+        </ion-label>
         <div slot="end" class="pagination">
           <ion-button slot="icon-only" fill="clear" :disabled="pageIndex === 0 || isLoading" @click="goToPreviousPage">
             <ion-icon :icon="caretBackOutline" />
           </ion-button>
           <ion-note color="medium">
-            {{ pageIndex + 1 }} / {{ pageCount }}
+            <ion-skeleton-text v-if="showLoadingState" animated class="inventory-skeleton-line inventory-skeleton-page-position" />
+            <template v-else>
+              {{ pageIndex + 1 }} / {{ pageCount }}
+            </template>
           </ion-note>
           <ion-button slot="icon-only" fill="clear" :disabled="pageIndex >= pageCount - 1 || isLoading" @click="goToNextPage">
             <ion-icon :icon="caretForwardOutline" />
           </ion-button>
-          <ion-button v-if="products.length && !channelNeedsConfig" fill="clear" size="small" @click="toggleSelectMode">
+          <ion-button v-if="products.length && !channelNeedsConfig && !showLoadingState" fill="clear" size="small" @click="toggleSelectMode">
             {{ selectMode ? translate("Done") : translate("Select") }}
           </ion-button>
         </div>
@@ -215,6 +225,11 @@ const PAGE_SIZE = 50;
 const pageIndex = ref(0);
 const total = ref(0);
 const isLoading = ref(false);
+// Set while the inventory scope itself is changing (facility, channel, or scope mode) rather than
+// during a same-scope refetch like paging or search. ATP/QOH/safety stock are per-facility, so the
+// rows already on screen belong to the facility the user just left. Without this the list keeps
+// showing them until the new response lands and they read as the newly selected facility's numbers.
+const isScopeSwitching = ref(false);
 let listRequestId = 0;
 let isApplyingRouteScope = false;
 
@@ -248,7 +263,7 @@ const requestFacilityId = computed(() => activeFacilityId.value || (channelNeeds
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
-const showLoadingState = computed(() => isLoading.value && !products.value?.length);
+const showLoadingState = computed(() => isLoading.value && (isScopeSwitching.value || !products.value?.length));
 const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
 const loadingRows = [1, 2, 3, 4, 5, 6];
 
@@ -303,7 +318,7 @@ async function onProductStoreOrConfigChanged() {
   if(routeScope.type === "location" && !routeScope.facilityId && !scopeError.value && selectedFacility.value) {
     syncSearchModeQuery();
   }
-  await fetchProductFacility();
+  await fetchProductFacility({ scopeChanged: true });
 }
 
 onIonViewDidEnter(async () => {
@@ -338,7 +353,7 @@ watch(selectedFacility, (facilityId) => {
   pageIndex.value = 0
   if(isApplyingRouteScope) {return}
   syncSearchModeQuery()
-  fetchProductFacility()
+  fetchProductFacility({ scopeChanged: true })
 })
 
 watch(selectedChannelId, () => {
@@ -348,7 +363,7 @@ watch(selectedChannelId, () => {
   pageIndex.value = 0
   if(isApplyingRouteScope) {return}
   syncSearchModeQuery()
-  if(!scopeError.value) {fetchProductFacility()}
+  if(!scopeError.value) {fetchProductFacility({ scopeChanged: true })}
 })
 
 function channelScopeError(channel: any) {
@@ -379,7 +394,7 @@ async function updateSearchMode(event: any) {
   selectedProductIds.value = [];
   pageIndex.value = 0;
   syncSearchModeQuery();
-  if(!scopeError.value) {fetchProductFacility();}
+  if(!scopeError.value) {fetchProductFacility({ scopeChanged: true });}
 }
 
 function syncSearchModeQuery() {
@@ -414,7 +429,8 @@ async function openChannelConfigModal() {
   modal.onDidDismiss().then(async () => {
     await channelStore.fetchGroupFacilities(groupId);
     scopeError.value = channelScopeError(selectedChannel.value);
-    await fetchProductFacility();
+    // Linking a config facility changes which facility backs this channel, so the rows are re-scoped.
+    await fetchProductFacility({ scopeChanged: true });
   });
 
   await modal.present();
@@ -460,12 +476,18 @@ function onRowClick(productId: string) {
   selectMode.value ? toggleProductSelection(productId) : viewInventoryDetail(productId)
 }
 
-async function fetchProductFacility() {
+// Pass scopeChanged when the facility, channel, or scope mode changed, so the list falls back to the
+// skeleton instead of leaving the previous scope's rows on screen. Same-scope refetches (paging,
+// search, post-edit refresh) omit it and keep their rows visible while the new page loads.
+async function fetchProductFacility({ scopeChanged = false } = {}) {
   const requestId = ++listRequestId;
+  // Assigned before the first await so the skeleton replaces the stale rows on this tick.
+  if(scopeChanged) {isScopeSwitching.value = true}
   if(scopeError.value) {
     productFacilityApi.clearProductFacility();
     total.value = 0;
     isLoading.value = false;
+    isScopeSwitching.value = false;
 
     return;
   }
@@ -473,6 +495,7 @@ async function fetchProductFacility() {
     productFacilityApi.clearProductFacility();
     total.value = 0;
     isLoading.value = false;
+    isScopeSwitching.value = false;
 
     return;
   }
@@ -511,7 +534,10 @@ async function fetchProductFacility() {
     hydrateChannelOnlineAtp(requestId, productIds);
   }
 
-  if(requestId === listRequestId) {isLoading.value = false}
+  if(requestId === listRequestId) {
+    isLoading.value = false;
+    isScopeSwitching.value = false;
+  }
 }
 
 async function hydrateChannelOnlineAtp(requestId: number, productIds: string[]) {
@@ -677,6 +703,13 @@ ion-content {
 
 .inventory-skeleton-line-label {
   width: 70%;
+  height: 12px;
+}
+
+/* Sized in px, like the thumbnail placeholder above: this sits in the flex pagination row where a
+   percentage width has no basis, and it holds the width the "1 / N" note gave up. */
+.inventory-skeleton-page-position {
+  width: 48px;
   height: 12px;
 }
 

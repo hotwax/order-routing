@@ -7,7 +7,7 @@ import { defineComponent, nextTick, ref } from "vue";
 // switch instead of presenting the previous facility's numbers as the newly selected facility's.
 describe("Inventory facility switch loading state", () => {
   const products = ref<any[]>([]);
-  let resolveFetch: ((rows: any[]) => void) | null = null;
+  let resolveFetch: ((rows: any[], total?: number) => void) | null = null;
   let fetchProductFacility: ReturnType<typeof vi.fn>;
 
   const AUSTIN_ROWS = [
@@ -21,13 +21,19 @@ describe("Inventory facility switch loading state", () => {
     .map((node: any) => node.text());
   const skeletonCount = (wrapper: any) => wrapper.findAllComponents({ name: "IonSkeletonText" }).length;
 
-  // Resolve the in-flight request and let the component apply it.
-  async function settleFetch(rows: any[]) {
-    resolveFetch?.(rows);
+  // Resolve the in-flight request and let the component apply it. The view awaits Solr enrichment
+  // after the rows land, so a couple of nextTicks are not enough — drain the microtask queue.
+  async function settleFetch(rows: any[], total?: number) {
+    resolveFetch?.(rows, total);
     resolveFetch = null;
-    await nextTick();
-    await nextTick();
-    await nextTick();
+    await flush();
+  }
+
+  async function flush() {
+    for (let i = 0; i < 8; i += 1) {
+      await Promise.resolve();
+      await nextTick();
+    }
   }
 
   async function switchFacilityTo(wrapper: any, facilityId: string) {
@@ -37,15 +43,18 @@ describe("Inventory facility switch loading state", () => {
     await nextTick();
   }
 
+  const nextPageButton = (wrapper: any) => wrapper.find('[data-testid="inventory-next-page"]');
+
   beforeEach(() => {
     vi.resetModules();
     products.value = [];
     resolveFetch = null;
     // Hand back a promise the test controls, so assertions can run while the request is in flight.
-    fetchProductFacility = vi.fn(() => new Promise<number>((resolve) => {
-      resolveFetch = (rows: any[]) => {
+    // Entity-first shape: the fetcher resolves { rows, total } rather than a bare count.
+    fetchProductFacility = vi.fn(() => new Promise<{ rows: any[]; total: number }>((resolve) => {
+      resolveFetch = (rows: any[], total?: number) => {
         products.value = rows;
-        resolve(rows.length);
+        resolve({ rows, total: total ?? rows.length });
       };
     }));
 
@@ -68,10 +77,22 @@ describe("Inventory facility switch loading state", () => {
     vi.doMock("@/components/ProductInventoryEdit.vue", () => ({
       default: defineComponent({ name: "ProductInventoryEdit", template: "<div />" }),
     }));
+    // Mocked so the real module (and its @common useSolrSearch import) never loads in tests.
+    vi.doMock("@/composables/useProductSearch", () => ({
+      useProductSearch: () => ({
+        fetchProductSummaries: vi.fn(() => Promise.resolve({})),
+        fetchVariants: vi.fn(() => Promise.resolve({ variants: [], total: 0 })),
+        searchStyles: vi.fn(() => Promise.resolve({ styles: [], total: 0 })),
+      }),
+    }));
+    vi.doMock("@/components/ProductSearchModal.vue", () => ({
+      default: defineComponent({ name: "ProductSearchModal", template: "<div />" }),
+    }));
     vi.doMock("@/composables/useProductFacility", () => ({
       useProductFacility: () => ({
         clearProductFacility: vi.fn(() => { products.value = []; }),
         fetchProductFacility,
+        fetchProductFacilityRows: fetchProductFacility,
         productFacility: products,
       }),
     }));
@@ -189,19 +210,20 @@ describe("Inventory facility switch loading state", () => {
     const wrapper = mount(Inventory);
 
     await switchFacilityTo(wrapper, "AUSTIN");
-    // 120 rows across the page size makes a second page reachable.
-    await settleFetch(AUSTIN_ROWS);
+    // A total above the page size makes a second page reachable, enabling the next-page control.
+    await settleFetch(AUSTIN_ROWS, 120);
     fetchProductFacility.mockClear();
 
-    const searchbar = wrapper.findComponent({ name: "IonSearchbar" });
-    searchbar.vm.$emit("ionInput", { detail: { value: "hoodie" } });
-    await nextTick();
+    const next = nextPageButton(wrapper);
+    expect(next.exists()).toBe(true);
+    await next.trigger("click");
     await nextTick();
 
+    // Same facility, so the previous page's rows stay put rather than flashing to the skeleton.
     expect(fetchProductFacility).toHaveBeenCalled();
     expect(rowIds(wrapper)).toEqual(["M102977", "M101833"]);
     expect(skeletonCount(wrapper)).toBe(0);
 
-    await settleFetch(AUSTIN_ROWS);
+    await settleFetch(AUSTIN_ROWS, 120);
   });
 });

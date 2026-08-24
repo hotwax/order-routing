@@ -41,14 +41,20 @@ import { checkmarkCircleOutline, radioButtonOffOutline, syncOutline } from "ioni
 import { translate } from "@common";
 import type { SimulationSetupGroup, SimulationSetupStep } from "@/config/simulationSetupSteps";
 
-const props = defineProps<{
-  groups: SimulationSetupGroup[];
-  steps: SimulationSetupStep[];
-  currentStepId: string;
-  completedStepIds: string[];
-  inProgressStepIds?: string[];
-  stepStatus?: Record<string, { badge?: string; badgeColor?: string; subtitle?: string }>;
-}>();
+const props = withDefaults(
+  defineProps<{
+    groups: SimulationSetupGroup[];
+    steps: SimulationSetupStep[];
+    currentStepId: string;
+    completedStepIds: string[];
+    inProgressStepIds?: string[];
+    stepStatus?: Record<string, { badge?: string; badgeColor?: string; subtitle?: string }>;
+  }>(),
+  {
+    inProgressStepIds: () => [],
+    stepStatus: () => ({}),
+  }
+);
 
 defineEmits<{
   (event: "select-step", stepId: string): void;

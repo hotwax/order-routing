@@ -14,6 +14,7 @@ import {
   pulseOutline,
   sendOutline,
   settingsOutline,
+  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 import { RouteRecordRaw } from "vue-router";
@@ -331,6 +332,18 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
+    }
+  },
+  {
+    path: "/simulation-setup",
+    name: "Simulation setup",
+    component: () => import("@/views/SimulationSetupWizard.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Simulation setup",
+      icon: sparklesOutline,
+      section: "routing",
+      menuIndex: 12
     }
   },
 

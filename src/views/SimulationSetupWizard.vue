@@ -49,10 +49,10 @@
                   <ion-item>
                     <ion-label>
                       <h3>{{ translate("System Message Remote (SIM_ROUTING_CONFIG)") }}</h3>
-                      <p>{{ translate("Main OMS to Sister Sim-Routing M2M integration") }}</p>
+                      <p>{{ translate("Main OMS to Sister Sim-Routing instance connection") }}</p>
                     </ion-label>
                     <ion-badge slot="end" :color="remoteAuthVerified ? 'success' : 'warning'">
-                      {{ remoteAuthVerified ? translate("M2M Authenticated") : translate("Auth Pending") }}
+                      {{ remoteAuthVerified ? translate("Connected") : translate("Auth Pending") }}
                     </ion-badge>
                   </ion-item>
 
@@ -68,28 +68,18 @@
 
                   <ion-item>
                     <ion-input
-                      v-model="remoteTenantId"
-                      label-placement="stacked"
-                      :label="translate('Tenant ID')"
-                      placeholder="SIM_ROUTING"
-                      :clear-input="true"
-                    />
-                  </ion-item>
-
-                  <ion-item>
-                    <ion-input
                       v-model="remoteApiKey"
                       type="password"
                       label-placement="stacked"
-                      :label="translate('One-Time Tenant API Key')"
-                      :placeholder="omsRemoteConfig?.apiKeyMasked ? `${translate('Configured')}: ${omsRemoteConfig.apiKeyMasked}` : translate('Enter API Key from SimAdmin Tenant Auth')"
+                      :label="translate('Sim Routing User API Key')"
+                      :placeholder="omsRemoteConfig?.apiKeyMasked ? `${translate('Configured')}: ${omsRemoteConfig.apiKeyMasked}` : translate('Enter API Key generated in Sim Routing for OMS user')"
                       :clear-input="true"
                     />
                   </ion-item>
 
                   <ion-item v-if="handshakeResult">
                     <ion-label>
-                      <h3>{{ translate("Live Handshake Status") }}</h3>
+                      <h3>{{ translate("Live Connection Status") }}</h3>
                       <p>{{ handshakeResult.message }} (HTTP {{ handshakeResult.statusCode }})</p>
                     </ion-label>
                     <ion-badge slot="end" color="success">{{ translate("200 OK") }}</ion-badge>
@@ -99,11 +89,11 @@
                 <div class="action-row">
                   <ion-button color="primary" :disabled="isValidating" @click="saveAndTestRemoteAuth">
                     <ion-spinner v-if="isValidating" slot="start" name="crescent" />
-                    {{ translate("Save in OMS & Test Handshake") }}
+                    {{ translate("Save in OMS & Test Connection") }}
                   </ion-button>
-                  <ion-button fill="outline" :disabled="isFetchingKey" @click="autoFetchTenantKey">
+                  <ion-button fill="outline" :disabled="isFetchingKey" @click="generateSimApiKey">
                     <ion-spinner v-if="isFetchingKey" slot="start" name="crescent" />
-                    {{ translate("Auto-Fetch Key from SimAdmin") }}
+                    {{ translate("Generate API Key in Sim Routing") }}
                   </ion-button>
                 </div>
               </div>
@@ -443,7 +433,6 @@ const stepStatus = ref<Record<string, { badge?: string; badgeColor?: string; sub
 // Server & Remote Auth State
 const simServerUrl = computed(() => simApiBaseUrl());
 const remoteSendUrl = ref<string>("http://localhost:8082/rest/s1");
-const remoteTenantId = ref<string>("SIM_ROUTING");
 const remoteApiKey = ref<string>("");
 const omsRemoteConfig = ref<any>(null);
 const remoteAuthVerified = ref<boolean>(false);
@@ -543,7 +532,6 @@ async function loadOmsRemoteConfig() {
     if (resp?.data) {
       omsRemoteConfig.value = resp.data;
       if (resp.data.sendUrl) remoteSendUrl.value = resp.data.sendUrl;
-      if (resp.data.tenantId) remoteTenantId.value = resp.data.tenantId;
       if (resp.data.apiKey) {
         remoteApiKey.value = resp.data.apiKey;
         localStorage.setItem("sim_api_key", resp.data.apiKey);
@@ -551,7 +539,7 @@ async function loadOmsRemoteConfig() {
       if (resp.data.isConfigured) {
         remoteAuthVerified.value = true;
         markStepComplete("backend-connection");
-        stepStatus.value["backend-connection"] = { badge: "Authenticated", badgeColor: "success" };
+        stepStatus.value["backend-connection"] = { badge: "Connected", badgeColor: "success" };
       }
     }
   } catch (error: any) {
@@ -559,29 +547,29 @@ async function loadOmsRemoteConfig() {
   }
 }
 
-// Auto-fetch key from sister SimAdmin
-async function autoFetchTenantKey() {
+// Generate API key in sister Sim Routing instance
+async function generateSimApiKey() {
   isFetchingKey.value = true;
   try {
     const resp: any = await simApi({
-      url: "sim-routing/tenant-auth",
+      url: "sim-routing/api-key",
       method: "POST",
-      data: { username: "hotwax.user", tenantId: remoteTenantId.value || "SIM_ROUTING" }
+      data: { username: "hotwax.user" }
     });
     if (resp?.data?.apiKey) {
       remoteApiKey.value = resp.data.apiKey;
       localStorage.setItem("sim_api_key", resp.data.apiKey);
       if (resp.data.instanceUrl) remoteSendUrl.value = resp.data.instanceUrl;
-      commonUtil.showToast(translate("Generated tenant API key from SimAdmin"));
+      commonUtil.showToast(translate("Generated API key in Sim Routing"));
     }
   } catch (error: any) {
-    commonUtil.showToast(translate("Failed to fetch key from sister instance"));
+    commonUtil.showToast(translate("Failed to generate key from sister instance"));
   } finally {
     isFetchingKey.value = false;
   }
 }
 
-// Save in OMS and test handshake
+// Save in OMS and test connection
 async function saveAndTestRemoteAuth() {
   isValidating.value = true;
   try {
@@ -594,12 +582,11 @@ async function saveAndTestRemoteAuth() {
       method: "POST",
       data: {
         sendUrl: remoteSendUrl.value,
-        apiKey: remoteApiKey.value,
-        tenantId: remoteTenantId.value
+        apiKey: remoteApiKey.value
       }
     });
 
-    // 2. Test live handshake from OMS to Sim-Routing
+    // 2. Test live connection from OMS to Sim-Routing
     const testResp: any = await api({
       url: "order-routing/sim-remote/test",
       method: "POST"
@@ -610,15 +597,15 @@ async function saveAndTestRemoteAuth() {
       handshakeResult.value = testResp.data;
       remoteAuthVerified.value = true;
       markStepComplete("backend-connection");
-      stepStatus.value["backend-connection"] = { badge: "Authenticated", badgeColor: "success" };
+      stepStatus.value["backend-connection"] = { badge: "Connected", badgeColor: "success" };
       await loadOmsRemoteConfig();
-      commonUtil.showToast(translate("Successfully connected and authenticated with Sim Routing"));
+      commonUtil.showToast(translate("Successfully connected with Sim Routing"));
     } else {
-      throw new Error(testResp?.data?.message || "Handshake failed");
+      throw new Error(testResp?.data?.message || "Connection failed");
     }
   } catch (error: any) {
     remoteAuthVerified.value = false;
-    commonUtil.showToast(translate("Remote authentication failed"));
+    commonUtil.showToast(translate("Remote connection failed"));
   } finally {
     isValidating.value = false;
   }

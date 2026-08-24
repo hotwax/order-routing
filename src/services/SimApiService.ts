@@ -35,7 +35,7 @@ export async function simApi(config: SimRequestConfig): Promise<any> {
     ...(config.headers || {}),
     "Content-Type": "application/json",
   };
-  if (simApiKey && !config.url?.includes("tenant-auth")) {
+  if (simApiKey && !config.url?.includes("api-key")) {
     reqHeaders["api_key"] = simApiKey;
   }
 

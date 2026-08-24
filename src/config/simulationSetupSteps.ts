@@ -36,8 +36,8 @@ export const SIMULATION_SETUP_STEPS: SimulationSetupStep[] = [
     id: "backend-connection",
     group: "backend",
     label: "Simulation Remote Auth",
-    summary: "Authenticate OMS with the sister Sim Routing instance using a SystemMessageRemote tenant key.",
-    description: "Main OMS communicates with the sister Sim Routing container using a secure SystemMessageRemote (SIM_ROUTING_CONFIG) and one-time tenant API key.",
+    summary: "Configure the sister Sim Routing instance REST URL and API Key in OMS.",
+    description: "Main OMS communicates with the sister Sim Routing container using a secure SystemMessageRemote (SIM_ROUTING_CONFIG) and OMS user API key.",
     actionLabel: "Verify & Save Auth"
   },
   {

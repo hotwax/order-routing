@@ -30,17 +30,13 @@ export async function simApi(config: SimRequestConfig): Promise<any> {
   if (!relativeUrl || isAbsoluteUrl || relativeUrl.startsWith("/") || resolvedUrl.origin !== expectedBase.origin || !resolvedUrl.pathname.startsWith(expectedBase.pathname)) {
     throw new Error("Simulation requests must use a path relative to the configured simulation REST root.");
   }
-  const token = commonUtil.getToken();
-  const simApiKey = localStorage.getItem("sim_api_key") || "kAYiMJmpIS5YZgNrkV_UqMKPG85KmBIhVSkWBLfG";
+  const simApiKey = localStorage.getItem("sim_api_key");
   const reqHeaders: Record<string, string> = {
     ...(config.headers || {}),
     "Content-Type": "application/json",
   };
-  if (simApiKey) {
+  if (simApiKey && !config.url?.includes("tenant-auth")) {
     reqHeaders["api_key"] = simApiKey;
-  }
-  if (token) {
-    reqHeaders["Authorization"] = `Bearer ${token}`;
   }
 
   return client({

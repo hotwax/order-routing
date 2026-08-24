@@ -9,7 +9,7 @@
         :key="step.id"
         button
         :detail="false"
-        :color="step.id === currentStepId ? 'light' : undefined"
+        :class="{ 'active-step': step.id === currentStepId }"
         @click="$emit('select-step', step.id)"
       >
         <ion-label>
@@ -34,6 +34,13 @@
     </template>
   </ion-list>
 </template>
+
+<style scoped>
+.active-step {
+  --background: var(--ion-color-step-100, rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.1));
+  border-inline-start: 4px solid var(--ion-color-primary, #3880ff);
+}
+</style>
 
 <script setup lang="ts">
 import { IonBadge, IonIcon, IonItem, IonLabel, IonList, IonListHeader } from "@ionic/vue";

@@ -544,6 +544,10 @@ async function loadOmsRemoteConfig() {
       omsRemoteConfig.value = resp.data;
       if (resp.data.sendUrl) remoteSendUrl.value = resp.data.sendUrl;
       if (resp.data.tenantId) remoteTenantId.value = resp.data.tenantId;
+      if (resp.data.apiKey) {
+        remoteApiKey.value = resp.data.apiKey;
+        localStorage.setItem("sim_api_key", resp.data.apiKey);
+      }
       if (resp.data.isConfigured) {
         remoteAuthVerified.value = true;
         markStepComplete("backend-connection");
@@ -955,14 +959,14 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--ion-color-light-shade, #e0e0e0);
+  border-top: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e0e0e0));
   padding: 16px;
   margin-top: 12px;
 }
 
 .telemetry-dashboard {
-  background: var(--ion-color-light, #f8f9fa);
-  border: 1px solid var(--ion-color-light-shade, #e5e7eb);
+  background: var(--ion-color-step-50, var(--ion-color-light, #f8f9fa));
+  border: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e5e7eb));
   border-radius: 8px;
   padding: 16px;
   margin: 16px 0;
@@ -974,7 +978,7 @@ onMounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--ion-color-medium, #6b7280);
+  color: var(--ion-color-medium, #989aa2);
 }
 
 .metrics-grid {
@@ -985,8 +989,8 @@ onMounted(() => {
 }
 
 .metric-card {
-  background: #ffffff;
-  border: 1px solid var(--ion-color-light-shade, #e5e7eb);
+  background: var(--ion-item-background, var(--ion-card-background, #ffffff));
+  border: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e5e7eb));
   border-radius: 6px;
   padding: 12px;
   text-align: center;
@@ -994,7 +998,7 @@ onMounted(() => {
 
 .metric-label {
   font-size: 11px;
-  color: var(--ion-color-medium, #6b7280);
+  color: var(--ion-color-medium, #989aa2);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -1002,7 +1006,7 @@ onMounted(() => {
 .metric-value {
   font-size: 16px;
   font-weight: 700;
-  color: var(--ion-color-dark, #111827);
+  color: var(--ion-text-color, #111827);
 }
 
 .success-text {
@@ -1021,20 +1025,20 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--ion-color-step-150, #e5e7eb);
+  color: var(--ion-color-medium, #989aa2);
   transition: all 0.3s ease;
 }
 
 .phase-chip.done {
-  background: rgba(45, 211, 111, 0.15);
-  color: #10b981;
+  background: rgba(45, 211, 111, 0.18);
+  color: var(--ion-color-success, #2dd36f);
   font-weight: 600;
 }
 
 .phase-chip.active {
-  background: rgba(255, 196, 9, 0.2);
-  color: #d97706;
+  background: rgba(255, 196, 9, 0.22);
+  color: var(--ion-color-warning, #ffc409);
   font-weight: 600;
   animation: pulse 1.5s infinite;
 }

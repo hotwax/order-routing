@@ -496,6 +496,7 @@ async function autoFetchTenantKey() {
     });
     if (resp?.data?.apiKey) {
       remoteApiKey.value = resp.data.apiKey;
+      localStorage.setItem("sim_api_key", resp.data.apiKey);
       if (resp.data.instanceUrl) remoteSendUrl.value = resp.data.instanceUrl;
       commonUtil.showToast(translate("Generated tenant API key from SimAdmin"));
     }
@@ -510,6 +511,9 @@ async function autoFetchTenantKey() {
 async function saveAndTestRemoteAuth() {
   isValidating.value = true;
   try {
+    if (remoteApiKey.value) {
+      localStorage.setItem("sim_api_key", remoteApiKey.value);
+    }
     // 1. Save config in OMS SystemMessageRemote
     await api({
       url: "order-routing/sim-remote",
@@ -528,6 +532,7 @@ async function saveAndTestRemoteAuth() {
     });
 
     if (testResp?.data?.connected) {
+      if (remoteApiKey.value) localStorage.setItem("sim_api_key", remoteApiKey.value);
       handshakeResult.value = testResp.data;
       remoteAuthVerified.value = true;
       markStepComplete("backend-connection");

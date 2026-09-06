@@ -405,7 +405,7 @@ const queueFacilities = {
   assert.equal(secondRule.currentValues.partialGroupedItemAllocation, false);
   assert.deepEqual(secondRule.currentValues.inventoryFilters, [{
     target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT",
-    label: "Facility order limit check",
+    label: "Override facility order limit",
     value: false,
     valueLabel: "Respect facility order limits",
     operator: "equals",
@@ -516,7 +516,7 @@ const queueFacilities = {
   const respectLimits = facilityOrderLimitTarget?.options?.find((option) => option.id === "false");
   const bypassLimits = facilityOrderLimitTarget?.options?.find((option) => option.id === "true");
 
-  assert.equal(facilityOrderLimitTarget?.label, "Facility order limit check");
+  assert.equal(facilityOrderLimitTarget?.label, "Override facility order limit");
   assert.ok(respectLimits?.aliases?.includes("cap store usage"));
   assert.ok(respectLimits?.aliases?.includes("protect stores"));
   assert.ok(bypassLimits?.aliases?.includes("bypass facility order limits"));
@@ -534,7 +534,7 @@ const queueFacilities = {
 {
   const { draft, result } = apply([{ op: "set", target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT", value: "cap store usage" }]);
   assert.equal(result.appliedCount, 1);
-  assert.equal(draft.inventoryRuleFilterOptions.value.ignoreFacilityOrderLimit.fieldValue, "N");
+  assert.equal(draft.inventoryRuleFilterOptions.value.ignoreFacilityOrderLimit, undefined);
   assert.equal(draft.hasUnsavedChanges.value, true);
 }
 

@@ -8,12 +8,11 @@
       </ion-buttons>
       <ion-title>{{ type === "included" ? translate("Include", { label }) : translate("Exclude", { label }) }}</ion-title>
       <ion-buttons slot="end">
-        <!-- Clear all button should be disabled if no facetOptions are available to select or if no filter is selected. -->
-        <ion-button fill="clear" color="danger" :disabled="!facetOptions.length || !selectedValues.length" @click="selectedValues = []">{{ translate("Clear All") }}</ion-button>
+        <ion-button fill="clear" color="danger" :disabled="!selectedValues.length" @click="selectedValues = []">{{ translate("Clear All") }}</ion-button>
       </ion-buttons>
     </ion-toolbar>
     <ion-toolbar>
-      <ion-searchbar :placeholder="translate('Search', { label })" v-model="queryString" @keyup.enter="search()" />
+      <ion-searchbar :placeholder="translate('Search', { label })" v-model="queryString" @keyup.enter="search" />
     </ion-toolbar>
   </ion-header>
 
@@ -96,8 +95,14 @@ const isLoading = ref(false);
 const matchedCount = ref(0);
 const isCountLoading = ref(false);
 let countTimer: any = null;
+let searchTimer: any = null;
 let currentRequestId = 0;
+let currentSearchRequestId = 0;
 let isInitialLoad = true;
+let facetCountsRequested = false;
+
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_RESULT_LIMIT = 100;
 
 const props = defineProps(["label", "facetToSelect", "searchfield", "type"]);
 const productStore = useAtpProductStore();
@@ -105,20 +110,32 @@ const productStore = useAtpProductStore();
 const appliedFilters = computed(() => productStore.getAppliedFilters);
 const appliedFiltersOperator = computed(() => productStore.getAppliedFiltersOperator);
 
-onMounted(async() => {
-  isLoading.value = true;
-  await productStore.fetchProductFilters({ facetToSelect: props.facetToSelect, searchfield: props.searchfield })
-  facetOptions.value = productStore.getFacetOptions(props.searchfield);
-  filteredOptions.value = [...facetOptions.value]
-  // Per-value product counts load independently so the option list isn't blocked on the count query.
-  productStore.fetchProductFacetCounts(props.searchfield).then((counts: Record<string, number>) => { countById.value = counts })
+onMounted(() => {
   selectedValues.value = JSON.parse(JSON.stringify((appliedFilters.value as any)[props.type][props.searchfield]))
-  isLoading.value = false;
-  refreshMatchedCount();
+  void refreshMatchedCount();
 })
 
 onUnmounted(() => {
   if (countTimer) clearTimeout(countTimer);
+  if (searchTimer) clearTimeout(searchTimer);
+})
+
+// Keep the modal cheap to open. Facet options are queried server-side only after the user types,
+// and a short debounce avoids issuing a request for every keystroke.
+watch(queryString, (value) => {
+  if (searchTimer) clearTimeout(searchTimer);
+
+  if (!value.trim()) {
+    currentSearchRequestId += 1;
+    facetOptions.value = [];
+    filteredOptions.value = [];
+    isLoading.value = false;
+    return;
+  }
+
+  currentSearchRequestId += 1;
+  isLoading.value = true;
+  searchTimer = setTimeout(search, SEARCH_DEBOUNCE_MS);
 })
 
 // Recompute the live total (debounced) whenever the modal-local selection changes.
@@ -162,14 +179,37 @@ function closeModal() {
   modalController.dismiss({ dismissed: true });
 }
 
-function search() {
-  const searchTerm = queryString.value.trim().toLowerCase();
+async function search() {
+  if (searchTimer) clearTimeout(searchTimer);
+  const searchTerm = queryString.value.trim();
+  if (!searchTerm) return;
 
-  if(searchTerm) {
-    filteredOptions.value = facetOptions.value.filter((option: any) => option.label.toLowerCase().includes(searchTerm))
-  } else {
-    filteredOptions.value = [...facetOptions.value]
+  const requestId = ++currentSearchRequestId;
+  isLoading.value = true;
+  try {
+    const options = await productStore.fetchProductFilters({
+      facetToSelect: props.facetToSelect,
+      searchfield: props.searchfield,
+      queryString: searchTerm,
+      limit: SEARCH_RESULT_LIMIT,
+      maxResults: SEARCH_RESULT_LIMIT
+    })
+    if (requestId !== currentSearchRequestId) return;
+    facetOptions.value = options || [];
+    filteredOptions.value = [...facetOptions.value];
+    loadFacetCounts();
+  } finally {
+    if (requestId === currentSearchRequestId) {
+      isLoading.value = false;
+    }
   }
+}
+
+function loadFacetCounts() {
+  if (facetCountsRequested) return;
+  facetCountsRequested = true;
+  productStore.fetchProductFacetCounts(props.searchfield)
+    .then((counts: Record<string, number>) => { countById.value = counts })
 }
 
 function updateSelectedValues(value: string) {

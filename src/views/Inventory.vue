@@ -2,6 +2,7 @@
   <ion-page>
     <ion-header>
       <ion-toolbar>
+        <ion-menu-button slot="start" />
         <ion-title data-testid="closed-page-title">
           {{ translate("Inventory") }}
         </ion-title>
@@ -195,7 +196,7 @@
 
 <script setup lang="ts">
 import { DxpShopifyImg, emitter, translate } from "@common";
-import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonNote, IonPage, IonSearchbar, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
+import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonNote, IonPage, IonSearchbar, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
 import { caretBackOutline, caretForwardOutline } from "ionicons/icons";
 import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";

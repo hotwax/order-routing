@@ -92,6 +92,7 @@ describe("Inventory product selection", () => {
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
       IonList: defineComponent({ name: "IonList", template: "<div><slot /></div>" }),
+      IonMenuButton: defineComponent({ name: "IonMenuButton", template: "<button />" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSearchbar: defineComponent({ name: "IonSearchbar", template: "<input />" }),

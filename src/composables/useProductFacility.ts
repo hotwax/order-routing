@@ -20,6 +20,11 @@ interface ProductFacility {
     allowBrokering?: string | null;
   };
   onlineAtp: string;
+  // Aliases contributed by ProductFacilityInventoryItemView's optional InventoryItem join. Absent on
+  // rows from the plain ProductFacility entity (channel scope), hence optional.
+  availableToPromise?: number;
+  quantityOnHand?: number;
+  computedInventoryCount?: number;
 }
 
 function getErrorMessage(error: unknown) {
@@ -56,6 +61,60 @@ export function useProductFacility() {
       productFacility.value = []
 
       return 0
+    }
+  }
+
+  /**
+   * ProductFacility-first listing: pages and sorts over the rows a facility actually has.
+   *
+   * The older fetchProductFacility() below calls oms/productFacilities/search, which pages a Solr
+   * *product* result set and left-joins ProductFacility onto it — so its total is a product count
+   * that does not vary by facility, and pages contain products the facility does not stock. These
+   * endpoints query the entity instead, so the total is the facility's real row count.
+   *
+   * withInventory selects the view (adds availableToPromise / quantityOnHand / computedInventoryCount
+   * from the optional InventoryItem join). Channel scope passes false: it shows online ATP sourced
+   * separately and never needs the join.
+   */
+  async function fetchProductFacilityRows(params: any, { withInventory = true } = {}): Promise<{ rows: any[]; total: number } | undefined> {
+    const requestId = ++productFacilityRequestId
+    const path = withInventory ? "oms/productFacilities/inventory" : "oms/productFacilities"
+    try {
+      const resp = await api({ url: path, method: "GET", params }) as any
+
+      if(requestId !== productFacilityRequestId) {return undefined}
+      const rows = Array.isArray(resp.data) ? resp.data : []
+      productFacility.value = rows
+
+      return { rows, total: await resolveTotal(resp, path, params, rows.length) }
+    } catch (err) {
+      logger.error("Failed to fetch product facility rows", getErrorMessage(err))
+      if(requestId !== productFacilityRequestId) {return undefined}
+      productFacility.value = []
+
+      return { rows: [], total: 0 }
+    }
+  }
+
+  /**
+   * The entity-list total arrives as the X-Total-Count header. A browser can only read that header
+   * cross-origin when the server lists it in Access-Control-Expose-Headers, so fall back to the
+   * sibling /count resource (which returns the total in the body) when it is not readable.
+   */
+  async function resolveTotal(resp: any, path: string, params: any, rowCount: number): Promise<number> {
+    const header = resp?.headers?.["x-total-count"] ?? resp?.headers?.get?.("x-total-count")
+    const parsed = Number(header)
+    if(Number.isFinite(parsed) && header !== null && header !== undefined && header !== "") {return parsed}
+
+    try {
+      const countResp = await api({ url: `${path}/count`, method: "GET", params }) as any
+      const count = Number(countResp?.data?.count)
+
+      return Number.isFinite(count) ? count : rowCount
+    } catch (err) {
+      logger.error("Failed to fetch product facility count", getErrorMessage(err))
+
+      return rowCount
     }
   }
 
@@ -112,6 +171,7 @@ export function useProductFacility() {
     clearInventoryLogs,
     fetchInventoryLogs,
     fetchProductFacility,
+    fetchProductFacilityRows,
     inventoryLogs,
     updateProductFacility
   }

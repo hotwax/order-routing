@@ -8,13 +8,13 @@ import {
   albumsOutline,
   businessOutline,
   calendarOutline,
-  cloudUploadOutline,
   documentsOutline,
   flaskOutline,
   globeOutline,
   pulseOutline,
   sendOutline,
   settingsOutline,
+  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 import { RouteRecordRaw } from "vue-router";
@@ -161,18 +161,6 @@ const routes: Array<RouteRecordRaw> = [
       section: "sourcing",
       menuIndex: 4,
       childRoutes: ["/create-shipping", "/update-shipping/"]
-    }
-  },
-  {
-    path: "/inventory-channels",
-    name: "Inventory channels",
-    component: () => import("@/views/InventoryChannels.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Channels",
-      icon: cloudUploadOutline,
-      section: "sourcing",
-      menuIndex: 5
     }
   },
   {
@@ -344,6 +332,18 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
+    }
+  },
+  {
+    path: "/simulation-setup",
+    name: "Simulation setup",
+    component: () => import("@/views/SimulationSetupWizard.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Simulation setup",
+      icon: sparklesOutline,
+      section: "routing",
+      menuIndex: 12
     }
   },
 

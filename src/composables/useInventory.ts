@@ -143,7 +143,7 @@ export function useInventory() {
     let result: VarianceAudit | null = null
     try {
       const resp = await api({
-        url: `/oms/inventoryItem/${inventoryItemId}/variances`,
+        url: `/oms/inventoryItem/${encodeURIComponent(inventoryItemId)}/variances`,
         method: "GET",
         params: { physicalInventoryId, pageSize: 1 }
       }) as any

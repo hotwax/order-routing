@@ -13,6 +13,7 @@ import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
 import { useCircuitStore } from './circuit'
 import { simulationStore } from './simulationStore'
+import { useInventoryUpdatesStore } from './inventoryUpdates'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -81,9 +82,6 @@ export const useUserStore = defineStore('user', {
       const permissionId = import.meta.env.VITE_PERMISSION_ID;
       const serverPermissions = [] as any;
 
-      // TODO Make it configurable from the environment variables.
-      // Though this might not be an server specific configuration, 
-      // we will be adding it to environment variable for easy configuration at app level
       const viewSize = 200;
 
       let viewIndex = 0;
@@ -94,7 +92,6 @@ export const useUserStore = defineStore('user', {
           resp = await api({
             url: "admin/user/permissions",
             method: "get",
-            baseURL: commonUtil.getMaargURL(),
             params: { viewIndex, viewSize }
           }) as any
 
@@ -146,14 +143,6 @@ export const useUserStore = defineStore('user', {
         return Promise.reject(error)
       }
     },
-    async checkPermission(payload: any): Promise <any> {
-      return api({
-        url: "checkPermission",
-        method: "post",
-        baseURL: commonUtil.getOmsURL(),
-        ...payload
-      });
-    },
     async postLogin() {
       try {
         await this.fetchUserProfile()
@@ -200,6 +189,7 @@ export const useUserStore = defineStore('user', {
       useAtpProductStore().$reset()
       useRuleStore().$reset()
       useChannelStore().$reset()
+      useInventoryUpdatesStore().$reset()
 
       this.$reset();
     },

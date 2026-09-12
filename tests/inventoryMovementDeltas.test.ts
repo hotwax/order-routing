@@ -7,7 +7,7 @@ const passthrough = (name: string) => defineComponent({
   template: "<div><slot name='start' /><slot name='header' /><slot /><slot name='end' /><slot name='content' /></div>",
 });
 
-// Regression coverage for issue #469: the oms/inventoryItem/detail API never returns
+// Regression coverage for issue #469: the inventory-history API never returns
 // lastAvailableToPromise/lastQuantityOnHand, so the ATP/QOH delta pills must show the
 // signed change only, never a fabricated "0 -> diff" total built from a fake 0 baseline.
 describe("InventoryDetail movement deltas (location scope)", () => {

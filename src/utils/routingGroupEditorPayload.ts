@@ -254,3 +254,98 @@ export function stripRoutingGroupSaveIds(payload: any, options: StripRoutingGrou
 
   return payload;
 }
+
+export interface RoutingGroupChildDeletions {
+  orderFilters: Array<{ orderRoutingId: string; conditionSeqId: string }>;
+  inventoryFilters: Array<{ routingRuleId: string; conditionSeqId: string }>;
+  actions: Array<{ routingRuleId: string; actionSeqId: string }>;
+}
+
+/** A seq id that identifies a row the backend already persisted (not a local-only draft). */
+function persistedSeqId(value: any) {
+  return typeof value === "string" && value.trim() !== "" && !isClientGeneratedId(value) ? value.trim() : "";
+}
+
+function persistedSeqIds(items: any, key: string) {
+  const ids = new Set<string>();
+  // Both the baseline and the outgoing working copy hold these as flat arrays
+  // (serializeRuleWorkingCopy flattens the editor's grouped options back out before save).
+  if (!Array.isArray(items)) return ids;
+  items.forEach((item: any) => {
+    const id = persistedSeqId(item?.[key]);
+    if (id) ids.add(id);
+  });
+  return ids;
+}
+
+function indexByPersistedId(items: any, key: string) {
+  const index = new Map<string, any>();
+  if (!Array.isArray(items)) return index;
+  items.forEach((item: any) => {
+    const id = persistedSeqId(item?.[key]);
+    if (id) index.set(id, item);
+  });
+  return index;
+}
+
+/**
+ * Report the persisted child rows that the outgoing group no longer contains.
+ *
+ * The whole-group POST upserts whatever it is handed but does not remove rows that are merely
+ * absent from the payload, so a route filter / rule condition / action the user deleted in the
+ * editor would survive on the backend and reappear on the post-save readback. Diffing the
+ * server-pristine baseline against the outgoing group is what identifies those orphans.
+ *
+ * Scope: only children whose parent routing and rule still exist in the outgoing payload are
+ * reported. Dropping a whole routing or rule is a different operation whose cascade the backend
+ * owns; issuing child deletes for it would race that cascade and log spurious failures.
+ */
+export function diffRoutingGroupChildDeletions(baseline: any, outgoing: any): RoutingGroupChildDeletions {
+  const deletions: RoutingGroupChildDeletions = { orderFilters: [], inventoryFilters: [], actions: [] };
+
+  // Only a baseline captured for this same group describes what is actually on the server.
+  if (!baseline?.routingGroupId || baseline.routingGroupId !== outgoing?.routingGroupId) return deletions;
+
+  const outgoingRoutings = indexByPersistedId(outgoing.routings, "orderRoutingId");
+
+  (Array.isArray(baseline.routings) ? baseline.routings : []).forEach((baselineRouting: any) => {
+    const orderRoutingId = persistedSeqId(baselineRouting?.orderRoutingId);
+    if (!orderRoutingId) return;
+
+    const outgoingRouting = outgoingRoutings.get(orderRoutingId);
+    if (!outgoingRouting) return;
+
+    const keptOrderFilters = persistedSeqIds(outgoingRouting.orderFilters, "conditionSeqId");
+    persistedSeqIds(baselineRouting.orderFilters, "conditionSeqId").forEach((conditionSeqId) => {
+      if (!keptOrderFilters.has(conditionSeqId)) deletions.orderFilters.push({ orderRoutingId, conditionSeqId });
+    });
+
+    const outgoingRules = indexByPersistedId(outgoingRouting.rules, "routingRuleId");
+
+    (Array.isArray(baselineRouting.rules) ? baselineRouting.rules : []).forEach((baselineRule: any) => {
+      const routingRuleId = persistedSeqId(baselineRule?.routingRuleId);
+      if (!routingRuleId) return;
+
+      const outgoingRule = outgoingRules.get(routingRuleId);
+      if (!outgoingRule) return;
+
+      const keptConditions = persistedSeqIds(outgoingRule.inventoryFilters, "conditionSeqId");
+      persistedSeqIds(baselineRule.inventoryFilters, "conditionSeqId").forEach((conditionSeqId) => {
+        if (!keptConditions.has(conditionSeqId)) deletions.inventoryFilters.push({ routingRuleId, conditionSeqId });
+      });
+
+      const keptActions = persistedSeqIds(outgoingRule.actions, "actionSeqId");
+      persistedSeqIds(baselineRule.actions, "actionSeqId").forEach((actionSeqId) => {
+        if (!keptActions.has(actionSeqId)) deletions.actions.push({ routingRuleId, actionSeqId });
+      });
+    });
+  });
+
+  return deletions;
+}
+
+export function hasRoutingGroupChildDeletions(deletions: RoutingGroupChildDeletions) {
+  return deletions.orderFilters.length > 0
+    || deletions.inventoryFilters.length > 0
+    || deletions.actions.length > 0;
+}

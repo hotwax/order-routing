@@ -8,12 +8,12 @@
       {{ translate("Choosing a product identifier allows you to view products with your preferred identifiers.") }}
     </ion-card-content>
 
-    <ion-item :disabled="!userStore.hasPermission('COMMON_ADMIN')">
+    <ion-item :disabled="!userStore.hasPermission(Actions.APP_PRODUCT_IDENTIFIER_UPDATE)">
       <ion-select :label="translate('Primary')" interface="popover" :placeholder="translate('primary identifier')" :value="productIdentificationPref.primaryId" @ionChange="setProductIdentificationPref($event.detail.value, 'primaryId')">
         <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ translate(identification.description || identification.goodIdentificationTypeId) }}</ion-select-option>
       </ion-select>
     </ion-item>
-    <ion-item lines="none" :disabled="!userStore.hasPermission('COMMON_ADMIN')">
+    <ion-item lines="none" :disabled="!userStore.hasPermission(Actions.APP_PRODUCT_IDENTIFIER_UPDATE)">
       <ion-select :label="translate('Secondary')" interface="popover" :placeholder="translate('secondary identifier')" :value="productIdentificationPref.secondaryId" @ionChange="setProductIdentificationPref($event.detail.value, 'secondaryId')">
         <ion-select-option v-for="identification in productIdentificationOptions" :key="identification.goodIdentificationTypeId" :value="identification.goodIdentificationTypeId">{{ translate(identification.description || identification.goodIdentificationTypeId) }}</ion-select-option>
         <ion-select-option value="">{{ translate("None") }}</ion-select-option>
@@ -47,6 +47,7 @@ import { shuffleOutline } from "ionicons/icons";
 import { productStore } from "@/store/productStore";
 import { useUserStore } from "@/store/userStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
+import Actions from "@/authorization/actions";
 
 const store = productStore();
 const userStore = useUserStore();

@@ -76,14 +76,20 @@ export function useProductFacility() {
     }
   }
 
+  // productId/facilityId are path segments, not query params. The backend dropped the unscoped
+  // GET oms/inventoryItem/detail resource so InventoryItemDetail can never be scanned unfiltered;
+  // both segments now scope the query server-side. The rows come from the InventoryItemDetailAndOrder
+  // view, a strict superset of the old one (adds orderTypeId/orderName/orderDate/orderStatusId), so
+  // every existing consumer of these rows is unaffected.
   async function fetchInventoryLogs(params: { productId: string, facilityId: string, pageSize: any }) {
     const requestId = ++inventoryLogsRequestId
+    const { productId, facilityId, ...query } = params
     try {
       const resp = await api({
-        url: "oms/inventoryItem/detail",
+        url: `oms/products/${encodeURIComponent(productId)}/facilities/${encodeURIComponent(facilityId)}/inventoryDetail`,
         method: "GET",
         params: {
-          ...params,
+          ...query,
           orderByField: "effectiveDate desc"
         }
       })

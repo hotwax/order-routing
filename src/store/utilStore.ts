@@ -170,13 +170,12 @@ export const useUtilStore = defineStore('util', {
         let resp: any
         do {
           resp = await api({
-            url: `categories/${basePayload.productStoreId}`,
+            url: `order-routing/categories/${basePayload.productStoreId}`,
             method: "GET",
             params: {
               ...basePayload,
               pageIndex
-            },
-            baseURL: commonUtil.getOmsURL() 
+            }
           })
           if (!commonUtil.hasError(resp) && resp.data.length) {
             categories = resp.data.reduce((acc: any, category: any) => {

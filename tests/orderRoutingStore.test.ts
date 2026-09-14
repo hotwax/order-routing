@@ -4,9 +4,11 @@ import { api } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const productStoreId = vi.hoisted(() => ({ value: "STORE" }));
+const mockedRunSolrQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("@common", () => ({
   api: vi.fn(),
+  useSolrSearch: vi.fn(() => ({ runSolrQuery: mockedRunSolrQuery })),
   commonUtil: {
     hasError: vi.fn((response: any) => Boolean(response?.error || response?.data?._ERROR_MESSAGE_)),
     sortSequence: vi.fn((items: any[] = []) => [...items].sort((a, b) => Number(a?.sequenceNum ?? 0) - Number(b?.sequenceNum ?? 0))),
@@ -609,5 +611,47 @@ describe("saveRoutingGroupRaw child deletions", () => {
     await store.saveRoutingGroupRaw(outgoing);
 
     expect(requestLog().every(([method]: any) => method !== "DELETE")).toBe(true);
+  });
+});
+
+describe("orderRoutingStore order summary resolution", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.mocked(api).mockReset();
+    mockedRunSolrQuery.mockReset();
+  });
+
+  // Regression: fetchOrderSummaries used to POST to the bare "solr-query" resource, which is not
+  // defined in the OMS REST API and answered 404 ("Service REST API Root resource not found").
+  // Every order then failed to resolve, so classifyMovement fell through to its SALES_ORDER
+  // default and Inventory history rendered transfer orders as sales orders showing a raw orderId.
+  it("resolves order summaries through the shared Solr adapter, preserving order type", async () => {
+    mockedRunSolrQuery.mockResolvedValue({
+      data: {
+        grouped: {
+          orderId: {
+            groups: [
+              { doclist: { docs: [{ orderId: "117312", orderName: "TO11484", orderTypeId: "TRANSFER_ORDER", orderStatusId: "ORDER_APPROVED" }] } },
+              { doclist: { docs: [{ orderId: "129508", orderName: "#1000859", orderTypeId: "SALES_ORDER", orderStatusId: "ORDER_APPROVED" }] } }
+            ]
+          }
+        }
+      }
+    });
+
+    const summaries = await orderRoutingStore().fetchOrderSummaries(["117312", "129508"]);
+
+    expect(mockedRunSolrQuery).toHaveBeenCalledTimes(1);
+    expect(summaries["117312"]).toEqual(expect.objectContaining({ orderName: "TO11484", orderTypeId: "TRANSFER_ORDER" }));
+    expect(summaries["129508"]).toEqual(expect.objectContaining({ orderName: "#1000859", orderTypeId: "SALES_ORDER" }));
+    // must not reach for the non-existent resource again
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith(expect.objectContaining({ url: "solr-query" }));
+  });
+
+  it("short-circuits without querying when there are no order ids", async () => {
+    const summaries = await orderRoutingStore().fetchOrderSummaries([]);
+
+    expect(summaries).toEqual({});
+    expect(mockedRunSolrQuery).not.toHaveBeenCalled();
   });
 });

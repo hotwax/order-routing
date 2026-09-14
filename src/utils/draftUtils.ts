@@ -560,8 +560,9 @@ function addOperation(
 // for new:* rules (no current state to compare against) and for any target whose
 // shape isn't represented in the rule's currentValues snapshot.
 function getRuleCurrentValue(manifest: PageCapabilityManifest, ruleKey: string, target: string): DraftValue | undefined {
+  const defaultValue = target === "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT" ? false : undefined;
   if (ruleKey.startsWith("new:")) {
-    return undefined;
+    return defaultValue;
   }
 
   const rules = (manifest.visibleEntities as any)?.route?.availableInventoryRules;
@@ -603,7 +604,7 @@ function getRuleCurrentValue(manifest: PageCapabilityManifest, ruleKey: string, 
 
   if (target.startsWith("selectedRule.inventoryFilters.")) {
     const filter = (currentValues.inventoryFilters || []).find((entry: any) => entry?.target === target);
-    return filter ? (filter.value as DraftValue) : undefined;
+    return filter ? (filter.value as DraftValue) : defaultValue;
   }
 
   if (target.startsWith("selectedRule.inventorySorts.")) {

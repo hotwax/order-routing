@@ -1992,7 +1992,7 @@ ion-content {
     grid-column: 1 / 2;
     backdrop-filter: blur(20px);
     background: linear-gradient(to bottom, #ffffff7d, white);
-    padding: 16px 0;
+    padding: var(--spacer-sm) 0;
   }
 }
 
@@ -2040,7 +2040,7 @@ ion-item {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   padding-top: var(--spacer-xs, 8px);
 }
 
@@ -2051,7 +2051,7 @@ ion-item {
 .page-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   margin-left: auto;
 }
 
@@ -2069,7 +2069,7 @@ ion-item {
 .movement-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   flex-wrap: wrap;
 }
 
@@ -2079,7 +2079,7 @@ ion-item {
 
 .header-deltas {
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
   align-items: center;
 }
 
@@ -2108,7 +2108,7 @@ ion-item {
 
 /* Expanded accordion content */
 .movement-content {
-  padding: 12px 16px 16px;
+  padding: 12px var(--spacer-sm) var(--spacer-sm);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2132,7 +2132,7 @@ ion-item {
 .impact-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   padding-bottom: 12px;
   margin-bottom: 2px;
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
@@ -2150,7 +2150,7 @@ ion-item {
 .source-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: var(--spacer-2xs) var(--spacer-sm);
   margin: 0;
 }
 
@@ -2181,7 +2181,7 @@ ion-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px var(--spacer-sm);
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
 }
 
@@ -2198,7 +2198,7 @@ ion-item {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacer-xs);
 }
 
 .skeleton-row .sk-title {
@@ -2218,7 +2218,7 @@ ion-item {
 .skeleton-row .sk-deltas {
   flex: 0 0 auto;
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
 }
 
 .skeleton-row .sk-delta {

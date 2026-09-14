@@ -152,8 +152,8 @@ const inventoryFilterDefinitions: FilterDefinition[] = [
   { key: "BRK_SAFETY_STOCK", label: "Brokering safety stock filter", valueType: "number" },
   {
     key: "FACILITY_ORDER_LIMIT",
-    label: "Facility order limit check",
-    description: "Controls whether this rule respects facility order limits. Set false to enforce store caps and protect stores. Set true only when the user explicitly asks to turn off, ignore, or bypass facility order limits.",
+    label: "Override facility order limit",
+    description: "Adds or removes the rule-level override. When present, this rule bypasses facility order limits; when absent, normal facility order limits apply.",
     aliases: ["store cap", "store caps", "store usage cap", "protect stores", "facility order limit", "order limit check"],
     valueType: "boolean",
     options: facilityOrderLimitOptions()
@@ -498,7 +498,11 @@ function applyActiveRuleOperation(operation: DraftOperation, draft: RoutingRules
 
   const inventoryFilterKey = getTargetKey(operation.target, "selectedRule.inventoryFilters.");
   if (inventoryFilterKey) {
-    setConditionOption(draft.inventoryRuleFilterOptions.value, draft.conditionFilterEnums, inventoryFilterKey, operation.value as DraftValue, "ENTCT_FILTER", draft.selectedRoutingRule.value.routingRuleId, "routingRuleId");
+    if (inventoryFilterKey === "FACILITY_ORDER_LIMIT" && !Boolean(operation.value)) {
+      delete draft.inventoryRuleFilterOptions.value[draft.conditionFilterEnums.FACILITY_ORDER_LIMIT.code];
+    } else {
+      setConditionOption(draft.inventoryRuleFilterOptions.value, draft.conditionFilterEnums, inventoryFilterKey, operation.value as DraftValue, "ENTCT_FILTER", draft.selectedRoutingRule.value.routingRuleId, "routingRuleId");
+    }
     if (inventoryFilterKey === "PROXIMITY" && !draft.inventoryRuleFilterOptions.value[draft.conditionFilterEnums.MEASUREMENT_SYSTEM.code]) {
       setConditionOption(draft.inventoryRuleFilterOptions.value, draft.conditionFilterEnums, "MEASUREMENT_SYSTEM", "IMPERIAL", "ENTCT_FILTER", draft.selectedRoutingRule.value.routingRuleId, "routingRuleId");
     }
@@ -1172,11 +1176,11 @@ export function getConditionValue(options: Record<string, ConditionOption>, enum
 
 function getTypedConditionValue(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, definition: FilterDefinition): DraftValue | undefined {
   const value = getConditionValue(options, enums, definition.key);
-  if (definition.valueType !== "boolean" || value === undefined) {
+  if (definition.valueType !== "boolean") {
     return value;
   }
 
-  return parseBooleanOption(value);
+  return value === undefined ? false : parseBooleanOption(value);
 }
 
 function parseBooleanOption(value: DraftValue) {

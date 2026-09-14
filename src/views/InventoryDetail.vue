@@ -2097,7 +2097,7 @@ ion-item {
 .delta-value {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: var(--spacer-2xs);
 }
 
 /* The balance a movement left behind leads, with its signed change in parentheses beside it: the

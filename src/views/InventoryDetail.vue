@@ -738,6 +738,12 @@
                       <dd><ion-skeleton-text :animated="true" style="width: 180px; height: 14px;" /></dd>
                     </dl>
                     <dl v-else-if="impactFor(m)?.data && !impactFor(m)?.data?.empty" class="source-grid">
+                      <template v-if="impactFor(m)?.data?.returnOrderName">
+                        <dt>{{ translate("Order") }}</dt><dd>{{ impactFor(m)?.data?.returnOrderName }}</dd>
+                      </template>
+                      <template v-if="impactFor(m)?.data?.returnReason">
+                        <dt>{{ translate("Return reason") }}</dt><dd>{{ impactFor(m)?.data?.returnReason }}</dd>
+                      </template>
                       <template v-if="impactFor(m)?.data?.customerName">
                         <dt>{{ translate("Customer") }}</dt><dd>{{ impactFor(m)?.data?.customerName }}</dd>
                       </template>
@@ -952,13 +958,15 @@ interface MovementImpact {
   acceptedBy?: string;
   loggedBy?: string;
   rejectionReasonDesc?: string;
+  returnOrderName?: string;  // order the return was raised against
+  returnReason?: string;     // customer's return reason, not the inventory reason code
   comments?: string;
   empty?: boolean;
 }
 
-// Movement types that gain extra detail on expand. Others (return/rollover/receipt/adjustment) already
-// show everything known from the raw row, so expanding them fires no request.
-const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE"]);
+// Movement types that gain extra detail on expand. Others (rollover/receipt/adjustment) already show
+// everything known from the raw row, so expanding them fires no request.
+const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE", "RETURN"]);
 
 const HISTORY_PAGE_SIZE = 20;
 
@@ -1775,6 +1783,21 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     const impact: MovementImpact = {};
     if(audit.countedByUserLoginId) {impact.countedBy = inventoryApi.displayName(audit.countedByUserLoginId);}
     if(audit.acceptedByUserLoginId) {impact.acceptedBy = inventoryApi.displayName(audit.acceptedByUserLoginId);}
+
+    return isEmptyImpact(impact) ? { empty: true } : impact;
+  }
+
+  if(m.typeKey === "RETURN") {
+    // The history row carries only returnId/returnItemSeqId. The originating order and the
+    // customer's reason live on the return itself, so resolve them rather than showing the
+    // inventory reason code (RTN_ITM_RCPT) as though it explained the return.
+    const ra = await inventoryApi.fetchReturnAudit(raw.returnId, raw.returnItemSeqId);
+    if(!ra) {return { empty: true };}
+    const impact: MovementImpact = {};
+    if(ra.orderName) {impact.returnOrderName = ra.orderName;}
+    if(ra.reasonDescription || ra.returnReasonId) {impact.returnReason = ra.reasonDescription || ra.returnReasonId;}
+    if(ra.reason) {impact.comments = ra.reason;}
+    if(ra.receivedQuantity != null) {impact.receivedQuantity = ra.receivedQuantity;}
 
     return isEmptyImpact(impact) ? { empty: true } : impact;
   }

@@ -254,11 +254,28 @@ export function useInventory() {
     }
   }
 
+  // Batch resolver for the collapsed list: one fetch per distinct return, in parallel, so a history
+  // page paints with order names rather than bare return ids. Capped because sob/returns has no bulk
+  // form — beyond the cap those rows simply keep showing their returnId.
+  async function fetchReturnSummaries(returnIds: Array<string>, limit = 20): Promise<Record<string, ReturnAudit>> {
+    const ids = [...new Set((returnIds || []).filter(Boolean))].slice(0, limit)
+    const summaries: Record<string, ReturnAudit> = {}
+    if (!ids.length) return summaries
+
+    const results = await Promise.all(ids.map(async (returnId) => [returnId, await fetchReturnAudit(returnId)] as const))
+    results.forEach(([returnId, audit]) => {
+      if (audit) summaries[returnId] = audit
+    })
+
+    return summaries
+  }
+
   return {
     names,
     fetchAverageCost,
     fetchCycleCountAudit,
     fetchReturnAudit,
+    fetchReturnSummaries,
     fetchVarianceAudit,
     resolveNames,
     displayName

@@ -1055,6 +1055,7 @@ const addingFacilityId = ref("");
 // Inventory-history enrichment + filtering state.
 const isHistoryLoading = ref(true); // starts true so the skeleton shows from mount through the first load (no empty-state flash); toggled by loadInventoryHistory thereafter
 const orderSummaries = ref<Record<string, any>>({}); // orderId -> { orderName, orderTypeId, ... }
+const returnSummaries = ref<Record<string, { orderName?: string }>>({});
 const reasonDescById = ref<Record<string, string>>({}); // IID_REASON enumId -> description
 const historyQuery = ref("");
 const activeTypeFilter = ref<string>("ALL");
@@ -1084,7 +1085,7 @@ const dateRangeOptions = [
 // behind (the backend's own lastQuantityOnHand/lastAvailableToPromise plus the row's diff).
 const movements = computed(() =>
   (inventoryLogs.value || []).map((row: any) => ({
-    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value }),
+    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value, returnSummaries: returnSummaries.value }),
     balance: movementBalance(row)
   })));
 
@@ -1661,6 +1662,7 @@ async function loadInventoryHistory() {
   if(scopeType.value !== "location" || !selectedFacilityId.value) {
     clearInventoryLogs();
     orderSummaries.value = {};
+    returnSummaries.value = {};
     isHistoryLoading.value = false;
 
     return;
@@ -1676,11 +1678,18 @@ async function loadInventoryHistory() {
       productIdSnapshot !== productId.value ||
       facilityIdSnapshot !== selectedFacilityId.value) {return;}
     const orderIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.orderId).map((l: any) => l.orderId))];
-    const summaries = orderIds.length ? await orderRoutingStore().fetchOrderSummaries(orderIds) : {};
+    const returnIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.returnId).map((l: any) => l.returnId))];
+    // Both resolve the reference shown in the collapsed row, so fetch them together rather than
+    // letting the return rows repaint a beat later.
+    const [summaries, returns] = await Promise.all([
+      orderIds.length ? orderRoutingStore().fetchOrderSummaries(orderIds) : Promise.resolve({}),
+      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({})
+    ]);
     if(requestId === historyLoadRequestId &&
       productIdSnapshot === productId.value &&
       facilityIdSnapshot === selectedFacilityId.value) {
       orderSummaries.value = summaries;
+      returnSummaries.value = returns;
     }
   } finally {
     if(requestId === historyLoadRequestId) {isHistoryLoading.value = false;}

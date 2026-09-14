@@ -8,7 +8,6 @@ import {
   albumsOutline,
   businessOutline,
   calendarOutline,
-  cloudUploadOutline,
   documentsOutline,
   flaskOutline,
   globeOutline,
@@ -161,18 +160,6 @@ const routes: Array<RouteRecordRaw> = [
       section: "sourcing",
       menuIndex: 4,
       childRoutes: ["/create-shipping", "/update-shipping/"]
-    }
-  },
-  {
-    path: "/inventory-channels",
-    name: "Inventory channels",
-    component: () => import("@/views/InventoryChannels.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Channels",
-      icon: cloudUploadOutline,
-      section: "sourcing",
-      menuIndex: 5
     }
   },
   {

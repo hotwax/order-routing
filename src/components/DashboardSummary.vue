@@ -112,32 +112,13 @@
         </ion-item>
       </ion-list>
     </ion-card>
-
-    <!-- Inventory channels + publish jobs -->
-    <ion-card button @click="emit('navigate', '/inventory-channels')">
-      <ion-card-header>
-        <div class="card-head">
-          <ion-card-title>{{ translate("Inventory channels") }}</ion-card-title>
-          <ion-note slot="end">{{ foundations.channels }}</ion-note>
-        </div>
-      </ion-card-header>
-      <ion-list lines="full" v-if="channels.length">
-        <ion-item v-for="channel in channels" :key="channel.facilityGroupId">
-          <ion-label>{{ channel.facilityGroupName || channel.facilityGroupId }}</ion-label>
-          <ion-icon slot="end" :icon="isChannelRunning(channel) ? playOutline : pauseOutline" color="medium" />
-        </ion-item>
-      </ion-list>
-      <ion-card-content v-else>
-        <p>{{ translate("No inventory channels yet") }}</p>
-      </ion-card-content>
-    </ion-card>
   </main>
 </template>
 
 <script setup lang="ts">
 import { IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonList, IonNote, IonProgressBar, IonSegment, IonSegmentButton, IonText } from "@ionic/vue";
 import { computed, ref } from "vue";
-import { pauseOutline, playOutline, timeOutline } from "ionicons/icons";
+import { timeOutline } from "ionicons/icons";
 import { commonUtil, translate } from "@common";
 import type { RoutingState, FacilityOrder } from "@/store/dashboardStore";
 import { DateTime } from "luxon";
@@ -149,9 +130,6 @@ const props = defineProps<{
   facilityOrders: FacilityOrder[];
   facilityOrdersDate: string | null;
   sourcing: { key: string; label: string; route: string; metric: string; count: number; total: number; blocking: number }[];
-  foundations: { channels: number };
-  channels: any[];
-  channelJobs: any[];
   totalSourcing: number;
 }>();
 
@@ -210,23 +188,6 @@ function metricLine(s: { metric: string; total: number; blocking: number }) {
   if (s.metric === "pickup") return translate("{count} blocking pickup", { count: s.blocking });
   if (s.metric === "shipping") return translate("{count} blocking shipping", { count: s.blocking });
   return "";
-}
-
-function isChannelRunning(channel: any) {
-  return props.channelJobs.some((job: any) => {
-    const runtimeData = getJobRuntimeData(job);
-    const facilityGroupId = runtimeData?.facilityGroupId || job.facilityGroupId;
-    return facilityGroupId === channel.facilityGroupId && job.statusId === "SERVICE_PENDING";
-  });
-}
-
-function getJobRuntimeData(job: any) {
-  if (typeof job.runtimeData !== "string") return job.runtimeData;
-  try {
-    return JSON.parse(job.runtimeData || "{}");
-  } catch {
-    return {};
-  }
 }
 
 </script>

@@ -19,12 +19,11 @@
       <ion-card>
         <ion-card-content class="filter-card-content">
           <div class="filter-controls">
-            <ion-item v-if="searchMode === 'location'" lines="none">
-              <ion-select v-model="selectedFacility" :label="translate('Facility')" interface="popover">
-                <ion-select-option v-for="facility in productStoreFacilities" :key="facility.facilityId + facility.productStoreId" :value="facility.facilityId">
-                  {{ facility.facilityName }}
-                </ion-select-option>
-              </ion-select>
+            <ion-item v-if="searchMode === 'location'" lines="none" button detail data-testid="inventory-facility-switcher" @click="openFacilitySwitcher">
+              <ion-label>
+                {{ translate("Facility") }}
+                <p>{{ selectedFacilityName || translate("Select facility") }}</p>
+              </ion-label>
             </ion-item>
             <ion-item v-else lines="none">
               <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" interface="popover">
@@ -278,6 +277,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
 import ProductInventoryEdit from "@/components/ProductInventoryEdit.vue";
+import FacilitySwitcherModal from "@/components/FacilitySwitcherModal.vue";
 import ProductSearchModal from "@/components/ProductSearchModal.vue";
 import { fetchProductOnlineAtpMap, mergeOnlineAtpIntoRows } from "@/composables/useChannelInventory";
 import { useProductFacility } from "@/composables/useProductFacility";
@@ -314,12 +314,16 @@ const productIdFilter = ref<string[]>([]);
 // Solr detail for the current page, keyed by productId. Rows still render without it (see getDisplayProduct).
 const productSummaries = ref<Record<string, any>>({});
 // Any alias on the view is sortable; "-" prefix is Moqui's descending marker.
-const sortField = ref("productId");
+// Operators open this page to find stock problems, so lead with the largest ATP rather than an
+// arbitrary id order.
+const LOCATION_DEFAULT_SORT = "-availableToPromise";
+// Channel scope queries the plain entity, which has no InventoryItem aliases, so it cannot sort on ATP.
+const CHANNEL_DEFAULT_SORT = "-minimumStock";
+const sortField = ref(LOCATION_DEFAULT_SORT);
 const configFilters = ref({ allowBrokering: "", allowPickup: "", minimumStockFrom: "", atpFrom: "" });
 // Every entry must be a real alias on ProductFacilityInventoryItemView: EntityFind silently drops an
 // unknown orderByField, which would look like "sorting is broken" with no error anywhere.
 const LOCATION_SORT_OPTIONS = [
-  { value: "productId", label: "Product ID" },
   { value: "-availableToPromise", label: "ATP (high to low)" },
   { value: "availableToPromise", label: "ATP (low to high)" },
   { value: "-quantityOnHand", label: "QOH (high to low)" },
@@ -330,7 +334,6 @@ const LOCATION_SORT_OPTIONS = [
 ];
 // Channel scope queries the plain entity, so the InventoryItem-derived aliases are not available.
 const CHANNEL_SORT_OPTIONS = [
-  { value: "productId", label: "Product ID" },
   { value: "-minimumStock", label: "Threshold (high to low)" },
   { value: "minimumStock", label: "Threshold (low to high)" },
   { value: "-lastInventoryCount", label: "Last inventory count (high to low)" }
@@ -349,6 +352,8 @@ const channelStore = useChannelStore();
 const inventoryChannels = computed(() => channelStore.getInventoryChannels.filter((group: any) => group.facilityGroupTypeId === "CHANNEL_FAC_GROUP"));
 const selectedChannel = computed(() => inventoryChannels.value.find((group: any) => group.facilityGroupId === selectedChannelId.value));
 const selectedChannelConfigFacilityId = computed(() => selectedChannel.value?.selectedConfigFacility?.facilityId || "");
+const selectedFacilityName = computed(() =>
+  (productStoreFacilities.value || []).find((facility: any) => facility.facilityId === selectedFacility.value)?.facilityName || "");
 const activeFacilityId = computed(() => searchMode.value === "channel" ? selectedChannelConfigFacilityId.value : selectedFacility.value);
 const channelNeedsConfig = computed(() => searchMode.value === "channel" &&
   !!selectedChannel.value &&
@@ -680,6 +685,24 @@ async function hydrateChannelOnlineAtp(requestId: number, productIds: string[]) 
   });
   if(requestId !== listRequestId) {return;}
   products.value = mergeOnlineAtpIntoRows(products.value, onlineAtpByProduct);
+}
+
+// Same modal InventoryDetail uses for "Change location", so a facility is picked the same way in
+// both places. No productId here: this is the list, not one product, so the modal lists facilities
+// without per-facility stock.
+async function openFacilitySwitcher() {
+  const modal = await modalController.create({
+    component: FacilitySwitcherModal,
+    componentProps: {
+      currentFacilityId: selectedFacility.value,
+      facilities: productStoreFacilities.value
+    }
+  });
+  await modal.present();
+  const { data } = await modal.onDidDismiss();
+  if(data?.facilityId && data.facilityId !== selectedFacility.value) {
+    selectedFacility.value = data.facilityId;
+  }
 }
 
 async function openProductSearchModal() {

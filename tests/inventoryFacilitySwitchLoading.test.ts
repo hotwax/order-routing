@@ -9,6 +9,7 @@ describe("Inventory facility switch loading state", () => {
   const products = ref<any[]>([]);
   let resolveFetch: ((rows: any[], total?: number) => void) | null = null;
   let fetchProductFacility: ReturnType<typeof vi.fn>;
+  let modalDismissData: any = null;
 
   const AUSTIN_ROWS = [
     { productId: "M102977", inventoryConfig: { atp: "12", qoh: "12" } },
@@ -37,10 +38,11 @@ describe("Inventory facility switch loading state", () => {
   }
 
   async function switchFacilityTo(wrapper: any, facilityId: string) {
-    const select = wrapper.findAllComponents({ name: "IonSelect" })[0];
-    select.vm.$emit("update:modelValue", facilityId);
-    await nextTick();
-    await nextTick();
+    // Keep the payload in place until the modal's onDidDismiss promise has actually resolved.
+    modalDismissData = { facilityId };
+    await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
+    await flush();
+    modalDismissData = null;
   }
 
   const nextPageButton = (wrapper: any) => wrapper.find('[data-testid="inventory-next-page"]');
@@ -163,7 +165,12 @@ describe("Inventory facility switch loading state", () => {
       IonThumbnail: defineComponent({ name: "IonThumbnail", template: "<div><slot /></div>" }),
       IonTitle: defineComponent({ name: "IonTitle", template: "<h1><slot /></h1>" }),
       IonToolbar: defineComponent({ name: "IonToolbar", template: "<div><slot /></div>" }),
-      modalController: { create: vi.fn() },
+      modalController: {
+        create: vi.fn(() => Promise.resolve({
+          present: vi.fn(() => Promise.resolve()),
+          onDidDismiss: () => Promise.resolve({ data: modalDismissData }),
+        })),
+      },
       onIonViewDidEnter: vi.fn(),
       onIonViewDidLeave: vi.fn(),
     }));

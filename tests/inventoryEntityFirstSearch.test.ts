@@ -33,11 +33,16 @@ describe("Inventory entity-first search", () => {
   const lastOptions = () => lastCall()[1];
 
   // Location scope renders: facility, sort, allowBrokering, allowPickup.
-  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })[1];
+  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })[0];
 
+  // The facility control opens the shared FacilitySwitcherModal (the same one InventoryDetail uses)
+  // and takes the facilityId off its dismiss payload.
   async function selectFacility(wrapper: any, facilityId: string) {
-    wrapper.findAllComponents({ name: "IonSelect" })[0].vm.$emit("update:modelValue", facilityId);
+    const previous = modalDismissData;
+    modalDismissData = { facilityId };
+    await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
     await flush();
+    modalDismissData = previous;
   }
 
   beforeEach(() => {
@@ -169,7 +174,7 @@ describe("Inventory entity-first search", () => {
     const wrapper = mount(Inventory);
     await selectFacility(wrapper, "BROOKLYN");
 
-    expect(lastParams()).toMatchObject({ facilityId: "BROOKLYN", pageIndex: 0, orderByField: "productId" });
+    expect(lastParams()).toMatchObject({ facilityId: "BROOKLYN", pageIndex: 0, orderByField: "-availableToPromise" });
     // The old service sent a free-text keyword; product filtering is by id now.
     expect(lastParams().keyword).toBeUndefined();
     // 1738 comes from the entity count for this facility, not from Solr's product count.

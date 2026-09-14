@@ -738,6 +738,12 @@
                       <dd><ion-skeleton-text :animated="true" style="width: 180px; height: 14px;" /></dd>
                     </dl>
                     <dl v-else-if="impactFor(m)?.data && !impactFor(m)?.data?.empty" class="source-grid">
+                      <template v-if="impactFor(m)?.data?.returnOrderName">
+                        <dt>{{ translate("Order") }}</dt><dd>{{ impactFor(m)?.data?.returnOrderName }}</dd>
+                      </template>
+                      <template v-if="impactFor(m)?.data?.returnReason">
+                        <dt>{{ translate("Return reason") }}</dt><dd>{{ impactFor(m)?.data?.returnReason }}</dd>
+                      </template>
                       <template v-if="impactFor(m)?.data?.customerName">
                         <dt>{{ translate("Customer") }}</dt><dd>{{ impactFor(m)?.data?.customerName }}</dd>
                       </template>
@@ -952,13 +958,15 @@ interface MovementImpact {
   acceptedBy?: string;
   loggedBy?: string;
   rejectionReasonDesc?: string;
+  returnOrderName?: string;  // order the return was raised against
+  returnReason?: string;     // customer's return reason, not the inventory reason code
   comments?: string;
   empty?: boolean;
 }
 
-// Movement types that gain extra detail on expand. Others (return/rollover/receipt/adjustment) already
-// show everything known from the raw row, so expanding them fires no request.
-const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE"]);
+// Movement types that gain extra detail on expand. Others (rollover/receipt/adjustment) already show
+// everything known from the raw row, so expanding them fires no request.
+const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE", "RETURN"]);
 
 const HISTORY_PAGE_SIZE = 20;
 
@@ -1047,6 +1055,7 @@ const addingFacilityId = ref("");
 // Inventory-history enrichment + filtering state.
 const isHistoryLoading = ref(true); // starts true so the skeleton shows from mount through the first load (no empty-state flash); toggled by loadInventoryHistory thereafter
 const orderSummaries = ref<Record<string, any>>({}); // orderId -> { orderName, orderTypeId, ... }
+const returnSummaries = ref<Record<string, { orderName?: string; orderId?: string }>>({});
 const reasonDescById = ref<Record<string, string>>({}); // IID_REASON enumId -> description
 const historyQuery = ref("");
 const activeTypeFilter = ref<string>("ALL");
@@ -1076,7 +1085,7 @@ const dateRangeOptions = [
 // behind (the backend's own lastQuantityOnHand/lastAvailableToPromise plus the row's diff).
 const movements = computed(() =>
   (inventoryLogs.value || []).map((row: any) => ({
-    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value }),
+    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value, returnSummaries: returnSummaries.value }),
     balance: movementBalance(row)
   })));
 
@@ -1653,6 +1662,7 @@ async function loadInventoryHistory() {
   if(scopeType.value !== "location" || !selectedFacilityId.value) {
     clearInventoryLogs();
     orderSummaries.value = {};
+    returnSummaries.value = {};
     isHistoryLoading.value = false;
 
     return;
@@ -1668,11 +1678,18 @@ async function loadInventoryHistory() {
       productIdSnapshot !== productId.value ||
       facilityIdSnapshot !== selectedFacilityId.value) {return;}
     const orderIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.orderId).map((l: any) => l.orderId))];
-    const summaries = orderIds.length ? await orderRoutingStore().fetchOrderSummaries(orderIds) : {};
+    const returnIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.returnId).map((l: any) => l.returnId))];
+    // Both resolve the reference shown in the collapsed row, so fetch them together rather than
+    // letting the return rows repaint a beat later.
+    const [summaries, returns] = await Promise.all([
+      orderIds.length ? orderRoutingStore().fetchOrderSummaries(orderIds) : Promise.resolve({}),
+      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({})
+    ]);
     if(requestId === historyLoadRequestId &&
       productIdSnapshot === productId.value &&
       facilityIdSnapshot === selectedFacilityId.value) {
       orderSummaries.value = summaries;
+      returnSummaries.value = returns;
     }
   } finally {
     if(requestId === historyLoadRequestId) {isHistoryLoading.value = false;}
@@ -1775,6 +1792,23 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     const impact: MovementImpact = {};
     if(audit.countedByUserLoginId) {impact.countedBy = inventoryApi.displayName(audit.countedByUserLoginId);}
     if(audit.acceptedByUserLoginId) {impact.acceptedBy = inventoryApi.displayName(audit.acceptedByUserLoginId);}
+
+    return isEmptyImpact(impact) ? { empty: true } : impact;
+  }
+
+  if(m.typeKey === "RETURN") {
+    // The history row carries only returnId/returnItemSeqId. The originating order and the
+    // customer's reason live on the return itself, so resolve them rather than showing the
+    // inventory reason code (RTN_ITM_RCPT) as though it explained the return.
+    const ra = await inventoryApi.fetchReturnAudit(raw.returnId, raw.returnItemSeqId);
+    if(!ra) {return { empty: true };}
+    const impact: MovementImpact = {};
+    // A return header can carry orderId without a display name (no Shopify name, appeasement
+    // returns). The id still places the order, so fall back to it rather than dropping the row.
+    if(ra.orderName || ra.orderId) {impact.returnOrderName = ra.orderName || ra.orderId;}
+    if(ra.reasonDescription || ra.returnReasonId) {impact.returnReason = ra.reasonDescription || ra.returnReasonId;}
+    if(ra.reason) {impact.comments = ra.reason;}
+    if(ra.receivedQuantity != null) {impact.receivedQuantity = ra.receivedQuantity;}
 
     return isEmptyImpact(impact) ? { empty: true } : impact;
   }

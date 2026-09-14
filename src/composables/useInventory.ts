@@ -16,6 +16,17 @@ export interface CycleCountAudit {
   acceptedDate?: number | string
 }
 
+export interface ReturnAudit {
+  orderId?: string
+  orderName?: string
+  returnReasonId?: string
+  reasonDescription?: string
+  reason?: string
+  returnTypeId?: string
+  returnQuantity?: number | string
+  receivedQuantity?: number | string
+}
+
 export interface VarianceAudit {
   changeByUserLoginId?: string
   varianceReasonId?: string
@@ -39,6 +50,8 @@ export function useInventory() {
   const averageCostCache: Record<string, AverageCost | null> = {}
   const cycleCountCache: Record<string, CycleCountAudit | null> = {}
   const varianceCache: Record<string, VarianceAudit | null> = {}
+  // Keyed by returnId: one fetch carries every item on the return, so sibling rows reuse it.
+  const returnCache: Record<string, any> = {}
 
   // User name resolution cache and state
   const names = ref<Record<string, string>>({})
@@ -203,10 +216,66 @@ export function useInventory() {
     return names.value[id] || id
   }
 
+  async function fetchReturnAudit(returnId: string, returnItemSeqId?: string): Promise<ReturnAudit | null> {
+    if (!returnId) return null
+
+    // sob/returns/{returnId} is served by the Shopify OMS bridge, not core OMS. Where that connector
+    // is not deployed it answers 404/405 (see order-manager's RETURN_DETAIL_UNAVAILABLE), so a miss
+    // is an expected deployment difference rather than an error: cache the null and show nothing.
+    if (!(returnId in returnCache)) {
+      try {
+        const resp = await api({ url: `sob/returns/${encodeURIComponent(returnId)}`, method: "GET" }) as any
+        returnCache[returnId] = resp?.data ?? null
+      } catch (err) {
+        logger.error("Return audit lookup failed", err)
+        returnCache[returnId] = null
+      }
+    }
+
+    const payload = returnCache[returnId]
+    if (!payload) return null
+
+    const header = payload.returnDetail || {}
+    const items = Array.isArray(payload.items) ? payload.items : []
+    // Match the line this movement actually received; fall back to the only item when the row
+    // carries no sequence, so a single-line return still resolves.
+    const item = items.find((row: any) => String(row?.returnItemSeqId) === String(returnItemSeqId))
+      ?? (items.length === 1 ? items[0] : null)
+
+    return {
+      orderId: item?.orderId || header.orderId,
+      orderName: header.orderName || header.externalOrderId,
+      returnReasonId: item?.returnReasonId,
+      reasonDescription: item?.reasonDescription,
+      reason: item?.reason,
+      returnTypeId: item?.returnTypeId,
+      returnQuantity: item?.returnQuantity,
+      receivedQuantity: item?.receivedQuantity
+    }
+  }
+
+  // Batch resolver for the collapsed list: one fetch per distinct return, in parallel, so a history
+  // page paints with order names rather than bare return ids. Capped because sob/returns has no bulk
+  // form — beyond the cap those rows simply keep showing their returnId.
+  async function fetchReturnSummaries(returnIds: Array<string>, limit = 20): Promise<Record<string, ReturnAudit>> {
+    const ids = [...new Set((returnIds || []).filter(Boolean))].slice(0, limit)
+    const summaries: Record<string, ReturnAudit> = {}
+    if (!ids.length) return summaries
+
+    const results = await Promise.all(ids.map(async (returnId) => [returnId, await fetchReturnAudit(returnId)] as const))
+    results.forEach(([returnId, audit]) => {
+      if (audit) summaries[returnId] = audit
+    })
+
+    return summaries
+  }
+
   return {
     names,
     fetchAverageCost,
     fetchCycleCountAudit,
+    fetchReturnAudit,
+    fetchReturnSummaries,
     fetchVarianceAudit,
     resolveNames,
     displayName

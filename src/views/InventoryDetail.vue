@@ -710,11 +710,17 @@
                   <div slot="end" class="header-deltas">
                     <span class="delta-pill">
                       <small>{{ translate("ATP") }}</small>
-                      <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ signed(m.raw.availableToPromiseDiff) }}</span>
+                      <span class="delta-value">
+                        <span v-if="m.balance?.atp != null" class="movement-balance">{{ m.balance.atp }}</span>
+                        <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ m.balance?.atp != null ? `(${signed(m.raw.availableToPromiseDiff)})` : signed(m.raw.availableToPromiseDiff) }}</span>
+                      </span>
                     </span>
                     <span class="delta-pill">
                       <small>{{ translate("QOH") }}</small>
-                      <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ signed(m.raw.quantityOnHandDiff) }}</span>
+                      <span class="delta-value">
+                        <span v-if="m.balance?.qoh != null" class="movement-balance">{{ m.balance.qoh }}</span>
+                        <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ m.balance?.qoh != null ? `(${signed(m.raw.quantityOnHandDiff)})` : signed(m.raw.quantityOnHandDiff) }}</span>
+                      </span>
                     </span>
                   </div>
                 </ion-item>
@@ -902,7 +908,7 @@ import { useChannelStore } from "@/store/channel";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore as productInfoStore } from "@/store/product";
 import { productStore } from "@/store/productStore";
-import { MOVEMENT_TYPE_ORDER, classifyMovement, movementTypeColor, movementTypeIcon, movementTypeLabel } from "@/utils/inventoryMovement";
+import { MOVEMENT_TYPE_ORDER, classifyMovement, movementTypeColor, movementTypeIcon, movementTypeLabel, movementBalance } from "@/utils/inventoryMovement";
 import { type InventoryScope, inventoryScopeErrorMessage, inventoryScopeQuery, parseInventoryScope } from "@/utils/inventoryScope";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
@@ -1066,10 +1072,13 @@ const dateRangeOptions = [
 ];
 
 // Classify each raw log into a movement (source record + presentation), using the resolved order
-// summaries and reason descriptions as context.
+// summaries and reason descriptions as context, and attach the stock balance each movement left
+// behind (the backend's own lastQuantityOnHand/lastAvailableToPromise plus the row's diff).
 const movements = computed(() =>
-  (inventoryLogs.value || []).map((row: any) =>
-    classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value })));
+  (inventoryLogs.value || []).map((row: any) => ({
+    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value }),
+    balance: movementBalance(row)
+  })));
 
 // Type-filter chips: "All" plus only the movement types actually present, in a stable order. Each
 // type chip carries the same icon + colour as its rows so the filter maps visually to the movements
@@ -1983,7 +1992,7 @@ ion-content {
     grid-column: 1 / 2;
     backdrop-filter: blur(20px);
     background: linear-gradient(to bottom, #ffffff7d, white);
-    padding: 16px 0;
+    padding: var(--spacer-sm) 0;
   }
 }
 
@@ -2031,7 +2040,7 @@ ion-item {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   padding-top: var(--spacer-xs, 8px);
 }
 
@@ -2042,7 +2051,7 @@ ion-item {
 .page-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   margin-left: auto;
 }
 
@@ -2060,7 +2069,7 @@ ion-item {
 .movement-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   flex-wrap: wrap;
 }
 
@@ -2070,7 +2079,7 @@ ion-item {
 
 .header-deltas {
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
   align-items: center;
 }
 
@@ -2085,9 +2094,21 @@ ion-item {
   color: var(--ion-color-medium);
 }
 
+.delta-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacer-2xs);
+}
+
+/* The balance a movement left behind leads, with its signed change in parentheses beside it: the
+   running total is what the row is read for, the delta explains how it got there. */
+.movement-balance {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Expanded accordion content */
 .movement-content {
-  padding: 12px 16px 16px;
+  padding: 12px var(--spacer-sm) var(--spacer-sm);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2111,7 +2132,7 @@ ion-item {
 .impact-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   padding-bottom: 12px;
   margin-bottom: 2px;
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
@@ -2129,7 +2150,7 @@ ion-item {
 .source-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: var(--spacer-2xs) var(--spacer-sm);
   margin: 0;
 }
 
@@ -2160,7 +2181,7 @@ ion-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px var(--spacer-sm);
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
 }
 
@@ -2177,7 +2198,7 @@ ion-item {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacer-xs);
 }
 
 .skeleton-row .sk-title {
@@ -2197,7 +2218,7 @@ ion-item {
 .skeleton-row .sk-deltas {
   flex: 0 0 auto;
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
 }
 
 .skeleton-row .sk-delta {

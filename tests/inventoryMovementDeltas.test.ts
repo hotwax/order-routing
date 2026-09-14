@@ -136,6 +136,7 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       getSecondaryProductIdentifier: () => "Test Product",
     }));
     vi.doMock("@/utils/inventoryMovement", () => ({
+      movementBalance: vi.fn(() => ({ atp: null, qoh: null })),
       classifyMovement: vi.fn((row: any) => ({
         raw: row,
         icon: "icon",

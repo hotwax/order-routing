@@ -112,4 +112,60 @@ describe("AddProductFiltersModal", () => {
     expect(wrapper.text()).not.toContain("Size/L");
     expect(wrapper.text()).not.toContain("Color/Blue");
   });
+
+  it("discards an in-flight search response once the query changes again", async () => {
+    // Regression guard for the stale-response window: the queryString watcher must invalidate the
+    // active request as soon as the user types, not 300ms later when the replacement search fires.
+    // Without that invalidation a slow response for the previous query renders over the new one.
+    const pending: Array<{ queryString: string; resolve: (options: unknown[]) => void }> = [];
+    fetchProductFilters.mockImplementation(({ queryString }: { queryString: string }) => (
+      new Promise((resolve) => { pending.push({ queryString, resolve }); })
+    ));
+
+    const { default: AddProductFiltersModal } = await import("../src/components/AddProductFiltersModal.vue");
+    const wrapper = mount(AddProductFiltersModal, {
+      props: {
+        facetToSelect: "productFeaturesFacet",
+        label: "product features",
+        searchfield: "productFeatures",
+        type: "included",
+      },
+    });
+
+    await flushPromises();
+    await nextTick();
+
+    const searchbar = wrapper.find("input");
+
+    // First query reaches the server and stays in flight.
+    await searchbar.setValue("Size/L");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].queryString).toBe("Size/L");
+
+    // The user types again while that request is still outstanding.
+    await searchbar.setValue("Color/Blue");
+    await nextTick();
+
+    // The earlier request now lands, inside the debounce window of the replacement search.
+    pending[0].resolve([{ id: "Size/L", label: "Size/L", value: "Size/L" }]);
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).not.toContain("Size/L");
+
+    // The replacement search still resolves and renders normally.
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    expect(pending).toHaveLength(2);
+    expect(pending[1].queryString).toBe("Color/Blue");
+
+    pending[1].resolve([{ id: "Color/Blue", label: "Color/Blue", value: "Color/Blue" }]);
+    await flushPromises();
+    await nextTick();
+
+    expect(wrapper.text()).toContain("Color/Blue");
+    expect(wrapper.text()).not.toContain("Size/L");
+  });
 });

@@ -70,3 +70,44 @@ describe("useProductFacility request ordering", () => {
     );
   });
 });
+
+// The backend removed the unscoped GET oms/inventoryItem/detail resource; inventory history is now
+// only reachable through a mandatorily scoped path. productId/facilityId must therefore travel as
+// path segments — sending them as query params against the old URL now 404s.
+describe("useProductFacility inventory history endpoint", () => {
+  beforeEach(() => {
+    mocks.api.mockReset();
+    mocks.loggerError.mockReset();
+  });
+
+  it("requests the product/facility scoped inventoryDetail path", async () => {
+    mocks.api.mockResolvedValueOnce({ data: [] });
+
+    const productFacilityApi = useProductFacility();
+    await productFacilityApi.fetchInventoryLogs({
+      productId: "SKU_1",
+      facilityId: "CENTRAL_WAREHOUSE",
+      pageSize: 250,
+    });
+
+    expect(mocks.api).toHaveBeenCalledWith({
+      url: "oms/products/SKU_1/facilities/CENTRAL_WAREHOUSE/inventoryDetail",
+      method: "GET",
+      params: { pageSize: 250, orderByField: "effectiveDate desc" },
+    });
+  });
+
+  it("encodes ids that are not URL safe", async () => {
+    mocks.api.mockResolvedValueOnce({ data: [] });
+
+    const productFacilityApi = useProductFacility();
+    await productFacilityApi.fetchInventoryLogs({
+      productId: "SKU/1",
+      facilityId: "WH 2",
+      pageSize: 10,
+    });
+
+    const { url } = mocks.api.mock.calls[0][0];
+    expect(url).toBe("oms/products/SKU%2F1/facilities/WH%202/inventoryDetail");
+  });
+});

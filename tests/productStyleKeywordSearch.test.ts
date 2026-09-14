@@ -2,10 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runSolrQuery = vi.hoisted(() => vi.fn());
 const loggerError = vi.hoisted(() => vi.fn());
+const currentProductStore = vi.hoisted(() => ({ value: { productStoreId: "SANDBOX_STORE" } as any }));
 
 vi.mock("@common", () => ({
   useSolrSearch: () => ({ runSolrQuery }),
   logger: { error: loggerError },
+}));
+
+vi.mock("@/store/atpProductStore", () => ({
+  useAtpProductStore: () => ({ currentProductStore: currentProductStore.value }),
 }));
 
 import { useProductSearch } from "../src/composables/useProductSearch";
@@ -16,6 +21,7 @@ describe("useProductSearch.searchStyles", () => {
   beforeEach(() => {
     runSolrQuery.mockReset();
     loggerError.mockReset();
+    currentProductStore.value = { productStoreId: "SANDBOX_STORE" };
   });
 
   // A retailer reaches for whatever is on the label — a SKU, a barcode, a bare productId. Restricting
@@ -28,7 +34,7 @@ describe("useProductSearch.searchStyles", () => {
     await useProductSearch().searchStyles("203-321-244244:XS");
 
     const sent = runSolrQuery.mock.calls[0][0].json;
-    expect(sent.filter).toEqual(["docType:PRODUCT"]);
+    expect(sent.filter).toEqual(["docType:PRODUCT", 'productStoreIds:"SANDBOX_STORE"']);
     expect(sent.filter).not.toContain("isVirtual:true");
     expect(sent.params.qf).toContain("sku");
     expect(sent.params.qf).toContain("upc");
@@ -80,7 +86,7 @@ describe("useProductSearch.searchStyles", () => {
     const { styles, total } = await useProductSearch().searchStyles("");
 
     expect(runSolrQuery).toHaveBeenCalledTimes(1);
-    expect(runSolrQuery.mock.calls[0][0].json.filter).toEqual(["docType:PRODUCT", "isVirtual:true"]);
+    expect(runSolrQuery.mock.calls[0][0].json.filter).toEqual(["docType:PRODUCT", "isVirtual:true", 'productStoreIds:"SANDBOX_STORE"']);
     expect(styles).toHaveLength(2);
     expect(total).toBe(500);
   });
@@ -90,5 +96,44 @@ describe("useProductSearch.searchStyles", () => {
 
     await expect(useProductSearch().searchStyles("cara")).resolves.toEqual({ styles: [], total: 0 });
     expect(loggerError).toHaveBeenCalled();
+  });
+
+  // Store membership comes from ProductStoreProduct, folded into the index as productStoreIds.
+  // Without it the modal offered products belonging to another store entirely.
+  describe("store scope", () => {
+    it("restricts a keyword search to the selected store", async () => {
+      runSolrQuery.mockResolvedValueOnce(solr([]));
+
+      await useProductSearch().searchStyles("MH09");
+
+      expect(runSolrQuery.mock.calls[0][0].json.filter).toEqual(["docType:PRODUCT", 'productStoreIds:"SANDBOX_STORE"']);
+    });
+
+    it("restricts the keyword-less style listing too", async () => {
+      runSolrQuery.mockResolvedValueOnce(solr([]));
+
+      await useProductSearch().searchStyles("");
+
+      expect(runSolrQuery.mock.calls[0][0].json.filter).toEqual(["docType:PRODUCT", "isVirtual:true", 'productStoreIds:"SANDBOX_STORE"']);
+    });
+
+    it("restricts a style's variants, so a foreign variant cannot be selected", async () => {
+      runSolrQuery.mockResolvedValueOnce(solr([]));
+
+      await useProductSearch().fetchVariants("M107431");
+
+      expect(runSolrQuery.mock.calls[0][0].json.filter).toContain('productStoreIds:"SANDBOX_STORE"');
+    });
+
+    // Before a store is chosen, scoping on an empty id would match nothing at all, which reads as a
+    // broken search rather than an empty store.
+    it("adds no clause when no store is selected yet", async () => {
+      currentProductStore.value = null;
+      runSolrQuery.mockResolvedValueOnce(solr([]));
+
+      await useProductSearch().searchStyles("cara");
+
+      expect(runSolrQuery.mock.calls[0][0].json.filter).toEqual(["docType:PRODUCT"]);
+    });
   });
 });

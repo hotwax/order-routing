@@ -1,4 +1,5 @@
 import { logger, useSolrSearch } from "@common";
+import { useAtpProductStore } from "@/store/atpProductStore";
 
 /**
  * Solr-backed product lookups for the ProductFacility-first inventory list.
@@ -46,6 +47,22 @@ function numFoundOf(resp: any): number {
 
 export function useProductSearch() {
   const { runSolrQuery } = useSolrSearch();
+
+  /**
+   * Restrict a product query to the selected store.
+   *
+   * Membership comes from the ProductStoreProduct entity, which the indexer folds into the PRODUCT
+   * document as productStoreIds. Without this the modal searches the whole catalogue and offers
+   * products belonging to another store entirely.
+   *
+   * Yields no clause when no store is selected yet, so an early search still returns something
+   * rather than silently matching nothing.
+   */
+  function storeScope(): string[] {
+    const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+
+    return productStoreId ? [`productStoreIds:"${productStoreId}"`] : [];
+  }
 
   function query(filter: string[], params: Record<string, any>) {
     return runSolrQuery({
@@ -106,7 +123,7 @@ export function useProductSearch() {
     if(!trimmed) {
       try {
         const resp = await query(
-          ["docType:PRODUCT", "isVirtual:true"],
+          ["docType:PRODUCT", "isVirtual:true", ...storeScope()],
           { rows: pageSize, start: pageIndex * pageSize }
         );
 
@@ -122,7 +139,7 @@ export function useProductSearch() {
       const resp = await runSolrQuery({
         json: {
           query: `${trimmed}*`,
-          filter: ["docType:PRODUCT"],
+          filter: ["docType:PRODUCT", ...storeScope()],
           params: {
             rows: pageSize * STYLE_MATCH_FANOUT,
             start: 0,
@@ -163,7 +180,7 @@ export function useProductSearch() {
 
     try {
       const resp = await query(
-        ["docType:PRODUCT", "isVariant:true", `groupId:${groupId}`],
+        ["docType:PRODUCT", "isVariant:true", `groupId:${groupId}`, ...storeScope()],
         { rows: pageSize, sort: "productId asc" }
       );
 

@@ -924,6 +924,13 @@ ion-content {
   min-width: 0;
 }
 
+/* The row is a flex container without align-items, so it defaults to stretch and pulls the chip up
+   to the height of its tallest sibling. At that height Ionic's 16px chip radius stops reading as a
+   pill and turns into a rounded rectangle, so let the chip keep its own 32px. */
+.filter-controls ion-chip {
+  align-self: center;
+}
+
 .pagination {
   display: flex;
   align-items: center;

@@ -83,28 +83,73 @@ export function useProductSearch() {
     return summaries;
   }
 
-  /** Search parent styles (virtual products) for the product-search modal. */
+  // Fields a retailer might actually type: a style name, a variant SKU or barcode, an internal name,
+  // or a bare productId off a label.
+  const KEYWORD_FIELDS = "productId productName internalName sku upc goodIdentifications parentProductName groupName keywordSearchText";
+  // A keyword search matches variants, and many variants collapse to one style, so read well past the
+  // page size to fill a page with distinct styles.
+  const STYLE_MATCH_FANOUT = 10;
+
+  /**
+   * Search styles for the product-search modal.
+   *
+   * The results are always styles, but the *match* is not restricted to them: searching only
+   * isVirtual documents means a variant SKU, barcode or productId finds nothing, which is exactly
+   * what a retailer reaches for first. So the query runs across every product document and each hit
+   * is collapsed to its style — groupId, which on a style is its own productId — then deduped so the
+   * modal still lists one row per style.
+   */
   async function searchStyles(keyword: string, { pageIndex = 0, pageSize = 25 } = {}) {
-    const filter = ["docType:PRODUCT", "isVirtual:true"];
-    const params: Record<string, any> = { rows: pageSize, start: pageIndex * pageSize };
     const trimmed = keyword?.trim();
 
-    if(trimmed) {
-      params.defType = "edismax";
-      params.qf = "productId productName internalName sku keywordSearchText";
+    // Without a keyword there is nothing to collapse, so list styles directly and page accurately.
+    if(!trimmed) {
+      try {
+        const resp = await query(
+          ["docType:PRODUCT", "isVirtual:true"],
+          { rows: pageSize, start: pageIndex * pageSize }
+        );
+
+        return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
+      } catch (err) {
+        logger.error("Failed to list product styles", err);
+
+        return { styles: [], total: 0 };
+      }
     }
 
     try {
       const resp = await runSolrQuery({
         json: {
-          query: trimmed ? `${trimmed}*` : "*:*",
-          filter,
-          params,
+          query: `${trimmed}*`,
+          filter: ["docType:PRODUCT"],
+          params: {
+            rows: pageSize * STYLE_MATCH_FANOUT,
+            start: 0,
+            defType: "edismax",
+            qf: KEYWORD_FIELDS,
+            fl: "productId,groupId"
+          },
           collection: "enterpriseSearch"
         }
       });
 
-      return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
+      // Relevance order is preserved: the first hit decides where its style ranks.
+      const styleIds: string[] = [];
+      docsOf(resp).forEach((doc: any) => {
+        const styleId = doc?.groupId || doc?.productId;
+        if(styleId && !styleIds.includes(styleId)) {styleIds.push(styleId);}
+      });
+
+      const pageIds = styleIds.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+      if(!pageIds.length) {return { styles: [], total: styleIds.length };}
+
+      const summaries = await fetchProductSummaries(pageIds);
+
+      return {
+        styles: pageIds.map((id) => summaries[id]).filter(Boolean),
+        total: styleIds.length
+      };
     } catch (err) {
       logger.error("Failed to search product styles", err);
 

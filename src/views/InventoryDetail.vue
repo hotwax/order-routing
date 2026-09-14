@@ -855,7 +855,7 @@
 </template>
 
 <script setup lang="ts">
-import { DxpShopifyImg, api, buildAppUrl, commonUtil, emitter, logger, translate } from "@common";
+import { DxpShopifyImg, api, buildAppUrl, commonUtil, emitter, logger, translate, useSolrSearch } from "@common";
 import {
   IonAccordion,
   IonAccordionGroup,
@@ -1277,13 +1277,11 @@ async function fetchVariantDetails() {
   seedVariantsFromCache(parentId);
 
   try {
-    const resp = await api({
-      url: "searchProducts",
-      method: "post",
-      baseURL: commonUtil.getOmsURL(),
-      data: {
-        filters: [`groupId: ${parentId}`],
-        viewSize: 100
+    const resp = await useSolrSearch().runSolrQuery({
+      json: {
+        params: { rows: 100, start: 0 },
+        query: "*:*",
+        filter: `docType: PRODUCT AND groupId: ${parentId}`
       }
     }) as any;
     if(resp?.data?.response?.docs && !commonUtil.hasError(resp)) {

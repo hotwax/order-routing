@@ -1055,7 +1055,7 @@ const addingFacilityId = ref("");
 // Inventory-history enrichment + filtering state.
 const isHistoryLoading = ref(true); // starts true so the skeleton shows from mount through the first load (no empty-state flash); toggled by loadInventoryHistory thereafter
 const orderSummaries = ref<Record<string, any>>({}); // orderId -> { orderName, orderTypeId, ... }
-const returnSummaries = ref<Record<string, { orderName?: string }>>({});
+const returnSummaries = ref<Record<string, { orderName?: string; orderId?: string }>>({});
 const reasonDescById = ref<Record<string, string>>({}); // IID_REASON enumId -> description
 const historyQuery = ref("");
 const activeTypeFilter = ref<string>("ALL");
@@ -1803,7 +1803,9 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     const ra = await inventoryApi.fetchReturnAudit(raw.returnId, raw.returnItemSeqId);
     if(!ra) {return { empty: true };}
     const impact: MovementImpact = {};
-    if(ra.orderName) {impact.returnOrderName = ra.orderName;}
+    // A return header can carry orderId without a display name (no Shopify name, appeasement
+    // returns). The id still places the order, so fall back to it rather than dropping the row.
+    if(ra.orderName || ra.orderId) {impact.returnOrderName = ra.orderName || ra.orderId;}
     if(ra.reasonDescription || ra.returnReasonId) {impact.returnReason = ra.reasonDescription || ra.returnReasonId;}
     if(ra.reason) {impact.comments = ra.reason;}
     if(ra.receivedQuantity != null) {impact.receivedQuantity = ra.receivedQuantity;}

@@ -13,6 +13,15 @@ describe("classifyMovement return reference", () => {
     expect(m.referenceLabel).toBe("#996835");
   });
 
+  it("falls back to the raw order id when the header carries no display name", () => {
+    // Returns without a Shopify order name (e.g. appeasement returns) still resolve an orderId;
+    // the id places the order, so it beats showing the returnId.
+    const m = classifyMovement(returnRow, { returnSummaries: { "106068": { orderId: "123877" } } });
+
+    expect(m.referenceLabel).toBe("123877");
+    expect(m.searchText).toContain("123877");
+  });
+
   it("falls back to the return id when the order is not resolved", () => {
     // sob/returns is not deployed everywhere, and the batch resolver is capped — either way the row
     // must stay identifiable rather than rendering a dash.

@@ -48,6 +48,7 @@ export interface OrderSummary {
 
 export interface ReturnSummary {
   orderName?: string;
+  orderId?: string;
 }
 
 export interface MovementContext {
@@ -142,8 +143,9 @@ function buildReferenceLabel(typeKey: MovementTypeKey, row: any, order?: OrderSu
       return order?.orderName || row.orderId || "-";
     case "RETURN":
       // A return is easier to place by the order it came back from than by its own id, so lead with
-      // the order name once resolved. The returnId stays in searchText and in the expanded detail.
-      return returnSummary?.orderName || row.returnId || "-";
+      // the order once resolved — falling back to its raw id when the header carries no display
+      // name, exactly as order rows do. The returnId stays in searchText and the expanded detail.
+      return returnSummary?.orderName || returnSummary?.orderId || row.returnId || "-";
     case "CYCLE_COUNT":
       return reasonDesc || row.reasonEnumId || "Cycle count";
     case "MANUAL_VARIANCE":
@@ -165,7 +167,7 @@ export function classifyMovement(row: any, ctx: MovementContext = {}): Classifie
   const presentation = TYPE_PRESENTATION[typeKey];
   const referenceLabel = buildReferenceLabel(typeKey, row, order, reasonDesc, returnSummary);
 
-  const searchText = [row.orderId, order?.orderName, row.returnId, returnSummary?.orderName, row.physicalInventoryId, referenceLabel]
+  const searchText = [row.orderId, order?.orderName, row.returnId, returnSummary?.orderName, returnSummary?.orderId, row.physicalInventoryId, referenceLabel]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

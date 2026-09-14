@@ -123,6 +123,7 @@ describe("InventoryDetail Channel scope", () => {
       getSecondaryProductIdentifier: () => "Test Product",
     }));
     vi.doMock("@/utils/inventoryMovement", () => ({
+      movementBalance: vi.fn(() => ({ atp: null, qoh: null })),
       classifyMovement: vi.fn(),
       MOVEMENT_TYPE_ORDER: [],
       movementTypeLabel: vi.fn(),

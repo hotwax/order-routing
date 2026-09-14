@@ -203,3 +203,47 @@ export function movementTypeColor(typeKey: MovementTypeKey): string {
 }
 
 export { cubeOutline };
+
+export interface MovementBalance {
+  atp: number | null;
+  qoh: number | null;
+}
+
+function toFiniteOrNull(value: any): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+
+  return Number.isFinite(n) ? n : null;
+}
+
+function balanceAfter(last: any, diff: any): number | null {
+  const base = toFiniteOrNull(last);
+  if (base === null) return null;
+
+  return base + (toFiniteOrNull(diff) ?? 0);
+}
+
+/**
+ * Stock balance a movement left behind.
+ *
+ * The scoped history endpoint (products/{productId}/facilities/{facilityId}/inventoryDetail)
+ * returns lastQuantityOnHand / lastAvailableToPromise — the balance immediately *before* the
+ * movement — so the resulting balance is that figure plus the row's diff. These are the backend's
+ * own numbers rather than a reconstruction, which matters because the deltas alone do not form a
+ * continuous chain: a row can end at -1 while the next reports a prior balance of 0, so summing
+ * diffs drifts away from the truth.
+ *
+ * Do not substitute quantityOnHandTotal / availableToPromiseTotal. Those come from the parent
+ * InventoryItem and are identical on every row (the item's *current* total), not a per-row balance.
+ *
+ * Issue #469 pulled an earlier version of this display because it invented the balance from a fake
+ * 0 baseline back when the older oms/inventoryItem/detail endpoint omitted these keys. That is why
+ * a missing `last` yields null here instead of falling back to 0: an unknown balance is omitted,
+ * never fabricated.
+ */
+export function movementBalance(row: any): MovementBalance {
+  return {
+    atp: balanceAfter(row?.lastAvailableToPromise, row?.availableToPromiseDiff),
+    qoh: balanceAfter(row?.lastQuantityOnHand, row?.quantityOnHandDiff)
+  };
+}

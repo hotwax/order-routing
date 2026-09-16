@@ -1273,5 +1273,36 @@
   "Finished": "Finished",
   "Next": "Next",
   "Previous": "Previous",
-  "This store": "This store"
+  "This store": "This store",
+  "Calendar dates": "Calendar dates",
+  "products": "products",
+  "Search by product name or ID": "Search by product name or ID",
+  "Introduction": "Introduction",
+  "Launch": "Launch",
+  "Support ends": "Support ends",
+  "Sales ends": "Sales ends",
+  "No calendar metafield mappings configured for this ProductStore.": "No calendar metafield mappings configured for this ProductStore."
+  ,"Product calendar": "Product calendar"
+  ,"No product store selected": "No product store selected"
+  ,"Choose a product store to manage product calendar dates.": "Choose a product store to manage product calendar dates."
+  ,"ProductStore-scoped lifecycle dates used by ATP rules.": "ProductStore-scoped lifecycle dates used by ATP rules."
+  ,"Populating…": "Populating…"
+  ,"Populate from product defaults": "Populate from product defaults"
+  ,"Add Shopify mapping": "Add Shopify mapping"
+  ,"Shopify metafield mappings": "Shopify metafield mappings"
+  ,"Each mapping writes one Shopify metafield into a calendar date column for that shop’s ProductStore.": "Each mapping writes one Shopify metafield into a calendar date column for that shop’s ProductStore."
+  ,"No calendar rows match the current search.": "No calendar rows match the current search."
+  ,"Add Shopify calendar mapping": "Add Shopify calendar mapping"
+  ,"Cancel": "Cancel"
+  ,"Shop": "Shop"
+  ,"Calendar date column": "Calendar date column"
+  ,"Metafield selector": "Metafield selector"
+  ,"namespace:key or definition ID": "namespace:key or definition ID"
+  ,"Saving…": "Saving…"
+  ,"Save mapping": "Save mapping"
+  ,"Unable to load product calendar.": "Unable to load product calendar."
+  ,"Calendar populated: {count} products.": "Calendar populated: {count} products."
+  ,"Unable to populate product calendar.": "Unable to populate product calendar."
+  ,"Shopify calendar mapping saved.": "Shopify calendar mapping saved."
+  ,"Unable to save calendar mapping.": "Unable to save calendar mapping."
 }

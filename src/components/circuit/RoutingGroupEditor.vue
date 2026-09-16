@@ -547,6 +547,34 @@
             </ion-item>
             </template>
           </RoutingConfigSectionCard>
+          <ion-card class="calendar-date-conditions">
+            <ion-card-header>
+              <div class="header">
+                <div>
+                  <ion-card-subtitle>{{ translate("Product calendar") }}</ion-card-subtitle>
+                  <ion-card-title>{{ translate("Date conditions") }}</ion-card-title>
+                </div>
+                <ion-button fill="outline" size="small" @click="openCalendarConditionModal()">
+                  <ion-icon slot="start" :icon="calendarOutline" />
+                  {{ translate("Add date condition") }}
+                </ion-button>
+              </div>
+            </ion-card-header>
+            <ion-card-content v-if="calendarDateConditions.length">
+              <ion-item v-for="condition in calendarDateConditions" :key="condition.fieldName" lines="full">
+                <ion-label class="ion-text-wrap">
+                  <h3>{{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}</h3>
+                  <p>{{ calendarOperatorLabels[condition.operator] || condition.operator }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+                </ion-label>
+                <ion-button slot="end" fill="clear" color="medium" @click="removeCalendarCondition(condition.fieldName)">
+                  <ion-icon slot="icon-only" :icon="trashOutline" />
+                </ion-button>
+              </ion-item>
+            </ion-card-content>
+            <ion-card-content v-else class="empty-state">
+              {{ translate("No product calendar date condition is applied.") }}
+            </ion-card-content>
+          </ion-card>
           <RoutingConfigSectionCard
             class="sort"
             :card="ruleSortSectionCard"
@@ -731,7 +759,9 @@ import {
   addOutline,
   listOutline,
   speedometerOutline,
-  gitCompareOutline
+  gitCompareOutline,
+  calendarOutline,
+  trashOutline
 } from 'ionicons/icons';
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
@@ -747,6 +777,7 @@ import PromiseFilterPopover from "@/components/PromiseFilterPopover.vue"
 import router from "@/router";
 import { Rule } from "@/types";
 import AddInventoryFilterOptionsModal from "@/components/AddInventoryFilterOptionsModal.vue";
+import ProductCalendarConditionModal from "@/components/ProductCalendarConditionModal.vue";
 import cronstrue from "cronstrue"
 import { DateTime } from "luxon";
 import ScheduleModal from "@/components/ScheduleModal.vue";
@@ -906,7 +937,7 @@ const ruleFiltersSectionCard = computed<RoutingConfigSection>(() => ({
   title: "Filters",
   kind: "filters",
   items: routingSectionItems(
-    inventoryRuleFilterOptions.value,
+    standardInventoryRuleFilterOptions.value,
     conditionFilterEnums,
     "INV_FILTER_PRM_TYPE",
     "selectedRule.inventoryFilters",
@@ -981,6 +1012,35 @@ const inventoryRules = ref([]) as any;
 const rulesForReorder = ref([]) as any;
 const inventoryRuleFilterOptions = ref({}) as any;
 const inventoryRuleSortOptions = ref({}) as any;
+const calendarFieldLabels: Record<string, string> = {
+  introductionDate: "Introduction date",
+  releaseDate: "Launch date",
+  supportDiscontinuationDate: "Support discontinuation date",
+  salesDiscontinuationDate: "Sales discontinuation date"
+};
+const calendarOperatorLabels: Record<string, string> = {
+  "days-since-less-than": "Days since <",
+  "days-since-less-than-equal-to": "Days since ≤",
+  "days-since-greater-than": "Days since >",
+  "days-since-greater-than-equal-to": "Days since ≥",
+  "days-since-equals": "Days since =",
+  "days-till-less-than": "Days till <",
+  "days-till-less-than-equal-to": "Days till ≤",
+  "days-till-greater-than": "Days till >",
+  "days-till-greater-than-equal-to": "Days till ≥",
+  "days-till-equals": "Days till ="
+};
+const calendarDateConditions = computed<any[]>(() => Object.values(inventoryRuleFilterOptions.value || {}).filter((condition: any) => condition?.conditionTypeEnumId === "ENTCT_ATP_DATE_FILTER"));
+const standardInventoryRuleFilterOptions = computed(() => Object.fromEntries(Object.entries(inventoryRuleFilterOptions.value || {}).filter(([, condition]: [string, any]) => condition?.conditionTypeEnumId !== "ENTCT_ATP_DATE_FILTER")));
+function inventoryFilterProjection(options: Record<string, any> = inventoryRuleFilterOptions.value || {}) {
+  const standard: Record<string, any> = {};
+  const calendar: Record<string, any> = {};
+  Object.entries(options).forEach(([key, condition]) => {
+    if ((condition as any)?.conditionTypeEnumId === "ENTCT_ATP_DATE_FILTER") calendar[key] = cloneSnapshotValue(condition);
+    else standard[key] = cloneSnapshotValue(condition);
+  });
+  return { ENTCT_FILTER: standard, ENTCT_ATP_DATE_FILTER: calendar };
+}
 const isRouteNameUpdating = ref(false)
 const routeName = ref("")
 const routeNameRef = ref()
@@ -1060,7 +1120,7 @@ const selectedRoutingRule = computed(() => activeRule.value || {})
 const getRuleStatus = computed(() => (ruleId: string) => rulesForReorder.value.find((rule: Rule) => ruleKey(rule) === ruleId)?.statusId)
 
 function isInventoryRuleFiltersApplied() {
-  const ruleFilters = Object.keys(inventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"]?.code);
+  const ruleFilters = Object.keys(standardInventoryRuleFilterOptions.value).filter((rule: string) => rule !== conditionFilterEnums["SPLIT_ITEM_GROUP"]?.code);
   return ruleFilters.length
 }
 
@@ -1528,7 +1588,7 @@ function currentRuleProjection(ruleKeyValue: string) {
     return {
       ...cloneSnapshotValue(activeRule.value),
       inventoryFilters: {
-        ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+        ...inventoryFilterProjection(),
         ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
       },
       actions: cloneSnapshotValue(inventoryRuleActions.value)
@@ -2185,7 +2245,7 @@ function isRuleDirty(rule: any) {
     ? {
         ...cloneSnapshotValue(activeRule.value),
         inventoryFilters: {
-          ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+          ...inventoryFilterProjection(),
           ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
         },
         actions: cloneSnapshotValue(inventoryRuleActions.value)
@@ -2225,7 +2285,7 @@ function currentOrderConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_S
 
 function currentRuleConditionMap(conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY") {
   return conditionTypeEnumId === "ENTCT_FILTER"
-    ? inventoryRuleFilterOptions.value
+    ? standardInventoryRuleFilterOptions.value
     : inventoryRuleSortOptions.value;
 }
 
@@ -2396,6 +2456,7 @@ function normalizeLiveDraftRuleIds() {
       const nextProjection = cloneSnapshotValue(projection);
       nextProjection.routingRuleId = routingRuleId;
       Object.values(nextProjection.inventoryFilters?.ENTCT_FILTER || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
+      Object.values(nextProjection.inventoryFilters?.ENTCT_ATP_DATE_FILTER || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
       Object.values(nextProjection.inventoryFilters?.ENTCT_SORT_BY || {}).forEach((filter: any) => { filter.routingRuleId = routingRuleId; });
       Object.values(nextProjection.actions || {}).forEach((action: any) => { action.routingRuleId = routingRuleId; });
       rulesInformation.value[routingRuleId] = nextProjection;
@@ -2500,7 +2561,10 @@ async function initializeFromWorking() {
 
 function initializeInventoryRule(rule: any) {
   const projection = projectRuleForEditor(rule);
-  inventoryRuleFilterOptions.value = cloneSnapshotValue(projection.inventoryFilters.ENTCT_FILTER || {});
+  inventoryRuleFilterOptions.value = cloneSnapshotValue({
+    ...(projection.inventoryFilters.ENTCT_FILTER || {}),
+    ...(projection.inventoryFilters.ENTCT_ATP_DATE_FILTER || {})
+  });
   inventoryRuleSortOptions.value = cloneSnapshotValue(projection.inventoryFilters.ENTCT_SORT_BY || {});
   inventoryRuleActions.value = cloneSnapshotValue(projection.actions || {});
 
@@ -3035,6 +3099,44 @@ function doConditionSortReorder(event: CustomEvent) {
   isReordering.value = false
 }
 
+async function openCalendarConditionModal(existingCondition?: any) {
+  if (!ruleKey(activeRule.value)) {
+    commonUtil.showToast(translate("Please select a rule first"));
+    return;
+  }
+  const modal = await modalController.create({
+    component: ProductCalendarConditionModal,
+    componentProps: { condition: existingCondition ? cloneSnapshotValue(existingCondition) : undefined }
+  });
+  modal.onDidDismiss().then((result: any) => {
+    if (result.role !== "save" || !result.data?.condition) return;
+    const condition = result.data.condition;
+    const filters = { ...inventoryRuleFilterOptions.value };
+    if (existingCondition?.fieldName && existingCondition.fieldName !== condition.fieldName) delete filters[existingCondition.fieldName];
+    const sequenceNumbers = Object.values(filters).map((item: any) => Number(item?.sequenceNum)).filter((value) => Number.isFinite(value));
+    filters[condition.fieldName] = {
+      ...(filters[condition.fieldName] || {}),
+      routingRuleId: activeRule.value.routingRuleId || activeRule.value._tempId,
+      conditionTypeEnumId: "ENTCT_ATP_DATE_FILTER",
+      fieldName: condition.fieldName,
+      operator: condition.operator,
+      fieldValue: String(condition.fieldValue),
+      sequenceNum: filters[condition.fieldName]?.sequenceNum ?? (sequenceNumbers.length ? Math.max(...sequenceNumbers) + 5 : 0),
+      createdDate: filters[condition.fieldName]?.createdDate || DateTime.now().toMillis()
+    };
+    inventoryRuleFilterOptions.value = filters;
+    hasUnsavedChanges.value = true;
+  });
+  await modal.present();
+}
+
+function removeCalendarCondition(fieldName: string) {
+  const filters = { ...inventoryRuleFilterOptions.value };
+  delete filters[fieldName];
+  inventoryRuleFilterOptions.value = filters;
+  hasUnsavedChanges.value = true;
+}
+
 async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnumId: string, label = "") {
   if (!ruleKey(activeRule.value)) {
     commonUtil.showToast(translate("Please select a rule first"));
@@ -3201,7 +3303,7 @@ function syncActiveRuleDraft() {
   const projection = {
     ...cloneSnapshotValue(activeRule.value),
     inventoryFilters: {
-      ENTCT_FILTER: cloneSnapshotValue(inventoryRuleFilterOptions.value),
+      ...inventoryFilterProjection(),
       ENTCT_SORT_BY: cloneSnapshotValue(inventoryRuleSortOptions.value)
     },
     actions: cloneSnapshotValue(inventoryRuleActions.value)
@@ -3232,7 +3334,10 @@ function syncCachedRuleDrafts() {
     const projectedFilters = projection.inventoryFilters || {};
     return serializeRuleWorkingCopy(
       { ...rawRule, ...projection },
-      projectedFilters.ENTCT_FILTER || {},
+      {
+        ...(projectedFilters.ENTCT_FILTER || {}),
+        ...(projectedFilters.ENTCT_ATP_DATE_FILTER || {})
+      },
       projectedFilters.ENTCT_SORT_BY || {},
       projection.actions || {}
     );

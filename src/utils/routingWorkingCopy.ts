@@ -232,6 +232,7 @@ export function projectRuleForEditor(rule: any) {
     ? projection.inventoryFilters
     : [
         ...Object.values(projection.inventoryFilters?.ENTCT_FILTER || {}),
+        ...Object.values(projection.inventoryFilters?.ENTCT_ATP_DATE_FILTER || {}),
         ...Object.values(projection.inventoryFilters?.ENTCT_SORT_BY || {})
       ];
   const actions = Array.isArray(projection.actions)

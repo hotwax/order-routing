@@ -202,6 +202,23 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
+    path: "/product-calendar",
+    name: "Product calendar",
+    component: () => import("@/views/ProductStoreProductCalendar.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Product calendar",
+      icon: calendarOutline,
+      section: "sourcing",
+      menuIndex: 8,
+      childRoutes: []
+    }
+  },
+  {
+    path: "/inventory-policies",
+    redirect: "/product-calendar"
+  },
+  {
     path: "/inventory/:productId",
     name: "Inventory detail",
     component: () => import("@/views/InventoryDetail.vue"),

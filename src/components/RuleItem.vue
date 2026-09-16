@@ -58,6 +58,19 @@
             </ion-item>
           </template>
 
+          <template v-if="calendarDateConditions.length">
+            <ion-item-divider color="light">
+              <ion-label>{{ translate("Product calendar") }}</ion-label>
+            </ion-item-divider>
+            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || condition.fieldName" lines="full">
+              <ion-icon slot="start" :icon="pulseOutline" />
+              <ion-label class="ion-text-wrap">
+                {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
+                <p>{{ calendarOperatorLabels[condition.operator] || condition.operator }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+              </ion-label>
+            </ion-item>
+          </template>
+
           <template v-if="areProductFiltersSelected()">
             <ion-item-divider color="light" v-if="isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'contains') || isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'not-contains')">
               <ion-label>{{ translate("Product tags") }}</ion-label>
@@ -140,6 +153,25 @@ const configFacilities = computed(() => productStore.getConfigFacilities)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
 const isReorderActive = computed(() => ruleStore.isReorderActive);
 const selectedSegment = computed(() => productStore.getSelectedSegment)
+const calendarFieldLabels: Record<string, string> = {
+  introductionDate: "Introduction date",
+  releaseDate: "Launch date",
+  supportDiscontinuationDate: "Support discontinuation date",
+  salesDiscontinuationDate: "Sales discontinuation date"
+};
+const calendarOperatorLabels: Record<string, string> = {
+  "days-since-less-than": "Days since <",
+  "days-since-less-than-equal-to": "Days since ≤",
+  "days-since-greater-than": "Days since >",
+  "days-since-greater-than-equal-to": "Days since ≥",
+  "days-since-equals": "Days since =",
+  "days-till-less-than": "Days till <",
+  "days-till-less-than-equal-to": "Days till ≤",
+  "days-till-greater-than": "Days till >",
+  "days-till-greater-than-equal-to": "Days till ≥",
+  "days-till-equals": "Days till ="
+};
+const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_DATE_FILTER"));
 
 const selectedPage = ref({
   path: '',

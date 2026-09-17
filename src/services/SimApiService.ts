@@ -30,17 +30,19 @@ export async function simApi(config: SimRequestConfig): Promise<any> {
   if (!relativeUrl || isAbsoluteUrl || relativeUrl.startsWith("/") || resolvedUrl.origin !== expectedBase.origin || !resolvedUrl.pathname.startsWith(expectedBase.pathname)) {
     throw new Error("Simulation requests must use a path relative to the configured simulation REST root.");
   }
-  const token = commonUtil.getToken();
-  if (!token) throw new Error("Simulation requires an authenticated OMS session.");
+  const simApiKey = localStorage.getItem("sim_api_key");
+  const reqHeaders: Record<string, string> = {
+    ...(config.headers || {}),
+    "Content-Type": "application/json",
+  };
+  if (simApiKey && !config.url?.includes("api-key")) {
+    reqHeaders["api_key"] = simApiKey;
+  }
 
   return client({
     ...config,
     baseURL,
-    headers: {
-      ...(config.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: reqHeaders,
   });
 }
 

@@ -38,9 +38,23 @@ describe("Inventory product selection", () => {
     vi.doMock("@/components/ProductInventoryEdit.vue", () => ({
       default: defineComponent({ name: "ProductInventoryEdit", template: "<div />" }),
     }));
+    // Mocked so the real module (and its @common useSolrSearch import) never loads in tests.
+    vi.doMock("@/composables/useProductSearch", () => ({
+      useProductSearch: () => ({
+        fetchProductSummaries: vi.fn(() => Promise.resolve({})),
+        fetchVariants: vi.fn(() => Promise.resolve({ variants: [], total: 0 })),
+        searchStyles: vi.fn(() => Promise.resolve({ styles: [], total: 0 })),
+      }),
+    }));
+    vi.doMock("@/components/ProductSearchModal.vue", () => ({
+      default: defineComponent({ name: "ProductSearchModal", template: "<div />" }),
+    }));
     vi.doMock("@/composables/useProductFacility", () => ({
       useProductFacility: () => ({
+        clearProductFacility: vi.fn(() => { products.value = []; }),
         fetchProductFacility: vi.fn(() => Promise.resolve(products.value.length)),
+        // The list is entity-first now: rows come back as an array with a separate total.
+        fetchProductFacilityRows: vi.fn(() => Promise.resolve({ rows: products.value, total: products.value.length })),
         productFacility: products,
       }),
     }));

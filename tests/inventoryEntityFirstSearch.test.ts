@@ -299,6 +299,20 @@ describe("Inventory entity-first search", () => {
     expect(lastParams()).toMatchObject({ productId: "10001,10002", productId_op: "in" });
   });
 
+  it("reopens the product selector from the active filter chip", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001", "10002"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+    await wrapper.find('[data-testid="product-filter-chip"]').trigger("click");
+    await flush();
+
+    expect(lastModalProps).toMatchObject({ selectedProductIds: ["10001", "10002"] });
+  });
+
   it("sorts by any view alias, including inventory levels", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);

@@ -16,7 +16,10 @@ export interface ProductSummary {
   productId: string;
   productName?: string;
   parentProductName?: string;
+  title?: string;
+  internalName?: string;
   sku?: string;
+  goodIdentifications?: any[];
   mainImageUrl?: string;
   groupId?: string;
   productFeatures?: string[];
@@ -30,7 +33,10 @@ function toSummary(doc: any): ProductSummary {
     productId: doc.productId,
     productName: doc.productName,
     parentProductName: doc.parentProductName,
+    title: doc.title,
+    internalName: doc.internalName,
     sku: doc.sku,
+    goodIdentifications: doc.goodIdentifications,
     mainImageUrl: doc.mainImageUrl,
     groupId: doc.groupId,
     productFeatures: doc.productFeatures

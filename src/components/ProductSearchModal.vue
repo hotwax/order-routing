@@ -28,7 +28,14 @@
     <!-- Style picker -->
     <template v-if="!selectedStyle">
       <ion-list v-if="styles.length" lines="full">
-        <ion-item v-for="style in styles" :key="style.productId" button :detail="true" @click="openStyle(style)">
+        <ion-item
+          v-for="style in styles"
+          :key="style.productId"
+          button
+          :detail="true"
+          :class="{ 'style-selected': selectedCountForStyle(style) > 0 }"
+          @click="openStyle(style)"
+        >
           <ion-thumbnail slot="start">
             <DxpShopifyImg :src="style.mainImageUrl" />
           </ion-thumbnail>
@@ -36,6 +43,9 @@
             {{ style.productName || style.productId }}
             <p>{{ style.sku || style.productId }}</p>
           </ion-label>
+          <span v-if="selectedCountForStyle(style)" class="selection-badge">
+            {{ selectedCountForStyle(style) }} {{ translate("selected") }}
+          </span>
         </ion-item>
       </ion-list>
       <div v-else-if="isLoading" class="modal-state">
@@ -66,6 +76,7 @@
           :key="variant.productId"
           button
           :detail="false"
+          :class="{ 'variant-selected': isVariantSelected(variant.productId) }"
           @click="toggleVariant(variant.productId)"
         >
           <ion-checkbox
@@ -90,6 +101,29 @@
       </p>
     </template>
   </ion-content>
+
+  <div v-if="selectedProductIds.length" class="selection-summary" data-testid="selected-products-summary">
+    <div class="selection-summary-heading">
+      <div>
+        <strong>{{ selectedProductIds.length }} {{ translate(selectedProductIds.length === 1 ? "product selected" : "products selected") }}</strong>
+        <p>{{ translate("Your selection stays active while you browse styles and variants.") }}</p>
+      </div>
+      <ion-button fill="clear" size="small" data-testid="clear-selected-products" @click="clearSelectedProducts">
+        {{ translate("Clear all") }}
+      </ion-button>
+    </div>
+    <div v-if="selectedProducts.length" class="selection-summary-products">
+      <div v-for="product in selectedProducts.slice(0, 3)" :key="product.productId" class="selection-summary-product">
+        <ion-thumbnail>
+          <DxpShopifyImg :src="product.mainImageUrl" />
+        </ion-thumbnail>
+        <span>{{ product.productName || product.sku || product.productId }}</span>
+      </div>
+      <span v-if="selectedProductIds.length > 3" class="selection-summary-more">
+        +{{ selectedProductIds.length - 3 }} {{ translate("more") }}
+      </span>
+    </div>
+  </div>
 
   <ion-footer>
     <ion-toolbar>
@@ -122,18 +156,38 @@ import { type ProductSummary, useProductSearch } from "@/composables/useProductS
 
 const props = defineProps<{ selectedProductIds?: string[] }>();
 
-const { fetchVariants, searchStyles } = useProductSearch();
+const { fetchProductSummaries, fetchVariants, searchStyles } = useProductSearch();
 
 const keyword = ref("");
 const styles = ref<ProductSummary[]>([]);
 const variants = ref<ProductSummary[]>([]);
 const selectedStyle = ref<ProductSummary | null>(null);
 const selectedProductIds = ref<string[]>([...(props.selectedProductIds || [])]);
+const selectedProductSummaries = ref<Record<string, ProductSummary>>({});
 const isLoading = ref(false);
 // Guards against an earlier slow response overwriting a newer one, same pattern as the inventory list.
 let requestId = 0;
 
-onMounted(() => loadStyles());
+const selectedProducts = computed(() => selectedProductIds.value
+  .map((productId) => selectedProductSummaries.value[productId])
+  .filter(Boolean));
+
+onMounted(() => {
+  loadStyles();
+  loadSelectedProductSummaries();
+});
+
+async function loadSelectedProductSummaries() {
+  if(!selectedProductIds.value.length) {return;}
+  const summaries = await fetchProductSummaries(selectedProductIds.value);
+  selectedProductSummaries.value = summaries || {};
+}
+
+function rememberProductSummaries(productsToRemember: ProductSummary[]) {
+  productsToRemember.forEach((product) => {
+    selectedProductSummaries.value[product.productId] = product;
+  });
+}
 
 async function loadStyles() {
   const currentRequest = ++requestId;
@@ -157,6 +211,7 @@ async function openStyle(style: ProductSummary) {
   const result = await fetchVariants(style.productId);
   if(currentRequest !== requestId) {return;}
   variants.value = result.variants;
+  rememberProductSummaries(result.variants);
   isLoading.value = false;
 }
 
@@ -177,14 +232,24 @@ function toggleVariant(productId: string) {
     : [...selectedProductIds.value, productId];
 }
 
+function selectedCountForStyle(style: ProductSummary) {
+  return selectedProducts.value.filter((product) => product.groupId === style.productId).length;
+}
+
 const allVariantsSelected = computed(() => variants.value.length > 0 &&
   variants.value.every((variant: ProductSummary) => isVariantSelected(variant.productId)));
 
 function toggleAllVariants() {
   const variantIds = variants.value.map((variant: ProductSummary) => variant.productId);
+  rememberProductSummaries(variants.value);
   selectedProductIds.value = allVariantsSelected.value
     ? selectedProductIds.value.filter((id: string) => !variantIds.includes(id))
     : [...new Set([...selectedProductIds.value, ...variantIds])];
+}
+
+function clearSelectedProducts() {
+  selectedProductIds.value = [];
+  selectedProductSummaries.value = {};
 }
 
 function applyFilter() {
@@ -205,5 +270,72 @@ function closeModal() {
   display: flex;
   justify-content: center;
   padding: var(--spacer-lg);
+}
+
+.selection-summary {
+  border-top: 1px solid var(--ion-color-light-shade);
+  background: var(--ion-color-light, #f4f5f8);
+  padding: var(--spacer-sm, 12px) var(--spacer-base, 16px);
+}
+
+.selection-summary-heading,
+.selection-summary-products {
+  display: flex;
+  align-items: center;
+  gap: var(--spacer-sm, 12px);
+}
+
+.selection-summary-heading {
+  justify-content: space-between;
+}
+
+.selection-summary-heading strong {
+  display: block;
+}
+
+.selection-summary-heading p {
+  margin: 4px 0 0;
+  color: var(--ion-color-medium-shade);
+  font-size: 12px;
+}
+
+.selection-summary-products {
+  margin-top: var(--spacer-sm, 12px);
+  overflow: hidden;
+}
+
+.selection-summary-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.selection-summary-product span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.selection-summary-product ion-thumbnail {
+  --size: 32px;
+  flex: 0 0 auto;
+}
+
+.selection-summary-more,
+.selection-badge {
+  color: var(--ion-color-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.style-selected {
+  --background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+.variant-selected {
+  --background: rgba(var(--ion-color-primary-rgb), 0.08);
 }
 </style>

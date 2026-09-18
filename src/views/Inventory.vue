@@ -77,9 +77,12 @@
               <ion-icon slot="start" :icon="searchOutline" />
               {{ translate("Search products") }}
             </ion-button>
-            <ion-chip v-if="productIdFilter.length" outline data-testid="product-filter-chip" @click="clearProductFilter">
-              <ion-label>{{ translate("{count} products selected", { count: productIdFilter.length }) }}</ion-label>
-              <ion-icon :icon="closeCircleOutline" />
+            <ion-chip v-if="productIdFilter.length" outline data-testid="product-filter-chip" @click="openProductSearchModal">
+              <ion-label class="product-filter-chip-copy">
+                <strong>{{ translate("{count} products selected", { count: productIdFilter.length }) }}</strong>
+                <p>{{ translate("Edit selection") }}</p>
+              </ion-label>
+              <ion-icon data-testid="clear-product-filter" :icon="closeCircleOutline" @click.stop="clearProductFilter" />
             </ion-chip>
           </div>
         </ion-card-content>
@@ -997,6 +1000,19 @@ ion-content {
    pill and turns into a rounded rectangle, so let the chip keep its own 32px. */
 .filter-controls ion-chip {
   align-self: center;
+}
+
+.product-filter-chip-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.product-filter-chip-copy p {
+  margin: 3px 0 0;
+  color: var(--ion-color-medium-shade);
+  font-size: 11px;
 }
 
 .pagination {

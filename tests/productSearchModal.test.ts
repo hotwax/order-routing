@@ -10,6 +10,7 @@ describe("ProductSearchModal", () => {
   const dismiss = vi.fn();
   let searchStyles: ReturnType<typeof vi.fn>;
   let fetchVariants: ReturnType<typeof vi.fn>;
+  let fetchProductSummaries: ReturnType<typeof vi.fn>;
 
   const STYLE = { productId: "10000", productName: "Abominable Hoodie", sku: "V_abominable-hoodie" };
   const VARIANTS = [
@@ -29,13 +30,16 @@ describe("ProductSearchModal", () => {
     dismiss.mockReset();
     searchStyles = vi.fn(() => Promise.resolve({ styles: [STYLE], total: 1 }));
     fetchVariants = vi.fn(() => Promise.resolve({ variants: VARIANTS, total: VARIANTS.length }));
+    fetchProductSummaries = vi.fn(() => Promise.resolve({
+      "10002": { productId: "10002", productName: "XS / Green", sku: "MH09-XS-Green", groupId: "10000" }
+    }));
 
     vi.doMock("@common", () => ({
       DxpShopifyImg: defineComponent({ name: "DxpShopifyImg", template: "<img />" }),
       translate: (label: string, params?: any) => (params ? `${label}:${JSON.stringify(params)}` : label),
     }));
     vi.doMock("@/composables/useProductSearch", () => ({
-      useProductSearch: () => ({ searchStyles, fetchVariants, fetchProductSummaries: vi.fn() }),
+      useProductSearch: () => ({ searchStyles, fetchVariants, fetchProductSummaries }),
     }));
     vi.doMock("@ionic/vue", () => ({
       IonButton: defineComponent({ name: "IonButton", props: ["disabled"], template: "<button><slot /></button>" }),
@@ -123,6 +127,14 @@ describe("ProductSearchModal", () => {
     await applyButton(wrapper).trigger("click");
 
     expect(dismiss).toHaveBeenCalledWith({ productIds: ["10002"] });
+  });
+
+  it("shows a named summary for products already selected", async () => {
+    const wrapper = await mountModal({ selectedProductIds: ["10002"] });
+
+    expect(fetchProductSummaries).toHaveBeenCalledWith(["10002"]);
+    expect(wrapper.find('[data-testid="selected-products-summary"]').text()).toContain("XS / Green");
+    expect(wrapper.find('[data-testid="selected-products-summary"]').text()).toContain("1 product selected");
   });
 
   it("clearing the filter dismisses with an empty selection rather than no data", async () => {

@@ -1017,6 +1017,14 @@ ion-content {
   min-width: 0;
 }
 
+.filter-controls ion-select {
+  --border-color: var(--ion-color-medium);
+}
+
+.filter-controls ion-select:not(.ion-focused):not(.select-expanded):hover {
+  --border-color: var(--ion-color-medium) !important;
+}
+
 
 .pagination {
   display: flex;

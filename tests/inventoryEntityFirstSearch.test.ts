@@ -59,7 +59,7 @@ describe("Inventory entity-first search", () => {
       return Promise.resolve({ rows: ROWS, total: 1738 });
     });
     fetchProductSummaries = vi.fn(() => Promise.resolve({
-      "10001": { productId: "10001", productName: "XS / Blue", sku: "MH09-XS-Blue", SKU: "MH09-XS-Blue" },
+      "10001": { productId: "10001", productName: "XS / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", sku: "MH09-XS-Blue", SKU: "MH09-XS-Blue" },
     }));
 
     vi.doMock("@common", () => ({
@@ -315,7 +315,7 @@ describe("Inventory entity-first search", () => {
     expect(lastModalProps).toMatchObject({ selectedProductIds: ["10001", "10002"] });
   });
 
-  it("shows selected product identifiers in the inventory filter card", async () => {
+  it("shows selected parent products in the inventory filter card", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
     await selectFacility(wrapper, "BROOKLYN");
@@ -326,9 +326,16 @@ describe("Inventory entity-first search", () => {
 
     const summary = wrapper.find('[data-testid="product-filter-summary"]');
     expect(summary.exists()).toBe(true);
-    expect(summary.text()).toContain("10001");
+    expect(summary.text()).toContain("Abominable Hoodie");
+    expect(summary.text()).not.toContain("MH09-XS-Blue");
     expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
     expect(wrapper.find('[data-testid="edit-product-filter"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="clear-product-filter"]').exists()).toBe(true);
+
+    await wrapper.find('[data-testid="clear-product-filter"]').trigger("click");
+    await flush();
+    expect(lastParams().productId).toBeUndefined();
+    expect(wrapper.find('[data-testid="product-filter-summary"]').exists()).toBe(false);
   });
 
   it("uses outline styling for every inventory dropdown", async () => {

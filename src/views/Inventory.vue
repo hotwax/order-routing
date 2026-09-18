@@ -25,7 +25,7 @@
                 <p>{{ selectedFacilityName || translate("Select facility") }}</p>
               </ion-label>
             </ion-item>
-            <ion-item v-else lines="none">
+            <div v-else class="filter-item">
               <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" fill="outline" interface="popover">
                 <ion-select-option
                   v-for="channel in inventoryChannels"
@@ -35,7 +35,7 @@
                   {{ channelOptionLabel(channel) }}
                 </ion-select-option>
               </ion-select>
-            </ion-item>
+            </div>
             <ion-item lines="none" button detail data-testid="open-product-search" @click="openProductSearchModal">
               <ion-label>
                 {{ translate("Product") }}
@@ -45,7 +45,7 @@
             </ion-item>
           </div>
           <div class="filter-controls">
-            <ion-item lines="none">
+            <div class="filter-item">
               <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
                 <ion-select-option value="">
                   {{ translate("Any") }}
@@ -57,8 +57,8 @@
                   {{ translate("No") }}
                 </ion-select-option>
               </ion-select>
-            </ion-item>
-            <ion-item lines="none">
+            </div>
+            <div class="filter-item">
               <ion-select v-model="configFilters.allowPickup" :label="translate('Allow Pickup')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
                 <ion-select-option value="">
                   {{ translate("Any") }}
@@ -70,22 +70,32 @@
                   {{ translate("No") }}
                 </ion-select-option>
               </ion-select>
-            </ion-item>
-            <ion-item lines="none">
+            </div>
+            <div class="filter-item">
               <ion-select :value="sortField" :label="translate('Sort by')" fill="outline" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
                 <ion-select-option v-for="option in sortOptions" :key="option.value" :value="option.value">
                   {{ translate(option.label) }}
                 </ion-select-option>
               </ion-select>
-            </ion-item>
+            </div>
           </div>
           <ion-list v-if="productIdFilter.length" lines="full" class="product-filter-summary" data-testid="product-filter-summary">
             <ion-item v-for="group in selectedProductFilterGroups" :key="group.groupId" data-testid="product-filter-parent">
               <ion-label>
                 {{ group.productName }}
-                <p>{{ group.primaryIdentifier }}</p>
               </ion-label>
               <ion-note slot="end">{{ group.selectedCount }} {{ translate("variants selected") }}</ion-note>
+              <ion-button
+                slot="end"
+                fill="clear"
+                class="clear-filter-btn"
+                data-testid="clear-product-filter"
+                :aria-label="translate('Clear product filter')"
+                :title="translate('Clear')"
+                @click.stop="clearProductGroup(group.productIds)"
+              >
+                <ion-icon slot="icon-only" :icon="closeCircleOutline" />
+              </ion-button>
             </ion-item>
           </ion-list>
         </ion-card-content>
@@ -281,7 +291,7 @@
 <script setup lang="ts">
 import { DxpShopifyImg, emitter, translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
-import { caretBackOutline, caretForwardOutline } from "ionicons/icons";
+import { caretBackOutline, caretForwardOutline, closeCircleOutline } from "ionicons/icons";
 import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
@@ -389,9 +399,11 @@ const selectedProductFilterGroups = computed(() => {
       groupId,
       productName: product.parentProductName || product.productName || product.productId,
       primaryIdentifier: getPrimaryIdentifier(productIdentificationPref.value, product),
-      selectedCount: 0
+      selectedCount: 0,
+      productIds: []
     };
     group.selectedCount += 1;
+    group.productIds.push(product.productId);
     groups.set(groupId, group);
   });
   return Array.from(groups.values());
@@ -812,6 +824,15 @@ async function openProductSearchModal() {
   return modal.present();
 }
 
+async function clearProductGroup(productIds: string[]) {
+  const productIdSet = new Set(productIds);
+  productIdFilter.value = productIdFilter.value.filter((productId) => !productIdSet.has(productId));
+  pageIndex.value = 0;
+  selectedProductIds.value = [];
+  syncInventoryQuery();
+  await fetchProductFacility({ scopeChanged: true });
+}
+
 async function updateSortField(event: CustomEvent) {
   const nextSort = event.detail.value as string | undefined;
   if(!nextSort || nextSort === sortField.value) {return;}
@@ -997,8 +1018,8 @@ ion-content {
 }
 
 .filter-card-content {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacer-xs);
 }
 
@@ -1007,24 +1028,53 @@ ion-content {
 }
 
 .filter-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--spacer-xs);
 }
 
-.filter-controls ion-item {
-  flex: 1 1 220px;
+.filter-card-content > .filter-controls:first-child {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.filter-controls > ion-item,
+.filter-controls > .filter-item {
+  width: 100%;
   min-width: 0;
 }
 
-.filter-controls ion-select {
-  --border-color: var(--ion-color-medium);
+.filter-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
-.filter-controls ion-select:not(.ion-focused):not(.select-expanded):hover {
-  --border-color: var(--ion-color-medium) !important;
+.filter-item ion-select {
+  flex: 1;
+  min-width: 0;
 }
 
+.product-filter-summary {
+  width: 100%;
+  max-width: 300px;
+  margin: 0;
+}
+
+.clear-filter-btn {
+  --padding-start: 6px;
+  --padding-end: 6px;
+  flex-shrink: 0;
+  margin-inline-start: 4px;
+  height: 36px;
+  width: 36px;
+}
+
+@media (max-width: 700px) {
+  .filter-controls,
+  .filter-card-content > .filter-controls:first-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 .pagination {
   display: flex;

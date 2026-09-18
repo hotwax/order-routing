@@ -77,13 +77,38 @@
               <ion-icon slot="start" :icon="searchOutline" />
               {{ translate("Search products") }}
             </ion-button>
-            <ion-chip v-if="productIdFilter.length" outline data-testid="product-filter-chip" @click="openProductSearchModal">
-              <ion-label class="product-filter-chip-copy">
+          </div>
+          <div v-if="productIdFilter.length" class="product-filter-summary" data-testid="product-filter-summary">
+            <div class="product-filter-summary-header">
+              <div>
+                <span class="product-filter-summary-eyebrow">{{ translate("Product filter") }}</span>
                 <strong>{{ translate("{count} products selected", { count: productIdFilter.length }) }}</strong>
-                <p>{{ translate("Edit selection") }}</p>
-              </ion-label>
-              <ion-icon data-testid="clear-product-filter" :icon="closeCircleOutline" @click.stop="clearProductFilter" />
-            </ion-chip>
+                <p>{{ translate("These products are pinned to this inventory search.") }}</p>
+              </div>
+              <div class="product-filter-summary-actions">
+                <ion-button fill="clear" size="small" data-testid="edit-product-filter" @click="openProductSearchModal">
+                  {{ translate("Edit") }}
+                </ion-button>
+                <ion-button fill="clear" size="small" data-testid="clear-product-filter" @click="clearProductFilter">
+                  <ion-icon slot="icon-only" :icon="closeCircleOutline" />
+                </ion-button>
+              </div>
+            </div>
+            <div v-if="selectedProductFilterProducts.length" class="product-filter-summary-products">
+              <div v-for="product in selectedProductFilterProducts.slice(0, 3)" :key="product.productId" class="product-filter-summary-product">
+                <ion-thumbnail>
+                  <DxpShopifyImg :src="product.mainImageUrl" />
+                </ion-thumbnail>
+                <div>
+                  <strong>{{ getPrimaryProductIdentifier(product) }}</strong>
+                  <p>{{ getSecondaryProductIdentifier(product) }}</p>
+                  <small>{{ product.productName || product.parentProductName || product.productId }}</small>
+                </div>
+              </div>
+              <span v-if="productIdFilter.length > 3" class="product-filter-summary-more">
+                +{{ productIdFilter.length - 3 }} {{ translate("more selected") }}
+              </span>
+            </div>
           </div>
         </ion-card-content>
       </ion-card>
@@ -277,7 +302,7 @@
 
 <script setup lang="ts">
 import { DxpShopifyImg, emitter, translate } from "@common";
-import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonChip, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
+import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
 import { caretBackOutline, caretForwardOutline, closeCircleOutline, searchOutline } from "ionicons/icons";
 import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
@@ -319,6 +344,7 @@ const searchMode = ref<"location" | "channel">("location");
 const productIdFilter = ref<string[]>([]);
 // Solr detail for the current page, keyed by productId. Rows still render without it (see getDisplayProduct).
 const productSummaries = ref<Record<string, any>>({});
+const selectedProductFilterSummaries = ref<Record<string, any>>({});
 // Any alias on the view is sortable; "-" prefix is Moqui's descending marker.
 // Operators open this page to find stock problems, so lead with the largest ATP rather than an
 // arbitrary id order.
@@ -375,6 +401,8 @@ const productById = computed(() => (productId: string) => productInfoStore().get
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
 const sortOptions = computed(() => searchMode.value === "channel" ? CHANNEL_SORT_OPTIONS : LOCATION_SORT_OPTIONS);
+const selectedProductFilterProducts = computed(() => productIdFilter.value
+  .map((productId: string) => ({ productId, ...(selectedProductFilterSummaries.value[productId] || {}) })));
 // Products the user picked in the search modal that this facility has no ProductFacility row for.
 // Only meaningful while a product filter is active: without one the list is simply everything stocked.
 const unstockedFilteredProducts = computed(() => {
@@ -704,8 +732,18 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
     const summaries = await fetchProductSummaries(productIds);
     if(requestId !== listRequestId) {return;}
     productSummaries.value = summaries;
+    const filterSummaries: Record<string, any> = {};
+    productIdFilter.value.forEach((productId: string) => {
+      if(summaries[productId]) {filterSummaries[productId] = summaries[productId];}
+    });
+    const missingFilterProductIds = productIdFilter.value.filter((productId: string) => !filterSummaries[productId]);
+    if(missingFilterProductIds.length) {
+      Object.assign(filterSummaries, await fetchProductSummaries(missingFilterProductIds));
+    }
+    selectedProductFilterSummaries.value = filterSummaries;
   } else {
     productSummaries.value = {};
+    selectedProductFilterSummaries.value = {};
   }
 
   // Online ATP comes from get#ProductOnlineAtp, so channel rows hydrate it in a separate batched call.
@@ -1002,17 +1040,96 @@ ion-content {
   align-self: center;
 }
 
-.product-filter-chip-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.15;
+.product-filter-summary {
+  border: 1px solid var(--ion-color-medium-tint);
+  border-radius: 12px;
+  background: var(--ion-color-light, #f4f5f8);
+  padding: var(--spacer-sm, 12px);
 }
 
-.product-filter-chip-copy p {
-  margin: 3px 0 0;
+.product-filter-summary-header,
+.product-filter-summary-products {
+  display: flex;
+  align-items: center;
+  gap: var(--spacer-sm, 12px);
+}
+
+.product-filter-summary-header {
+  justify-content: space-between;
+}
+
+.product-filter-summary-eyebrow {
+  display: block;
   color: var(--ion-color-medium-shade);
   font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-filter-summary-header strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.product-filter-summary-header p {
+  margin: 3px 0 0;
+  color: var(--ion-color-medium-shade);
+  font-size: 12px;
+}
+
+.product-filter-summary-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.product-filter-summary-products {
+  margin-top: var(--spacer-sm, 12px);
+  overflow: hidden;
+}
+
+.product-filter-summary-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.product-filter-summary-product ion-thumbnail {
+  --size: 40px;
+  flex: 0 0 auto;
+}
+
+.product-filter-summary-product > div {
+  min-width: 0;
+}
+
+.product-filter-summary-product strong,
+.product-filter-summary-product p,
+.product-filter-summary-product small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-filter-summary-product p,
+.product-filter-summary-product small {
+  margin: 2px 0 0;
+  color: var(--ion-color-medium-shade);
+  font-size: 11px;
+}
+
+.product-filter-summary-more {
+  color: var(--ion-color-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Keep the action controls from stretching the summary card to the full filter row height. */
+.product-filter-summary ion-button {
+  margin: 0;
 }
 
 .pagination {

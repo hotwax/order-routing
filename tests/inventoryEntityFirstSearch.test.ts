@@ -58,7 +58,7 @@ describe("Inventory entity-first search", () => {
       return Promise.resolve({ rows: ROWS, total: 1738 });
     });
     fetchProductSummaries = vi.fn(() => Promise.resolve({
-      "10001": { productId: "10001", productName: "XS / Blue", sku: "MH09-XS-Blue" },
+      "10001": { productId: "10001", productName: "XS / Blue", sku: "MH09-XS-Blue", SKU: "MH09-XS-Blue" },
     }));
 
     vi.doMock("@common", () => ({
@@ -299,7 +299,7 @@ describe("Inventory entity-first search", () => {
     expect(lastParams()).toMatchObject({ productId: "10001,10002", productId_op: "in" });
   });
 
-  it("reopens the product selector from the active filter chip", async () => {
+  it("reopens the product selector from the active filter card", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
     await selectFacility(wrapper, "BROOKLYN");
@@ -307,10 +307,26 @@ describe("Inventory entity-first search", () => {
     modalDismissData = { productIds: ["10001", "10002"] };
     await wrapper.find('[data-testid="open-product-search"]').trigger("click");
     await flush();
-    await wrapper.find('[data-testid="product-filter-chip"]').trigger("click");
+    await wrapper.find('[data-testid="edit-product-filter"]').trigger("click");
     await flush();
 
     expect(lastModalProps).toMatchObject({ selectedProductIds: ["10001", "10002"] });
+  });
+
+  it("shows selected product identifiers in the inventory filter card", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    const summary = wrapper.find('[data-testid="product-filter-summary"]');
+    expect(summary.exists()).toBe(true);
+    expect(summary.text()).toContain("products selected");
+    expect(summary.text()).toContain("10001");
+    expect(summary.text()).toContain("MH09-XS-Blue");
   });
 
   it("sorts by any view alias, including inventory levels", async () => {

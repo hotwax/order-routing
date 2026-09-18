@@ -27,10 +27,10 @@ describe("Inventory product selection", () => {
       translate: (label: string) => label,
     }));
     vi.doMock("../src/router", () => ({
-      default: { push: vi.fn() },
+      default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: { facilityId: "BROOKLYN" } } } },
     }));
     vi.doMock("../src/router/index", () => ({
-      default: { push: vi.fn() },
+      default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: { facilityId: "BROOKLYN" } } } },
     }));
     vi.doMock("@/components/ProductFacilityConfigEditModal.vue", () => ({
       default: defineComponent({ name: "ProductFacilityConfigEditModal", template: "<div />" }),
@@ -38,9 +38,23 @@ describe("Inventory product selection", () => {
     vi.doMock("@/components/ProductInventoryEdit.vue", () => ({
       default: defineComponent({ name: "ProductInventoryEdit", template: "<div />" }),
     }));
+    // Mocked so the real module (and its @common useSolrSearch import) never loads in tests.
+    vi.doMock("@/composables/useProductSearch", () => ({
+      useProductSearch: () => ({
+        fetchProductSummaries: vi.fn(() => Promise.resolve({})),
+        fetchVariants: vi.fn(() => Promise.resolve({ variants: [], total: 0 })),
+        searchStyles: vi.fn(() => Promise.resolve({ styles: [], total: 0 })),
+      }),
+    }));
+    vi.doMock("@/components/ProductSearchModal.vue", () => ({
+      default: defineComponent({ name: "ProductSearchModal", template: "<div />" }),
+    }));
     vi.doMock("@/composables/useProductFacility", () => ({
       useProductFacility: () => ({
+        clearProductFacility: vi.fn(() => { products.value = []; }),
         fetchProductFacility: vi.fn(() => Promise.resolve(products.value.length)),
+        // The list is entity-first now: rows come back as an array with a separate total.
+        fetchProductFacilityRows: vi.fn(() => Promise.resolve({ rows: products.value, total: products.value.length })),
         productFacility: products,
       }),
     }));
@@ -112,6 +126,9 @@ describe("Inventory product selection", () => {
   it("passes only currently checked products into the bulk inventory edit modal", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await nextTick();
 
     const selectButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Select");
     await selectButton?.trigger("click");

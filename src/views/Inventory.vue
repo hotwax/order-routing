@@ -284,7 +284,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
 import ProductInventoryEdit from "@/components/ProductInventoryEdit.vue";
-import MultiFacilitySwitcherModal from "@/components/MultiFacilitySwitcherModal.vue";
+import FacilitySelectModal from "@/components/FacilitySelectModal.vue";
 import ProductSearchModal from "@/components/ProductSearchModal.vue";
 import { fetchProductOnlineAtpMap, mergeOnlineAtpIntoRows } from "@/composables/useChannelInventory";
 import { useProductFacility } from "@/composables/useProductFacility";
@@ -761,7 +761,7 @@ async function hydrateChannelOnlineAtp(requestId: number, productIds: string[]) 
 // No productId here: this is the list, so the modal only needs the store's facility list.
 async function openFacilitySwitcher() {
   const modal = await modalController.create({
-    component: MultiFacilitySwitcherModal,
+    component: FacilitySelectModal,
     componentProps: {
       currentFacilityIds: selectedFacilityIds.value,
       facilities: productStoreFacilities.value

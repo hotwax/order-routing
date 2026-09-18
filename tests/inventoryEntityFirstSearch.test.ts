@@ -80,8 +80,8 @@ describe("Inventory entity-first search", () => {
     vi.doMock("@/components/ProductInventoryEdit.vue", () => ({
       default: defineComponent({ name: "ProductInventoryEdit", template: "<div />" }),
     }));
-    vi.doMock("@/components/MultiFacilitySwitcherModal.vue", () => ({
-      default: defineComponent({ name: "MultiFacilitySwitcherModal", template: "<div />" }),
+    vi.doMock("@/components/FacilitySelectModal.vue", () => ({
+      default: defineComponent({ name: "FacilitySelectModal", template: "<div />" }),
     }));
     vi.doMock("@/components/ProductSearchModal.vue", () => ({
       default: defineComponent({ name: "ProductSearchModal", template: "<div />" }),

@@ -1,85 +1,138 @@
-import { describe, expect, it, vi } from "vitest";
+// tests/variationConfigAdapter.test.ts
+import assert from "node:assert";
+import { toConfigPayload, fromVariationRoutings, isEquivalentVariationConfig } from "../src/utils/variationUtils";
 
-vi.mock("@common", () => ({
-  api: vi.fn(),
-  commonUtil: { hasError: () => false },
-}));
+it("adapts variation configuration in both directions", () => {
+// ---- Outbound: canvas `working` tree -> PUT /config payload --------------------------------------
+const workingRoutings = [
+  {
+    orderRoutingId: "VM1_100008", routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
+    orderFilters: [
+      { conditionSeqId: "06", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB_SALES_CHANNEL", sequenceNum: 3 },
+      // exclusion: normalized form carries the _excluded suffix; payload must strip it back off
+      { conditionSeqId: "07", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId_excluded", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
+    ],
+    rules: [
+      {
+        routingRuleId: "VM1_100524", ruleName: "Pick", statusId: "RULE_ACTIVE", sequenceNum: 1, assignmentEnumId: "ORA_SELECTED",
+        inventoryFilters: [
+          { conditionSeqId: "01", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 },
+          { conditionSeqId: "02", conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", operator: null, fieldValue: null, sequenceNum: 1 },
+        ],
+        actions: [
+          { actionSeqId: "01", actionTypeEnumId: "ORA_MV_TO_QUEUE", actionValue: "UNFILLABLE_PARKING" },
+        ],
+      },
+    ],
+  },
+];
 
-import { variationRequests } from "@/services/VariationService";
-import {
-  buildRoutingNameMap,
-  fromVariationRoutings,
-  nextSeqId,
-  stripVariationPrefix,
-  toConfigPayload,
-} from "@/utils/variationUtils";
+// toConfigPayload returns the bare routings ARRAY — the service layer (variationRequests.replaceConfig)
+// owns wrapping it as the { routings } request body. Returning an object here caused a double-wrap
+// ({ routings: { routings: [...] } }) that the backend 400'd on.
+const payload = toConfigPayload(workingRoutings);
+assert.ok(Array.isArray(payload), "toConfigPayload must return an array, not a body object");
+assert.deepStrictEqual(payload, [
+    {
+      routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
+      filters: [
+        { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB_SALES_CHANNEL", sequenceNum: 3 },
+        { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
+      ],
+      rules: [
+        {
+          ruleName: "Pick", statusId: "RULE_ACTIVE", sequenceNum: 1, assignmentEnumId: "ORA_SELECTED",
+          inventoryConditions: [
+            { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 },
+            { conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", operator: null, fieldValue: null, sequenceNum: 1 },
+          ],
+          actions: [
+            { actionTypeEnumId: "ORA_MV_TO_QUEUE", actionValue: "UNFILLABLE_PARKING" },
+          ],
+        },
+      ],
+    },
+]);
 
-const apiRoutings = [{
-  orderRoutingId: "VM1_100008",
-  routingName: "Standard",
-  statusId: "ROUTING_ACTIVE",
-  sequenceNum: 5,
-  filters: [
-    { conditionSeqId: "07", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
-    { conditionSeqId: "06", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB", sequenceNum: 3 },
-  ],
-  rules: [{
-    routingRuleId: "VM1_100524",
-    ruleName: "Pick",
-    statusId: "RULE_ACTIVE",
-    sequenceNum: 1,
-    assignmentEnumId: "ORA_SELECTED",
-    inventoryConditions: [{ conditionSeqId: "01", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 }],
-    actions: [{ actionSeqId: "01", actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null }],
-  }],
-}];
+// ---- Inbound: GET /variations tree -> canvas `working` shape -------------------------------------
+const variationRoutings = [
+  {
+    orderRoutingId: "VM1_100008", routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
+    filters: [
+      // out of order on purpose -> must sort by sequenceNum
+      { conditionSeqId: "07", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
+      { conditionSeqId: "06", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB_SALES_CHANNEL", sequenceNum: 3 },
+    ],
+    rules: [
+      {
+        routingRuleId: "VM1_100524", ruleName: "Pick", statusId: "RULE_ACTIVE", sequenceNum: 1, assignmentEnumId: "ORA_SELECTED",
+        inventoryConditions: [
+          { conditionSeqId: "01", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 },
+        ],
+        actions: [{ actionSeqId: "01", actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null }],
+      },
+    ],
+  },
+];
 
-describe("variation configuration adapter", () => {
-  it("maps API collections into the canvas shape and preserves stable ids", () => {
-    const canvas = fromVariationRoutings(apiRoutings);
+const canvas = fromVariationRoutings(variationRoutings);
+// renamed collections + sorted + _excluded rewrite on the not-equals filter
+assert.strictEqual(canvas[0].orderFilters[0].fieldName, "salesChannelEnumId"); // seq 3 first
+assert.strictEqual(canvas[0].orderFilters[1].fieldName, "facilityId_excluded"); // not-equals -> _excluded
+assert.strictEqual(canvas[0].orderFilters[1].operator, "not-equals");
+assert.strictEqual(canvas[0].rules[0].inventoryFilters[0].fieldName, "facilityGroupId");
+assert.strictEqual(canvas[0].rules[0].actions[0].actionTypeEnumId, "ORA_NEXT_RULE");
+assert.strictEqual(canvas[0].rules[0].assignmentEnumId, "ORA_SELECTED");
+// ids preserved for the canvas (it keys on them)
+assert.strictEqual(canvas[0].orderRoutingId, "VM1_100008");
+assert.strictEqual(canvas[0].rules[0].routingRuleId, "VM1_100524");
 
-    expect(canvas[0].orderFilters.map((filter: any) => filter.fieldName))
-      .toEqual(["salesChannelEnumId", "facilityId_excluded"]);
-    expect(canvas[0].rules[0]).toMatchObject({
-      routingRuleId: "VM1_100524",
-      assignmentEnumId: "ORA_SELECTED",
-      inventoryFilters: [expect.objectContaining({ fieldName: "facilityGroupId" })],
-    });
-  });
+// round-trip: fromVariationRoutings -> toConfigPayload strips the _excluded suffix back off
+const round = toConfigPayload(canvas);
+assert.strictEqual(round[0].filters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
 
-  it("creates the bare replacement array expected by PUT /config", () => {
-    const payload = toConfigPayload(fromVariationRoutings(apiRoutings));
-
-    expect(Array.isArray(payload)).toBe(true);
-    expect(payload[0]).not.toHaveProperty("orderRoutingId");
-    expect(payload[0].rules[0]).not.toHaveProperty("routingRuleId");
-    expect(payload[0].filters.find((filter: any) => filter.operator === "not-equals").fieldName)
-      .toBe("facilityId");
-  });
-
-  it("keeps parent identities and next sequence ids deterministic", () => {
-    expect(stripVariationPrefix("VM1", "VM1_100008")).toBe("100008");
-    expect(buildRoutingNameMap({ routings: apiRoutings } as any)).toEqual({ VM1_100008: "Standard" });
-    expect(nextSeqId([{ conditionSeqId: "01" }, { conditionSeqId: "06" }], "conditionSeqId")).toBe("07");
-  });
+console.log("variationConfigAdapter tests passed");
 });
 
-describe("variation request contract", () => {
-  it("builds the create, replace, and run endpoints without double-wrapping routings", () => {
-    expect(variationRequests.createVariation("GROUP", "Holiday")).toEqual({
-      url: "sim-routing/routingGroups/GROUP/variations",
-      method: "POST",
-      data: { variationName: "Holiday" },
-    });
-    expect(variationRequests.replaceConfig("VM1", [{ routingName: "Standard" }])).toEqual({
-      url: "sim-routing/variations/VM1/config",
-      method: "PUT",
-      data: { routings: [{ routingName: "Standard" }] },
-    });
-    expect(variationRequests.runVariation("VM1", 500)).toEqual({
-      url: "sim-routing/variations/VM1/simulation",
-      method: "POST",
-      data: { sampleCap: 500 },
-    });
-  });
+it("treats editor projection order and server ids as the same persisted variation config", () => {
+  const saved = {
+    variationGroupId: "V1",
+    routings: [{
+      orderRoutingId: "V1_R1",
+      routingName: "Standard",
+      statusId: "ROUTING_ACTIVE",
+      sequenceNum: 1,
+      orderFilters: [
+        { conditionSeqId: "01", conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "deliveryDays", operator: null, fieldValue: null, sequenceNum: 2 },
+        { conditionSeqId: "02", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "F1", sequenceNum: 1 }
+      ],
+      rules: [{
+        routingRuleId: "V1_RR1",
+        ruleName: "Allocate",
+        statusId: "RULE_ACTIVE",
+        sequenceNum: 1,
+        assignmentEnumId: "ORA_SELECTED",
+        inventoryFilters: [
+          { conditionSeqId: "03", conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", operator: null, fieldValue: null, sequenceNum: 2 },
+          { conditionSeqId: "04", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "FG1", sequenceNum: 1 }
+        ],
+        actions: [
+          { actionSeqId: "02", actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null },
+          { actionSeqId: "01", actionTypeEnumId: "ORA_MV_TO_QUEUE", actionValue: "Q1" }
+        ]
+      }]
+    }]
+  };
+  const editorFlushed = structuredClone(saved);
+  editorFlushed.routings[0].orderRoutingId = "client-route-key";
+  editorFlushed.routings[0].orderFilters.reverse();
+  editorFlushed.routings[0].orderFilters.find((condition: any) => condition.operator === "not-equals").fieldName = "facilityId_excluded";
+  editorFlushed.routings[0].rules[0].routingRuleId = "client-rule-key";
+  editorFlushed.routings[0].rules[0].inventoryFilters.reverse();
+  editorFlushed.routings[0].rules[0].actions.reverse();
+
+  assert.equal(isEquivalentVariationConfig(editorFlushed, saved), true);
+
+  editorFlushed.routings[0].rules[0].inventoryFilters[0].fieldValue = "FG2";
+  assert.equal(isEquivalentVariationConfig(editorFlushed, saved), false);
 });

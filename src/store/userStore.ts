@@ -12,6 +12,9 @@ import { isInstanceScopeStale } from '@/utils/omsInstance'
 import { useAtpProductStore } from './atpProductStore'
 import { useRuleStore } from './rule'
 import { useChannelStore } from './channel'
+import { useCircuitStore } from './circuit'
+import { simulationStore } from './simulationStore'
+import { useInventoryUpdatesStore } from './inventoryUpdates'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -20,6 +23,9 @@ export const useUserStore = defineStore('user', {
       oms: null as any,
       permissions: [] as any,
       timeZones: [] as any[],
+      // The app version this deployment is pinned to. undefined = not resolved yet, "" = no version
+      // configured, "vX.Y.Z" = pinned. Resolved from the OMS by useAuth().fetchAppVersion() on Login.
+      appVersion: undefined as string | undefined,
       pwaState: {
         updateExists: false as boolean,
         registration: null as any
@@ -32,6 +38,9 @@ export const useUserStore = defineStore('user', {
     },
     getOms(state) {
       return state.oms
+    },
+    getAppVersion(state) {
+      return state.appVersion
     },
     getUserPermissions (state) {
       return state.permissions;
@@ -74,9 +83,6 @@ export const useUserStore = defineStore('user', {
       const permissionId = import.meta.env.VITE_PERMISSION_ID;
       const serverPermissions = [] as any;
 
-      // TODO Make it configurable from the environment variables.
-      // Though this might not be an server specific configuration, 
-      // we will be adding it to environment variable for easy configuration at app level
       const viewSize = 200;
 
       let viewIndex = 0;
@@ -87,7 +93,6 @@ export const useUserStore = defineStore('user', {
           resp = await api({
             url: "admin/user/permissions",
             method: "get",
-            baseURL: commonUtil.getMaargURL(),
             params: { viewIndex, viewSize }
           }) as any
 
@@ -139,23 +144,26 @@ export const useUserStore = defineStore('user', {
         return Promise.reject(error)
       }
     },
-    async checkPermission(payload: any): Promise <any> {
-      return api({
-        url: "checkPermission",
-        method: "post",
-        baseURL: commonUtil.getOmsURL(),
-        ...payload
-      });
-    },
     async postLogin() {
       try {
         await this.fetchUserProfile()
         await this.setOms(cookieHelper().get("oms"))
+        const sessionChanged = orderRoutingStore().activateSessionContext([
+          commonUtil.getOMSInstanceName(),
+          this.current?.userId
+        ].map((value) => String(value || "").trim()).join("::"))
+        if (sessionChanged) {
+          // Circuit threads and simulation working copies can contain the same routing data. They
+          // must not survive an instance/user boundary either.
+          useCircuitStore().$reset()
+          simulationStore().$reset()
+        }
         await initialize()
         // Drop caches persisted while linked to a different OMS before refetching below,
         // so a fetch failure can't leave another instance's product stores selected.
         await this.ensureInstanceScope()
         await this.fetchPermissions()
+        await useUtilStore().fetchSystemInformation()
         await productStore().fetchProductStores()
         await this.fetchAvailableTimeZones()
         // ATP (sourcing rules) initialisation
@@ -183,8 +191,10 @@ export const useUserStore = defineStore('user', {
     async clearInstanceScopedState(): Promise<void> {
       this.current = null
       this.permissions = []
-      orderRoutingStore().clearRouting()
+      orderRoutingStore().clearSessionContext()
       orderRoutingStore().clearRoutingTestInfo()
+      useCircuitStore().$reset()
+      simulationStore().$reset()
       useUtilStore().clearUtilState()
       useProduct().clearProductState()
       productStore().$reset()
@@ -192,6 +202,7 @@ export const useUserStore = defineStore('user', {
       useAtpProductStore().$reset()
       useRuleStore().$reset()
       useChannelStore().$reset()
+      useInventoryUpdatesStore().$reset()
     },
     // Persisted Pinia state survives OMS instance switches that happen without an explicit
     // logout (launchpad switch, relogin to another instance), leaving product stores from
@@ -213,12 +224,12 @@ export const useUserStore = defineStore('user', {
           await this.fetchUserProfile()
           await this.fetchPermissions()
         } catch (error) {
-          logger.error("Failed to fetch user profile or permissions for the connected OMS", error)
+          logger.error("User Profile - Fetch failed for the connected OMS", error)
         }
         try {
           await ecom.fetchProductStores()
         } catch (error) {
-          logger.error("Failed to fetch product stores for the connected OMS", error)
+          logger.error("Product Store - Fetch failed for the connected OMS", error)
         }
         try {
           await atp.fetchUserProductStores()
@@ -227,7 +238,7 @@ export const useUserStore = defineStore('user', {
             atp.setCurrentProductStore(stores[0])
           }
         } catch (error) {
-          logger.error("Failed to fetch sourcing product stores for the connected OMS", error)
+          logger.error("Product Store [Type: sourcing] - Fetch failed for the connected OMS", error)
         }
       }
       return false

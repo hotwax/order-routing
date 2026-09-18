@@ -2,15 +2,20 @@
   <ion-content>
     <ion-list>
       <ion-list-header>{{ group.groupName }}</ion-list-header>
-      <ion-item button @click="runNow">
+      <ion-item v-if="actionsBlocked" lines="none">
+        <ion-label class="ion-text-wrap">
+          {{ translate(blockedActionMessage) }}
+        </ion-label>
+      </ion-item>
+      <ion-item button :disabled="actionsBlocked" @click="runNow">
         <ion-icon slot="start" :icon="flashOutline" />
         {{ translate("Run now") }}
       </ion-item>
-      <ion-item lines="none" button v-if="group.schedule?.paused === 'N'" @click="updateGroupStatus('Y')">
+      <ion-item lines="none" button :disabled="actionsBlocked" v-if="group.schedule?.paused === 'N'" @click="updateGroupStatus('Y')">
         <ion-icon slot="start" :icon="pauseOutline" />
         {{ translate("Move to Draft") }}
       </ion-item>
-      <ion-item lines="none" button v-else @click="updateGroupStatus('N')">
+      <ion-item lines="none" button :disabled="actionsBlocked" v-else @click="updateGroupStatus('N')">
         <ion-icon slot="start" :icon="playOutline" />
         {{ translate("Activate") }}
       </ion-item>
@@ -19,14 +24,29 @@
 </template>
 
 <script setup lang="ts">
-import { alertController, IonContent, IonIcon, IonItem, IonList, IonListHeader, popoverController } from "@ionic/vue";
+import { computed } from "vue";
+import { alertController, IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, popoverController } from "@ionic/vue";
 import { flashOutline, pauseOutline, playOutline } from 'ionicons/icons'
 import { logger, translate, commonUtil } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const props = defineProps(["group"])
 
+const actionsBlocked = computed(() => Boolean(props.group?.isNew || props.group?.hasUnsavedChanges))
+const blockedActionMessage = computed(() => props.group?.isNew
+  ? "Save this routing group before using quick actions."
+  : "Save or discard changes before using quick actions.")
+
+function guardGroupAction() {
+  if(!actionsBlocked.value) return false
+
+  commonUtil.showToast(translate(blockedActionMessage.value))
+  return true
+}
+
 async function updateGroupStatus(paused: string) {
+  if(guardGroupAction()) return
+
   let routingGroups = [];
   const payload = {
     routingGroupId: props.group.routingGroupId,
@@ -51,6 +71,8 @@ async function updateGroupStatus(paused: string) {
 }
 
 async function runNow() {
+  if(guardGroupAction()) return
+
   const scheduleAlert = await alertController
     .create({
       header: translate("Run now"),
@@ -63,6 +85,9 @@ async function runNow() {
         {
           text: translate("Run now"),
           handler: async () => {
+            // The group can become dirty while this confirmation is open.
+            if(guardGroupAction()) return false
+
             popoverController.dismiss()
 
             const job = props.group?.schedule || {}
@@ -82,6 +107,7 @@ async function runNow() {
                 // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
                 job.jobName = resp.data.jobName
               } catch(err) {
+                commonUtil.showToast(translate("Failed to schedule service"))
                 logger.error(err)
                 return;
               }
@@ -105,4 +131,4 @@ async function runNow() {
 
   return scheduleAlert.present();
 }
-</script> 
+</script>

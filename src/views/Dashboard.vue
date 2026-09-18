@@ -16,7 +16,7 @@
       />
       <DashboardSummary
         v-else
-        :brokering="brokering"
+        :routing="routing"
         :facility-orders="facilityOrders"
         :facility-orders-date="facilityOrdersDate"
         :sourcing="sourcing"
@@ -46,7 +46,7 @@ const productStore = useAtpProductStore();
 
 const currentProductStore = computed(() => productStore.getCurrentProductStore);
 const sourcing = computed(() => dashboardStore.getSourcing);
-const brokering = computed(() => dashboardStore.getBrokering);
+const routing = computed(() => dashboardStore.getRouting);
 const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
 const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
 const foundations = computed(() => dashboardStore.getFoundations);

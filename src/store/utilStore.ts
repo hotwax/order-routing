@@ -4,13 +4,23 @@ import { EnumerationAndType } from "@/types"
 import { orderRoutingStore } from './orderRoutingStore'
 import { productStore } from './productStore'
 import { DateTime } from 'luxon'
+import { routingEditorCodeLabel } from '@/utils/routingWorkingCopy'
+
+export const ROUTING_EDITOR_ENUM_TYPE_IDS = [
+  "ORD_FILTER_PRM_TYPE",
+  "ORD_SORT_PARAM_TYPE",
+  "INV_FILTER_PRM_TYPE",
+  "INV_SORT_PARAM_TYPE",
+  "ORDER_SALES_CHANNEL"
+] as const;
 
 export const useUtilStore = defineStore('util', {
   state: () => {
     return {
       enums: {} as any,
       categories: {} as any,
-      statuses: {} as any
+      statuses: {} as any,
+      systemInformation: {} as any
     }
   },
   getters: {
@@ -26,12 +36,18 @@ export const useUtilStore = defineStore('util', {
       }, {})
     },
     getStatusDesc: (state) => (id: any) => {
-      return state.statuses[id]?.description ? state.statuses[id]?.description : id
+      return state.statuses[id]?.description || routingEditorCodeLabel(id)
     }
   },
   actions: {
+    // The migrated admin endpoint is scoped by enumTypeId. Query the editor's families explicitly.
+    // fetchEnums is safe for concurrent calls, so we can fetch all families in parallel.
+    async fetchRoutingEditorEnums() {
+      await Promise.all(
+        ROUTING_EDITOR_ENUM_TYPE_IDS.map(enumTypeId => this.fetchEnums({ enumTypeId }))
+      );
+    },
     async fetchEnums(payload: any) {
-      let enums = { ...this.enums };
       let pageIndex = 0;
       const pageSize = 500;
   
@@ -84,21 +100,24 @@ export const useUtilStore = defineStore('util', {
                 "description": "Facility group"
               } as any
             }
-            enums = {
-              ...enums,
-              ...respEnums
+
+            // Deep merge needed since values are nested by enumTypeId
+            const newEnums = { ...this.enums }
+            for (const typeId of Object.keys(respEnums)) {
+              newEnums[typeId] = {
+                ...(newEnums[typeId] || {}),
+                ...respEnums[typeId]
+              }
             }
+            this.enums = newEnums
           }
           pageIndex++;
         } while(resp.data.length == pageSize)
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
     },
     async fetchOmsEnums(payload: any) {
-      let enums = { ...this.enums };
-  
       try {
         const resp = await api({
           url: "admin/enums",
@@ -110,7 +129,7 @@ export const useUtilStore = defineStore('util', {
         });
   
         if(!commonUtil.hasError(resp) && resp.data.length) {
-          enums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
+          const respEnums = resp.data.reduce((enumerations: any, data: EnumerationAndType) => {
             if(enumerations[data.enumTypeId]) {
               enumerations[data.enumTypeId][data.enumId] = data
             } else {
@@ -119,12 +138,21 @@ export const useUtilStore = defineStore('util', {
               }
             }
             return enumerations
-          }, enums)
+          }, {})
+
+          // Deep merge needed since values are nested by enumTypeId
+          const newEnums = { ...this.enums }
+          for (const typeId of Object.keys(respEnums)) {
+            newEnums[typeId] = {
+              ...(newEnums[typeId] || {}),
+              ...respEnums[typeId]
+            }
+          }
+          this.enums = newEnums
         }
       } catch(err) {
         logger.error(err)
       }
-      this.enums = enums;
     },
 
     async fetchCategories() {
@@ -142,13 +170,12 @@ export const useUtilStore = defineStore('util', {
         let resp: any
         do {
           resp = await api({
-            url: `categories/${basePayload.productStoreId}`,
+            url: `order-routing/categories/${basePayload.productStoreId}`,
             method: "GET",
             params: {
               ...basePayload,
               pageIndex
-            },
-            baseURL: commonUtil.getOmsURL() 
+            }
           })
           if (!commonUtil.hasError(resp) && resp.data.length) {
             categories = resp.data.reduce((acc: any, category: any) => {
@@ -286,6 +313,17 @@ export const useUtilStore = defineStore('util', {
         method: "GET",
         baseURL: commonUtil.getMaargURL()
       })
+    },
+    async fetchSystemInformation() {
+      try {
+        const resp = await api({
+          url: "admin/maarg",
+          method: "GET"
+        });
+        this.systemInformation = resp.data
+      } catch(error: any) {
+        logger.error("Failed to fetch system information");
+      }
     }
   },
   persist: true

@@ -2,27 +2,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 
-// The sim instance's REST root the store must pin every fetch to.
-const SIM_URL = "http://sim.test/rest/s1/";
-
-const api = vi.fn();
+const simApi = vi.fn();
 vi.mock("@common", () => ({
-  api: (...a: any[]) => api(...a),
   commonUtil: {
     hasError: (resp: any) => resp?._error === true,
   },
   logger: { error: () => {}, warn: () => {} },
 }));
-vi.mock("@/utils/simConfig", () => ({
-  simBaseURL: () => SIM_URL,
-}));
+vi.mock("@/services/SimApiService", () => ({ simApi: (...a: any[]) => simApi(...a) }));
 
 // Relative import for the SUT (matches the repo's existing vitest store-test pattern).
 import { useSimReferenceStore } from "../src/store/simReferenceStore";
 
 // Representative per-endpoint responses, dispatched by request url.
 function wireApi() {
-  api.mockImplementation((config: any) => {
+  simApi.mockImplementation((config: any) => {
     const url: string = config.url;
     if (url === "order-routing/facilities") {
       return Promise.resolve({ data: [
@@ -47,17 +41,13 @@ function wireApi() {
 }
 
 describe("simReferenceStore", () => {
-  beforeEach(() => { setActivePinia(createPinia()); api.mockReset(); wireApi(); });
+  beforeEach(() => { setActivePinia(createPinia()); simApi.mockReset(); wireApi(); });
 
   it("fetches every reference slice from the sim Moqui, never the OMS default", async () => {
     const s = useSimReferenceStore();
     await s.fetchReferenceData({ productStoreId: "STORE" });
 
-    // Isolation guarantee: every outbound call is pinned to the sim REST root.
-    expect(api).toHaveBeenCalledTimes(4);
-    for (const call of api.mock.calls) {
-      expect(call[0].baseURL).toBe(SIM_URL);
-    }
+    expect(simApi).toHaveBeenCalledTimes(4);
 
     // Sales channels keyed by enumId (what the editor's <ion-select> iterates).
     expect(s.getSalesChannels).toEqual({
@@ -73,32 +63,32 @@ describe("simReferenceStore", () => {
   it("scopes the omsenums request to ORDER_SALES_CHANNEL + the product store", async () => {
     const s = useSimReferenceStore();
     await s.fetchReferenceData({ productStoreId: "STORE" });
-    const enumsCall = api.mock.calls.find((c) => c[0].url === "order-routing/omsenums");
+    const enumsCall = simApi.mock.calls.find((c) => c[0].url === "order-routing/omsenums");
     expect(enumsCall?.[0].params).toMatchObject({ enumTypeId: "ORDER_SALES_CHANNEL", productStoreId: "STORE" });
   });
 
   it("caches by productStoreId: skips a redundant refetch, refetches on force or a changed store", async () => {
     const s = useSimReferenceStore();
     await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(api).toHaveBeenCalledTimes(4);
+    expect(simApi).toHaveBeenCalledTimes(4);
 
     // Same store, already loaded -> no new requests.
     await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(api).toHaveBeenCalledTimes(4);
+    expect(simApi).toHaveBeenCalledTimes(4);
 
     // force -> refetch.
     await s.fetchReferenceData({ productStoreId: "STORE", force: true });
-    expect(api).toHaveBeenCalledTimes(8);
+    expect(simApi).toHaveBeenCalledTimes(8);
 
     // Different store -> refetch.
     await s.fetchReferenceData({ productStoreId: "OTHER" });
-    expect(api).toHaveBeenCalledTimes(12);
+    expect(simApi).toHaveBeenCalledTimes(12);
   });
 
   it("does NOT cache a partial failure: a failed slice leaves the store eligible for refetch", async () => {
     const s = useSimReferenceStore();
     // Facilities succeed but shipping methods reject (transient outage).
-    api.mockImplementation((config: any) => {
+    simApi.mockImplementation((config: any) => {
       if (config.url.endsWith("/shippingMethods")) return Promise.reject(new Error("503"));
       if (config.url === "order-routing/facilities") {
         return Promise.resolve({ data: [{ facilityId: "F1", parentTypeId: "VIRTUAL_FACILITY" }] });
@@ -106,23 +96,46 @@ describe("simReferenceStore", () => {
       return Promise.resolve({ data: [] });
     });
     await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(Object.keys(s.facilities)).toEqual(["F1"]); // what loaded is still usable
+    expect(s.facilities).toEqual({});
     expect(s.getShippingMethods).toEqual({});
+    expect(s.loadState).toBe("error");
 
     // Next visit retries instead of serving the broken cache.
-    api.mockClear();
+    simApi.mockClear();
     wireApi();
     await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(api).toHaveBeenCalledTimes(4);
+    expect(simApi).toHaveBeenCalledTimes(4);
     expect(s.getShippingMethods.SM1.description).toBe("Ground");
   });
 
-  it("skips the store-scoped slices (and warns) when productStoreId is missing", async () => {
+  it("fails closed without issuing any unscoped request when productStoreId is missing", async () => {
     const s = useSimReferenceStore();
-    await s.fetchReferenceData({ productStoreId: "" });
-    const urls = api.mock.calls.map((c) => c[0].url);
-    expect(urls).toContain("order-routing/facilities");
-    expect(urls).toContain("order-routing/omsenums");
-    expect(urls.some((u: string) => u.includes("/productStores/"))).toBe(false);
+    await expect(s.fetchReferenceData({ productStoreId: "" })).resolves.toBe(false);
+    expect(simApi).not.toHaveBeenCalled();
+    expect(s.loadState).toBe("error");
+  });
+
+  it("ignores an older store load that resolves after a newer one", async () => {
+    const s = useSimReferenceStore();
+    let resolveOld!: (value: any) => void;
+    const oldFacilities = new Promise((resolve) => { resolveOld = resolve; });
+    let facilityCall = 0;
+    simApi.mockImplementation((config: any) => {
+      if (config.url === "order-routing/facilities") {
+        facilityCall += 1;
+        if (facilityCall === 1) return oldFacilities;
+        return Promise.resolve({ data: [{ facilityId: "NEW_F", parentTypeId: "VIRTUAL_FACILITY" }] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    const oldLoad = s.fetchReferenceData({ productStoreId: "OLD" });
+    const newLoad = s.fetchReferenceData({ productStoreId: "NEW" });
+    await newLoad;
+    resolveOld({ data: [{ facilityId: "OLD_F", parentTypeId: "VIRTUAL_FACILITY" }] });
+    await oldLoad;
+
+    expect(s.productStoreId).toBe("NEW");
+    expect(Object.keys(s.facilities)).toEqual(["NEW_F"]);
   });
 });

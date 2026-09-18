@@ -1,4 +1,4 @@
-import { api, commonUtil, logger } from "@common";
+import { api, commonUtil, logger, useSolrSearch } from "@common";
 import { computed, ref } from "vue";
 
 export interface ChannelFacilityReference {
@@ -454,17 +454,12 @@ export function useChannelInventory() {
       // carrying a Solr special character (e.g. a hyphen, read as a negation) must not silently
       // skew the query into a wrong number.
       const facilityClause = virtualFacilityIds.map((facilityId: string) => `"${facilityId}"`).join(" OR ");
-      const response = await api({
-        url: "solr-query",
-        method: "post",
-        baseURL: commonUtil.getOmsURL(),
-        data: {
-          json: {
-            params: { rows: 0 },
-            query: "*:*",
-            filter: `docType: ORDER AND orderTypeId: SALES_ORDER AND productStoreId: "${params.productStoreId}" AND productId: "${params.productId}" AND facilityId: (${facilityClause}) AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)`,
-            facet: { queueDemand: "sum(quantity)" },
-          },
+      const response = await useSolrSearch().runSolrQuery({
+        json: {
+          params: { rows: 0 },
+          query: "*:*",
+          filter: `docType: ORDER AND orderTypeId: SALES_ORDER AND productStoreId: "${params.productStoreId}" AND productId: "${params.productId}" AND facilityId: (${facilityClause}) AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)`,
+          facet: { queueDemand: "sum(quantity)" },
         },
       });
       if(!isSuccessfulResponse(response)) {throw response;}

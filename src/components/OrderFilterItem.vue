@@ -39,6 +39,7 @@ import { IonAccordion, IonAccordionGroup, IonIcon, IonItem, IonLabel, IonNote } 
 import { computed } from "vue";
 import { warningOutline } from "ionicons/icons"
 import { productStore } from "@/store/productStore";
+import { DEFAULT_RULE_ENUMS, parseRoutingEditorEnvJson } from "@/utils/routingEditorEnv";
 
 const props = defineProps({
   routing: {
@@ -63,7 +64,7 @@ const props = defineProps({
   }
 })
 
-const ruleEnums = JSON.parse(import.meta.env?.VITE_RULE_ENUMS as string)
+const ruleEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ENUMS as string | undefined, DEFAULT_RULE_ENUMS)
 
 const enums = computed(() => useUtilStore().getEnums)
 const facilities = computed(() => productStore().getVirtualFacilities)

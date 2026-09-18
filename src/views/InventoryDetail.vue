@@ -704,17 +704,23 @@
                     </p>
                     {{ m.referenceLabel }}
                     <p class="movement-sub">
-                      {{ formatDateTime(m.raw.effectiveDate) }}
+                      {{ formatDateTime(m.historyDate) }}
                     </p>
                   </ion-label>
                   <div slot="end" class="header-deltas">
                     <span class="delta-pill">
                       <small>{{ translate("ATP") }}</small>
-                      <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ signed(m.raw.availableToPromiseDiff) }}</span>
+                      <span class="delta-value">
+                        <span v-if="m.balance?.atp != null" class="movement-balance">{{ m.balance.atp }}</span>
+                        <span :class="diffClass(m.raw.availableToPromiseDiff)">{{ m.balance?.atp != null ? `(${signed(m.raw.availableToPromiseDiff)})` : signed(m.raw.availableToPromiseDiff) }}</span>
+                      </span>
                     </span>
                     <span class="delta-pill">
                       <small>{{ translate("QOH") }}</small>
-                      <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ signed(m.raw.quantityOnHandDiff) }}</span>
+                      <span class="delta-value">
+                        <span v-if="m.balance?.qoh != null" class="movement-balance">{{ m.balance.qoh }}</span>
+                        <span :class="diffClass(m.raw.quantityOnHandDiff)">{{ m.balance?.qoh != null ? `(${signed(m.raw.quantityOnHandDiff)})` : signed(m.raw.quantityOnHandDiff) }}</span>
+                      </span>
                     </span>
                   </div>
                 </ion-item>
@@ -732,6 +738,12 @@
                       <dd><ion-skeleton-text :animated="true" style="width: 180px; height: 14px;" /></dd>
                     </dl>
                     <dl v-else-if="impactFor(m)?.data && !impactFor(m)?.data?.empty" class="source-grid">
+                      <template v-if="impactFor(m)?.data?.returnOrderName">
+                        <dt>{{ translate("Order") }}</dt><dd>{{ impactFor(m)?.data?.returnOrderName }}</dd>
+                      </template>
+                      <template v-if="impactFor(m)?.data?.returnReason">
+                        <dt>{{ translate("Return reason") }}</dt><dd>{{ impactFor(m)?.data?.returnReason }}</dd>
+                      </template>
                       <template v-if="impactFor(m)?.data?.customerName">
                         <dt>{{ translate("Customer") }}</dt><dd>{{ impactFor(m)?.data?.customerName }}</dd>
                       </template>
@@ -849,7 +861,7 @@
 </template>
 
 <script setup lang="ts">
-import { DxpShopifyImg, api, buildAppUrl, commonUtil, emitter, logger, translate } from "@common";
+import { DxpShopifyImg, api, buildAppUrl, commonUtil, emitter, logger, translate, useSolrSearch } from "@common";
 import {
   IonAccordion,
   IonAccordionGroup,
@@ -902,12 +914,12 @@ import { useChannelStore } from "@/store/channel";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore as productInfoStore } from "@/store/product";
 import { productStore } from "@/store/productStore";
-import { MOVEMENT_TYPE_ORDER, classifyMovement, movementTypeColor, movementTypeIcon, movementTypeLabel } from "@/utils/inventoryMovement";
+import { MOVEMENT_TYPE_ORDER, classifyMovement, movementTypeColor, movementTypeIcon, movementTypeLabel, movementBalance } from "@/utils/inventoryMovement";
 import { type InventoryScope, inventoryScopeErrorMessage, inventoryScopeQuery, parseInventoryScope } from "@/utils/inventoryScope";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
 
-// Inventory-log effectiveDate arrives as either epoch millis or an ISO string; normalise to a
+// API timestamps arrive as either epoch millis or an ISO string; normalise to a
 // luxon DateTime so both display and date-range filtering share one parse.
 function toDateTime(value: any): DateTime | null {
   if(!value) {return null;}
@@ -946,13 +958,15 @@ interface MovementImpact {
   acceptedBy?: string;
   loggedBy?: string;
   rejectionReasonDesc?: string;
+  returnOrderName?: string;  // order the return was raised against
+  returnReason?: string;     // customer's return reason, not the inventory reason code
   comments?: string;
   empty?: boolean;
 }
 
-// Movement types that gain extra detail on expand. Others (return/rollover/receipt/adjustment) already
-// show everything known from the raw row, so expanding them fires no request.
-const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE"]);
+// Movement types that gain extra detail on expand. Others (rollover/receipt/adjustment) already show
+// everything known from the raw row, so expanding them fires no request.
+const ENRICHABLE_TYPES = new Set(["SALES_ORDER", "TRANSFER", "PURCHASE", "CYCLE_COUNT", "MANUAL_VARIANCE", "RETURN"]);
 
 const HISTORY_PAGE_SIZE = 20;
 
@@ -1041,6 +1055,7 @@ const addingFacilityId = ref("");
 // Inventory-history enrichment + filtering state.
 const isHistoryLoading = ref(true); // starts true so the skeleton shows from mount through the first load (no empty-state flash); toggled by loadInventoryHistory thereafter
 const orderSummaries = ref<Record<string, any>>({}); // orderId -> { orderName, orderTypeId, ... }
+const returnSummaries = ref<Record<string, { orderName?: string; orderId?: string }>>({});
 const reasonDescById = ref<Record<string, string>>({}); // IID_REASON enumId -> description
 const historyQuery = ref("");
 const activeTypeFilter = ref<string>("ALL");
@@ -1066,10 +1081,14 @@ const dateRangeOptions = [
 ];
 
 // Classify each raw log into a movement (source record + presentation), using the resolved order
-// summaries and reason descriptions as context.
+// summaries and reason descriptions as context, and attach the stock balance each movement left
+// behind (the backend's own lastQuantityOnHand/lastAvailableToPromise plus the row's diff).
 const movements = computed(() =>
-  (inventoryLogs.value || []).map((row: any) =>
-    classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value })));
+  (inventoryLogs.value || []).map((row: any) => ({
+    ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value, returnSummaries: returnSummaries.value }),
+    historyDate: row.createdStamp ?? row.effectiveDate,
+    balance: movementBalance(row)
+  })));
 
 // Type-filter chips: "All" plus only the movement types actually present, in a stable order. Each
 // type chip carries the same icon + colour as its rows so the filter maps visually to the movements
@@ -1108,7 +1127,7 @@ const filteredMovements = computed(() => {
     if(activeTypeFilter.value !== "ALL" && m.typeKey !== activeTypeFilter.value) {return false;}
     if(q && !m.searchText.includes(q)) {return false;}
     if(start || end) {
-      const dt = toDateTime(m.raw.effectiveDate);
+      const dt = toDateTime(m.historyDate);
       if(!dt) {return false;}
       if(start && dt < start) {return false;}
       if(end && dt > end) {return false;}
@@ -1268,13 +1287,11 @@ async function fetchVariantDetails() {
   seedVariantsFromCache(parentId);
 
   try {
-    const resp = await api({
-      url: "searchProducts",
-      method: "post",
-      baseURL: commonUtil.getOmsURL(),
-      data: {
-        filters: [`groupId: ${parentId}`],
-        viewSize: 100
+    const resp = await useSolrSearch().runSolrQuery({
+      json: {
+        params: { rows: 100, start: 0 },
+        query: "*:*",
+        filter: `docType: PRODUCT AND groupId: ${parentId}`
       }
     }) as any;
     if(resp?.data?.response?.docs && !commonUtil.hasError(resp)) {
@@ -1646,6 +1663,7 @@ async function loadInventoryHistory() {
   if(scopeType.value !== "location" || !selectedFacilityId.value) {
     clearInventoryLogs();
     orderSummaries.value = {};
+    returnSummaries.value = {};
     isHistoryLoading.value = false;
 
     return;
@@ -1661,11 +1679,18 @@ async function loadInventoryHistory() {
       productIdSnapshot !== productId.value ||
       facilityIdSnapshot !== selectedFacilityId.value) {return;}
     const orderIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.orderId).map((l: any) => l.orderId))];
-    const summaries = orderIds.length ? await orderRoutingStore().fetchOrderSummaries(orderIds) : {};
+    const returnIds = [...new Set((inventoryLogs.value || []).filter((l: any) => l.returnId).map((l: any) => l.returnId))];
+    // Both resolve the reference shown in the collapsed row, so fetch them together rather than
+    // letting the return rows repaint a beat later.
+    const [summaries, returns] = await Promise.all([
+      orderIds.length ? orderRoutingStore().fetchOrderSummaries(orderIds) : Promise.resolve({}),
+      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({})
+    ]);
     if(requestId === historyLoadRequestId &&
       productIdSnapshot === productId.value &&
       facilityIdSnapshot === selectedFacilityId.value) {
       orderSummaries.value = summaries;
+      returnSummaries.value = returns;
     }
   } finally {
     if(requestId === historyLoadRequestId) {isHistoryLoading.value = false;}
@@ -1768,6 +1793,23 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     const impact: MovementImpact = {};
     if(audit.countedByUserLoginId) {impact.countedBy = inventoryApi.displayName(audit.countedByUserLoginId);}
     if(audit.acceptedByUserLoginId) {impact.acceptedBy = inventoryApi.displayName(audit.acceptedByUserLoginId);}
+
+    return isEmptyImpact(impact) ? { empty: true } : impact;
+  }
+
+  if(m.typeKey === "RETURN") {
+    // The history row carries only returnId/returnItemSeqId. The originating order and the
+    // customer's reason live on the return itself, so resolve them rather than showing the
+    // inventory reason code (RTN_ITM_RCPT) as though it explained the return.
+    const ra = await inventoryApi.fetchReturnAudit(raw.returnId, raw.returnItemSeqId);
+    if(!ra) {return { empty: true };}
+    const impact: MovementImpact = {};
+    // A return header can carry orderId without a display name (no Shopify name, appeasement
+    // returns). The id still places the order, so fall back to it rather than dropping the row.
+    if(ra.orderName || ra.orderId) {impact.returnOrderName = ra.orderName || ra.orderId;}
+    if(ra.reasonDescription || ra.returnReasonId) {impact.returnReason = ra.reasonDescription || ra.returnReasonId;}
+    if(ra.reason) {impact.comments = ra.reason;}
+    if(ra.receivedQuantity != null) {impact.receivedQuantity = ra.receivedQuantity;}
 
     return isEmptyImpact(impact) ? { empty: true } : impact;
   }
@@ -1985,7 +2027,7 @@ ion-content {
     grid-column: 1 / 2;
     backdrop-filter: blur(20px);
     background: linear-gradient(to bottom, #ffffff7d, white);
-    padding: 16px 0;
+    padding: var(--spacer-sm) 0;
   }
 }
 
@@ -2033,7 +2075,7 @@ ion-item {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   padding-top: var(--spacer-xs, 8px);
 }
 
@@ -2044,7 +2086,7 @@ ion-item {
 .page-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   margin-left: auto;
 }
 
@@ -2062,7 +2104,7 @@ ion-item {
 .movement-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacer-xs);
   flex-wrap: wrap;
 }
 
@@ -2072,7 +2114,7 @@ ion-item {
 
 .header-deltas {
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
   align-items: center;
 }
 
@@ -2087,9 +2129,21 @@ ion-item {
   color: var(--ion-color-medium);
 }
 
+.delta-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacer-2xs);
+}
+
+/* The balance a movement left behind leads, with its signed change in parentheses beside it: the
+   running total is what the row is read for, the delta explains how it got there. */
+.movement-balance {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Expanded accordion content */
 .movement-content {
-  padding: 12px 16px 16px;
+  padding: 12px var(--spacer-sm) var(--spacer-sm);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2113,7 +2167,7 @@ ion-item {
 .impact-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacer-2xs);
   padding-bottom: 12px;
   margin-bottom: 2px;
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
@@ -2131,7 +2185,7 @@ ion-item {
 .source-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: var(--spacer-2xs) var(--spacer-sm);
   margin: 0;
 }
 
@@ -2162,7 +2216,7 @@ ion-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px var(--spacer-sm);
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
 }
 
@@ -2179,7 +2233,7 @@ ion-item {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacer-xs);
 }
 
 .skeleton-row .sk-title {
@@ -2199,7 +2253,7 @@ ion-item {
 .skeleton-row .sk-deltas {
   flex: 0 0 auto;
   display: flex;
-  gap: 16px;
+  gap: var(--spacer-sm);
 }
 
 .skeleton-row .sk-delta {

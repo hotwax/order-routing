@@ -29,7 +29,7 @@ export function useFacilityGroupNetOutcome(
         .map((group: any) => productStore.fetchFacilitiesForGroup(group.facilityGroupId))
     )
 
-    const facilities = [];
+    const facilities: any[] = [];
     responses.forEach((response: any) => {
       if(response.status === "fulfilled" && Array.isArray(response.value)) {
         response.value.forEach((facility: any) => facilities.push(facility))

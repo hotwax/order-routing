@@ -52,6 +52,8 @@ initialiseConfig({
   postLogout: useUserStore().postLogout,
   get oms() { return useUserStore().oms },
   set oms(val) { useUserStore().oms = val },
+  get appVersion() { return useUserStore().appVersion },
+  set appVersion(val) { useUserStore().appVersion = val },
   get current() { return useUserStore().current },
   set current(val) { useUserStore().current = val },
   router: router
@@ -69,7 +71,7 @@ router.isReady().then(async () => {
   try {
     await useUserStore().ensureInstanceScope({ refetch: useAuth().isAuthenticated.value })
   } catch (error) {
-    logger.error('Failed to validate OMS instance scope on hydrate', error)
+    logger.error('OMS Instance - Could not validate instance scope on hydrate', error)
   }
 
   app.mount("#app");

@@ -53,14 +53,11 @@
               <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }} {{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "MEASUREMENT_SYSTEM").fieldValue ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "MEASUREMENT_SYSTEM").fieldValue === "IMPERIAL" ? "miles" : "kms" : "" }}</ion-label>
             </ion-item>
             <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'BRK_SAFETY_STOCK')">
-              <ion-label>{{ translate("Brokering safety stock") }}</ion-label>
+              <ion-label>{{ translate("Safety stock") }}</ion-label>
               <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-label>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
-              <!-- TODO: for now not changing the UI for this filter, as we need discuss what to display like enabled/disabled, true/false etc-->
-              <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" disabled>
-                {{ translate("Turn of the facility order limit check") }}
-              </ion-toggle>
+            <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')?.fieldValue)">
+              <ion-label>{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
           </ion-card>
           <ion-card>
@@ -86,7 +83,7 @@
                 </ion-card-title>
               </ion-card-header>
               <ion-card-content>
-                {{ translate("Select if partial allocation should be allowed in this inventory rule") }}
+                {{ translate("Select if partial allocation should be allowed in this routing rule") }}
               </ion-card-content>
               <ion-item lines="none">
                 <ion-toggle disabled :checked="rule.assignmentEnumId === 'ORA_MULTI'">{{ translate("Allow partial allocation") }}</ion-toggle>
@@ -137,6 +134,11 @@ import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardT
 import { arrowBackOutline, bookmarkOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { computed, ref } from "vue"
 import InlineHint from "@/components/InlineHint.vue"
+import {
+  DEFAULT_ACTION_ENUMS,
+  DEFAULT_CONDITION_FILTER_ENUMS,
+  parseRoutingEditorEnvJson
+} from "@/utils/routingEditorEnv"
 
 const props = defineProps({
   group: {
@@ -149,8 +151,8 @@ const props = defineProps({
   }
 })
 
-const actionEnums = JSON.parse(import.meta.env?.VITE_RULE_ACTION_ENUMS as string)
-const conditionFilterEnums = JSON.parse(import.meta.env?.VITE_RULE_FILTER_ENUMS as string)
+const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS as string | undefined, DEFAULT_ACTION_ENUMS)
+const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS as string | undefined, DEFAULT_CONDITION_FILTER_ENUMS)
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

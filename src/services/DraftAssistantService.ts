@@ -1,4 +1,4 @@
-import { client, commonUtil } from "@common";
+import { client } from "@common";
 import type { DraftConversationMessage, DraftOperationSet, PageCapabilityManifest } from "@/types/draft";
 import type { BrokeringRunsListInquiryResult } from "@/types/circuit";
 import {
@@ -7,7 +7,8 @@ import {
   createDraftProposal, validateDraftOperations,
   applyDraftProposal, summarizeDraftOperations, formatDraftProposalSections,
 } from "../utils/draftUtils";
-import { mastraUrl } from "../utils/simConfig";
+import { requireDraftAssistantUrl } from "../utils/simConfig";
+import { prepareDraftAssistantManifest, serializeDraftAssistantManifest } from "../utils/draftAssistantContext";
 
 type DraftRequestOptions = {
   conversationHistory?: DraftConversationMessage[];
@@ -15,15 +16,19 @@ type DraftRequestOptions = {
 
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
-  const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();
-  const authToken = commonUtil.getToken();
+  const assistantManifest = prepareDraftAssistantManifest(manifest);
+  const transportManifest = serializeDraftAssistantManifest(assistantManifest);
+  const assistantUrl = requireDraftAssistantUrl();
   let response: any;
   try {
     response = await client({
       url: "/brokering-route-assistant",
       method: "POST",
-      baseURL : mastraUrl(),
-      data: { prompt, conversationHistory, pageCapabilityManifest: manifest, outputContract: manifest.outputContract, ...(omsBaseUrl ? { omsBaseUrl } : {}), ...(authToken ? { authToken } : {}) },
+      baseURL: assistantUrl,
+      // Never serialize the browser's OMS URL or bearer token into a request body. A deployed
+      // assistant that needs OMS tools must authenticate server-to-server; that trust contract is
+      // intentionally not manufactured by this PWA.
+      data: { prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract },
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {
@@ -32,7 +37,7 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
       throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Draft assistant failed with ${err.response.status}`);
     }
-    throw new Error(`Mastra is not reachable at ${mastraUrl()}. Start the circuit server (pnpm dev in sandbox/circuit).`);
+    throw new Error(`Draft assistant is not reachable at ${assistantUrl}.`);
   }
 
   const providerPlan = response.data;
@@ -45,22 +50,19 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
         intent: "inquiry"
       };
     }
-    return { ...convertBrokeringRouteDraftToOperations(providerPlan.draft, manifest), intent: "edit" };
+    return { ...convertBrokeringRouteDraftToOperations(providerPlan.draft, assistantManifest), intent: "edit" };
   }
-  return { ...convertBrokeringRouteDraftToOperations(providerPlan, manifest), intent: "edit" };
+  return { ...convertBrokeringRouteDraftToOperations(providerPlan, assistantManifest), intent: "edit" };
 }
 
 export async function requestBrokeringRunsListInquiry(prompt: string, manifest: PageCapabilityManifest, conversationHistory: DraftConversationMessage[] = []): Promise<BrokeringRunsListInquiryResult> {
-  // The order-routing/facility-changes endpoint lives on Moqui (Maarg), not OFBiz/OMS,
-  // so the assistant tool needs the Maarg base URL and OMS Bearer token to make Moqui calls.
-  const omsBaseUrl = commonUtil.getMaargURL() || commonUtil.getOmsURL();
-  const authToken = commonUtil.getToken();
+  const assistantUrl = requireDraftAssistantUrl();
   try {
     const response = await client({
       url: "/brokering-runs-list-inquiry",
       method: "POST",
-      baseURL: mastraUrl(),
-      data: { prompt, conversationHistory, pageCapabilityManifest: manifest, ...(omsBaseUrl ? { omsBaseUrl } : {}), ...(authToken ? { authToken } : {}) },
+      baseURL: assistantUrl,
+      data: { prompt, conversationHistory, pageCapabilityManifest: manifest },
       headers: { "Content-Type": "application/json" },
     });
     const body = response.data as { schemaVersion?: string; message?: string; questions?: string[]; summary?: string };
@@ -75,7 +77,7 @@ export async function requestBrokeringRunsListInquiry(prompt: string, manifest: 
       const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
       throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Inquiry assistant failed with ${err.response.status}`);
     }
-    throw new Error(`Mastra is not reachable at ${mastraUrl()}. Start the circuit server (pnpm dev in sandbox/circuit).`);
+    throw new Error(`Draft assistant is not reachable at ${assistantUrl}.`);
   }
 }
 

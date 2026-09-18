@@ -48,4 +48,22 @@ describe("facilityGroupStore", () => {
       },
     });
   });
+
+  it("passes through an omitted membership fromDate per the current association contract", async () => {
+    const store = useFacilityGroupStore();
+
+    await store.removeFacility("DivFacilityGroup", { facilityId: "CODEX219_STORE" });
+
+    // Main intentionally removed the local key guard in 4f47607; the backend owns validation.
+    expect(api).toHaveBeenNthCalledWith(1, {
+      url: "admin/facilityGroups/DivFacilityGroup/facilities/CODEX219_STORE/association",
+      method: "POST",
+      data: {
+        facilityGroupId: "DivFacilityGroup",
+        facilityId: "CODEX219_STORE",
+        fromDate: undefined,
+        thruDate: Date.now(),
+      },
+    });
+  });
 });

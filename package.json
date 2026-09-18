@@ -1,13 +1,14 @@
 {
   "name": "order-routing",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "private": true,
   "description": "Order Routing Rules + Available to Promise (Sourcing) — unified app",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "pnpm typecheck && pnpm test:unit && vite build",
     "preview": "vite preview",
-    "test:unit": "vitest",
+    "test:unit": "vitest run",
+    "typecheck": "vue-tsc --noEmit --pretty false",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix"
   },
   "dependencies": {
@@ -57,7 +58,7 @@
     "terser": "^5.16.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-pwa": "1.2.0",
+    "vite-plugin-pwa": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "3.3.4"
   }

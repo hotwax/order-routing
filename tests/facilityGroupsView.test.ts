@@ -73,6 +73,8 @@ describe("FacilityGroups view", () => {
       IonMenuButton: defineComponent({ name: "IonMenuButton", template: "<button />" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSearchbar: defineComponent({ name: "IonSearchbar", template: "<input />" }),
+      IonSelect: defineComponent({ name: "IonSelect", template: "<div><slot /></div>" }),
+      IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
       IonTitle: defineComponent({ name: "IonTitle", template: "<h1><slot /></h1>" }),
       IonToolbar: defineComponent({ name: "IonToolbar", template: "<div><slot /></div>" }),
       modalController: { create: vi.fn() },

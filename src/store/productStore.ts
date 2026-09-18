@@ -103,7 +103,7 @@ export const productStore = defineStore('productStore', {
           baseURL : commonUtil.getMaargURL(),
         });
         if (getOmsInstanceKey() !== requestedInstanceKey) {
-          logger.warn("Discarding product stores response because OMS instance changed in flight");
+          logger.warn("Product Store - Discarding response; OMS instance changed in flight");
           return Promise.resolve([]);
         }
         if (commonUtil.hasError(resp) || resp.data.length === 0) {
@@ -338,7 +338,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `admin/productStores/${payload.productStoreId}/shippingMethods`,
+          url: `admin/productStores/${productStoreId}/shippingMethods`,
           method: "GET",
           params: fetchPayload
         });
@@ -374,7 +374,7 @@ export const productStore = defineStore('productStore', {
   
       try {
         const resp = await api({
-          url: `admin/productStores/${payload.productStoreId}/facilityGroups`,
+          url: `admin/productStores/${productStoreId}/facilityGroups`,
           method: "GET",
           params: fetchPayload
         });

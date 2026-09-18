@@ -1,13 +1,14 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
+import { DateTime } from "luxon";
 
 const passthrough = (name: string) => defineComponent({
   name,
   template: "<div><slot name='start' /><slot name='header' /><slot /><slot name='end' /><slot name='content' /></div>",
 });
 
-describe("InventoryDetail Channel scope", () => {
+describe("InventoryDetail scope and history", () => {
   const fetchProductFacility = vi.fn();
   const fetchInventoryLogs = vi.fn();
   const clearInventoryLogs = vi.fn();
@@ -124,7 +125,7 @@ describe("InventoryDetail Channel scope", () => {
     }));
     vi.doMock("@/utils/inventoryMovement", () => ({
       movementBalance: vi.fn(() => ({ atp: null, qoh: null })),
-      classifyMovement: vi.fn(),
+      classifyMovement: (raw: any) => ({ raw, typeKey: "ADJUSTMENT", label: "Adjustment", referenceLabel: raw.description, searchText: raw.description }),
       MOVEMENT_TYPE_ORDER: [],
       movementTypeLabel: vi.fn(),
       movementTypeIcon: vi.fn(),
@@ -167,5 +168,33 @@ describe("InventoryDetail Channel scope", () => {
     expect(wrapper.text()).toContain("The selected facility is not available for this product store.");
     expect(fetchProductFacility).not.toHaveBeenCalled();
     expect(fetchInventoryLogs).not.toHaveBeenCalled();
+  });
+
+  it("displays and filters location history by creation time even when effective dates are missing or backdated", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
+    const recent = DateTime.now().minus({ days: 1 });
+    const old = recent.minus({ days: 30 });
+    fetchInventoryLogs.mockImplementation(async () => {
+      inventoryLogs.value = [
+        { inventoryItemDetailSeqId: "3", description: "Undated reset", createdStamp: recent.toMillis(), effectiveDate: null },
+        { inventoryItemDetailSeqId: "2", description: "Backdated movement", createdStamp: recent.toISO(), effectiveDate: old.toMillis() },
+        { inventoryItemDetailSeqId: "1", description: "Old creation", createdStamp: old.toMillis(), effectiveDate: recent.toMillis() },
+      ];
+    });
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    const displayedDate = recent.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" });
+    expect(wrapper.findAll(".movement-sub").map((node) => node.text())).toEqual([
+      displayedDate, displayedDate, old.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" }),
+    ]);
+
+    await wrapper.findAll(".date-filters > div").find((chip) => chip.text() === "Last 7 days")!.trigger("click");
+    expect(wrapper.text()).toContain("Undated reset");
+    expect(wrapper.text()).toContain("Backdated movement");
+    expect(wrapper.text()).not.toContain("Old creation");
+    wrapper.unmount();
   });
 });

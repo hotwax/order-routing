@@ -15,6 +15,7 @@ describe("Inventory entity-first search", () => {
   let fetchProductSummaries: ReturnType<typeof vi.fn>;
   let lastModalProps: any;
   let modalDismissData: any;
+  let routerMock: any;
 
   const ROWS = [
     { productId: "10001", availableToPromise: 72, quantityOnHand: 100, minimumStock: 3, allowPickup: "N", allowBrokering: "Y" },
@@ -35,11 +36,10 @@ describe("Inventory entity-first search", () => {
   // Location scope renders: facility, sort, allowBrokering, allowPickup.
   const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })[0];
 
-  // The facility control opens the shared FacilitySwitcherModal (the same one InventoryDetail uses)
-  // and takes the facilityId off its dismiss payload.
+  // The facility control opens the multi-facility selector and takes facilityIds off its dismiss payload.
   async function selectFacility(wrapper: any, facilityId: string) {
     const previous = modalDismissData;
-    modalDismissData = { facilityId };
+    modalDismissData = { facilityIds: [facilityId] };
     await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
     await flush();
     modalDismissData = previous;
@@ -50,6 +50,7 @@ describe("Inventory entity-first search", () => {
     products.value = [];
     modalDismissData = undefined;
     lastModalProps = undefined;
+    routerMock = { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: {} } } };
 
     fetchProductFacilityRows = vi.fn((_params: any) => {
       products.value = ROWS;
@@ -66,8 +67,8 @@ describe("Inventory entity-first search", () => {
       emitter: { on: vi.fn(), off: vi.fn() },
       translate: (label: string) => label,
     }));
-    vi.doMock("../src/router", () => ({ default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: {} } } } }));
-    vi.doMock("../src/router/index", () => ({ default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: {} } } } }));
+    vi.doMock("../src/router", () => ({ default: routerMock }));
+    vi.doMock("../src/router/index", () => ({ default: routerMock }));
     vi.doMock("@/components/LinkThresholdFacilitiesToGroupModal.vue", () => ({
       default: defineComponent({ name: "LinkThresholdFacilitiesToGroupModal", template: "<div />" }),
     }));
@@ -76,6 +77,9 @@ describe("Inventory entity-first search", () => {
     }));
     vi.doMock("@/components/ProductInventoryEdit.vue", () => ({
       default: defineComponent({ name: "ProductInventoryEdit", template: "<div />" }),
+    }));
+    vi.doMock("@/components/MultiFacilitySwitcherModal.vue", () => ({
+      default: defineComponent({ name: "MultiFacilitySwitcherModal", template: "<div />" }),
     }));
     vi.doMock("@/components/ProductSearchModal.vue", () => ({
       default: defineComponent({ name: "ProductSearchModal", template: "<div />" }),
@@ -182,6 +186,84 @@ describe("Inventory entity-first search", () => {
     expect(wrapper.vm.total).toBe(1738);
   });
 
+  it("queries multiple facilities with an IN filter and keeps rows identifiable by facility", async () => {
+    fetchProductFacilityRows.mockImplementation((_params: any) => {
+      const rows = [
+        { productId: "10001", facilityId: "BROOKLYN", availableToPromise: 72, quantityOnHand: 100 },
+        { productId: "10001", facilityId: "AUSTIN", availableToPromise: 12, quantityOnHand: 20 },
+      ];
+      products.value = rows;
+
+      return Promise.resolve({ rows, total: 2 });
+    });
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    modalDismissData = { facilityIds: ["BROOKLYN", "AUSTIN"] };
+    await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
+    await flush();
+
+    expect(lastParams()).toMatchObject({ facilityId: "BROOKLYN,AUSTIN", facilityId_op: "in" });
+    expect(wrapper.findAll('[data-testid="inventory-row-facility"]')).toHaveLength(2);
+    expect(wrapper.findAll(".list-item")).toHaveLength(2);
+    expect(wrapper.text()).toContain("2 facilities selected");
+  });
+
+  it("hydrates the facility list query from the URL and keeps changes shareable", async () => {
+    routerMock.currentRoute.value.query = {
+      facilityId: "BROOKLYN",
+      productId: "10001,10002",
+      orderByField: "availableToPromise",
+      allowBrokering: "Y",
+      allowPickup: "N",
+      pageIndex: "2",
+    };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+
+    expect(lastParams()).toMatchObject({
+      facilityId: "BROOKLYN",
+      productId: "10001,10002",
+      orderByField: "availableToPromise",
+      allowBrokering: "Y",
+      allowPickup: "N",
+      pageIndex: 2,
+    });
+
+    sortSelect(wrapper).vm.$emit("ionChange", { detail: { value: "-minimumStock" } });
+    await flush();
+    expect(routerMock.replace).toHaveBeenLastCalledWith({
+      path: "/inventory",
+      query: expect.objectContaining({
+        facilityId: "BROOKLYN",
+        productId: "10001,10002",
+        orderByField: "-minimumStock",
+        allowBrokering: "Y",
+        allowPickup: "N",
+      }),
+    });
+  });
+
+  it("hydrates multiple facilities from a shareable URL", async () => {
+    routerMock.currentRoute.value.query = {
+      facilityId: "BROOKLYN,AUSTIN",
+      facilityId_op: "in",
+    };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+
+    expect(lastParams()).toMatchObject({
+      facilityId: "BROOKLYN,AUSTIN",
+      facilityId_op: "in",
+    });
+    expect(wrapper.text()).toContain("2 facilities selected");
+  });
+
   it("renders inventory straight off the entity row", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
@@ -226,6 +308,21 @@ describe("Inventory entity-first search", () => {
     await flush();
 
     expect(lastParams().orderByField).toBe("-availableToPromise");
+  });
+
+  it("supports server-side product name sorting for location inventory rows", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    sortSelect(wrapper).vm.$emit("ionChange", { detail: { value: "productName" } });
+    await flush();
+
+    expect(lastParams().orderByField).toBe("productName");
+    expect(routerMock.replace).toHaveBeenLastCalledWith({
+      path: "/inventory",
+      query: expect.objectContaining({ orderByField: "productName" }),
+    });
   });
 
   it("asks for the InventoryItem join in location scope but never in channel scope", async () => {

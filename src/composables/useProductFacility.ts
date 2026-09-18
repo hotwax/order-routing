@@ -4,6 +4,7 @@ import { Ref, ref } from "vue"
 interface ProductFacility {
   productId: string;
   facilityId: string;
+  productName?: string;
   allowBrokering: string;
   allowPickup: string;
   minimumStock: string;

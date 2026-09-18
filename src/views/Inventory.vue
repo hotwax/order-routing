@@ -21,7 +21,7 @@
           <div class="filter-controls">
             <ion-item v-if="searchMode === 'location'" lines="none" button detail data-testid="inventory-facility-switcher" @click="openFacilitySwitcher">
               <ion-label>
-                {{ translate("Facility") }}
+                {{ translate(multipleFacilitiesSelected ? "Facilities" : "Facility") }}
                 <p>{{ selectedFacilityName || translate("Select facility") }}</p>
               </ion-label>
             </ion-item>
@@ -115,7 +115,7 @@
           <ion-button slot="icon-only" fill="clear" data-testid="inventory-next-page" :disabled="pageIndex >= pageCount - 1 || isLoading" @click="goToNextPage">
             <ion-icon :icon="caretForwardOutline" />
           </ion-button>
-          <ion-button v-if="products.length && !channelNeedsConfig && !showLoadingState" fill="clear" size="small" @click="toggleSelectMode">
+          <ion-button v-if="products.length && !channelNeedsConfig && !showLoadingState && !multipleFacilitiesSelected" fill="clear" size="small" @click="toggleSelectMode">
             {{ selectMode ? translate("Done") : translate("Select") }}
           </ion-button>
         </div>
@@ -154,7 +154,7 @@
         {{ translate("No products found") }}
       </p>
       <template v-else-if="!scopeError">
-        <div v-for="product in products" :key="product.productId" class="list-item" :class="{ 'channel-mode': searchMode === 'channel' }" @click="onRowClick(product.productId)">
+        <div v-for="product in products" :key="productRowKey(product)" class="list-item" :class="{ 'channel-mode': searchMode === 'channel' }" @click="onRowClick(product)">
           <ion-item lines="none">
             <ion-checkbox v-if="selectMode" slot="start" :checked="isSelected(product.productId)" @click.stop="toggleProductSelection(product.productId)" />
             <ion-thumbnail slot="start" data-testid="assigned-detail-product-thumbnail">
@@ -164,6 +164,9 @@
               <span data-testid="assigned-detail-product-primary-id">{{ getPrimaryProductIdentifier(product) }}</span>
               <p data-testid="assigned-detail-product-secondary-id">
                 {{ getSecondaryProductIdentifier(product) }}
+              </p>
+              <p v-if="multipleFacilitiesSelected" data-testid="inventory-row-facility">
+                {{ facilityName(product.facilityId) || product.facilityId }}
               </p>
             </ion-label>
           </ion-item>
@@ -249,7 +252,7 @@
         </template>
       </template>
     </ion-content>
-    <ion-footer v-if="selectMode && !scopeError">
+    <ion-footer v-if="selectMode && !scopeError && !multipleFacilitiesSelected">
       <ion-toolbar class="footer-actions">
         <ion-buttons slot="start">
           <ion-button disabled>
@@ -277,7 +280,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
 import ProductInventoryEdit from "@/components/ProductInventoryEdit.vue";
-import FacilitySwitcherModal from "@/components/FacilitySwitcherModal.vue";
+import MultiFacilitySwitcherModal from "@/components/MultiFacilitySwitcherModal.vue";
 import ProductSearchModal from "@/components/ProductSearchModal.vue";
 import { fetchProductOnlineAtpMap, mergeOnlineAtpIntoRows } from "@/composables/useChannelInventory";
 import { useProductFacility } from "@/composables/useProductFacility";
@@ -286,7 +289,7 @@ import { useAtpProductStore } from "@/store/atpProductStore";
 import { useChannelStore } from "@/store/channel";
 import { productStore as productInfoStore } from "@/store/product";
 import { productStore } from "@/store/productStore";
-import { inventoryScopeErrorMessage, inventoryScopeQuery, parseInventoryScope, resolveInventoryChannelId } from "@/utils/inventoryScope";
+import { inventoryListQuery, inventoryScopeErrorMessage, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, resolveInventoryChannelId } from "@/utils/inventoryScope";
 import { getPrimaryProductIdentifier as getPrimaryIdentifier, getSecondaryProductIdentifier as getSecondaryIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
 
@@ -324,6 +327,8 @@ const configFilters = ref({ allowBrokering: "", allowPickup: "", minimumStockFro
 // Every entry must be a real alias on ProductFacilityInventoryItemView: EntityFind silently drops an
 // unknown orderByField, which would look like "sorting is broken" with no error anywhere.
 const LOCATION_SORT_OPTIONS = [
+  { value: "productName", label: "Product name (A–Z)" },
+  { value: "-productName", label: "Product name (Z–A)" },
   { value: "-availableToPromise", label: "ATP (high to low)" },
   { value: "availableToPromise", label: "ATP (low to high)" },
   { value: "-quantityOnHand", label: "QOH (high to low)" },
@@ -339,7 +344,7 @@ const CHANNEL_SORT_OPTIONS = [
   { value: "-lastInventoryCount", label: "Last inventory count (high to low)" }
 ];
 const scopeError = ref("");
-const selectedFacility = ref("");
+const selectedFacilityIds = ref<string[]>([]);
 const selectedChannelId = ref("");
 
 // Select mode: rows browse by default and only become selectable after the user enters select mode.
@@ -353,13 +358,16 @@ const inventoryChannels = computed(() => channelStore.getInventoryChannels.filte
 const selectedChannel = computed(() => inventoryChannels.value.find((group: any) => group.facilityGroupId === selectedChannelId.value));
 const selectedChannelConfigFacilityId = computed(() => selectedChannel.value?.selectedConfigFacility?.facilityId || "");
 const selectedFacilityName = computed(() =>
-  (productStoreFacilities.value || []).find((facility: any) => facility.facilityId === selectedFacility.value)?.facilityName || "");
-const activeFacilityId = computed(() => searchMode.value === "channel" ? selectedChannelConfigFacilityId.value : selectedFacility.value);
+  selectedFacilityIds.value.length > 1
+    ? `${selectedFacilityIds.value.length} ${translate("facilities selected")}`
+    : (productStoreFacilities.value || []).find((facility: any) => facility.facilityId === selectedFacilityIds.value[0])?.facilityName || "");
+const multipleFacilitiesSelected = computed(() => searchMode.value === "location" && selectedFacilityIds.value.length > 1);
+const activeFacilityId = computed(() => searchMode.value === "channel" ? selectedChannelConfigFacilityId.value : selectedFacilityIds.value[0] || "");
 const channelNeedsConfig = computed(() => searchMode.value === "channel" &&
   !!selectedChannel.value &&
   selectedChannel.value.facilityMembershipLoadState === "loaded" &&
   !selectedChannelConfigFacilityId.value);
-const requestFacilityId = computed(() => activeFacilityId.value || (channelNeedsConfig.value ? selectedFacility.value : ""));
+const requestFacilityId = computed(() => activeFacilityId.value || (channelNeedsConfig.value ? selectedFacilityIds.value[0] || "" : ""));
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
@@ -383,41 +391,47 @@ const allCurrentPageSelected = computed(() => currentPageProductIds.value.length
 const someCurrentPageSelected = computed(() => currentPageProductIds.value.some((id: string) => selectedProductIds.value.includes(id)))
 const selectedProducts = computed(() => products.value.filter((product: any) => selectedProductIds.value.includes(product.productId)))
 
-async function onProductStoreOrConfigChanged() {
+async function onProductStoreOrConfigChanged({ preservePage = false } = {}) {
   isApplyingRouteScope = true;
-  const routeScope = parseInventoryScope(router.currentRoute.value.query);
+  const routeScope = parseInventoryListScope(router.currentRoute.value.query);
   try {
     const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
     if(productStoreId) {
       productStore().setEcomStore({ productStoreId });
     }
-    pageIndex.value = 0;
+    if(!preservePage) {pageIndex.value = 0;}
     await Promise.all([
       productStore().fetchProductStoreFacilities(),
       channelStore.fetchInventoryChannels()
     ]);
     const routeFacilityExists = routeScope.type === "location" &&
-      !!routeScope.facilityId &&
-      productStoreFacilities.value?.some((facility: any) => facility.facilityId === routeScope.facilityId);
+      routeScope.facilityIds.length > 0 &&
+      routeScope.facilityIds.every((facilityId: string) =>
+        productStoreFacilities.value?.some((facility: any) => facility.facilityId === facilityId));
     const fallbackFacilityId = (productStoreFacilities.value?.some((facility: any) => facility.facilityId === productStore().selectedInventoryFacilityId)
       ? productStore().selectedInventoryFacilityId
       : productStoreFacilities.value?.[0]?.facilityId) || "";
 
     if(searchMode.value === "channel" && routeScope.type === "channel") {
       selectedChannelId.value = routeScope.channelId;
-      selectedFacility.value = fallbackFacilityId;
+      selectedFacilityIds.value = fallbackFacilityId ? [fallbackFacilityId] : [];
       scopeError.value = channelScopeError(selectedChannel.value);
       await nextTick();
+    } else if(routeScope.type === "invalid") {
+      selectedFacilityIds.value = [];
+      scopeError.value = inventoryScopeErrorMessage(routeScope);
     } else {
-      if(routeScope.type === "location" && routeScope.facilityId && !routeFacilityExists) {
-        selectedFacility.value = "";
-        scopeError.value = "The selected facility is not available for this product store.";
+      if(routeScope.type === "location" && routeScope.facilityIds.length && !routeFacilityExists) {
+        selectedFacilityIds.value = [];
+        scopeError.value = routeScope.facilityIds.length > 1
+          ? "The selected facilities are not available for this product store."
+          : "The selected facility is not available for this product store.";
       } else {
-        selectedFacility.value = routeFacilityExists && routeScope.type === "location"
-          ? routeScope.facilityId
-          : fallbackFacilityId;
+        selectedFacilityIds.value = routeFacilityExists && routeScope.type === "location"
+          ? routeScope.facilityIds
+          : (fallbackFacilityId ? [fallbackFacilityId] : []);
       }
-      // Vue batches watcher callbacks. Keep the route guard active until the selectedFacility
+      // Vue batches watcher callbacks. Keep the route guard active until the selectedFacilityIds
       // watcher has observed this programmatic assignment, otherwise it can rewrite an invalid
       // URL to a default facility and silently discard the original scope error.
       await nextTick();
@@ -426,44 +440,66 @@ async function onProductStoreOrConfigChanged() {
     isApplyingRouteScope = false;
   }
 
-  if(routeScope.type === "location" && !routeScope.facilityId && !scopeError.value && selectedFacility.value) {
-    syncSearchModeQuery();
+  if(routeScope.type === "location" && !routeScope.facilityIds.length && !scopeError.value && selectedFacilityIds.value.length) {
+    syncInventoryQuery();
   }
   await fetchProductFacility({ scopeChanged: true });
 }
 
+const onProductStoreOrConfigChangedEvent = () => onProductStoreOrConfigChanged();
+
 onIonViewDidEnter(async () => {
-  const routeScope = parseInventoryScope(router.currentRoute.value.query);
+  const routeListQuery = parseInventoryListQuery(router.currentRoute.value.query);
+  const routeScope = parseInventoryListScope(router.currentRoute.value.query);
   if(routeScope.type === "invalid") {
     scopeError.value = inventoryScopeErrorMessage(routeScope);
     products.value = [];
     total.value = 0;
     searchMode.value = "location";
-    await onProductStoreOrConfigChanged();
-    emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
-    emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+    sortField.value = routeListQuery.sortField || LOCATION_DEFAULT_SORT;
+    productIdFilter.value = routeListQuery.productIds;
+    configFilters.value = {
+      allowBrokering: routeListQuery.allowBrokering,
+      allowPickup: routeListQuery.allowPickup,
+      minimumStockFrom: routeListQuery.minimumStockFrom,
+      atpFrom: routeListQuery.availableToPromiseFrom
+    };
+    pageIndex.value = routeListQuery.pageIndex;
+    await onProductStoreOrConfigChanged({ preservePage: true });
+    emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChangedEvent);
+    emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChangedEvent);
 
     return;
   }
   scopeError.value = "";
   searchMode.value = routeScope.type === "channel" ? "channel" : "location";
-  await onProductStoreOrConfigChanged();
-  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
-  emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+  sortField.value = routeListQuery.sortField || (searchMode.value === "channel" ? CHANNEL_DEFAULT_SORT : LOCATION_DEFAULT_SORT);
+  productIdFilter.value = routeListQuery.productIds;
+  configFilters.value = {
+    allowBrokering: routeListQuery.allowBrokering,
+    allowPickup: routeListQuery.allowPickup,
+    minimumStockFrom: routeListQuery.minimumStockFrom,
+    atpFrom: routeListQuery.availableToPromiseFrom
+  };
+  pageIndex.value = routeListQuery.pageIndex;
+  await onProductStoreOrConfigChanged({ preservePage: true });
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChangedEvent);
+  emitter.on("productStoreOrConfigChanged", onProductStoreOrConfigChangedEvent);
 })
 
 onIonViewDidLeave(() => {
-  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChanged);
+  emitter.off("productStoreOrConfigChanged", onProductStoreOrConfigChangedEvent);
 })
 
-watch(selectedFacility, (facilityId) => {
-  productStore().setSelectedInventoryFacilityId(facilityId)
+watch(selectedFacilityIds, (facilityIds) => {
+  productStore().setSelectedInventoryFacilityId(facilityIds[0] || "")
   if(searchMode.value !== "location") {return}
-  if(!isApplyingRouteScope) {scopeError.value = ""}
   selectedProductIds.value = []
-  pageIndex.value = 0
+  if(facilityIds.length > 1) {exitSelectMode()}
   if(isApplyingRouteScope) {return}
-  syncSearchModeQuery()
+  scopeError.value = ""
+  pageIndex.value = 0
+  syncInventoryQuery()
   fetchProductFacility({ scopeChanged: true })
 })
 
@@ -471,9 +507,9 @@ watch(selectedChannelId, () => {
   if(searchMode.value !== "channel") {return}
   scopeError.value = channelScopeError(selectedChannel.value)
   selectedProductIds.value = []
-  pageIndex.value = 0
   if(isApplyingRouteScope) {return}
-  syncSearchModeQuery()
+  pageIndex.value = 0
+  syncInventoryQuery()
   if(!scopeError.value) {fetchProductFacility({ scopeChanged: true })}
 })
 
@@ -508,14 +544,22 @@ async function updateSearchMode(event: any) {
   if(nextMode === "channel") {configFilters.value.atpFrom = ""}
   selectedProductIds.value = [];
   pageIndex.value = 0;
-  syncSearchModeQuery();
+  syncInventoryQuery();
   if(!scopeError.value) {fetchProductFacility({ scopeChanged: true });}
 }
 
-function syncSearchModeQuery() {
-  const query = inventoryScopeQuery(searchMode.value === "channel"
+function syncInventoryQuery() {
+  const query = inventoryListQuery(searchMode.value === "channel"
     ? { type: "channel", channelId: selectedChannelId.value }
-    : { type: "location", facilityId: selectedFacility.value });
+    : { type: "location", facilityIds: selectedFacilityIds.value }, {
+      productIds: productIdFilter.value,
+      sortField: sortField.value,
+      allowBrokering: configFilters.value.allowBrokering,
+      allowPickup: configFilters.value.allowPickup,
+      minimumStockFrom: configFilters.value.minimumStockFrom,
+      availableToPromiseFrom: configFilters.value.atpFrom,
+      pageIndex: pageIndex.value
+    });
   router.replace({ path: "/inventory", query });
 }
 
@@ -587,8 +631,8 @@ function toggleCurrentPageSelection(checked: boolean) {
   }
 }
 
-function onRowClick(productId: string) {
-  selectMode.value ? toggleProductSelection(productId) : viewInventoryDetail(productId)
+function onRowClick(product: any) {
+  selectMode.value ? toggleProductSelection(product.productId) : viewInventoryDetail(product.productId, product.facilityId)
 }
 
 // Pass scopeChanged when the facility, channel, or scope mode changed, so the list falls back to the
@@ -606,7 +650,7 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
 
     return;
   }
-  if((searchMode.value === "location" && !selectedFacility.value) || (searchMode.value === "channel" && !selectedChannelId.value)) {
+  if((searchMode.value === "location" && !selectedFacilityIds.value.length) || (searchMode.value === "channel" && !selectedChannelId.value)) {
     productFacilityApi.clearProductFacility();
     total.value = 0;
     isLoading.value = false;
@@ -622,7 +666,10 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
     orderByField: sortField.value
   } as Record<string, string | number>
 
-  if(requestFacilityId.value) {
+  if(searchMode.value === "location" && selectedFacilityIds.value.length) {
+    params.facilityId = selectedFacilityIds.value.join(",");
+    if(selectedFacilityIds.value.length > 1) {params.facilityId_op = "in";}
+  } else if(requestFacilityId.value) {
     params.facilityId = requestFacilityId.value;
   }
 
@@ -640,6 +687,11 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
   const result = await productFacilityApi.fetchProductFacilityRows(params, { withInventory: searchMode.value === "location" });
   if(requestId !== listRequestId || result === undefined) {return;}
   total.value = result.total;
+  const lastPageIndex = Math.max(Math.ceil(result.total / PAGE_SIZE) - 1, 0);
+  if(pageIndex.value > lastPageIndex) {
+    pageIndex.value = lastPageIndex;
+    syncInventoryQuery();
+  }
 
   // The entity rows carry productId but no product detail, so names, SKUs and images come from Solr.
   // Awaited (unlike the old fire-and-forget hydration) because entity-first rows have nothing else to
@@ -687,21 +739,23 @@ async function hydrateChannelOnlineAtp(requestId: number, productIds: string[]) 
   products.value = mergeOnlineAtpIntoRows(products.value, onlineAtpByProduct);
 }
 
-// Same modal InventoryDetail uses for "Change location", so a facility is picked the same way in
-// both places. No productId here: this is the list, not one product, so the modal lists facilities
-// without per-facility stock.
+// The list supports a multi-facility filter; InventoryDetail keeps its own single-facility switcher.
+// No productId here: this is the list, so the modal only needs the store's facility list.
 async function openFacilitySwitcher() {
   const modal = await modalController.create({
-    component: FacilitySwitcherModal,
+    component: MultiFacilitySwitcherModal,
     componentProps: {
-      currentFacilityId: selectedFacility.value,
+      currentFacilityIds: selectedFacilityIds.value,
       facilities: productStoreFacilities.value
     }
   });
   await modal.present();
   const { data } = await modal.onDidDismiss();
-  if(data?.facilityId && data.facilityId !== selectedFacility.value) {
-    selectedFacility.value = data.facilityId;
+  if(Array.isArray(data?.facilityIds) && data.facilityIds.length) {
+    const nextFacilityIds = [...new Set<string>(data.facilityIds.map((facilityId: any) => String(facilityId)))];
+    if(nextFacilityIds.join(",") !== selectedFacilityIds.value.join(",")) {
+      selectedFacilityIds.value = nextFacilityIds;
+    }
   }
 }
 
@@ -716,6 +770,7 @@ async function openProductSearchModal() {
     productIdFilter.value = result.data.productIds || [];
     pageIndex.value = 0;
     selectedProductIds.value = [];
+    syncInventoryQuery();
     // The visible rows change to a different product set, so show the skeleton rather than the old rows.
     await fetchProductFacility({ scopeChanged: true });
   });
@@ -728,6 +783,7 @@ async function clearProductFilter() {
   productIdFilter.value = [];
   pageIndex.value = 0;
   selectedProductIds.value = [];
+  syncInventoryQuery();
   await fetchProductFacility({ scopeChanged: true });
 }
 
@@ -737,12 +793,14 @@ async function updateSortField(event: CustomEvent) {
   sortField.value = nextSort;
   pageIndex.value = 0;
   selectedProductIds.value = [];
+  syncInventoryQuery();
   await fetchProductFacility({ scopeChanged: true });
 }
 
 async function applyConfigFilters() {
   pageIndex.value = 0;
   selectedProductIds.value = [];
+  syncInventoryQuery();
   await fetchProductFacility({ scopeChanged: true });
 }
 
@@ -751,6 +809,7 @@ async function goToPreviousPage() {
 
   pageIndex.value -= 1
   selectedProductIds.value = []
+  syncInventoryQuery();
   await fetchProductFacility()
 }
 
@@ -759,14 +818,23 @@ async function goToNextPage() {
 
   pageIndex.value += 1
   selectedProductIds.value = []
+  syncInventoryQuery();
   await fetchProductFacility()
 }
 
-function viewInventoryDetail(productId: string) {
+function viewInventoryDetail(productId: string, facilityId?: string) {
   const query = inventoryScopeQuery(searchMode.value === "channel"
     ? { type: "channel", channelId: selectedChannelId.value }
-    : { type: "location", facilityId: selectedFacility.value });
+    : { type: "location", facilityId: facilityId || selectedFacilityIds.value[0] || "" });
   router.push({ path: `/inventory/${productId}`, query })
+}
+
+function facilityName(facilityId: string) {
+  return (productStoreFacilities.value || []).find((facility: any) => facility.facilityId === facilityId)?.facilityName || "";
+}
+
+function productRowKey(product: any) {
+  return `${product.productId}-${product.facilityId || "no-facility"}`;
 }
 
 // Entity row first, then whatever Solr knows about the product. A row with no Solr document still
@@ -789,7 +857,7 @@ function getSecondaryProductIdentifier(product: any) {
 }
 
 async function openBulkInventoryEditModal() {
-  if(searchMode.value !== "location" || !selectedProducts.value.length) {return;}
+  if(searchMode.value !== "location" || selectedFacilityIds.value.length !== 1 || !selectedProducts.value.length) {return;}
   const bulkInventoryEditModal = await modalController.create({
     component: ProductInventoryEdit,
     componentProps: {
@@ -810,7 +878,7 @@ async function openBulkInventoryEditModal() {
 
 async function openProductFacilityConfigModal(selectedProductsArg?: any[]) {
   const productsForModal = selectedProductsArg || selectedProducts.value;
-  if(!productsForModal.length) {return;}
+  if(!productsForModal.length || (searchMode.value === "location" && selectedFacilityIds.value.length !== 1)) {return;}
   const productFacilityConfigEditModal = await modalController.create({
     component: ProductFacilityConfigEditModal,
     componentProps: {

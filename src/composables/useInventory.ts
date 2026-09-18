@@ -40,9 +40,9 @@ const VARIANCE_DECISION_DOC = "InventoryVarianceDecisionDetail"
 
 export function formatUserName(row: any): string {
   if (!row) return ""
-  const group = (row.groupName || "").trim()
-  if (group) return group
-  return [row.firstName, row.middleName, row.lastName].filter(Boolean).join(" ").trim()
+  const fullName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(" ").trim()
+  if (fullName) return fullName
+  return (row.groupName || "").trim()
 }
 
 export function useInventory() {
@@ -216,6 +216,12 @@ export function useInventory() {
     return names.value[id] || id
   }
 
+  function displayIdentity(id?: string): string {
+    if (!id) return "-"
+    const fullName = names.value[id]
+    return fullName ? `${id} (${fullName})` : id
+  }
+
   async function fetchReturnAudit(returnId: string, returnItemSeqId?: string): Promise<ReturnAudit | null> {
     if (!returnId) return null
 
@@ -278,6 +284,7 @@ export function useInventory() {
     fetchReturnSummaries,
     fetchVarianceAudit,
     resolveNames,
-    displayName
+    displayName,
+    displayIdentity
   }
 }

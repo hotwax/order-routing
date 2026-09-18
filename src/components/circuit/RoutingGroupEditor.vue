@@ -518,7 +518,7 @@
                     <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
-                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
+                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity', 'less-equals')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
               </div>
             </ion-item>
             <ion-item v-else-if="item.target.endsWith('.BRK_SAFETY_STOCK')" :class="{ 'dirty-setting-row': item.dirty }">

@@ -733,10 +733,19 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
   // Awaited (unlike the old fire-and-forget hydration) because entity-first rows have nothing else to
   // show: without it every row would read as a bare product id.
   const productIds = [...new Set((products.value || []).map((product: any) => product.productId).filter(Boolean))];
+  let summaries: Record<string, any> = {};
   if(productIds.length) {
-    const summaries = await fetchProductSummaries(productIds);
+    summaries = await fetchProductSummaries(productIds);
     if(requestId !== listRequestId) {return;}
     productSummaries.value = summaries;
+  } else {
+    productSummaries.value = {};
+  }
+
+  // The selected-product card represents the user's filter, not only the rows that survived the
+  // current inventory configuration. If a pickup/brokering filter removes every selected variant,
+  // still hydrate those ids so the card keeps grouping them under their parent product.
+  if(productIdFilter.value.length) {
     const filterSummaries: Record<string, any> = {};
     productIdFilter.value.forEach((productId: string) => {
       if(summaries[productId]) {filterSummaries[productId] = summaries[productId];}
@@ -744,10 +753,10 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
     const missingFilterProductIds = productIdFilter.value.filter((productId: string) => !filterSummaries[productId]);
     if(missingFilterProductIds.length) {
       Object.assign(filterSummaries, await fetchProductSummaries(missingFilterProductIds));
+      if(requestId !== listRequestId) {return;}
     }
     selectedProductFilterSummaries.value = filterSummaries;
   } else {
-    productSummaries.value = {};
     selectedProductFilterSummaries.value = {};
   }
 

@@ -342,6 +342,30 @@ describe("Inventory entity-first search", () => {
     expect(wrapper.find('[data-testid="product-filter-summary"]').exists()).toBe(false);
   });
 
+  it("keeps parent grouping when an inventory filter removes all matching rows", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    fetchProductFacilityRows.mockImplementation(() => {
+      products.value = [];
+
+      return Promise.resolve({ rows: [], total: 0 });
+    });
+    const allowPickup = wrapper.findAllComponents({ name: "IonSelect" })
+      .find((select: any) => select.attributes("label") === "Allow Pickup");
+    allowPickup.vm.$emit("ionChange", { detail: { value: "Y" } });
+    await flush();
+
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).toContain("Abominable Hoodie");
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).not.toContain("10001");
+  });
+
   it("uses outline styling for every inventory dropdown", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);

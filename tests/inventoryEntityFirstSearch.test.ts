@@ -331,6 +331,14 @@ describe("Inventory entity-first search", () => {
     expect(wrapper.find('[data-testid="edit-product-filter"]').exists()).toBe(false);
   });
 
+  it("uses outline styling for every inventory dropdown", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    expect(wrapper.findAllComponents({ name: "IonSelect" }).every((select: any) => select.attributes("fill") === "outline")).toBe(true);
+  });
+
   it("groups selected variants under one parent product", async () => {
     fetchProductSummaries.mockResolvedValue({
       "10001": { productId: "10001", productName: "XS / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", SKU: "SKU-1" },

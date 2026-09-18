@@ -26,7 +26,7 @@
               </ion-label>
             </ion-item>
             <ion-item v-else lines="none">
-              <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" interface="popover">
+              <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" fill="outline" interface="popover">
                 <ion-select-option
                   v-for="channel in inventoryChannels"
                   :key="channel.facilityGroupId"
@@ -46,7 +46,7 @@
           </div>
           <div class="filter-controls">
             <ion-item lines="none">
-              <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" interface="popover" @ion-change="applyConfigFilters">
+              <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
                 <ion-select-option value="">
                   {{ translate("Any") }}
                 </ion-select-option>
@@ -59,7 +59,7 @@
               </ion-select>
             </ion-item>
             <ion-item lines="none">
-              <ion-select v-model="configFilters.allowPickup" :label="translate('Allow Pickup')" interface="popover" @ion-change="applyConfigFilters">
+              <ion-select v-model="configFilters.allowPickup" :label="translate('Allow Pickup')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
                 <ion-select-option value="">
                   {{ translate("Any") }}
                 </ion-select-option>
@@ -72,7 +72,7 @@
               </ion-select>
             </ion-item>
             <ion-item lines="none">
-              <ion-select :value="sortField" :label="translate('Sort by')" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
+              <ion-select :value="sortField" :label="translate('Sort by')" fill="outline" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
                 <ion-select-option v-for="option in sortOptions" :key="option.value" :value="option.value">
                   {{ translate(option.label) }}
                 </ion-select-option>

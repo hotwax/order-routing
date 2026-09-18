@@ -704,7 +704,7 @@
                     </p>
                     {{ m.referenceLabel }}
                     <p class="movement-sub">
-                      {{ formatDateTime(m.raw.effectiveDate) }}
+                      {{ formatDateTime(m.historyDate) }}
                     </p>
                   </ion-label>
                   <div slot="end" class="header-deltas">
@@ -919,7 +919,7 @@ import { type InventoryScope, inventoryScopeErrorMessage, inventoryScopeQuery, p
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
 
-// Inventory-log effectiveDate arrives as either epoch millis or an ISO string; normalise to a
+// API timestamps arrive as either epoch millis or an ISO string; normalise to a
 // luxon DateTime so both display and date-range filtering share one parse.
 function toDateTime(value: any): DateTime | null {
   if(!value) {return null;}
@@ -1086,6 +1086,7 @@ const dateRangeOptions = [
 const movements = computed(() =>
   (inventoryLogs.value || []).map((row: any) => ({
     ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value, returnSummaries: returnSummaries.value }),
+    historyDate: row.createdStamp ?? row.effectiveDate,
     balance: movementBalance(row)
   })));
 
@@ -1126,7 +1127,7 @@ const filteredMovements = computed(() => {
     if(activeTypeFilter.value !== "ALL" && m.typeKey !== activeTypeFilter.value) {return false;}
     if(q && !m.searchText.includes(q)) {return false;}
     if(start || end) {
-      const dt = toDateTime(m.raw.effectiveDate);
+      const dt = toDateTime(m.historyDate);
       if(!dt) {return false;}
       if(start && dt < start) {return false;}
       if(end && dt > end) {return false;}

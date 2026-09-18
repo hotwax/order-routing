@@ -328,7 +328,11 @@ describe("Inventory entity-first search", () => {
     expect(summary.exists()).toBe(true);
     expect(summary.text()).toContain("Abominable Hoodie");
     expect(summary.text()).not.toContain("MH09-XS-Blue");
+    const parent = wrapper.find('[data-testid="product-filter-parent"]');
     expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(parent.attributes("fill")).toBe("outline");
+    expect(parent.attributes("lines")).toBe("none");
+    expect(parent.find("p").text()).toContain("1 variants selected");
     expect(wrapper.find('[data-testid="edit-product-filter"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="clear-product-filter"]').exists()).toBe(true);
 

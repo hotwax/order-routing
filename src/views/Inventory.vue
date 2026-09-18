@@ -79,12 +79,12 @@
               </ion-select>
             </div>
           </div>
-          <ion-list v-if="productIdFilter.length" lines="full" class="product-filter-summary" data-testid="product-filter-summary">
-            <ion-item v-for="group in selectedProductFilterGroups" :key="group.groupId" data-testid="product-filter-parent">
+          <ion-list v-if="productIdFilter.length" lines="none" class="product-filter-summary" data-testid="product-filter-summary">
+            <ion-item v-for="group in selectedProductFilterGroups" :key="group.groupId" lines="none" fill="outline" data-testid="product-filter-parent">
               <ion-label>
                 {{ group.productName }}
+                <p>{{ group.selectedCount }} {{ translate("variants selected") }}</p>
               </ion-label>
-              <ion-note slot="end">{{ group.selectedCount }} {{ translate("variants selected") }}</ion-note>
               <ion-button
                 slot="end"
                 fill="clear"

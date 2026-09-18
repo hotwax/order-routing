@@ -165,7 +165,7 @@ export function useProductFacility() {
         method: "GET",
         params: {
           ...query,
-          orderByField: "effectiveDate desc"
+          orderByField: "createdStamp desc"
         }
       })
 

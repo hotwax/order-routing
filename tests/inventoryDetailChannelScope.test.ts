@@ -1,4 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
+import { DateTime } from "luxon";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 
@@ -124,7 +125,7 @@ describe("InventoryDetail Channel scope", () => {
     }));
     vi.doMock("@/utils/inventoryMovement", () => ({
       movementBalance: vi.fn(() => ({ atp: null, qoh: null })),
-      classifyMovement: vi.fn(),
+      classifyMovement: (raw: any) => ({ raw, typeKey: "ADJUSTMENT", label: "Adjustment", referenceLabel: raw.description, searchText: raw.description }),
       MOVEMENT_TYPE_ORDER: [],
       movementTypeLabel: vi.fn(),
       movementTypeIcon: vi.fn(),
@@ -167,5 +168,38 @@ describe("InventoryDetail Channel scope", () => {
     expect(wrapper.text()).toContain("The selected facility is not available for this product store.");
     expect(fetchProductFacility).not.toHaveBeenCalled();
     expect(fetchInventoryLogs).not.toHaveBeenCalled();
+  });
+
+  it("prefers creation time and falls back to effective time for history display and filtering", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
+    const recent = DateTime.now().minus({ days: 1 });
+    const old = recent.minus({ days: 30 });
+    fetchInventoryLogs.mockImplementation(async () => {
+      inventoryLogs.value = [
+        { inventoryItemDetailSeqId: "5", description: "Created without effective", createdStamp: recent.toMillis(), effectiveDate: null },
+        { inventoryItemDetailSeqId: "4", description: "Created over backdated", createdStamp: recent.toISO(), effectiveDate: old.toMillis() },
+        { inventoryItemDetailSeqId: "3", description: "Effective fallback", createdStamp: null, effectiveDate: recent.toMillis() },
+        { inventoryItemDetailSeqId: "2", description: "Old effective fallback", createdStamp: null, effectiveDate: old.toMillis() },
+        { inventoryItemDetailSeqId: "1", description: "Old creation", createdStamp: old.toMillis(), effectiveDate: recent.toMillis() },
+      ];
+    });
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    const recentDisplay = recent.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" });
+    const oldDisplay = old.toLocaleString({ ...DateTime.DATETIME_MED, hourCycle: "h12" });
+    expect(wrapper.findAll(".movement-sub").map((node) => node.text())).toEqual([
+      recentDisplay, recentDisplay, recentDisplay, oldDisplay, oldDisplay,
+    ]);
+
+    await wrapper.findAll(".date-filters > div").find((chip) => chip.text() === "Last 7 days")!.trigger("click");
+    expect(wrapper.text()).toContain("Created without effective");
+    expect(wrapper.text()).toContain("Created over backdated");
+    expect(wrapper.text()).toContain("Effective fallback");
+    expect(wrapper.text()).not.toContain("Old effective fallback");
+    expect(wrapper.text()).not.toContain("Old creation");
+    wrapper.unmount();
   });
 });

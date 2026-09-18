@@ -1,7 +1,73 @@
 import { describe, expect, it } from "vitest";
-import { inventoryScopeQuery, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
+import { inventoryListQuery, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
 
 describe("inventory scope", () => {
+  it("round-trips the full inventory list query through a shareable URL state", () => {
+    const query = inventoryListQuery({ type: "location", facilityIds: ["CENTRAL_WAREHOUSE"] }, {
+      productIds: ["P100", "P200"],
+      sortField: "-availableToPromise",
+      allowBrokering: "Y",
+      allowPickup: "N",
+      minimumStockFrom: "5",
+      availableToPromiseFrom: "10",
+      pageIndex: 2,
+    });
+
+    expect(query).toEqual({
+      facilityId: "CENTRAL_WAREHOUSE",
+      productId: "P100,P200",
+      orderByField: "-availableToPromise",
+      allowBrokering: "Y",
+      allowPickup: "N",
+      minimumStock_from: "5",
+      availableToPromise_from: "10",
+      pageIndex: "2",
+    });
+    expect(parseInventoryListQuery(query)).toEqual({
+      facilityIds: ["CENTRAL_WAREHOUSE"],
+      channelId: "",
+      productIds: ["P100", "P200"],
+      sortField: "-availableToPromise",
+      allowBrokering: "Y",
+      allowPickup: "N",
+      minimumStockFrom: "5",
+      availableToPromiseFrom: "10",
+      pageIndex: 2,
+    });
+  });
+
+  it("accepts repeated or comma-separated product IDs and rejects invalid pages", () => {
+    expect(parseInventoryListQuery({ productId: ["P100,P200", "P200"], pageIndex: "-1" })).toMatchObject({
+      productIds: ["P100", "P200"],
+      pageIndex: 0,
+    });
+  });
+
+  it("round-trips multiple facilities with an explicit IN operator", () => {
+    const query = inventoryListQuery({ type: "location", facilityIds: ["CENTRAL_WAREHOUSE", "EAST_WAREHOUSE"] }, {
+      productIds: [],
+      sortField: "",
+      allowBrokering: "",
+      allowPickup: "",
+      minimumStockFrom: "",
+      availableToPromiseFrom: "",
+      pageIndex: 0,
+    });
+
+    expect(query).toEqual({
+      facilityId: "CENTRAL_WAREHOUSE,EAST_WAREHOUSE",
+      facilityId_op: "in",
+    });
+    expect(parseInventoryListQuery(query)).toMatchObject({
+      facilityIds: ["CENTRAL_WAREHOUSE", "EAST_WAREHOUSE"],
+      channelId: "",
+    });
+    expect(parseInventoryListScope(query)).toEqual({
+      type: "location",
+      facilityIds: ["CENTRAL_WAREHOUSE", "EAST_WAREHOUSE"],
+    });
+  });
+
   it("infers Channel scope from channelId without a view parameter", () => {
     const scope = parseInventoryScope({ channelId: "FAC_GRP" });
 

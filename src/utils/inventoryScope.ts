@@ -19,8 +19,83 @@ export type InvalidInventoryScope = {
 
 export type InventoryScope = LocationInventoryScope | ChannelInventoryScope | InvalidInventoryScope;
 
+export type InventoryListLocationScope = {
+  type: "location";
+  facilityIds: string[];
+};
+
+export type InventoryListScope = InventoryListLocationScope | ChannelInventoryScope | InvalidInventoryScope;
+
+export type InventoryListQueryState = {
+  facilityIds?: string[];
+  channelId?: string;
+  productIds: string[];
+  sortField: string;
+  allowBrokering: string;
+  allowPickup: string;
+  minimumStockFrom: string;
+  availableToPromiseFrom: string;
+  pageIndex: number;
+};
+
 function firstQueryValue(value: LocationQueryValue | LocationQueryValue[] | undefined): string {
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
+}
+
+function queryValues(value: LocationQueryValue | LocationQueryValue[] | undefined): string[] {
+  return (Array.isArray(value) ? value : [value])
+    .flatMap((entry) => String(entry || "").split(","))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+export function parseInventoryListQuery(query: LocationQuery): InventoryListQueryState {
+  const parsedPageIndex = Number(firstQueryValue(query.pageIndex));
+
+  return {
+    facilityIds: [...new Set(queryValues(query.facilityId))],
+    channelId: firstQueryValue(query.channelId),
+    productIds: [...new Set(queryValues(query.productId))],
+    sortField: firstQueryValue(query.orderByField),
+    allowBrokering: firstQueryValue(query.allowBrokering),
+    allowPickup: firstQueryValue(query.allowPickup),
+    minimumStockFrom: firstQueryValue(query.minimumStock_from),
+    availableToPromiseFrom: firstQueryValue(query.availableToPromise_from),
+    pageIndex: Number.isInteger(parsedPageIndex) && parsedPageIndex >= 0 ? parsedPageIndex : 0,
+  };
+}
+
+export function inventoryListQuery(scope: InventoryListScope, state: InventoryListQueryState): Record<string, string> {
+  const query: Record<string, string> = {};
+  if(scope.type === "channel") {
+    if(scope.channelId) {query.channelId = scope.channelId;}
+  } else if(scope.type === "location" && scope.facilityIds.length) {
+    query.facilityId = scope.facilityIds.join(",");
+    if(scope.facilityIds.length > 1) {query.facilityId_op = "in";}
+  }
+
+  if(state.productIds.length) {query.productId = state.productIds.join(",");}
+  if(state.sortField) {query.orderByField = state.sortField;}
+  if(state.allowBrokering) {query.allowBrokering = state.allowBrokering;}
+  if(state.allowPickup) {query.allowPickup = state.allowPickup;}
+  if(state.minimumStockFrom) {query.minimumStock_from = state.minimumStockFrom;}
+  if(state.availableToPromiseFrom) {query.availableToPromise_from = state.availableToPromiseFrom;}
+  if(state.pageIndex > 0) {query.pageIndex = String(state.pageIndex);}
+
+  return query;
+}
+
+export function parseInventoryListScope(query: LocationQuery): InventoryListScope {
+  const facilityIds = [...new Set(queryValues(query.facilityId))];
+  const channelId = firstQueryValue(query.channelId);
+
+  if(facilityIds.length && channelId) {
+    return { type: "invalid", reason: "multiple-scopes", facilityId: facilityIds.join(","), channelId };
+  }
+
+  if(channelId) {return { type: "channel", channelId };}
+
+  return { type: "location", facilityIds };
 }
 
 export function parseInventoryScope(query: LocationQuery): InventoryScope {

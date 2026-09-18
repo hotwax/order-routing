@@ -33,8 +33,9 @@ describe("Inventory entity-first search", () => {
   const lastParams = () => lastCall()[0];
   const lastOptions = () => lastCall()[1];
 
-  // Location scope renders: facility, sort, allowBrokering, allowPickup.
-  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })[0];
+  // Location scope renders the sort selector after the facility/product and config controls.
+  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })
+    .find((component: any) => component.attributes("data-testid") === "inventory-sort-select");
 
   // The facility control opens the multi-facility selector and takes facilityIds off its dismiss payload.
   async function selectFacility(wrapper: any, facilityId: string) {
@@ -148,6 +149,7 @@ describe("Inventory entity-first search", () => {
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
+      IonList: defineComponent({ name: "IonList", template: "<div><slot /></div>" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSegment: defineComponent({ name: "IonSegment", template: "<div><slot /></div>" }),
@@ -307,7 +309,7 @@ describe("Inventory entity-first search", () => {
     modalDismissData = { productIds: ["10001", "10002"] };
     await wrapper.find('[data-testid="open-product-search"]').trigger("click");
     await flush();
-    await wrapper.find('[data-testid="edit-product-filter"]').trigger("click");
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
     await flush();
 
     expect(lastModalProps).toMatchObject({ selectedProductIds: ["10001", "10002"] });
@@ -324,9 +326,26 @@ describe("Inventory entity-first search", () => {
 
     const summary = wrapper.find('[data-testid="product-filter-summary"]');
     expect(summary.exists()).toBe(true);
-    expect(summary.text()).toContain("products selected");
     expect(summary.text()).toContain("10001");
-    expect(summary.text()).toContain("MH09-XS-Blue");
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="edit-product-filter"]').exists()).toBe(false);
+  });
+
+  it("groups selected variants under one parent product", async () => {
+    fetchProductSummaries.mockResolvedValue({
+      "10001": { productId: "10001", productName: "XS / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", SKU: "SKU-1" },
+      "10002": { productId: "10002", productName: "S / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", SKU: "SKU-2" },
+    });
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001", "10002"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).toContain("2 variants selected");
   });
 
   it("sorts by any view alias, including inventory levels", async () => {

@@ -36,13 +36,15 @@
                 </ion-select-option>
               </ion-select>
             </ion-item>
-            <ion-item lines="none">
-              <ion-select :value="sortField" :label="translate('Sort by')" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
-                <ion-select-option v-for="option in sortOptions" :key="option.value" :value="option.value">
-                  {{ translate(option.label) }}
-                </ion-select-option>
-              </ion-select>
+            <ion-item lines="none" button detail data-testid="open-product-search" @click="openProductSearchModal">
+              <ion-label>
+                {{ translate("Product") }}
+                <p>{{ productIdFilter.length ? translate("{count} products selected", { count: productIdFilter.length }) : translate("All products") }}</p>
+              </ion-label>
+              <ion-note slot="end">{{ productIdFilter.length || "-" }}</ion-note>
             </ion-item>
+          </div>
+          <div class="filter-controls">
             <ion-item lines="none">
               <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" interface="popover" @ion-change="applyConfigFilters">
                 <ion-select-option value="">
@@ -69,47 +71,23 @@
                 </ion-select-option>
               </ion-select>
             </ion-item>
+            <ion-item lines="none">
+              <ion-select :value="sortField" :label="translate('Sort by')" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
+                <ion-select-option v-for="option in sortOptions" :key="option.value" :value="option.value">
+                  {{ translate(option.label) }}
+                </ion-select-option>
+              </ion-select>
+            </ion-item>
           </div>
-          <!-- Product search is a modal now: pick a style, then its variants. The list itself is a
-               ProductFacility query, so a free-text box here would search the wrong thing. -->
-          <div class="filter-controls">
-            <ion-button fill="outline" size="default" data-testid="open-product-search" @click="openProductSearchModal">
-              <ion-icon slot="start" :icon="searchOutline" />
-              {{ translate("Search products") }}
-            </ion-button>
-          </div>
-          <div v-if="productIdFilter.length" class="product-filter-summary" data-testid="product-filter-summary">
-            <div class="product-filter-summary-header">
-              <div>
-                <span class="product-filter-summary-eyebrow">{{ translate("Product filter") }}</span>
-                <strong>{{ translate("{count} products selected", { count: productIdFilter.length }) }}</strong>
-                <p>{{ translate("These products are pinned to this inventory search.") }}</p>
-              </div>
-              <div class="product-filter-summary-actions">
-                <ion-button fill="clear" size="small" data-testid="edit-product-filter" @click="openProductSearchModal">
-                  {{ translate("Edit") }}
-                </ion-button>
-                <ion-button fill="clear" size="small" data-testid="clear-product-filter" @click="clearProductFilter">
-                  <ion-icon slot="icon-only" :icon="closeCircleOutline" />
-                </ion-button>
-              </div>
-            </div>
-            <div v-if="selectedProductFilterProducts.length" class="product-filter-summary-products">
-              <div v-for="product in selectedProductFilterProducts.slice(0, 3)" :key="product.productId" class="product-filter-summary-product">
-                <ion-thumbnail>
-                  <DxpShopifyImg :src="product.mainImageUrl" />
-                </ion-thumbnail>
-                <div>
-                  <strong>{{ getPrimaryProductIdentifier(product) }}</strong>
-                  <p>{{ getSecondaryProductIdentifier(product) }}</p>
-                  <small>{{ product.productName || product.parentProductName || product.productId }}</small>
-                </div>
-              </div>
-              <span v-if="productIdFilter.length > 3" class="product-filter-summary-more">
-                +{{ productIdFilter.length - 3 }} {{ translate("more selected") }}
-              </span>
-            </div>
-          </div>
+          <ion-list v-if="productIdFilter.length" lines="full" class="product-filter-summary" data-testid="product-filter-summary">
+            <ion-item v-for="group in selectedProductFilterGroups" :key="group.groupId" data-testid="product-filter-parent">
+              <ion-label>
+                {{ group.productName }}
+                <p>{{ group.primaryIdentifier }}</p>
+              </ion-label>
+              <ion-note slot="end">{{ group.selectedCount }} {{ translate("variants selected") }}</ion-note>
+            </ion-item>
+          </ion-list>
         </ion-card-content>
       </ion-card>
 
@@ -302,8 +280,8 @@
 
 <script setup lang="ts">
 import { DxpShopifyImg, emitter, translate } from "@common";
-import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
-import { caretBackOutline, caretForwardOutline, closeCircleOutline, searchOutline } from "ionicons/icons";
+import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
+import { caretBackOutline, caretForwardOutline } from "ionicons/icons";
 import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
@@ -403,6 +381,21 @@ const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1)
 const sortOptions = computed(() => searchMode.value === "channel" ? CHANNEL_SORT_OPTIONS : LOCATION_SORT_OPTIONS);
 const selectedProductFilterProducts = computed(() => productIdFilter.value
   .map((productId: string) => ({ productId, ...(selectedProductFilterSummaries.value[productId] || {}) })));
+const selectedProductFilterGroups = computed(() => {
+  const groups = new Map<string, any>();
+  selectedProductFilterProducts.value.forEach((product: any) => {
+    const groupId = product.groupId || product.parentProductId || product.productId;
+    const group = groups.get(groupId) || {
+      groupId,
+      productName: product.parentProductName || product.productName || product.productId,
+      primaryIdentifier: getPrimaryIdentifier(productIdentificationPref.value, product),
+      selectedCount: 0
+    };
+    group.selectedCount += 1;
+    groups.set(groupId, group);
+  });
+  return Array.from(groups.values());
+});
 // Products the user picked in the search modal that this facility has no ProductFacility row for.
 // Only meaningful while a product filter is active: without one the list is simply everything stocked.
 const unstockedFilteredProducts = computed(() => {
@@ -819,15 +812,6 @@ async function openProductSearchModal() {
   return modal.present();
 }
 
-async function clearProductFilter() {
-  if(!productIdFilter.value.length) {return;}
-  productIdFilter.value = [];
-  pageIndex.value = 0;
-  selectedProductIds.value = [];
-  syncInventoryQuery();
-  await fetchProductFacility({ scopeChanged: true });
-}
-
 async function updateSortField(event: CustomEvent) {
   const nextSort = event.detail.value as string | undefined;
   if(!nextSort || nextSort === sortField.value) {return;}
@@ -1033,104 +1017,6 @@ ion-content {
   min-width: 0;
 }
 
-/* The row is a flex container without align-items, so it defaults to stretch and pulls the chip up
-   to the height of its tallest sibling. At that height Ionic's 16px chip radius stops reading as a
-   pill and turns into a rounded rectangle, so let the chip keep its own 32px. */
-.filter-controls ion-chip {
-  align-self: center;
-}
-
-.product-filter-summary {
-  border: 1px solid var(--ion-color-medium-tint);
-  border-radius: 12px;
-  background: var(--ion-color-light, #f4f5f8);
-  padding: var(--spacer-sm, 12px);
-}
-
-.product-filter-summary-header,
-.product-filter-summary-products {
-  display: flex;
-  align-items: center;
-  gap: var(--spacer-sm, 12px);
-}
-
-.product-filter-summary-header {
-  justify-content: space-between;
-}
-
-.product-filter-summary-eyebrow {
-  display: block;
-  color: var(--ion-color-medium-shade);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.product-filter-summary-header strong {
-  display: block;
-  margin-top: 2px;
-}
-
-.product-filter-summary-header p {
-  margin: 3px 0 0;
-  color: var(--ion-color-medium-shade);
-  font-size: 12px;
-}
-
-.product-filter-summary-actions {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.product-filter-summary-products {
-  margin-top: var(--spacer-sm, 12px);
-  overflow: hidden;
-}
-
-.product-filter-summary-product {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.product-filter-summary-product ion-thumbnail {
-  --size: 40px;
-  flex: 0 0 auto;
-}
-
-.product-filter-summary-product > div {
-  min-width: 0;
-}
-
-.product-filter-summary-product strong,
-.product-filter-summary-product p,
-.product-filter-summary-product small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.product-filter-summary-product p,
-.product-filter-summary-product small {
-  margin: 2px 0 0;
-  color: var(--ion-color-medium-shade);
-  font-size: 11px;
-}
-
-.product-filter-summary-more {
-  color: var(--ion-color-primary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-/* Keep the action controls from stretching the summary card to the full filter row height. */
-.product-filter-summary ion-button {
-  margin: 0;
-}
 
 .pagination {
   display: flex;

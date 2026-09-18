@@ -16,6 +16,9 @@ vi.mock("@/store/atpProductStore", () => ({
 import { useProductSearch } from "../src/composables/useProductSearch";
 
 const solr = (docs: any[], numFound = docs.length) => ({ data: { response: { docs, numFound } } });
+const grouped = (docs: any[], ngroups = docs.length) => ({ data: { grouped: { groupId: {
+  ngroups, matches: docs.length, groups: docs.map((doc) => ({ groupValue: doc.groupId ?? null, doclist: { docs: [doc], numFound: 1 } }))
+} } } });
 
 describe("useProductSearch.searchStyles", () => {
   beforeEach(() => {
@@ -24,11 +27,40 @@ describe("useProductSearch.searchStyles", () => {
     currentProductStore.value = { productStoreId: "SANDBOX_STORE" };
   });
 
+  it("quotes and escapes exact product and parent identifiers", async () => {
+    runSolrQuery.mockResolvedValue(solr([]));
+    const search = useProductSearch();
+    await search.fetchVariants('STYLE: 1"\\');
+    expect(runSolrQuery.mock.calls[0][0].json.filter).toContain('groupId:"STYLE: 1\\"\\\\"');
+    await search.fetchProductSummaries(["SKU:XS", "A OR B"]);
+    expect(runSolrQuery.mock.calls[1][0].json.filter).toContain('productId:("SKU:XS" OR "A OR B")');
+  });
+
+  it("keeps the store's configured identifiers during enrichment", async () => {
+    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "P1", internalName: "internal", goodIdentifications: ["SKU/ABC"] }]));
+    const result = await useProductSearch().fetchProductSummaries(["P1"]);
+    expect(result.P1).toMatchObject({ internalName: "internal", goodIdentifications: ["SKU/ABC"] });
+  });
+
+  it("requests later variant pages", async () => {
+    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "V201" }], 201));
+    await useProductSearch().fetchVariants("STYLE", { pageIndex: 1 });
+    expect(runSolrQuery.mock.calls[0][0].json.params).toMatchObject({ rows: 200, start: 200 });
+  });
+
+  it("paginates distinct styles on the server instead of truncating variant matches", async () => {
+    runSolrQuery.mockResolvedValueOnce(grouped([{ productId: "V26", groupId: "S26" }], 250));
+    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "S26", productName: "Style 26" }]));
+    const result = await useProductSearch().searchStyles("shirt", { pageIndex: 1 });
+    expect(runSolrQuery.mock.calls[0][0].json.params).toMatchObject({ rows: 25, start: 25, group: true, "group.field": "groupId", "group.ngroups": true, "group.limit": 1 });
+    expect(result).toMatchObject({ styles: [{ productId: "S26" }], total: 250 });
+  });
+
   // A retailer reaches for whatever is on the label — a SKU, a barcode, a bare productId. Restricting
   // the match to isVirtual documents made all of those return nothing, because they only exist on the
   // variant.
   it("matches any product document, not just styles", async () => {
-    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "M107432", groupId: "M107431" }]));
+    runSolrQuery.mockResolvedValueOnce(grouped([{ productId: "M107432", groupId: "M107431" }]));
     runSolrQuery.mockResolvedValueOnce(solr([{ productId: "M107431", productName: "CARA T-SHIRT - LIPSTICK HEARTS" }]));
 
     await useProductSearch().searchStyles("203-321-244244:XS");
@@ -42,7 +74,7 @@ describe("useProductSearch.searchStyles", () => {
   });
 
   it("resolves a variant hit to the style that owns it", async () => {
-    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "M107432", groupId: "M107431" }]));
+    runSolrQuery.mockResolvedValueOnce(grouped([{ productId: "M107432", groupId: "M107431" }]));
     runSolrQuery.mockResolvedValueOnce(solr([{ productId: "M107431", productName: "CARA T-SHIRT - LIPSTICK HEARTS" }]));
 
     const { styles } = await useProductSearch().searchStyles("M107432");
@@ -52,11 +84,9 @@ describe("useProductSearch.searchStyles", () => {
   });
 
   it("collapses many variants of one style into a single row, keeping relevance order", async () => {
-    runSolrQuery.mockResolvedValueOnce(solr([
+    runSolrQuery.mockResolvedValueOnce(grouped([
       { productId: "V1", groupId: "STYLE_B" },
-      { productId: "V2", groupId: "STYLE_B" },
       { productId: "V3", groupId: "STYLE_A" },
-      { productId: "V4", groupId: "STYLE_B" },
     ]));
     runSolrQuery.mockResolvedValueOnce(solr([
       { productId: "STYLE_A", productName: "A" },
@@ -72,7 +102,7 @@ describe("useProductSearch.searchStyles", () => {
   // A style's groupId is its own productId, so a direct style hit needs no special case — but a doc
   // without one must still resolve to itself rather than being dropped.
   it("falls back to the productId when a hit carries no groupId", async () => {
-    runSolrQuery.mockResolvedValueOnce(solr([{ productId: "STYLE_ONLY" }]));
+    runSolrQuery.mockResolvedValueOnce(grouped([{ productId: "STYLE_ONLY" }]));
     runSolrQuery.mockResolvedValueOnce(solr([{ productId: "STYLE_ONLY", productName: "Solo" }]));
 
     const { styles } = await useProductSearch().searchStyles("solo");
@@ -91,10 +121,10 @@ describe("useProductSearch.searchStyles", () => {
     expect(total).toBe(500);
   });
 
-  it("returns nothing rather than throwing when the search fails", async () => {
+  it("exposes search failures so the modal can offer retry", async () => {
     runSolrQuery.mockRejectedValueOnce(new Error("solr down"));
 
-    await expect(useProductSearch().searchStyles("cara")).resolves.toEqual({ styles: [], total: 0 });
+    await expect(useProductSearch().searchStyles("cara")).rejects.toThrow("solr down");
     expect(loggerError).toHaveBeenCalled();
   });
 

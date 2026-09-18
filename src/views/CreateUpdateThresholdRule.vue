@@ -63,6 +63,10 @@
             {{ translate("Create channel") }}
             <ion-icon slot="end" :icon="addOutline" />
           </ion-button>
+          <ion-button fill="outline" @click="goToChannels()">
+            {{ translate("Manage channels") }}
+            <ion-icon slot="end" :icon="openOutline" />
+          </ion-button>
         </template>
       </EmptyState>
 
@@ -79,7 +83,7 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonPage, IonNote, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewWillLeave, onIonViewDidEnter } from '@ionic/vue';
-import { addOutline, cloudUploadOutline, saveOutline } from 'ionicons/icons'
+import { addOutline, cloudUploadOutline, openOutline, saveOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -183,6 +187,10 @@ async function createChannel() {
   const modal = await modalController.create({ component: CreateGroupModal });
   modal.onDidDismiss().then(() => productStore.fetchConfigFacilities());
   return modal.present();
+}
+
+function goToChannels() {
+  router.push("/inventory-channels");
 }
 
 function toggleFacilitySelection(facilityId: any) {

@@ -84,16 +84,19 @@ export function useProductFacility() {
       const resp = await api({ url: path, method: "GET", params }) as any
 
       if(requestId !== productFacilityRequestId) {return undefined}
-      const rows = Array.isArray(resp.data) ? resp.data : []
+      if(!Array.isArray(resp.data)) {throw new Error("Invalid inventory response")}
+      const rows = resp.data
+      const total = await resolveTotal(resp, path, params)
+      if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = rows
 
-      return { rows, total: await resolveTotal(resp, path, params, rows.length) }
+      return { rows, total }
     } catch (err) {
       logger.error("Failed to fetch product facility rows", getErrorMessage(err))
       if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = []
 
-      return { rows: [], total: 0 }
+      throw err
     }
   }
 
@@ -102,21 +105,33 @@ export function useProductFacility() {
    * cross-origin when the server lists it in Access-Control-Expose-Headers, so fall back to the
    * sibling /count resource (which returns the total in the body) when it is not readable.
    */
-  async function resolveTotal(resp: any, path: string, params: any, rowCount: number): Promise<number> {
+  async function resolveTotal(resp: any, path: string, params: any): Promise<number> {
     const header = resp?.headers?.["x-total-count"] ?? resp?.headers?.get?.("x-total-count")
     const parsed = Number(header)
-    if(Number.isFinite(parsed) && header !== null && header !== undefined && header !== "") {return parsed}
-
-    try {
-      const countResp = await api({ url: `${path}/count`, method: "GET", params }) as any
-      const count = Number(countResp?.data?.count)
-
-      return Number.isFinite(count) ? count : rowCount
-    } catch (err) {
-      logger.error("Failed to fetch product facility count", getErrorMessage(err))
-
-      return rowCount
+    if(Number.isInteger(parsed) && parsed >= 0 && header !== null && header !== undefined && header !== "") {return parsed}
+    const countResp = await api({ url: `${path}/count`, method: "GET", params }) as any
+    const count = countResp?.data?.count
+    if(count === null || count === undefined || count === "" || !Number.isInteger(Number(count)) || Number(count) < 0) {
+      throw new Error("Invalid inventory count response")
     }
+    return Number(count)
+  }
+
+  // Filtered inventory pages cannot prove that a ProductFacility configuration is absent.
+  // One facility has at most one row per product, so each ID batch fits in one entity page.
+  async function fetchConfiguredProductIds(facilityId: string, productIds: string[]): Promise<Set<string>> {
+    const ids = [...new Set(productIds)]
+    const configured = new Set<string>()
+    for(let index = 0; index < ids.length; index += 50) {
+      const batch = ids.slice(index, index + 50)
+      const resp = await api({
+        url: "oms/productFacilities", method: "GET",
+        params: { facilityId, productId: batch.join(","), productId_op: "in", pageSize: batch.length, pageIndex: 0 }
+      }) as any
+      if(!Array.isArray(resp.data)) {throw new Error("Invalid configuration response")}
+      resp.data.forEach((row: any) => configured.add(row.productId))
+    }
+    return configured
   }
 
   function clearProductFacility() {
@@ -173,6 +188,7 @@ export function useProductFacility() {
     fetchInventoryLogs,
     fetchProductFacility,
     fetchProductFacilityRows,
+    fetchConfiguredProductIds,
     inventoryLogs,
     updateProductFacility
   }

@@ -20,15 +20,15 @@
 
   <ion-content>
     <ion-list>
-      <ion-item v-for="facility in filteredFacilities" :key="facility.facilityId" button @click="toggleFacility(facility.facilityId)">
-        <ion-checkbox slot="start" :checked="selectedFacilityIds.includes(facility.facilityId)" />
+      <ion-item v-for="facility in filteredFacilities" :key="facility.facilityId" button :detail="false" @click="toggleFacility(facility.facilityId)">
+        <ion-checkbox slot="start" :aria-label="facility.facilityName || facility.facilityId" :checked="selectedFacilityIds.includes(facility.facilityId)" />
         <ion-label>
           {{ facility.facilityName || facility.facilityId }}
           <p>{{ facility.facilityId }}</p>
         </ion-label>
       </ion-item>
     </ion-list>
-    <p v-if="!filteredFacilities.length" class="empty-state">
+    <p v-if="!filteredFacilities.length" class="ion-padding ion-text-center">
       {{ translate("No facilities found") }}
     </p>
   </ion-content>
@@ -70,10 +70,3 @@ function apply() {
   }
 }
 </script>
-
-<style scoped>
-.empty-state {
-  padding: var(--spacer-base, 16px);
-  text-align: center;
-}
-</style>

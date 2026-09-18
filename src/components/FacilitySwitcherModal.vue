@@ -75,9 +75,7 @@ import { computed, onBeforeUnmount, ref, type ObjectDirective } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
 
 const props = defineProps<{
-  // Optional: the Inventory list opens this to pick a facility with no product in scope, and then
-  // there is no per-facility stock to show.
-  productId?: string;
+  productId: string;
   currentFacilityId: string;
   facilities: any[];
 }>();
@@ -112,7 +110,6 @@ function selectFacility(facility: any) {
 }
 
 async function fetchInventoryForFacility(facilityId: string) {
-  if (!props.productId) return;
   if (!facilityId || inventoryByFacility.value[facilityId] || pendingFacilityIds.has(facilityId)) return;
 
   pendingFacilityIds.add(facilityId);

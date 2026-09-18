@@ -150,6 +150,10 @@
           </div>
         </div>
       </template>
+      <ion-item v-else-if="loadError" lines="none" role="alert">
+        <ion-label class="ion-text-wrap">{{ translate(loadError) }}</ion-label>
+        <ion-button slot="end" fill="clear" @click="fetchProductFacility()">{{ translate("Retry") }}</ion-button>
+      </ion-item>
       <p v-else-if="!scopeError && showEmptyState" class="empty-state" data-testid="closed-empty-state">
         {{ translate("No products found") }}
       </p>
@@ -297,6 +301,8 @@ const PAGE_SIZE = 50;
 const pageIndex = ref(0);
 const total = ref(0);
 const isLoading = ref(false);
+const loadError = ref("");
+const unconfiguredProductIds = ref<string[]>([]);
 // Set while the inventory scope itself is changing (facility, channel, or scope mode) rather than
 // during a same-scope refetch like paging or search. ATP/QOH/safety stock are per-facility, so the
 // rows already on screen belong to the facility the user just left. Without this the list keeps
@@ -367,7 +373,7 @@ const channelNeedsConfig = computed(() => searchMode.value === "channel" &&
   !!selectedChannel.value &&
   selectedChannel.value.facilityMembershipLoadState === "loaded" &&
   !selectedChannelConfigFacilityId.value);
-const requestFacilityId = computed(() => activeFacilityId.value || (channelNeedsConfig.value ? selectedFacilityIds.value[0] || "" : ""));
+const requestFacilityId = activeFacilityId;
 const productById = computed(() => (productId: string) => productInfoStore().getProductById(productId))
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
@@ -375,15 +381,11 @@ const sortOptions = computed(() => searchMode.value === "channel" ? CHANNEL_SORT
 // Products the user picked in the search modal that this facility has no ProductFacility row for.
 // Only meaningful while a product filter is active: without one the list is simply everything stocked.
 const unstockedFilteredProducts = computed(() => {
-  if(!productIdFilter.value.length) {return []}
-  const stocked = new Set((products.value || []).map((product: any) => product.productId));
-
-  return productIdFilter.value
-    .filter((productId: string) => !stocked.has(productId))
+  return unconfiguredProductIds.value
     .map((productId: string) => ({ productId, ...(productSummaries.value[productId] || {}) }));
 });
 const showLoadingState = computed(() => isLoading.value && (isScopeSwitching.value || !products.value?.length));
-const showEmptyState = computed(() => !isLoading.value && !products.value?.length);
+const showEmptyState = computed(() => !isLoading.value && !products.value?.length && !unstockedFilteredProducts.value.length);
 const loadingRows = [1, 2, 3, 4, 5, 6];
 
 const currentPageProductIds = computed(() => products.value.map((product: any) => product.productId))
@@ -640,6 +642,8 @@ function onRowClick(product: any) {
 // search, post-edit refresh) omit it and keep their rows visible while the new page loads.
 async function fetchProductFacility({ scopeChanged = false } = {}) {
   const requestId = ++listRequestId;
+  loadError.value = "";
+  unconfiguredProductIds.value = [];
   // Assigned before the first await so the skeleton replaces the stale rows on this tick.
   if(scopeChanged) {isScopeSwitching.value = true}
   if(scopeError.value) {
@@ -650,7 +654,7 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
 
     return;
   }
-  if((searchMode.value === "location" && !selectedFacilityIds.value.length) || (searchMode.value === "channel" && !selectedChannelId.value)) {
+  if((searchMode.value === "location" && !selectedFacilityIds.value.length) || (searchMode.value === "channel" && (!selectedChannelId.value || !requestFacilityId.value))) {
     productFacilityApi.clearProductFacility();
     total.value = 0;
     isLoading.value = false;
@@ -684,32 +688,46 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
 
   // Channel scope reads config only — its inventory number is online ATP, fetched separately below —
   // so it queries the plain ProductFacility entity and never pays for the InventoryItem join.
-  const result = await productFacilityApi.fetchProductFacilityRows(params, { withInventory: searchMode.value === "location" });
-  if(requestId !== listRequestId || result === undefined) {return;}
-  total.value = result.total;
-  const lastPageIndex = Math.max(Math.ceil(result.total / PAGE_SIZE) - 1, 0);
-  if(pageIndex.value > lastPageIndex) {
-    pageIndex.value = lastPageIndex;
-    syncInventoryQuery();
-  }
+  try {
+    const result = await productFacilityApi.fetchProductFacilityRows(params, { withInventory: searchMode.value === "location" });
+    if(requestId !== listRequestId || result === undefined) {return;}
+    total.value = result.total;
+    const lastPageIndex = Math.max(Math.ceil(result.total / PAGE_SIZE) - 1, 0);
+    if(pageIndex.value > lastPageIndex) {
+      pageIndex.value = lastPageIndex;
+      syncInventoryQuery();
+      return fetchProductFacility({ scopeChanged });
+    }
 
-  // The entity rows carry productId but no product detail, so names, SKUs and images come from Solr.
-  // Awaited (unlike the old fire-and-forget hydration) because entity-first rows have nothing else to
-  // show: without it every row would read as a bare product id.
-  const productIds = [...new Set((products.value || []).map((product: any) => product.productId).filter(Boolean))];
-  if(productIds.length) {
-    const summaries = await fetchProductSummaries(productIds);
+    if(productIdFilter.value.length && activeFacilityId.value && !multipleFacilitiesSelected.value && !channelNeedsConfig.value) {
+      const configured = await productFacilityApi.fetchConfiguredProductIds(activeFacilityId.value, productIdFilter.value);
+      if(requestId !== listRequestId) {return;}
+      unconfiguredProductIds.value = productIdFilter.value.filter((id) => !configured.has(id));
+    }
+
+    // The entity rows carry productId but no product detail, so names, SKUs and images come from Solr.
+    // Awaited (unlike the old fire-and-forget hydration) because entity-first rows have nothing else to
+    // show: without it every row would read as a bare product id.
+    const productIds = [...new Set([...(products.value || []).map((product: any) => product.productId).filter(Boolean), ...unconfiguredProductIds.value])];
+    if(productIds.length) {
+      const summaries = await fetchProductSummaries(productIds);
+      if(requestId !== listRequestId) {return;}
+      productSummaries.value = summaries;
+    } else {
+      productSummaries.value = {};
+    }
+
+    // Online ATP comes from get#ProductOnlineAtp, so channel rows hydrate it in a separate batched call.
+    if(searchMode.value === "channel" && !channelNeedsConfig.value && productIds.length) {
+      hydrateChannelOnlineAtp(requestId, productIds);
+    }
+  } catch {
     if(requestId !== listRequestId) {return;}
-    productSummaries.value = summaries;
-  } else {
-    productSummaries.value = {};
+    loadError.value = "Unable to load inventory. Please try again.";
+    unconfiguredProductIds.value = [];
+    total.value = 0;
+    productFacilityApi.clearProductFacility();
   }
-
-  // Online ATP comes from get#ProductOnlineAtp, so channel rows hydrate it in a separate batched call.
-  if(searchMode.value === "channel" && !channelNeedsConfig.value && productIds.length) {
-    hydrateChannelOnlineAtp(requestId, productIds);
-  }
-
   if(requestId === listRequestId) {
     isLoading.value = false;
     isScopeSwitching.value = false;

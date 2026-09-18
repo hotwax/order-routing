@@ -10,26 +10,7 @@ vi.mock("@common", () => ({
   logger: { error: mocks.loggerError },
 }));
 
-import { formatUserName, useInventory } from "../src/composables/useInventory";
-
-describe("user identity formatting", () => {
-  it("prefers a person's full name over a group name", () => {
-    expect(formatUserName({ firstName: "Ada", lastName: "Lovelace", groupName: "Administrators" })).toBe("Ada Lovelace");
-    expect(formatUserName({ groupName: "Administrators" })).toBe("Administrators");
-  });
-
-  it("shows the login ID together with the resolved full name", async () => {
-    mocks.api.mockResolvedValueOnce({
-      data: [{ userLoginId: "ada.lovelace", firstName: "Ada", lastName: "Lovelace" }],
-    });
-
-    const inventoryApi = useInventory();
-    await inventoryApi.resolveNames(["ada.lovelace"]);
-
-    expect(inventoryApi.displayIdentity("ada.lovelace")).toBe("ada.lovelace (Ada Lovelace)");
-    expect(inventoryApi.displayIdentity("unknown.user")).toBe("unknown.user");
-  });
-});
+import { useInventory } from "../src/composables/useInventory";
 
 describe("useInventory fetchVarianceAudit", () => {
   beforeEach(() => {

@@ -39,7 +39,7 @@ describe("Inventory facility switch loading state", () => {
 
   async function switchFacilityTo(wrapper: any, facilityId: string) {
     // Keep the payload in place until the modal's onDidDismiss promise has actually resolved.
-    modalDismissData = { facilityId };
+    modalDismissData = { facilityIds: [facilityId] };
     await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
     await flush();
     modalDismissData = null;

@@ -1790,8 +1790,8 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     await inventoryApi.resolveNames([audit?.countedByUserLoginId, audit?.acceptedByUserLoginId]);
     if(!audit) {return { empty: true };}
     const impact: MovementImpact = {};
-    if(audit.countedByUserLoginId) {impact.countedBy = inventoryApi.displayIdentity(audit.countedByUserLoginId);}
-    if(audit.acceptedByUserLoginId) {impact.acceptedBy = inventoryApi.displayIdentity(audit.acceptedByUserLoginId);}
+    if(audit.countedByUserLoginId) {impact.countedBy = inventoryApi.displayName(audit.countedByUserLoginId);}
+    if(audit.acceptedByUserLoginId) {impact.acceptedBy = inventoryApi.displayName(audit.acceptedByUserLoginId);}
 
     return isEmptyImpact(impact) ? { empty: true } : impact;
   }
@@ -1818,7 +1818,7 @@ async function resolveMovementImpact(m: any): Promise<MovementImpact | null> {
     await inventoryApi.resolveNames([va?.changeByUserLoginId]);
     if(!va) {return { empty: true };}
     const impact: MovementImpact = {};
-    if(va.changeByUserLoginId) {impact.loggedBy = inventoryApi.displayIdentity(va.changeByUserLoginId);}
+    if(va.changeByUserLoginId) {impact.loggedBy = inventoryApi.displayName(va.changeByUserLoginId);}
     if(va.comments) {impact.comments = va.comments;}
 
     return isEmptyImpact(impact) ? { empty: true } : impact;

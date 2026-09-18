@@ -57,14 +57,30 @@ describe("useProductFacility entity-first rows", () => {
     expect(apiMock.mock.calls[0][0]).toMatchObject({ url: "oms/productFacilities" });
   });
 
-  it("reports an empty result rather than throwing when the request fails", async () => {
+  it("exposes request failures instead of reporting an empty inventory", async () => {
     apiMock.mockRejectedValue(new Error("boom"));
     const { fetchProductFacilityRows, productFacility } = await loadComposable();
 
-    const result = await fetchProductFacilityRows({ facilityId: "BROOKLYN" });
-
-    expect(result).toEqual({ rows: [], total: 0 });
+    await expect(fetchProductFacilityRows({ facilityId: "BROOKLYN" })).rejects.toThrow("boom");
     expect(productFacility.value).toEqual([]);
+  });
+
+  it("checks configuration membership independently of filtered inventory pages", async () => {
+    apiMock.mockResolvedValue({ data: [{ productId: "P2" }] });
+    const { fetchConfiguredProductIds, productFacility } = await loadComposable();
+    const ids = await fetchConfiguredProductIds("BROOKLYN", ["P1", "P2"]);
+    expect([...ids]).toEqual(["P2"]);
+    expect(apiMock).toHaveBeenCalledWith({
+      url: "oms/productFacilities", method: "GET",
+      params: { facilityId: "BROOKLYN", productId: "P1,P2", productId_op: "in", pageSize: 2, pageIndex: 0 }
+    });
+    expect(productFacility.value).toEqual([]);
+  });
+
+  it("does not silently cap the list when the count request fails", async () => {
+    apiMock.mockResolvedValueOnce({ data: ROWS, headers: {} }).mockRejectedValueOnce(new Error("count failed"));
+    const { fetchProductFacilityRows } = await loadComposable();
+    await expect(fetchProductFacilityRows({ facilityId: "BROOKLYN" })).rejects.toThrow("count failed");
   });
 
   it("discards a superseded response so a slow request cannot overwrite a newer one", async () => {

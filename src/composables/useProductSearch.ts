@@ -20,6 +20,8 @@ export interface ProductSummary {
   mainImageUrl?: string;
   groupId?: string;
   productFeatures?: string[];
+  internalName?: string;
+  goodIdentifications?: any[];
 }
 
 // Solr rejects very long boolean clauses; enrich in batches well under the default maxBooleanClauses.
@@ -33,7 +35,9 @@ function toSummary(doc: any): ProductSummary {
     sku: doc.sku,
     mainImageUrl: doc.mainImageUrl,
     groupId: doc.groupId,
-    productFeatures: doc.productFeatures
+    productFeatures: doc.productFeatures,
+    internalName: doc.internalName,
+    goodIdentifications: doc.goodIdentifications
   };
 }
 
@@ -43,6 +47,11 @@ function docsOf(resp: any): any[] {
 
 function numFoundOf(resp: any): number {
   return resp?.data?.response?.numFound ?? 0;
+}
+
+// Identifiers are exact values, not Solr syntax. Quotes preserve spaces and colons.
+function quoteIdentifier(value: string): string {
+  return '"' + value.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
 }
 
 export function useProductSearch() {
@@ -61,7 +70,7 @@ export function useProductSearch() {
   function storeScope(): string[] {
     const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
 
-    return productStoreId ? [`productStoreIds:"${productStoreId}"`] : [];
+    return productStoreId ? [`productStoreIds:${quoteIdentifier(productStoreId)}`] : [];
   }
 
   function query(filter: string[], params: Record<string, any>) {
@@ -85,7 +94,7 @@ export function useProductSearch() {
       const batch = unique.slice(i, i + ENRICH_BATCH_SIZE);
       try {
         const resp = await query(
-          ["docType:PRODUCT", `productId:(${batch.join(" OR ")})`],
+          ["docType:PRODUCT", `productId:(${batch.map(quoteIdentifier).join(" OR ")})`],
           { rows: batch.length }
         );
         docsOf(resp).forEach((doc: any) => {
@@ -93,7 +102,7 @@ export function useProductSearch() {
         });
       } catch (err) {
         // A failed enrichment must not blank the list — rows still render from their entity data.
-        logger.error("Failed to enrich products from Solr", err);
+        logger.error("Failed to enrich products from Solr");
       }
     }
 
@@ -103,9 +112,6 @@ export function useProductSearch() {
   // Fields a retailer might actually type: a style name, a variant SKU or barcode, an internal name,
   // or a bare productId off a label.
   const KEYWORD_FIELDS = "productId productName internalName sku upc goodIdentifications parentProductName groupName keywordSearchText";
-  // A keyword search matches variants, and many variants collapse to one style, so read well past the
-  // page size to fill a page with distinct styles.
-  const STYLE_MATCH_FANOUT = 10;
 
   /**
    * Search styles for the product-search modal.
@@ -124,14 +130,13 @@ export function useProductSearch() {
       try {
         const resp = await query(
           ["docType:PRODUCT", "isVirtual:true", ...storeScope()],
-          { rows: pageSize, start: pageIndex * pageSize }
+          { rows: pageSize, start: pageIndex * pageSize, sort: "productId asc" }
         );
 
         return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
       } catch (err) {
-        logger.error("Failed to list product styles", err);
-
-        return { styles: [], total: 0 };
+        logger.error("Failed to list product styles");
+        throw err;
       }
     }
 
@@ -141,8 +146,13 @@ export function useProductSearch() {
           query: `${trimmed}*`,
           filter: ["docType:PRODUCT", ...storeScope()],
           params: {
-            rows: pageSize * STYLE_MATCH_FANOUT,
-            start: 0,
+            rows: pageSize,
+            start: pageIndex * pageSize,
+            sort: "score desc, productId asc",
+            group: true,
+            "group.field": "groupId",
+            "group.ngroups": true,
+            "group.limit": 1,
             defType: "edismax",
             qf: KEYWORD_FIELDS,
             fl: "productId,groupId"
@@ -151,44 +161,44 @@ export function useProductSearch() {
         }
       });
 
-      // Relevance order is preserved: the first hit decides where its style ranks.
+      // Use standard grouping: OMS groupId is SortableTextField, not a collapse-compatible StrField.
+      const grouped = resp?.data?.grouped?.groupId;
       const styleIds: string[] = [];
-      docsOf(resp).forEach((doc: any) => {
+      (grouped?.groups || []).forEach((group: any) => {
+        const doc = group.doclist?.docs?.[0];
         const styleId = doc?.groupId || doc?.productId;
         if(styleId && !styleIds.includes(styleId)) {styleIds.push(styleId);}
       });
 
-      const pageIds = styleIds.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
-      if(!pageIds.length) {return { styles: [], total: styleIds.length };}
+      const pageIds = styleIds;
+      if(!pageIds.length) {return { styles: [], total: grouped?.ngroups ?? 0 };}
 
       const summaries = await fetchProductSummaries(pageIds);
 
       return {
-        styles: pageIds.map((id) => summaries[id]).filter(Boolean),
-        total: styleIds.length
+        styles: pageIds.map((id) => summaries[id] || { productId: id }),
+        total: grouped.ngroups
       };
     } catch (err) {
-      logger.error("Failed to search product styles", err);
-
-      return { styles: [], total: 0 };
+      logger.error("Failed to search product styles");
+      throw err;
     }
   }
 
   /** List the variants of a style. Variants carry the parent's productId in groupId. */
-  async function fetchVariants(groupId: string, { pageSize = 200 } = {}) {
+  async function fetchVariants(groupId: string, { pageIndex = 0, pageSize = 200 } = {}) {
     if(!groupId) {return { variants: [], total: 0 };}
 
     try {
       const resp = await query(
-        ["docType:PRODUCT", "isVariant:true", `groupId:${groupId}`, ...storeScope()],
-        { rows: pageSize, sort: "productId asc" }
+        ["docType:PRODUCT", "isVariant:true", `groupId:${quoteIdentifier(groupId)}`, ...storeScope()],
+        { rows: pageSize, start: pageIndex * pageSize, sort: "productId asc" }
       );
 
       return { variants: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
     } catch (err) {
-      logger.error("Failed to fetch product variants", err);
-
-      return { variants: [], total: 0 };
+      logger.error("Failed to fetch product variants");
+      throw err;
     }
   }
 

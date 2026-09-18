@@ -13,6 +13,7 @@ describe("Inventory entity-first search", () => {
   const products = ref<any[]>([]);
   let fetchProductFacilityRows: ReturnType<typeof vi.fn>;
   let fetchProductSummaries: ReturnType<typeof vi.fn>;
+  let fetchConfiguredProductIds: ReturnType<typeof vi.fn>;
   let lastModalProps: any;
   let modalDismissData: any;
   let routerMock: any;
@@ -60,6 +61,7 @@ describe("Inventory entity-first search", () => {
     fetchProductSummaries = vi.fn(() => Promise.resolve({
       "10001": { productId: "10001", productName: "XS / Blue", sku: "MH09-XS-Blue" },
     }));
+    fetchConfiguredProductIds = vi.fn(() => Promise.resolve(new Set(["10001", "10002"])));
 
     vi.doMock("@common", () => ({
       DxpShopifyImg: defineComponent({ name: "DxpShopifyImg", template: "<img />" }),
@@ -96,6 +98,7 @@ describe("Inventory entity-first search", () => {
         clearProductFacility: vi.fn(() => { products.value = []; }),
         fetchProductFacility: vi.fn(),
         fetchProductFacilityRows,
+        fetchConfiguredProductIds,
         productFacility: products,
       }),
     }));
@@ -128,6 +131,10 @@ describe("Inventory entity-first search", () => {
           facilityGroupName: "Channel A",
           facilityMembershipLoadState: "loaded",
           selectedConfigFacility: { facilityId: "CONFIG_FAC" },
+        }, {
+          facilityGroupId: "CHANNEL_EMPTY",
+          facilityGroupTypeId: "CHANNEL_FAC_GROUP",
+          facilityMembershipLoadState: "loaded",
         }],
       }),
     }));
@@ -173,6 +180,39 @@ describe("Inventory entity-first search", () => {
     }));
   });
 
+  it("keeps Add Config available when every selected product is unconfigured", async () => {
+    fetchProductFacilityRows.mockImplementation(() => {
+      products.value = [];
+      return Promise.resolve({ rows: [], total: 0 });
+    });
+    fetchConfiguredProductIds.mockResolvedValue(new Set());
+    routerMock.currentRoute.value.query = { facilityId: "BROOKLYN", productId: "10001" };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+    const add = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Add Config");
+    expect(add).toBeDefined();
+    await add!.trigger("click");
+    await flush();
+    expect(lastModalProps).toMatchObject({ selectedFacility: "BROOKLYN", selectedProducts: [expect.objectContaining({ productId: "10001" })] });
+  });
+
+  it("does not label stocked products as unconfigured when filters hide them", async () => {
+    fetchProductFacilityRows.mockImplementation(() => {
+      products.value = [ROWS[0]];
+      return Promise.resolve({ rows: [ROWS[0]], total: 1 });
+    });
+    routerMock.currentRoute.value.query = { facilityId: "BROOKLYN", productId: "10001,10002", allowPickup: "Y" };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+    expect(wrapper.text()).not.toContain("Not stocked at this facility");
+  });
+
   it("queries the facility's own rows and reports the facility total, not a catalogue total", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
@@ -184,6 +224,18 @@ describe("Inventory entity-first search", () => {
     // 1738 comes from the entity count for this facility, not from Solr's product count.
     expect(wrapper.text()).toContain("products found");
     expect(wrapper.vm.total).toBe(1738);
+  });
+
+  it("shows retry instead of no products when the inventory request fails", async () => {
+    fetchProductFacilityRows.mockRejectedValueOnce(new Error("Unavailable"));
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+    expect(wrapper.find('[role="alert"]').text()).toContain("Unable to load inventory");
+    expect(wrapper.find('[data-testid="closed-empty-state"]').exists()).toBe(false);
+    await wrapper.find('[role="alert"] button').trigger("click");
+    await flush();
+    expect(wrapper.findAll('.list-item')).toHaveLength(2);
   });
 
   it("queries multiple facilities with an IN filter and keeps rows identifiable by facility", async () => {
@@ -352,5 +404,32 @@ describe("Inventory entity-first search", () => {
 
     // The plain entity has no availableToPromise alias; EntityFind would silently ignore it.
     expect(lastParams().orderByField).toBe("productId");
+  });
+
+  it("does not borrow a physical facility for a channel with no config facility", async () => {
+    routerMock.currentRoute.value.query = { channelId: "CHANNEL_EMPTY" };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+    expect(wrapper.text()).toContain("Add Config");
+    expect(fetchProductFacilityRows).not.toHaveBeenCalled();
+  });
+
+  it("refetches the last valid page when a shared page index is out of range", async () => {
+    fetchProductFacilityRows.mockImplementation((params: any) => {
+      const rows = params.pageIndex ? [] : ROWS;
+      products.value = rows;
+      return Promise.resolve({ rows, total: 2 });
+    });
+    routerMock.currentRoute.value.query = { facilityId: "BROOKLYN", pageIndex: "10" };
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await flush();
+    expect(fetchProductFacilityRows.mock.calls.map(([params]) => params.pageIndex)).toEqual([10, 0]);
+    expect(wrapper.findAll('.list-item')).toHaveLength(2);
   });
 });

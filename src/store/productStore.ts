@@ -112,7 +112,7 @@ export const productStore = defineStore('productStore', {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
           this.omsInstanceKey = requestedInstanceKey;
-          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
+          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId, requestedInstanceKey);
           return Promise.resolve(resp.data);
         }
       } catch(error: any) {
@@ -130,7 +130,7 @@ export const productStore = defineStore('productStore', {
       useUtilStore().updateProductCategories({});
       await this.fetchProductStoreSettings(productStore.productStoreId);
     },
-    async fetchProductStoreSettings(productStoreId: string) {
+    async fetchProductStoreSettings(productStoreId: string, expectedInstanceKey?: string) {
       const productStoreSettings = {} as any
 
       if (productStoreId) {
@@ -155,6 +155,11 @@ export const productStore = defineStore('productStore', {
         } catch (error) {
           logger.error("Failed to fetch settings", error)
         }
+      }
+
+      if (expectedInstanceKey && getOmsInstanceKey() !== expectedInstanceKey) {
+        logger.warn("Product Store Setting - Discarding response; OMS instance changed in flight");
+        return;
       }
 
       const defaultProductStoreSettings = {

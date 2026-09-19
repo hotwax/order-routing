@@ -146,8 +146,11 @@ export const useUserStore = defineStore('user', {
     },
     async postLogin() {
       try {
-        await this.fetchUserProfile()
         await this.setOms(cookieHelper().get("oms"))
+        // Clear state owned by the previous OMS before loading any profile or permission
+        // data for the newly connected instance.
+        await this.ensureInstanceScope()
+        await this.fetchUserProfile()
         const sessionChanged = orderRoutingStore().activateSessionContext([
           commonUtil.getOMSInstanceName(),
           this.current?.userId
@@ -159,9 +162,6 @@ export const useUserStore = defineStore('user', {
           simulationStore().$reset()
         }
         await initialize()
-        // Drop caches persisted while linked to a different OMS before refetching below,
-        // so a fetch failure can't leave another instance's product stores selected.
-        await this.ensureInstanceScope()
         await this.fetchPermissions()
         await useUtilStore().fetchSystemInformation()
         await productStore().fetchProductStores()

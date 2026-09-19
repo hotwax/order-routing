@@ -19,6 +19,7 @@ vi.mock("@common", () => ({
   commonUtil: {
     getOmsURL: () => mocks.omsUrl.value,
     getMaargURL: () => mocks.omsUrl.value,
+    getOMSInstanceName: () => "demo-oms",
     hasError: (resp: any) => resp?._error === true,
     showToast: () => {},
   },
@@ -129,6 +130,73 @@ describe("OMS instance scoping of persisted product stores", () => {
     expect(atp.productStores.map((s: any) => s.productStoreId)).toEqual(["DEMO_STORE"]);
     expect(atp.currentProductStore.productStoreId).toBe("DEMO_STORE");
     expect(atp.omsInstanceKey).toBe(DEMO_KEY);
+  });
+
+  it("keeps the new user profile when postLogin clears stale instance state", async () => {
+    seedInstanceState(OLD_KEY);
+    mocks.api.mockImplementation((config: any) => {
+      if (config.url === "admin/user/profile") {
+        return Promise.resolve({ data: { userId: "new-user", timeZone: "UTC" } });
+      }
+      if (config.url === "admin/user/permissions") {
+        const docs = config.params?.viewIndex === 0
+          ? [{ permissionId: import.meta.env.VITE_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
+          : [];
+        return Promise.resolve({ status: 200, data: { docs } });
+      }
+      if (config.url === "admin/user/productStore") {
+        return Promise.resolve({ data: [{ productStoreId: "DEMO_STORE", storeName: "Demo" }] });
+      }
+      if (config.url === "admin/user/getAvailableTimeZones") {
+        return Promise.resolve({ data: { timeZones: [{ id: "UTC" }] } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    const user = useUserStore();
+    await user.postLogin();
+
+    expect(user.current).toEqual({ userId: "new-user", timeZone: "UTC" });
+  });
+
+  it("does not apply product-store settings returned after the OMS instance changes", async () => {
+    let resolveSettings!: (value: any) => void;
+    let signalSettingsRequested!: () => void;
+    const settingsRequested = new Promise<void>((resolve) => {
+      signalSettingsRequested = resolve;
+    });
+    const delayedSettings = new Promise<any>((resolve) => {
+      resolveSettings = resolve;
+    });
+    mocks.api.mockImplementation((config: any) => {
+      if (config.url === "admin/user/productStore") {
+        return Promise.resolve({ data: [{ productStoreId: "DEMO_STORE" }] });
+      }
+      if (config.url === "admin/productStores/DEMO_STORE/settings") {
+        signalSettingsRequested();
+        return delayedSettings;
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    const ecom = productStore();
+    const fetchPromise = ecom.fetchProductStores();
+    await settingsRequested;
+
+    mocks.omsUrl.value = OLD_KEY;
+    ecom.$reset();
+    resolveSettings({
+      data: [{
+        settingTypeEnumId: "PRDT_IDEN_PREF",
+        settingValue: JSON.stringify({ primaryId: "OLD_SKU", secondaryId: "OLD_ID" }),
+      }],
+    });
+    await fetchPromise;
+
+    expect(ecom.settings.productIdentifier.productIdentificationPref).toEqual({
+      primaryId: "SKU",
+      secondaryId: "productId",
+    });
   });
 
   it("stamps fetched product stores with the connected instance key", async () => {

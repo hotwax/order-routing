@@ -25,8 +25,8 @@
                 <p>{{ selectedFacilityName || translate("Select facility") }}</p>
               </ion-label>
             </ion-item>
-            <ion-item v-else lines="none">
-              <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" interface="popover">
+            <div v-else class="filter-item">
+              <ion-select v-model="selectedChannelId" :label="translate('Channel')" :placeholder="translate('Select channel')" fill="outline" interface="popover">
                 <ion-select-option
                   v-for="channel in inventoryChannels"
                   :key="channel.facilityGroupId"
@@ -35,53 +35,69 @@
                   {{ channelOptionLabel(channel) }}
                 </ion-select-option>
               </ion-select>
+            </div>
+            <ion-item lines="none" button detail data-testid="open-product-search" @click="openProductSearchModal">
+              <ion-label>
+                {{ translate("Product") }}
+                <p>{{ productIdFilter.length ? translate("{count} products selected", { count: productIdFilter.length }) : translate("All products") }}</p>
+              </ion-label>
+              <ion-note slot="end">{{ productIdFilter.length || "-" }}</ion-note>
             </ion-item>
-            <ion-item lines="none">
-              <ion-select :value="sortField" :label="translate('Sort by')" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
+          </div>
+          <div class="filter-controls">
+            <div class="filter-item">
+              <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
+                <ion-select-option value="">
+                  {{ translate("Any") }}
+                </ion-select-option>
+                <ion-select-option value="Y">
+                  {{ translate("Yes") }}
+                </ion-select-option>
+                <ion-select-option value="N">
+                  {{ translate("No") }}
+                </ion-select-option>
+              </ion-select>
+            </div>
+            <div class="filter-item">
+              <ion-select v-model="configFilters.allowPickup" :label="translate('Allow Pickup')" fill="outline" interface="popover" @ion-change="applyConfigFilters">
+                <ion-select-option value="">
+                  {{ translate("Any") }}
+                </ion-select-option>
+                <ion-select-option value="Y">
+                  {{ translate("Yes") }}
+                </ion-select-option>
+                <ion-select-option value="N">
+                  {{ translate("No") }}
+                </ion-select-option>
+              </ion-select>
+            </div>
+            <div class="filter-item">
+              <ion-select :value="sortField" :label="translate('Sort by')" fill="outline" interface="popover" data-testid="inventory-sort-select" @ion-change="updateSortField($event)">
                 <ion-select-option v-for="option in sortOptions" :key="option.value" :value="option.value">
                   {{ translate(option.label) }}
                 </ion-select-option>
               </ion-select>
-            </ion-item>
-            <ion-item lines="none">
-              <ion-select v-model="configFilters.allowBrokering" :label="translate('Allow Brokering')" interface="popover" @ion-change="applyConfigFilters">
-                <ion-select-option value="">
-                  {{ translate("Any") }}
-                </ion-select-option>
-                <ion-select-option value="Y">
-                  {{ translate("Yes") }}
-                </ion-select-option>
-                <ion-select-option value="N">
-                  {{ translate("No") }}
-                </ion-select-option>
-              </ion-select>
-            </ion-item>
-            <ion-item lines="none">
-              <ion-select v-model="configFilters.allowPickup" :label="translate('Allow Pickup')" interface="popover" @ion-change="applyConfigFilters">
-                <ion-select-option value="">
-                  {{ translate("Any") }}
-                </ion-select-option>
-                <ion-select-option value="Y">
-                  {{ translate("Yes") }}
-                </ion-select-option>
-                <ion-select-option value="N">
-                  {{ translate("No") }}
-                </ion-select-option>
-              </ion-select>
-            </ion-item>
+            </div>
           </div>
-          <!-- Product search is a modal now: pick a style, then its variants. The list itself is a
-               ProductFacility query, so a free-text box here would search the wrong thing. -->
-          <div class="filter-controls">
-            <ion-button fill="outline" size="default" data-testid="open-product-search" @click="openProductSearchModal">
-              <ion-icon slot="start" :icon="searchOutline" />
-              {{ translate("Search products") }}
-            </ion-button>
-            <ion-chip v-if="productIdFilter.length" outline data-testid="product-filter-chip" @click="clearProductFilter">
-              <ion-label>{{ translate("{count} products selected", { count: productIdFilter.length }) }}</ion-label>
-              <ion-icon :icon="closeCircleOutline" />
-            </ion-chip>
-          </div>
+          <ion-list v-if="productIdFilter.length" lines="none" class="product-filter-summary" data-testid="product-filter-summary">
+            <ion-item v-for="group in selectedProductFilterGroups" :key="group.groupId" lines="none" fill="outline" data-testid="product-filter-parent">
+              <ion-label>
+                {{ group.productName }}
+                <p>{{ group.selectedCount }} {{ translate("variants selected") }}</p>
+              </ion-label>
+              <ion-button
+                slot="end"
+                fill="clear"
+                class="clear-filter-btn"
+                data-testid="clear-product-filter"
+                :aria-label="translate('Clear product filter')"
+                :title="translate('Clear')"
+                @click.stop="clearProductGroup(group.productIds)"
+              >
+                <ion-icon slot="icon-only" :icon="closeCircleOutline" />
+              </ion-button>
+            </ion-item>
+          </ion-list>
         </ion-card-content>
       </ion-card>
 
@@ -278,8 +294,8 @@
 
 <script setup lang="ts">
 import { DxpShopifyImg, emitter, translate } from "@common";
-import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonChip, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
-import { caretBackOutline, caretForwardOutline, closeCircleOutline, searchOutline } from "ionicons/icons";
+import { IonButton, IonButtons, IonCard, IonCardContent, IonCheckbox, IonContent, IonFooter, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonNote, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonSkeletonText, IonThumbnail, IonTitle, IonToolbar, modalController, onIonViewDidEnter, onIonViewDidLeave } from "@ionic/vue";
+import { caretBackOutline, caretForwardOutline, closeCircleOutline } from "ionicons/icons";
 import { computed, nextTick, ref, watch } from "vue";
 import LinkThresholdFacilitiesToGroupModal from "@/components/LinkThresholdFacilitiesToGroupModal.vue";
 import ProductFacilityConfigEditModal from "@/components/ProductFacilityConfigEditModal.vue";
@@ -322,6 +338,9 @@ const searchMode = ref<"location" | "channel">("location");
 const productIdFilter = ref<string[]>([]);
 // Solr detail for the current page, keyed by productId. Rows still render without it (see getDisplayProduct).
 const productSummaries = ref<Record<string, any>>({});
+// Keep filter summaries separate from page summaries: inventory filters can remove every selected
+// row, but the active product filter still needs to show the parent/style the user chose.
+const selectedProductFilterSummaries = ref<Record<string, any>>({});
 // Any alias on the view is sortable; "-" prefix is Moqui's descending marker.
 // Operators open this page to find stock problems, so lead with the largest ATP rather than an
 // arbitrary id order.
@@ -378,6 +397,24 @@ const productById = computed(() => (productId: string) => productInfoStore().get
 const productIdentificationPref = computed(() => productStore().getProductIdentificationPref)
 const pageCount = computed(() => Math.max(Math.ceil(total.value / PAGE_SIZE), 1));
 const sortOptions = computed(() => searchMode.value === "channel" ? CHANNEL_SORT_OPTIONS : LOCATION_SORT_OPTIONS);
+const selectedProductFilterProducts = computed(() => productIdFilter.value
+  .map((productId: string) => ({ productId, ...(selectedProductFilterSummaries.value[productId] || {}) })));
+const selectedProductFilterGroups = computed(() => {
+  const groups = new Map<string, any>();
+  selectedProductFilterProducts.value.forEach((product: any) => {
+    const groupId = product.groupId || product.parentProductId || product.productId;
+    const group = groups.get(groupId) || {
+      groupId,
+      productName: product.parentProductName || product.productName || product.productId,
+      selectedCount: 0,
+      productIds: []
+    };
+    group.selectedCount += 1;
+    group.productIds.push(product.productId);
+    groups.set(groupId, group);
+  });
+  return Array.from(groups.values());
+});
 // Products the user picked in the search modal that this facility has no ProductFacility row for.
 // Only meaningful while a product filter is active: without one the list is simply everything stocked.
 const unstockedFilteredProducts = computed(() => {
@@ -709,12 +746,30 @@ async function fetchProductFacility({ scopeChanged = false } = {}) {
     // Awaited (unlike the old fire-and-forget hydration) because entity-first rows have nothing else to
     // show: without it every row would read as a bare product id.
     const productIds = [...new Set([...(products.value || []).map((product: any) => product.productId).filter(Boolean), ...unconfiguredProductIds.value])];
+    let summaries: Record<string, any> = {};
     if(productIds.length) {
-      const summaries = await fetchProductSummaries(productIds);
+      summaries = await fetchProductSummaries(productIds);
       if(requestId !== listRequestId) {return;}
       productSummaries.value = summaries;
     } else {
       productSummaries.value = {};
+    }
+
+    // The selected-product card represents the user's filter, not only rows that survive the
+    // current inventory filters. Hydrate any missing ids so parent grouping remains stable.
+    if(productIdFilter.value.length) {
+      const filterSummaries: Record<string, any> = {};
+      productIdFilter.value.forEach((productId: string) => {
+        if(summaries[productId]) {filterSummaries[productId] = summaries[productId];}
+      });
+      const missingFilterProductIds = productIdFilter.value.filter((productId: string) => !filterSummaries[productId]);
+      if(missingFilterProductIds.length) {
+        Object.assign(filterSummaries, await fetchProductSummaries(missingFilterProductIds));
+        if(requestId !== listRequestId) {return;}
+      }
+      selectedProductFilterSummaries.value = filterSummaries;
+    } else {
+      selectedProductFilterSummaries.value = {};
     }
 
     // Online ATP comes from get#ProductOnlineAtp, so channel rows hydrate it in a separate batched call.
@@ -796,9 +851,9 @@ async function openProductSearchModal() {
   return modal.present();
 }
 
-async function clearProductFilter() {
-  if(!productIdFilter.value.length) {return;}
-  productIdFilter.value = [];
+async function clearProductGroup(productIds: string[]) {
+  const productIdSet = new Set(productIds);
+  productIdFilter.value = productIdFilter.value.filter((productId) => !productIdSet.has(productId));
   pageIndex.value = 0;
   selectedProductIds.value = [];
   syncInventoryQuery();
@@ -990,8 +1045,8 @@ ion-content {
 }
 
 .filter-card-content {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacer-xs);
 }
 
@@ -1000,21 +1055,52 @@ ion-content {
 }
 
 .filter-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--spacer-xs);
 }
 
-.filter-controls ion-item {
-  flex: 1 1 220px;
+.filter-card-content > .filter-controls:first-child {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.filter-controls > ion-item,
+.filter-controls > .filter-item {
+  width: 100%;
   min-width: 0;
 }
 
-/* The row is a flex container without align-items, so it defaults to stretch and pulls the chip up
-   to the height of its tallest sibling. At that height Ionic's 16px chip radius stops reading as a
-   pill and turns into a rounded rectangle, so let the chip keep its own 32px. */
-.filter-controls ion-chip {
-  align-self: center;
+.filter-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.filter-item ion-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-filter-summary {
+  width: 100%;
+  max-width: 300px;
+  margin: 0;
+}
+
+.clear-filter-btn {
+  --padding-start: 6px;
+  --padding-end: 6px;
+  flex-shrink: 0;
+  margin-inline-start: 4px;
+  height: 36px;
+  width: 36px;
+}
+
+@media (max-width: 700px) {
+  .filter-controls,
+  .filter-card-content > .filter-controls:first-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .pagination {

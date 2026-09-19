@@ -91,7 +91,7 @@ describe("useProductFacility inventory history endpoint", () => {
     mocks.loggerError.mockReset();
   });
 
-  it("requests creation-date order before pagination", async () => {
+  it("requests newest effective inventory movements before pagination", async () => {
     mocks.api.mockResolvedValueOnce({ data: [] });
 
     const productFacilityApi = useProductFacility();
@@ -104,7 +104,7 @@ describe("useProductFacility inventory history endpoint", () => {
     expect(mocks.api).toHaveBeenCalledWith({
       url: "oms/products/SKU_1/facilities/CENTRAL_WAREHOUSE/inventoryDetail",
       method: "GET",
-      params: { pageSize: 250, orderByField: "createdStamp desc" },
+      params: { pageSize: 250, orderByField: "-effectiveDate" },
     });
   });
 

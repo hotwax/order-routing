@@ -156,7 +156,11 @@ export function useProductFacility() {
         method: "GET",
         params: {
           ...query,
-          orderByField: "createdStamp desc"
+          // `createdStamp` is the preferred audit timestamp when an OMS deployment exposes it,
+          // but Rails currently omits it from this history resource. `effectiveDate` is returned
+          // on the movement rows, so sort it newest-first rather than accepting the API's
+          // unspecified (oldest-first) order for a missing field.
+          orderByField: "-effectiveDate"
         }
       })
 

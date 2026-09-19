@@ -122,7 +122,6 @@ import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSu
 import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
-import { useAtpProductStore } from "@/store/atpProductStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
@@ -167,14 +166,11 @@ const props = defineProps({
   }
 })
 
-function setEComStore(event: CustomEvent) {
+async function setEComStore(event: CustomEvent) {
   if(ecomStores.value.length) {
-    productStore().setEcomStore({
+    await productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
-    const atpProductStore = useAtpProductStore();
-    const store = atpProductStore.productStores.find((s: any) => s.productStoreId === event.detail.value);
-    atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
     emitter.emit("productStoreOrConfigChanged");
   }
 }

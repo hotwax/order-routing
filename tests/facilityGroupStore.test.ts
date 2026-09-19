@@ -11,14 +11,6 @@ vi.mock("@common", () => ({
   logger: { error: () => {} },
 }));
 
-vi.mock("@/store/atpProductStore", () => ({
-  useAtpProductStore: () => ({
-    currentProductStore: { productStoreId: "STORE" },
-    getProductStores: [],
-    fetchUserProductStores: vi.fn(),
-  }),
-}));
-
 import { useFacilityGroupStore } from "../src/store/facilityGroupStore";
 
 describe("facilityGroupStore", () => {

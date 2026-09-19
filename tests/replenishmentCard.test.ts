@@ -20,8 +20,9 @@ vi.mock("@ionic/vue", () => {
       inheritAttrs: false,
       props: { disabled: Boolean, href: String },
       emits: ["click"],
-      template: '<button :disabled="disabled" :href="href" @click="$emit(\'click\')"><slot /></button>',
+      template: '<button v-bind="$attrs" :disabled="disabled" :href="href" @click="$emit(\'click\')"><slot /></button>',
     }),
+    IonButtons: passthrough("IonButtons"),
     IonCard: passthrough("IonCard", "article"),
     IonCardContent: passthrough("IonCardContent"),
     IonCardHeader: passthrough("IonCardHeader", "header"),
@@ -29,6 +30,7 @@ vi.mock("@ionic/vue", () => {
     IonChip: passthrough("IonChip"),
     IonContent: passthrough("IonContent"),
     IonHeader: passthrough("IonHeader"),
+    IonIcon: passthrough("IonIcon"),
     IonInput: defineComponent({
       name: "IonInput",
       inheritAttrs: false,
@@ -153,7 +155,7 @@ describe("ReplenishmentCard", () => {
     expect(trend.find("svg").exists()).toBe(true);
   });
 
-  it("opens the approved sales breakdown and transfer-only inbound drill-down", async () => {
+  it("opens the approved sales breakdown and inbound transfer drill-down", async () => {
     const wrapper = mountCard({
       salesVelocityBreakdown: {
         inStoreUnits: 3,
@@ -185,6 +187,9 @@ describe("ReplenishmentCard", () => {
 
     await wrapper.get("[data-testid='incoming-transfers-trigger']").trigger("click");
     const transferModal = wrapper.get("[data-testid='incoming-transfers-modal']");
+    const closeButton = transferModal.get("button[aria-label='Close']");
+    expect(closeButton.text()).toBe("");
+    expect(transferModal.findComponent({ name: "IonIcon" }).exists()).toBe(true);
     expect(transferModal.text()).toContain("Transfer orders");
     expect(transferModal.text()).toContain("Requested transfers");
     expect(transferModal.findAllComponents({ name: "IonItemDivider" })).toHaveLength(2);

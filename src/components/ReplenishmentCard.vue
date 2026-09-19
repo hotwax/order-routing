@@ -116,8 +116,16 @@
         >
           <ion-header>
             <ion-toolbar>
+              <ion-buttons slot="start">
+                <ion-button
+                  :aria-label="translate('Close')"
+                  fill="clear"
+                  @click="isIncomingTransfersModalOpen = false"
+                >
+                  <ion-icon slot="icon-only" :icon="closeOutline" />
+                </ion-button>
+              </ion-buttons>
               <ion-title>{{ translate("Incoming transfers") }}</ion-title>
-              <ion-button slot="end" fill="clear" @click="isIncomingTransfersModalOpen = false">{{ translate("Close") }}</ion-button>
             </ion-toolbar>
           </ion-header>
           <ion-content>
@@ -167,6 +175,7 @@
 <script setup lang="ts">
 import {
   IonButton,
+  IonButtons,
   IonCard,
   IonCardContent,
   IonCardHeader,
@@ -174,6 +183,7 @@ import {
   IonChip,
   IonContent,
   IonHeader,
+  IonIcon,
   IonInput,
   IonItemDivider,
   IonItem,
@@ -186,6 +196,7 @@ import {
   IonTitle,
   IonToolbar,
 } from "@ionic/vue";
+import { closeOutline } from "ionicons/icons";
 import { buildAppUrl, translate } from "@common";
 import { computed, ref, watch } from "vue";
 import { type SalesVelocityBreakdown, type TrendPoint, formatUnitsPerDay, toNumber } from "@/utils/replenishmentMetrics";

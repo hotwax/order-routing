@@ -32,6 +32,40 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
+/**
+ * Keep the legacy nested config fields available while consumers move to the direct inventory view.
+ * ProductFacilityInventoryItemView exposes inventory values as flat aliases, whereas the older
+ * search response nested them under inventoryConfig.
+ */
+export function normalizeProductFacilityRow(row: any) {
+  const config = row?.inventoryConfig ?? {};
+  const atp = config.atp ?? row?.availableToPromise ?? row?.computedInventoryCount ?? row?.computedLastInventoryCount;
+  const qoh = config.qoh ?? row?.quantityOnHand ?? row?.lastInventoryCount;
+  const minimumStock = config.minimumStock ?? row?.minimumStock;
+  const allowPickup = row?.allowPickup ?? config.allowPickup;
+  const allowBrokering = row?.allowBrokering ?? config.allowBrokering;
+  const computedLastInventoryCount = row?.computedLastInventoryCount ?? config.computedLastInventoryCount ?? row?.computedInventoryCount ?? row?.availableToPromise;
+  const lastInventoryCount = row?.lastInventoryCount ?? config.lastInventoryCount ?? row?.quantityOnHand;
+
+  return {
+    ...row,
+    computedLastInventoryCount,
+    lastInventoryCount,
+    allowPickup,
+    allowBrokering,
+    inventoryConfig: {
+      ...config,
+      atp,
+      qoh,
+      minimumStock,
+      allowPickup,
+      allowBrokering,
+      computedLastInventoryCount,
+      lastInventoryCount,
+    },
+  };
+}
+
 export function useProductFacility() {
   // Per-instance state. These refs were previously module-level singletons shared across every
   // caller, so the Inventory detail view (which fetches a single product) overwrote the Inventory
@@ -47,15 +81,16 @@ export function useProductFacility() {
     const requestId = ++productFacilityRequestId
     try {
       const resp = await api({
-        url: "oms/productFacilities/search",
+        url: "oms/productFacilities/inventory",
         method: "GET",
         params: payload
       }) as any
 
       if(requestId !== productFacilityRequestId) {return undefined}
-      productFacility.value = resp.data?.products ?? []
+      const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
+      productFacility.value = rows.map(normalizeProductFacilityRow)
 
-      return resp.data?.totalCount ?? 0
+      return resp.data?.totalCount ?? rows.length
     } catch (err) {
       logger.error("Failed to fetch product facility records", getErrorMessage(err))
       if(requestId !== productFacilityRequestId) {return undefined}
@@ -68,10 +103,8 @@ export function useProductFacility() {
   /**
    * ProductFacility-first listing: pages and sorts over the rows a facility actually has.
    *
-   * The older fetchProductFacility() below calls oms/productFacilities/search, which pages a Solr
-   * *product* result set and left-joins ProductFacility onto it — so its total is a product count
-   * that does not vary by facility, and pages contain products the facility does not stock. These
-   * endpoints query the entity instead, so the total is the facility's real row count.
+   * The list fetcher queries the entity instead of the legacy Solr-backed product search, so the
+   * total is the facility's real row count and pages contain only configured ProductFacility rows.
    *
    * withInventory selects the view (adds availableToPromise / quantityOnHand / computedInventoryCount
    * from the optional InventoryItem join). Channel scope passes false: it shows online ATP sourced

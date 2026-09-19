@@ -114,13 +114,7 @@ describe("FacilitySwitcherModal", () => {
 
   it("renders facilities immediately and lazily fetches inventory for intersecting rows", async () => {
     api.mockResolvedValue({
-      data: {
-        products: [
-          {
-            inventoryConfig: { qoh: 12, atp: 7 },
-          },
-        ],
-      },
+      data: [{ quantityOnHand: 12, availableToPromise: 7 }],
     });
 
     const wrapper = await mountModal();
@@ -139,7 +133,7 @@ describe("FacilitySwitcherModal", () => {
 
     expect(api).toHaveBeenCalledTimes(1);
     expect(api).toHaveBeenCalledWith({
-      url: "oms/productFacilities/search",
+      url: "oms/productFacilities/inventory",
       method: "GET",
       params: { productId: "PROD_1", facilityId: "BROADWAY", pageSize: 1 },
     });
@@ -170,13 +164,7 @@ describe("FacilitySwitcherModal", () => {
     expect(observer.observed).not.toContain(broadwayRow);
 
     resolveInventory({
-      data: {
-        products: [
-          {
-            inventoryConfig: { qoh: 4, atp: 3 },
-          },
-        ],
-      },
+      data: [{ quantityOnHand: 4, availableToPromise: 3 }],
     });
     await flushPromises();
 
@@ -187,18 +175,18 @@ describe("FacilitySwitcherModal", () => {
 
   it("fetches mounted rows immediately when IntersectionObserver is unavailable", async () => {
     vi.stubGlobal("IntersectionObserver", undefined);
-    api.mockResolvedValue({ data: { products: [] } });
+    api.mockResolvedValue({ data: [] });
 
     await mountModal();
 
     expect(api).toHaveBeenCalledTimes(2);
     expect(api).toHaveBeenCalledWith({
-      url: "oms/productFacilities/search",
+      url: "oms/productFacilities/inventory",
       method: "GET",
       params: { productId: "PROD_1", facilityId: "BROADWAY", pageSize: 1 },
     });
     expect(api).toHaveBeenCalledWith({
-      url: "oms/productFacilities/search",
+      url: "oms/productFacilities/inventory",
       method: "GET",
       params: { productId: "PROD_1", facilityId: "BROOKLYN", pageSize: 1 },
     });

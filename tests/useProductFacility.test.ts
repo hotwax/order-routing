@@ -29,7 +29,7 @@ describe("useProductFacility request ordering", () => {
     const older = deferred<any>();
     mocks.api
       .mockReturnValueOnce(older.promise)
-      .mockResolvedValueOnce({ data: { products: [{ productId: "NEW" }], totalCount: 1 } });
+      .mockResolvedValueOnce({ data: [{ productId: "NEW", facilityId: "NEW", availableToPromise: 8, quantityOnHand: 11 }] });
 
     const productFacilityApi = useProductFacility();
     const olderRequest = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
@@ -39,7 +39,12 @@ describe("useProductFacility request ordering", () => {
 
     expect(await olderRequest).toBeUndefined();
     expect(currentTotal).toBe(1);
-    expect(productFacilityApi.productFacility.value).toEqual([{ productId: "NEW" }]);
+    expect(mocks.api).toHaveBeenNthCalledWith(2, {
+      url: "oms/productFacilities/inventory",
+      method: "GET",
+      params: { facilityId: "NEW" },
+    });
+    expect(productFacilityApi.productFacility.value).toMatchObject([{ productId: "NEW" }]);
   });
 
   it("invalidates an in-flight response when the current scope is cleared", async () => {
@@ -49,7 +54,7 @@ describe("useProductFacility request ordering", () => {
     const productFacilityApi = useProductFacility();
     const request = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
     productFacilityApi.clearProductFacility();
-    pending.resolve({ data: { products: [{ productId: "OLD" }], totalCount: 1 } });
+    pending.resolve({ data: [{ productId: "OLD" }] });
 
     expect(await request).toBeUndefined();
     expect(productFacilityApi.productFacility.value).toEqual([]);
@@ -68,6 +73,38 @@ describe("useProductFacility request ordering", () => {
       "Failed to fetch product facility records",
       "Request failed with status code 400",
     );
+  });
+
+  it("normalizes direct inventory rows for the existing detail and rule-preview fields", async () => {
+    mocks.api.mockResolvedValueOnce({
+      data: [{
+        productId: "SKU_1",
+        facilityId: "FACILITY",
+        availableToPromise: 7,
+        quantityOnHand: 12,
+        minimumStock: 3,
+        allowPickup: "N",
+        allowBrokering: "Y",
+      }],
+    });
+
+    const productFacilityApi = useProductFacility();
+    await productFacilityApi.fetchProductFacility({ productId: "SKU_1", facilityId: "FACILITY", pageSize: 1 });
+
+    expect(productFacilityApi.productFacility.value[0]).toMatchObject({
+      productId: "SKU_1",
+      facilityId: "FACILITY",
+      computedLastInventoryCount: 7,
+      lastInventoryCount: 12,
+      allowPickup: "N",
+      inventoryConfig: {
+        atp: 7,
+        qoh: 12,
+        minimumStock: 3,
+        allowPickup: "N",
+        allowBrokering: "Y",
+      },
+    });
   });
 });
 

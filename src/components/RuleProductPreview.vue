@@ -131,6 +131,7 @@ import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline
 import { DxpShopifyImg, translate, api, commonUtil } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
+import { normalizeProductFacilityRow } from "@/composables/useProductFacility";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 // Cap how many tag/feature chips a row shows before collapsing the rest into a "+N more" note.
@@ -276,15 +277,16 @@ async function fetchInventoryConfigs() {
       batch.map(async (product) => {
         try {
           const resp = await api({
-            url: "oms/productFacilities/search",
+            url: "oms/productFacilities/inventory",
             method: "GET",
             params: {
-              keyword: product.productId,
+              productId: product.productId,
               facilityId: selectedFacilityId.value
             }
           }) as any;
-          if (resp.data?.products?.length) {
-            configs[product.productId] = resp.data.products[0].inventoryConfig || resp.data.products[0];
+          const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
+          if (rows.length) {
+            configs[product.productId] = normalizeProductFacilityRow(rows[0]);
           }
         } catch (err) {
           console.error("Failed to fetch config for product", product.productId, err);

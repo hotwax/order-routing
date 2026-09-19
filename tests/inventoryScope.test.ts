@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inventoryListQuery, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
+import { inventoryListQuery, inventoryOperationalFilterParams, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
 
 describe("inventory scope", () => {
   it("round-trips the full operational filter matrix through server query parameters", () => {
@@ -71,6 +71,27 @@ describe("inventory scope", () => {
       safetyStockValue: "5",
       pageIndex: 2,
     });
+  });
+
+  it("converts strict safety-stock comparisons to inclusive server boundaries", () => {
+    const baseFilters = {
+      allowBrokering: "",
+      allowPickup: "",
+      atpFilter: "" as const,
+      qohFilter: "" as const,
+    };
+
+    expect(inventoryOperationalFilterParams({
+      ...baseFilters,
+      safetyStockOperator: "greater-than",
+      safetyStockValue: "5",
+    })).toMatchObject({ minimumStock_from: "6" });
+
+    expect(inventoryOperationalFilterParams({
+      ...baseFilters,
+      safetyStockOperator: "less-than",
+      safetyStockValue: "5",
+    })).toMatchObject({ minimumStock_thru: "4" });
   });
 
   it("accepts repeated or comma-separated product IDs and rejects invalid pages", () => {

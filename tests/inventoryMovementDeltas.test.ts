@@ -46,7 +46,13 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       productFacility.value = [{
         productId: "SKU_1",
         facilityId: params.facilityId,
-        inventoryConfig: { allowBrokering: "Y", allowPickup: "N", minimumStock: 3, atp: 100, qoh: 120 },
+        inventoryItemId: "INV_1",
+        allowBrokering: "Y",
+        allowPickup: "N",
+        minimumStock: 3,
+        daysToShip: 2,
+        availableToPromise: 100,
+        quantityOnHand: 120,
       }];
 
       return 1;

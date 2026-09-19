@@ -75,36 +75,28 @@ describe("useProductFacility request ordering", () => {
     );
   });
 
-  it("normalizes direct inventory rows for the existing detail and rule-preview fields", async () => {
+  it("keeps direct inventory rows flat without synthesizing the legacy search shape", async () => {
+    const inventoryRow = {
+      productId: "SKU_1",
+      facilityId: "FACILITY",
+      inventoryItemId: "INV_1",
+      availableToPromise: 7,
+      quantityOnHand: 12,
+      computedInventoryCount: 4,
+      computedLastInventoryCount: 2,
+      minimumStock: 3,
+      daysToShip: 2,
+      allowPickup: "N",
+      allowBrokering: "Y",
+    };
     mocks.api.mockResolvedValueOnce({
-      data: [{
-        productId: "SKU_1",
-        facilityId: "FACILITY",
-        availableToPromise: 7,
-        quantityOnHand: 12,
-        minimumStock: 3,
-        allowPickup: "N",
-        allowBrokering: "Y",
-      }],
+      data: [inventoryRow],
     });
 
     const productFacilityApi = useProductFacility();
     await productFacilityApi.fetchProductFacility({ productId: "SKU_1", facilityId: "FACILITY", pageSize: 1 });
 
-    expect(productFacilityApi.productFacility.value[0]).toMatchObject({
-      productId: "SKU_1",
-      facilityId: "FACILITY",
-      computedLastInventoryCount: 7,
-      lastInventoryCount: 12,
-      allowPickup: "N",
-      inventoryConfig: {
-        atp: 7,
-        qoh: 12,
-        minimumStock: 3,
-        allowPickup: "N",
-        allowBrokering: "Y",
-      },
-    });
+    expect(productFacilityApi.productFacility.value[0]).toEqual(inventoryRow);
   });
 });
 

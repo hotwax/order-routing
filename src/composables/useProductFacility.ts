@@ -5,65 +5,21 @@ interface ProductFacility {
   productId: string;
   facilityId: string;
   productName?: string;
-  allowBrokering: string;
-  allowPickup: string;
-  minimumStock: string;
-  computedLastInventoryCount: string;
-  lastInventoryCount: string;
-  maximumStock: string;
-  inventoryItemId: string;
-  isChecked: boolean;
-  inventoryConfig?: {
-    atp?: string | number | null;
-    qoh?: string | number | null;
-    minimumStock?: string | number | null;
-    allowPickup?: string | null;
-    allowBrokering?: string | null;
-  };
-  onlineAtp: string;
-  // Aliases contributed by ProductFacilityInventoryItemView's optional InventoryItem join. Absent on
-  // rows from the plain ProductFacility entity (channel scope), hence optional.
-  availableToPromise?: number;
-  quantityOnHand?: number;
-  computedInventoryCount?: number;
+  allowBrokering?: string | null;
+  allowPickup?: string | null;
+  minimumStock?: string | number | null;
+  maximumStock?: string | number | null;
+  daysToShip?: string | number | null;
+  inventoryItemId?: string | null;
+  isChecked?: boolean;
+  onlineAtp?: string | number | null;
+  availableToPromise?: string | number | null;
+  quantityOnHand?: string | number | null;
+  computedInventoryCount?: string | number | null;
 }
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
-}
-
-/**
- * Keep the legacy nested config fields available while consumers move to the direct inventory view.
- * ProductFacilityInventoryItemView exposes inventory values as flat aliases, whereas the older
- * search response nested them under inventoryConfig.
- */
-export function normalizeProductFacilityRow(row: any) {
-  const config = row?.inventoryConfig ?? {};
-  const atp = config.atp ?? row?.availableToPromise ?? row?.computedInventoryCount ?? row?.computedLastInventoryCount;
-  const qoh = config.qoh ?? row?.quantityOnHand ?? row?.lastInventoryCount;
-  const minimumStock = config.minimumStock ?? row?.minimumStock;
-  const allowPickup = row?.allowPickup ?? config.allowPickup;
-  const allowBrokering = row?.allowBrokering ?? config.allowBrokering;
-  const computedLastInventoryCount = row?.computedLastInventoryCount ?? config.computedLastInventoryCount ?? row?.computedInventoryCount ?? row?.availableToPromise;
-  const lastInventoryCount = row?.lastInventoryCount ?? config.lastInventoryCount ?? row?.quantityOnHand;
-
-  return {
-    ...row,
-    computedLastInventoryCount,
-    lastInventoryCount,
-    allowPickup,
-    allowBrokering,
-    inventoryConfig: {
-      ...config,
-      atp,
-      qoh,
-      minimumStock,
-      allowPickup,
-      allowBrokering,
-      computedLastInventoryCount,
-      lastInventoryCount,
-    },
-  };
 }
 
 export function useProductFacility() {
@@ -88,7 +44,7 @@ export function useProductFacility() {
 
       if(requestId !== productFacilityRequestId) {return undefined}
       const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
-      productFacility.value = rows.map(normalizeProductFacilityRow)
+      productFacility.value = rows
 
       return resp.data?.totalCount ?? rows.length
     } catch (err) {

@@ -74,13 +74,13 @@
         <template v-else-if="inventoryConfigs[product.productId]">
           <div class="tablet">
             <ion-label>
-              {{ inventoryConfigs[product.productId].computedLastInventoryCount }}
+              {{ inventoryConfigs[product.productId].availableToPromise }}
               <p>{{ translate("ATP") }}</p>
             </ion-label>
           </div>
           <div class="tablet">
             <ion-label>
-              {{ inventoryConfigs[product.productId].lastInventoryCount }}
+              {{ inventoryConfigs[product.productId].quantityOnHand }}
               <p>{{ translate("QOH") }}</p>
             </ion-label>
           </div>
@@ -131,7 +131,6 @@ import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline
 import { DxpShopifyImg, translate, api, commonUtil } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
-import { normalizeProductFacilityRow } from "@/composables/useProductFacility";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 
 // Cap how many tag/feature chips a row shows before collapsing the rest into a "+N more" note.
@@ -286,7 +285,7 @@ async function fetchInventoryConfigs() {
           }) as any;
           const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
           if (rows.length) {
-            configs[product.productId] = normalizeProductFacilityRow(rows[0]);
+            configs[product.productId] = rows[0];
           }
         } catch (err) {
           console.error("Failed to fetch config for product", product.productId, err);

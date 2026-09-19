@@ -81,7 +81,7 @@ export function parseInventoryListQuery(query: LocationQuery): InventoryListQuer
   };
 }
 
-export function inventoryOperationalFilterParams(state: InventoryOperationalFilterState, includeInventory = true): Record<string, string> {
+function inventoryOperationalQueryParams(state: InventoryOperationalFilterState, includeInventory = true): Record<string, string> {
   const params: Record<string, string> = {};
   if(state.allowBrokering) {params.allowBrokering = state.allowBrokering;}
   if(state.allowPickup) {params.allowPickup = state.allowPickup;}
@@ -98,6 +98,24 @@ export function inventoryOperationalFilterParams(state: InventoryOperationalFilt
   return params;
 }
 
+export function inventoryOperationalFilterParams(state: InventoryOperationalFilterState, includeInventory = true): Record<string, string> {
+  const params = inventoryOperationalQueryParams(state, includeInventory);
+  if(state.safetyStockValue === "") {return params;}
+
+  const safetyStockValue = Number(state.safetyStockValue);
+  if(!Number.isInteger(safetyStockValue)) {
+    delete params.minimumStock_from;
+    delete params.minimumStock_thru;
+
+    return params;
+  }
+
+  if(state.safetyStockOperator === "greater-than") {params.minimumStock_from = String(safetyStockValue + 1);}
+  if(state.safetyStockOperator === "less-than") {params.minimumStock_thru = String(safetyStockValue - 1);}
+
+  return params;
+}
+
 export function inventoryListQuery(scope: InventoryListScope, state: InventoryListQueryState): Record<string, string> {
   const query: Record<string, string> = {};
   if(scope.type === "channel") {
@@ -109,7 +127,7 @@ export function inventoryListQuery(scope: InventoryListScope, state: InventoryLi
 
   if(state.productIds.length) {query.productId = state.productIds.join(",");}
   if(state.sortField) {query.orderByField = state.sortField;}
-  Object.assign(query, inventoryOperationalFilterParams(state, scope.type === "location"));
+  Object.assign(query, inventoryOperationalQueryParams(state, scope.type === "location"));
   if(state.pageIndex > 0) {query.pageIndex = String(state.pageIndex);}
 
   return query;

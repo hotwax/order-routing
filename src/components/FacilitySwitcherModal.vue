@@ -73,7 +73,6 @@ import { closeOutline, searchOutline } from "ionicons/icons";
 import { api, commonUtil, logger, translate } from "@common";
 import { computed, onBeforeUnmount, ref, type ObjectDirective } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
-import { normalizeProductFacilityRow } from "@/composables/useProductFacility";
 
 const props = defineProps<{
   productId: string;
@@ -123,12 +122,11 @@ async function fetchInventoryForFacility(facilityId: string) {
     const row = resp && !commonUtil.hasError(resp)
       ? (Array.isArray(resp.data) ? resp.data[0] : resp.data?.products?.[0])
       : undefined;
-    const record = row ? normalizeProductFacilityRow(row) : undefined;
     inventoryByFacility.value = {
       ...inventoryByFacility.value,
       [facilityId]: {
-        qoh: record?.inventoryConfig?.qoh ?? "-",
-        atp: record?.inventoryConfig?.atp ?? "-"
+        qoh: row?.quantityOnHand ?? "-",
+        atp: row?.availableToPromise ?? "-"
       }
     };
   } catch (err) {

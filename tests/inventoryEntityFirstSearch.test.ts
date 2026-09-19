@@ -531,7 +531,7 @@ describe("Inventory entity-first search", () => {
     expect(lastParams()).toMatchObject({
       availableToPromise_thru: "-1",
       quantityOnHand_from: "1",
-      minimumStock_from: "5",
+      minimumStock_from: "6",
       pageIndex: 0,
     });
     expect(lastParams().availableToPromise_from).toBeUndefined();

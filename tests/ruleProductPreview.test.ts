@@ -67,6 +67,8 @@ describe("RuleProductPreview", () => {
         facilityId: "FACILITY",
         availableToPromise: 7,
         quantityOnHand: 12,
+        computedInventoryCount: 3,
+        computedLastInventoryCount: 2,
         allowPickup: "N",
       }],
     });
@@ -92,8 +94,9 @@ describe("RuleProductPreview", () => {
       method: "GET",
       params: { productId: "SKU_1", facilityId: "FACILITY" },
     });
-    expect(wrapper.text()).toContain("7");
-    expect(wrapper.text()).toContain("12");
+    const inventoryValues = wrapper.findAll(".tablet");
+    expect(inventoryValues[0].text()).toMatch(/7\s*ATP/);
+    expect(inventoryValues[1].text()).toMatch(/12\s*QOH/);
     expect(wrapper.text()).toContain("N");
     expect(wrapper.text()).toContain("Y");
   });

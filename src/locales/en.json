@@ -1304,5 +1304,13 @@
   "Select facilities": "Select facilities",
   "No facilities found": "No facilities found",
   "facilities selected": "facilities selected",
-  "The selected facilities are not available for this product store.": "The selected facilities are not available for this product store."
+  "The selected facilities are not available for this product store.": "The selected facilities are not available for this product store.",
+  "Positive": "Positive",
+  "Negative": "Negative",
+  "Less than": "Less than",
+  "Greater than": "Greater than",
+  "Clear filters": "Clear filters",
+  "Safety stock threshold": "Safety stock threshold",
+  "Threshold value": "Threshold value",
+  "Value": "Value"
 }

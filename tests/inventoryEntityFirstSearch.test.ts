@@ -160,6 +160,7 @@ describe("Inventory entity-first search", () => {
       IonFooter: defineComponent({ name: "IonFooter", template: "<footer><slot /></footer>" }),
       IonHeader: defineComponent({ name: "IonHeader", template: "<header><slot /></header>" }),
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
+      IonInput: defineComponent({ name: "IonInput", props: ["modelValue", "readonly"], emits: ["update:modelValue", "ionChange"], template: "<div @ion-change=\"$emit('ionChange', $event)\"><slot /></div>" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
       IonList: defineComponent({ name: "IonList", template: "<div><slot /></div>" }),
@@ -167,7 +168,7 @@ describe("Inventory entity-first search", () => {
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSegment: defineComponent({ name: "IonSegment", template: "<div><slot /></div>" }),
       IonSegmentButton: defineComponent({ name: "IonSegmentButton", template: "<button><slot /></button>" }),
-      IonSelect: defineComponent({ name: "IonSelect", props: ["modelValue", "value"], emits: ["update:modelValue", "ionChange"], template: "<select><slot /></select>" }),
+      IonSelect: defineComponent({ name: "IonSelect", props: ["interfaceOptions", "modelValue", "value"], emits: ["update:modelValue", "ionChange"], template: "<select @ion-change=\"$emit('ionChange', $event)\"><slot /></select>" }),
       IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
       IonSkeletonText: defineComponent({ name: "IonSkeletonText", template: "<span />" }),
       IonThumbnail: defineComponent({ name: "IonThumbnail", template: "<div><slot /></div>" }),
@@ -421,12 +422,133 @@ describe("Inventory entity-first search", () => {
     expect(wrapper.find('[data-testid="product-filter-summary"]').text()).not.toContain("10001");
   });
 
-  it("uses outline styling for every inventory dropdown", async () => {
+  it("keeps the safety-stock value read-only until a comparison is selected", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
     await selectFacility(wrapper, "BROOKLYN");
 
-    expect(wrapper.findAllComponents({ name: "IonSelect" }).every((select: any) => select.attributes("fill") === "outline")).toBe(true);
+    const card = wrapper.findComponent({ name: "IonCard" });
+    const safetyValue = card.findComponent('[data-testid="inventory-safety-stock-value"]');
+
+    expect(safetyValue.props("readonly")).toBe(true);
+
+    const safetyOperator = safetyValue.findComponent('[data-testid="inventory-safety-stock-operator"]');
+    safetyOperator.vm.$emit("update:modelValue", "less-than");
+    await flush();
+    expect(card.findComponent('[data-testid="inventory-safety-stock-value"]').props("readonly")).toBe(false);
+  });
+
+  it("does not query inventory while the safety-stock operator changes without a value", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+    fetchProductFacilityRows.mockClear();
+
+    const safetyOperator = wrapper.findComponent('[data-testid="inventory-safety-stock-operator"]');
+    safetyOperator.vm.$emit("update:modelValue", "less-than");
+    safetyOperator.element.dispatchEvent(new CustomEvent("ion-change", {
+      bubbles: true,
+      detail: { value: "less-than" },
+    }));
+    await flush();
+
+    safetyOperator.vm.$emit("update:modelValue", "");
+    safetyOperator.element.dispatchEvent(new CustomEvent("ion-change", {
+      bubbles: true,
+      detail: { value: "" },
+    }));
+    await flush();
+
+    expect(fetchProductFacilityRows).not.toHaveBeenCalled();
+  });
+
+  it("maps ATP, QOH, and safety-stock filters to server-side range parameters", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    const atp = wrapper.findComponent('[data-testid="inventory-atp-filter"]');
+    atp.vm.$emit("update:modelValue", "negative");
+    atp.vm.$emit("ionChange", { detail: { value: "negative" } });
+    await flush();
+
+    const qoh = wrapper.findComponent('[data-testid="inventory-qoh-filter"]');
+    qoh.vm.$emit("update:modelValue", "positive");
+    qoh.vm.$emit("ionChange", { detail: { value: "positive" } });
+    await flush();
+
+    const safetyOperator = wrapper.findComponent('[data-testid="inventory-safety-stock-operator"]');
+    safetyOperator.vm.$emit("update:modelValue", "greater-than");
+    await flush();
+    const safetyValue = wrapper.findComponent('[data-testid="inventory-safety-stock-value"]');
+    safetyValue.vm.$emit("update:modelValue", "5");
+    safetyValue.vm.$emit("ionChange", { detail: { value: "5" } });
+    await flush();
+
+    expect(lastParams()).toMatchObject({
+      availableToPromise_thru: "-1",
+      quantityOnHand_from: "1",
+      minimumStock_from: "6",
+      pageIndex: 0,
+    });
+    expect(lastParams().availableToPromise_from).toBeUndefined();
+    expect(lastParams().quantityOnHand_thru).toBeUndefined();
+    expect(routerMock.replace).toHaveBeenLastCalledWith({
+      path: "/inventory",
+      query: expect.objectContaining({
+        facilityId: "BROOKLYN",
+        availableToPromise_thru: "-1",
+        quantityOnHand_from: "1",
+        minimumStock_from: "5",
+      }),
+    });
+  });
+
+  it("clears a stale safety-stock value when its operator returns to Any", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    const safetyOperator = wrapper.findComponent('[data-testid="inventory-safety-stock-operator"]');
+    safetyOperator.vm.$emit("update:modelValue", "less-than");
+    await flush();
+    const safetyValue = wrapper.findComponent('[data-testid="inventory-safety-stock-value"]');
+    safetyValue.vm.$emit("update:modelValue", "5");
+    safetyValue.vm.$emit("ionChange", { detail: { value: "5" } });
+    await flush();
+
+    safetyOperator.vm.$emit("update:modelValue", "");
+    safetyOperator.element.dispatchEvent(new CustomEvent("ion-change", {
+      bubbles: true,
+      detail: { value: "" },
+    }));
+    await flush();
+
+    expect(lastParams().minimumStock_from).toBeUndefined();
+    expect(lastParams().minimumStock_thru).toBeUndefined();
+    expect(wrapper.find('[data-testid="inventory-clear-filters"]').attributes("disabled")).toBeDefined();
+  });
+
+  it("clears product and operational filters without changing the facility scope", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+    const atp = wrapper.findComponent('[data-testid="inventory-atp-filter"]');
+    atp.vm.$emit("update:modelValue", "positive");
+    atp.vm.$emit("ionChange", { detail: { value: "positive" } });
+    await flush();
+
+    await wrapper.find('[data-testid="inventory-clear-filters"]').trigger("click");
+    await flush();
+
+    expect(lastParams()).toMatchObject({ facilityId: "BROOKLYN", orderByField: "-availableToPromise", pageIndex: 0 });
+    expect(lastParams().productId).toBeUndefined();
+    expect(lastParams().availableToPromise_from).toBeUndefined();
+    expect(wrapper.find('[data-testid="product-filter-summary"]').exists()).toBe(false);
   });
 
   it("groups selected variants under one parent product", async () => {

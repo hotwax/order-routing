@@ -83,13 +83,13 @@
             <ion-item v-if="!isChannelScope">
               <ion-label>{{ translate("QOH") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.qoh ?? "-" }}
+                {{ productFacilityRecord?.quantityOnHand ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-if="!isChannelScope" lines="full">
               <ion-label>{{ translate("ATP") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.atp ?? "-" }}
+                {{ productFacilityRecord?.availableToPromise ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-else lines="full">
@@ -105,7 +105,7 @@
             <ion-item-divider color="light">
               <ion-label>{{ translate("Configuration") }}</ion-label>
               <ion-button v-if="!isChannelScope || selectedChannelConfigFacilityId" slot="end" fill="clear" @click="openConfigEditModal">
-                {{ translate(inventoryConfig?.inventoryConfig ? "Edit" : "Add Config") }}
+                {{ translate(productFacilityRecord ? "Edit" : "Add Config") }}
               </ion-button>
               <ion-button v-else slot="end" fill="clear" @click="openChannelConfigModal">
                 {{ translate("Add Config") }}
@@ -127,13 +127,13 @@
             <ion-item>
               <ion-label>{{ translate(isChannelScope ? "Threshold" : "Safety stock") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.minimumStock ?? "-" }}
+                {{ productFacilityRecord?.minimumStock ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-if="!isChannelScope" lines="none">
               <ion-label>{{ translate("Days to Ship") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.daysToShip ?? "-" }}
+                {{ productFacilityRecord?.daysToShip ?? "-" }}
               </ion-label>
             </ion-item>
           </ion-card>
@@ -380,7 +380,7 @@
                   <p>{{ translate("Brokering must be on for the channel before any facility inventory is sellable online.") }}</p>
                 </ion-label>
                 <ion-label slot="end">
-                  {{ inventoryConfig?.inventoryConfig?.allowBrokering ?? "-" }}
+                  {{ productFacilityRecord?.allowBrokering ?? "-" }}
                 </ion-label>
               </ion-item>
               <ion-item>
@@ -1039,11 +1039,11 @@ const {
   virtualQueueDemand,
   virtualQueueDemandState,
 } = channelInventoryApi;
-const inventoryConfig = ref<any>({});
+const productFacilityRecord = ref<any>({});
 
 // The remaining computation steps come from the channel's configuration facility record.
-const channelThresholdValue = computed(() => Number(inventoryConfig.value?.inventoryConfig?.minimumStock) || 0);
-const channelBrokeringAllowed = computed(() => (inventoryConfig.value?.inventoryConfig?.allowBrokering ?? "Y") !== "N");
+const channelThresholdValue = computed(() => Number(productFacilityRecord.value?.minimumStock) || 0);
+const channelBrokeringAllowed = computed(() => (productFacilityRecord.value?.allowBrokering ?? "Y") !== "N");
 // Our reconstruction of get#ProductOnlineAtp: channel-member ATP, minus facilities excluded by
 // brokering, minus safety stock at contributing facilities, minus the channel threshold, minus
 // order items still promised at virtual queue facilities — floored at zero like OMS does.
@@ -1358,7 +1358,7 @@ async function syncInventoryDetailScopeUrl() {
 }
 
 function configurationValue(field: string, locationFallback = "-") {
-  const value = inventoryConfig.value?.inventoryConfig?.[field];
+  const value = productFacilityRecord.value?.[field];
   if(value !== undefined && value !== null && value !== "") {return value;}
 
   return isChannelScope.value ? "-" : locationFallback;
@@ -1570,7 +1570,7 @@ watch(selectedChannelId, async (channelId) => {
 
 async function loadScopeData() {
   historyLoadRequestId += 1;
-  inventoryConfig.value = null;
+  productFacilityRecord.value = null;
   clearInventoryLogs();
   channelInventoryApi.clear();
   orderSummaries.value = {};
@@ -1629,7 +1629,7 @@ let configRequestId = 0;
 async function fetchInventoryConfig() {
   const facilityId = scopeFacilityId.value;
   if(!facilityId) {
-    inventoryConfig.value = null;
+    productFacilityRecord.value = null;
 
     return;
   }
@@ -1643,7 +1643,7 @@ async function fetchInventoryConfig() {
     facilityId
   });
   if(requestId !== configRequestId || facilityId !== scopeFacilityId.value) {return;}
-  inventoryConfig.value = productFacilityApi.productFacility.value?.[0] ?? null;
+  productFacilityRecord.value = productFacilityApi.productFacility.value?.[0] ?? null;
 }
 
 async function fetchInventoryLogs() {
@@ -1857,7 +1857,7 @@ async function openInventoryEditModal() {
     componentProps: {
       selectedFacility: selectedFacilityId.value,
       selectedProducts: [{ productId: productId.value }],
-      currentConfig: inventoryConfig.value?.inventoryConfig
+      currentConfig: productFacilityRecord.value
     }
   });
   await modal.present();
@@ -1873,7 +1873,7 @@ async function openConfigEditModal() {
     componentProps: {
       selectedFacility: facilityId,
       selectedProducts: [{ productId: productId.value }],
-      currentConfig: inventoryConfig.value?.inventoryConfig,
+      currentConfig: productFacilityRecord.value,
       scopeType: scopeType.value
     }
   });

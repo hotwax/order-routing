@@ -89,7 +89,7 @@ async function updateInventory() {
     const varianceList = props.selectedProducts
       .map((item: any) => {
         return {
-          inventoryItemId: props.currentConfig ? props.currentConfig.inventoryItemId : (item.inventoryItemId || item.inventoryConfig?.inventoryItemId),
+          inventoryItemId: props.currentConfig?.inventoryItemId ?? item.inventoryItemId,
           productId: item.productId,
           facilityId: props.selectedFacility,
           reasonEnumId,

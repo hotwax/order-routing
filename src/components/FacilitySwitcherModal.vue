@@ -115,16 +115,18 @@ async function fetchInventoryForFacility(facilityId: string) {
   pendingFacilityIds.add(facilityId);
   try {
     const resp = await api({
-      url: "oms/productFacilities/search",
+      url: "oms/productFacilities/inventory",
       method: "GET",
       params: { productId: props.productId, facilityId, pageSize: 1 }
     }) as any;
-    const record = resp && !commonUtil.hasError(resp) ? resp.data?.products?.[0] : undefined;
+    const row = resp && !commonUtil.hasError(resp)
+      ? (Array.isArray(resp.data) ? resp.data[0] : resp.data?.products?.[0])
+      : undefined;
     inventoryByFacility.value = {
       ...inventoryByFacility.value,
       [facilityId]: {
-        qoh: record?.inventoryConfig?.qoh ?? "-",
-        atp: record?.inventoryConfig?.atp ?? "-"
+        qoh: row?.quantityOnHand ?? "-",
+        atp: row?.availableToPromise ?? "-"
       }
     };
   } catch (err) {

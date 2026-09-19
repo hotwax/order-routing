@@ -13,6 +13,9 @@ describe("InventoryDetail Channel scope", () => {
   const fetchInventoryLogs = vi.fn();
   const clearInventoryLogs = vi.fn();
   const routerReplace = vi.fn();
+  const modalCreate = vi.fn();
+  const modalPresent = vi.fn();
+  const modalOnDidDismiss = vi.fn();
   const productFacility = ref<any[]>([]);
   const inventoryLogs = ref<any[]>([]);
   const currentRoute = ref({ params: { productId: "SKU_1" }, query: { channelId: "FAC_GRP" } });
@@ -23,6 +26,11 @@ describe("InventoryDetail Channel scope", () => {
     fetchInventoryLogs.mockReset();
     clearInventoryLogs.mockReset();
     routerReplace.mockReset();
+    modalCreate.mockReset();
+    modalPresent.mockReset();
+    modalOnDidDismiss.mockReset();
+    modalOnDidDismiss.mockResolvedValue({});
+    modalCreate.mockResolvedValue({ present: modalPresent, onDidDismiss: modalOnDidDismiss });
     productFacility.value = [];
     inventoryLogs.value = [];
     currentRoute.value = { params: { productId: "SKU_1" }, query: { channelId: "FAC_GRP" } };
@@ -31,7 +39,13 @@ describe("InventoryDetail Channel scope", () => {
       productFacility.value = [{
         productId: "SKU_1",
         facilityId: params.facilityId,
-        inventoryConfig: { allowBrokering: "Y", allowPickup: "N", minimumStock: 3, atp: 100, qoh: 120 },
+        inventoryItemId: "INV_1",
+        allowBrokering: "Y",
+        allowPickup: "N",
+        minimumStock: 3,
+        daysToShip: 2,
+        availableToPromise: 100,
+        quantityOnHand: 120,
       }];
 
       return 1;
@@ -71,7 +85,7 @@ describe("InventoryDetail Channel scope", () => {
           props: ["defaultHref"],
           template: "<a class='back-button' :data-href='defaultHref' />",
         }),
-        modalController: { create: vi.fn() },
+        modalController: { create: modalCreate, dismiss: vi.fn() },
         onIonViewDidEnter: (callback: () => any) => Promise.resolve().then(callback),
         onIonViewDidLeave: vi.fn(),
       };
@@ -154,6 +168,46 @@ describe("InventoryDetail Channel scope", () => {
       params: { productId: "SKU_1" },
       query: { channelId: "FAC_GRP" },
     });
+  });
+
+  it("renders current location inventory and passes it to adjustment flows", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    const itemText = wrapper.findAllComponents({ name: "IonItem" }).map((item) => item.text());
+    expect(itemText).toEqual(expect.arrayContaining([
+      expect.stringContaining("QOH120"),
+      expect.stringContaining("ATP100"),
+      expect.stringContaining("Safety stock3"),
+      expect.stringContaining("Days to Ship2"),
+    ]));
+
+    const adjustButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Adjust");
+    await adjustButton!.trigger("click");
+    await flushPromises();
+
+    expect(modalCreate).toHaveBeenCalledWith(expect.objectContaining({
+      componentProps: expect.objectContaining({
+        currentConfig: expect.objectContaining({
+          inventoryItemId: "INV_1",
+          availableToPromise: 100,
+          quantityOnHand: 120,
+        }),
+      }),
+    }));
+
+    const editButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Edit");
+    await editButton!.trigger("click");
+    await flushPromises();
+
+    expect(modalCreate).toHaveBeenLastCalledWith(expect.objectContaining({
+      componentProps: expect.objectContaining({
+        currentConfig: expect.objectContaining({ daysToShip: 2, minimumStock: 3 }),
+      }),
+    }));
   });
 
   it("treats an explicit but unavailable facility as a scope error instead of substituting one", async () => {

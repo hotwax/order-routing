@@ -29,7 +29,7 @@ describe("useProductFacility request ordering", () => {
     const older = deferred<any>();
     mocks.api
       .mockReturnValueOnce(older.promise)
-      .mockResolvedValueOnce({ data: { products: [{ productId: "NEW" }], totalCount: 1 } });
+      .mockResolvedValueOnce({ data: [{ productId: "NEW", facilityId: "NEW", availableToPromise: 8, quantityOnHand: 11 }] });
 
     const productFacilityApi = useProductFacility();
     const olderRequest = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
@@ -39,7 +39,7 @@ describe("useProductFacility request ordering", () => {
 
     expect(await olderRequest).toBeUndefined();
     expect(currentTotal).toBe(1);
-    expect(productFacilityApi.productFacility.value).toEqual([{ productId: "NEW" }]);
+    expect(productFacilityApi.productFacility.value).toMatchObject([{ productId: "NEW" }]);
   });
 
   it("invalidates an in-flight response when the current scope is cleared", async () => {
@@ -49,7 +49,7 @@ describe("useProductFacility request ordering", () => {
     const productFacilityApi = useProductFacility();
     const request = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
     productFacilityApi.clearProductFacility();
-    pending.resolve({ data: { products: [{ productId: "OLD" }], totalCount: 1 } });
+    pending.resolve({ data: [{ productId: "OLD" }] });
 
     expect(await request).toBeUndefined();
     expect(productFacilityApi.productFacility.value).toEqual([]);
@@ -69,6 +69,7 @@ describe("useProductFacility request ordering", () => {
       "Request failed with status code 400",
     );
   });
+
 });
 
 // The backend removed the unscoped GET oms/inventoryItem/detail resource; inventory history is now

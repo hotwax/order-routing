@@ -5,27 +5,17 @@ interface ProductFacility {
   productId: string;
   facilityId: string;
   productName?: string;
-  allowBrokering: string;
-  allowPickup: string;
-  minimumStock: string;
-  computedLastInventoryCount: string;
-  lastInventoryCount: string;
-  maximumStock: string;
-  inventoryItemId: string;
-  isChecked: boolean;
-  inventoryConfig?: {
-    atp?: string | number | null;
-    qoh?: string | number | null;
-    minimumStock?: string | number | null;
-    allowPickup?: string | null;
-    allowBrokering?: string | null;
-  };
-  onlineAtp: string;
-  // Aliases contributed by ProductFacilityInventoryItemView's optional InventoryItem join. Absent on
-  // rows from the plain ProductFacility entity (channel scope), hence optional.
-  availableToPromise?: number;
-  quantityOnHand?: number;
-  computedInventoryCount?: number;
+  allowBrokering?: string | null;
+  allowPickup?: string | null;
+  minimumStock?: string | number | null;
+  maximumStock?: string | number | null;
+  daysToShip?: string | number | null;
+  inventoryItemId?: string | null;
+  isChecked?: boolean;
+  onlineAtp?: string | number | null;
+  availableToPromise?: string | number | null;
+  quantityOnHand?: string | number | null;
+  computedInventoryCount?: string | number | null;
 }
 
 function getErrorMessage(error: unknown) {
@@ -47,15 +37,16 @@ export function useProductFacility() {
     const requestId = ++productFacilityRequestId
     try {
       const resp = await api({
-        url: "oms/productFacilities/search",
+        url: "oms/productFacilities/inventory",
         method: "GET",
         params: payload
       }) as any
 
       if(requestId !== productFacilityRequestId) {return undefined}
-      productFacility.value = resp.data?.products ?? []
+      const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
+      productFacility.value = rows
 
-      return resp.data?.totalCount ?? 0
+      return resp.data?.totalCount ?? rows.length
     } catch (err) {
       logger.error("Failed to fetch product facility records", getErrorMessage(err))
       if(requestId !== productFacilityRequestId) {return undefined}
@@ -68,10 +59,8 @@ export function useProductFacility() {
   /**
    * ProductFacility-first listing: pages and sorts over the rows a facility actually has.
    *
-   * The older fetchProductFacility() below calls oms/productFacilities/search, which pages a Solr
-   * *product* result set and left-joins ProductFacility onto it — so its total is a product count
-   * that does not vary by facility, and pages contain products the facility does not stock. These
-   * endpoints query the entity instead, so the total is the facility's real row count.
+   * The list fetcher queries the entity instead of the legacy Solr-backed product search, so the
+   * total is the facility's real row count and pages contain only configured ProductFacility rows.
    *
    * withInventory selects the view (adds availableToPromise / quantityOnHand / computedInventoryCount
    * from the optional InventoryItem join). Channel scope passes false: it shows online ATP sourced

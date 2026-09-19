@@ -88,7 +88,7 @@
               <ion-button
                 slot="end"
                 fill="clear"
-                class="clear-filter-btn"
+                size="small"
                 data-testid="clear-product-filter"
                 :aria-label="translate('Clear product filter')"
                 :title="translate('Clear')"
@@ -1085,15 +1085,6 @@ ion-content {
   width: 100%;
   max-width: 300px;
   margin: 0;
-}
-
-.clear-filter-btn {
-  --padding-start: 6px;
-  --padding-end: 6px;
-  flex-shrink: 0;
-  margin-inline-start: 4px;
-  height: 36px;
-  width: 36px;
 }
 
 @media (max-width: 700px) {

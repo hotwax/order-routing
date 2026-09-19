@@ -9,6 +9,7 @@ interface ProductFacility {
   allowPickup?: string | null;
   minimumStock?: string | number | null;
   maximumStock?: string | number | null;
+  reorderQuantity?: string | number | null;
   daysToShip?: string | number | null;
   inventoryItemId?: string | null;
   isChecked?: boolean;
@@ -130,13 +131,14 @@ export function useProductFacility() {
 
   async function updateProductFacility(payload: any) {
     try {
-      await api({
+      return await api({
         url: "oms/productFacilities",
         method: "POST",
         data: payload
       })
     } catch (err) {
-      logger.error("Updated product facility records", getErrorMessage(err))
+      logger.error("Failed to update product facility records", getErrorMessage(err))
+      throw err
     }
   }
 
@@ -154,7 +156,11 @@ export function useProductFacility() {
         method: "GET",
         params: {
           ...query,
-          orderByField: "createdStamp desc"
+          // `createdStamp` is the preferred audit timestamp when an OMS deployment exposes it,
+          // but Rails currently omits it from this history resource. `effectiveDate` is returned
+          // on the movement rows, so sort it newest-first rather than accepting the API's
+          // unspecified (oldest-first) order for a missing field.
+          orderByField: "-effectiveDate"
         }
       })
 

@@ -148,6 +148,26 @@
           </ion-card>
         </div>
 
+        <ReplenishmentCard
+          v-if="!isChannelScope && !scopeError && selectedFacilityId"
+          :product-id="productId"
+          :facility-id="selectedFacilityId"
+          :minimum-stock="productFacilityRecord?.minimumStock"
+          :maximum-stock="productFacilityRecord?.maximumStock ?? null"
+          :reorder-quantity="productFacilityRecord?.reorderQuantity ?? null"
+          :sales-velocity-breakdown="replenishmentMetrics.salesVelocityBreakdown"
+          :sales-velocity-units-per-day="replenishmentMetrics.salesVelocityUnitsPerDay"
+          :incoming-transfers="replenishmentMetrics.incomingTransfers"
+          :requested-transfers="replenishmentMetrics.requestedTransfers"
+          :incoming-units="replenishmentMetrics.incomingUnits"
+          :incoming-unavailable="replenishmentMetrics.incomingUnavailable"
+          :facility-names="facilityMap"
+          :trend-points="replenishmentMetrics.trendPoints"
+          :is-loading="replenishmentMetrics.loading"
+          :is-saving="isReplenishmentSaving"
+          @save="saveReplenishmentConfig"
+        />
+
         <section v-if="isChannelScope && !scopeError" class="history-section channel-detail-section">
           <ion-segment :value="channelDetailSegment" @ion-change="updateChannelDetailSegment($event)">
             <ion-segment-button value="computation">
@@ -905,9 +925,11 @@ import ChannelSwitcherModal from '@/components/ChannelSwitcherModal.vue';
 import LinkThresholdFacilitiesToGroupModal from '@/components/LinkThresholdFacilitiesToGroupModal.vue';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+import ReplenishmentCard from '@/components/ReplenishmentCard.vue';
 import { useChannelInventory } from "@/composables/useChannelInventory";
 import { useInventory } from "@/composables/useInventory";
 import { useProductFacility } from "@/composables/useProductFacility";
+import { useReplenishmentMetrics } from "@/composables/useReplenishmentMetrics";
 import { useSalesOrder } from "@/composables/useSalesOrder";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { useChannelStore } from "@/store/channel";
@@ -1017,6 +1039,9 @@ const inventoryListHref = computed(() => router.resolve({
 // and write the same per-instance state (see useProductFacility for why the singleton was removed).
 const productFacilityApi = useProductFacility();
 const { clearInventoryLogs, inventoryLogs } = productFacilityApi;
+const replenishmentApi = useReplenishmentMetrics();
+const { metrics: replenishmentMetrics, refreshReplenishmentMetrics, resetReplenishmentMetrics } = replenishmentApi;
+const isReplenishmentSaving = ref(false);
 const channelInventoryApi = useChannelInventory();
 const {
   brokeringDisabledAtp,
@@ -1572,6 +1597,7 @@ async function loadScopeData() {
   historyLoadRequestId += 1;
   productFacilityRecord.value = null;
   clearInventoryLogs();
+  resetReplenishmentMetrics();
   channelInventoryApi.clear();
   orderSummaries.value = {};
   movementImpact.value = {};
@@ -1646,6 +1672,33 @@ async function fetchInventoryConfig() {
   productFacilityRecord.value = productFacilityApi.productFacility.value?.[0] ?? null;
 }
 
+async function refreshCurrentReplenishmentMetrics() {
+  await refreshReplenishmentMetrics({
+    productId: productId.value,
+    facilityId: selectedFacilityId.value,
+    inventoryRows: inventoryLogs.value,
+  });
+}
+
+async function saveReplenishmentConfig(payload: { minimumStock?: number; maximumStock?: number; reorderQuantity?: number }) {
+  if(!selectedFacilityId.value || !Object.keys(payload).length) {return;}
+  isReplenishmentSaving.value = true;
+  try {
+    await productFacilityApi.updateProductFacility([{
+      productId: productId.value,
+      facilityId: selectedFacilityId.value,
+      ...payload,
+    }]);
+    await fetchInventoryConfig();
+    await refreshCurrentReplenishmentMetrics();
+  } catch(error) {
+    logger.error("Failed to save replenishment settings", error);
+    commonUtil.showToast(translate("Replenishment settings could not be saved"));
+  } finally {
+    isReplenishmentSaving.value = false;
+  }
+}
+
 async function fetchInventoryLogs() {
   await productFacilityApi.fetchInventoryLogs({
     productId: productId.value,
@@ -1664,6 +1717,7 @@ async function loadInventoryHistory() {
     clearInventoryLogs();
     orderSummaries.value = {};
     returnSummaries.value = {};
+    resetReplenishmentMetrics();
     isHistoryLoading.value = false;
 
     return;
@@ -1684,7 +1738,8 @@ async function loadInventoryHistory() {
     // letting the return rows repaint a beat later.
     const [summaries, returns] = await Promise.all([
       orderIds.length ? orderRoutingStore().fetchOrderSummaries(orderIds) : Promise.resolve({}),
-      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({})
+      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({}),
+      refreshCurrentReplenishmentMetrics(),
     ]);
     if(requestId === historyLoadRequestId &&
       productIdSnapshot === productId.value &&

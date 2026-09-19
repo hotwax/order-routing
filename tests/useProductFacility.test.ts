@@ -70,6 +70,16 @@ describe("useProductFacility request ordering", () => {
     );
   });
 
+  it("surfaces a failed configuration write so the caller does not claim a replenishment save succeeded", async () => {
+    const writeError = new Error("Product facility update failed");
+    mocks.api.mockRejectedValueOnce(writeError);
+
+    const productFacilityApi = useProductFacility();
+    await expect(productFacilityApi.updateProductFacility([{ productId: "SKU_1", facilityId: "CENTRAL" }])).rejects.toThrow(writeError);
+
+    expect(mocks.loggerError).toHaveBeenCalledWith("Failed to update product facility records", "Product facility update failed");
+  });
+
 });
 
 // The backend removed the unscoped GET oms/inventoryItem/detail resource; inventory history is now
@@ -81,7 +91,7 @@ describe("useProductFacility inventory history endpoint", () => {
     mocks.loggerError.mockReset();
   });
 
-  it("requests creation-date order before pagination", async () => {
+  it("requests newest effective inventory movements before pagination", async () => {
     mocks.api.mockResolvedValueOnce({ data: [] });
 
     const productFacilityApi = useProductFacility();
@@ -94,7 +104,7 @@ describe("useProductFacility inventory history endpoint", () => {
     expect(mocks.api).toHaveBeenCalledWith({
       url: "oms/products/SKU_1/facilities/CENTRAL_WAREHOUSE/inventoryDetail",
       method: "GET",
-      params: { pageSize: 250, orderByField: "createdStamp desc" },
+      params: { pageSize: 250, orderByField: "-effectiveDate" },
     });
   });
 

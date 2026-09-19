@@ -132,8 +132,23 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       "@/components/ChannelSwitcherModal.vue",
       "@/components/LinkThresholdFacilitiesToGroupModal.vue",
     ].forEach((path) => vi.doMock(path, () => ({ default: passthrough("MockModal") })));
+    vi.doMock("@/components/ReplenishmentCard.vue", () => ({ default: passthrough("ReplenishmentCard") }));
     vi.doMock("@/composables/useProductFacility", () => ({
-      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs }),
+      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs, updateProductFacility: vi.fn() }),
+    }));
+    vi.doMock("@/composables/useReplenishmentMetrics", () => ({
+      useReplenishmentMetrics: () => ({
+        metrics: {
+          loading: false,
+          incomingLoading: false,
+          incomingUnavailable: false,
+          incomingUnits: 0,
+          salesVelocityUnitsPerDay: 0,
+          trendPoints: [],
+        },
+        refreshReplenishmentMetrics: vi.fn(),
+        resetReplenishmentMetrics: vi.fn(),
+      }),
     }));
     vi.doMock("@/composables/useInventory", () => ({ useInventory: () => ({}) }));
     vi.doMock("@/composables/useSalesOrder", () => ({ useSalesOrder: () => ({}) }));

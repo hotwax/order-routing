@@ -166,17 +166,6 @@ export const useUserStore = defineStore('user', {
         await useUtilStore().fetchSystemInformation()
         await productStore().fetchProductStores()
         await this.fetchAvailableTimeZones()
-        // ATP (sourcing rules) initialisation
-        try {
-          const atp = useAtpProductStore()
-          await atp.fetchUserProductStores()
-          const stores = atp.getProductStores
-          if (stores && stores.length) {
-            atp.setCurrentProductStore(stores[0])
-          }
-        } catch (atpErr) {
-          logger.error('ATP postLogin failed', atpErr)
-        }
       } catch(error: any) {
         return Promise.reject(new Error(error));
       }
@@ -207,14 +196,12 @@ export const useUserStore = defineStore('user', {
     // Persisted Pinia state survives OMS instance switches that happen without an explicit
     // logout (launchpad switch, relogin to another instance), leaving product stores from
     // the previously linked instance selected. Compares the instance key stamped on the
-    // product-store caches against the connected instance and drops all instance-scoped
+    // canonical product-store cache against the connected instance and drops all instance-scoped
     // state on mismatch. Returns whether the persisted state was already valid.
     async ensureInstanceScope(payload?: { refetch?: boolean }): Promise<boolean> {
-      const atp = useAtpProductStore()
       const ecom = productStore()
-      const atpStale = isInstanceScopeStale(atp.omsInstanceKey, Boolean(atp.productStores?.length || atp.currentProductStore?.productStoreId))
       const ecomStale = isInstanceScopeStale(ecom.omsInstanceKey, Boolean(ecom.ecomStores?.length || ecom.currentEComStore?.productStoreId))
-      if (!atpStale && !ecomStale) return true
+      if (!ecomStale) return true
 
       await this.clearInstanceScopedState()
 
@@ -230,15 +217,6 @@ export const useUserStore = defineStore('user', {
           await ecom.fetchProductStores()
         } catch (error) {
           logger.error("Product Store - Fetch failed for the connected OMS", error)
-        }
-        try {
-          await atp.fetchUserProductStores()
-          const stores = atp.getProductStores
-          if (stores && stores.length) {
-            atp.setCurrentProductStore(stores[0])
-          }
-        } catch (error) {
-          logger.error("Product Store [Type: sourcing] - Fetch failed for the connected OMS", error)
         }
       }
       return false

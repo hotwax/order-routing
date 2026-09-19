@@ -1,9 +1,11 @@
 // tests/omsInstanceScope.test.ts
-// Persisted Pinia product-store caches are stamped with the OMS instance they were fetched
-// from; userStore.ensureInstanceScope drops all instance-scoped state when the stamp no
+// The canonical persisted Pinia product-store cache is stamped with the OMS instance it was
+// fetched from; userStore.ensureInstanceScope drops all instance-scoped state when the stamp no
 // longer matches the connected instance (login or hydrate after an instance switch).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { createApp } from "vue";
+import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 
 const mocks = vi.hoisted(() => ({
   api: vi.fn(),
@@ -43,13 +45,29 @@ import { getOmsInstanceKey, isInstanceScopeStale } from "../src/utils/omsInstanc
 
 const DEMO_KEY = "https://demo-oms.hotwax.io/api/";
 const OLD_KEY = "https://old-oms.hotwax.io/api/";
+const persistedValues = new Map<string, string>();
+const localStorageStub: Storage = {
+  get length() {
+    return persistedValues.size;
+  },
+  clear() {
+    persistedValues.clear();
+  },
+  getItem(key: string) {
+    return persistedValues.get(key) ?? null;
+  },
+  key(index: number) {
+    return [...persistedValues.keys()][index] ?? null;
+  },
+  removeItem(key: string) {
+    persistedValues.delete(key);
+  },
+  setItem(key: string, value: string) {
+    persistedValues.set(key, String(value));
+  },
+};
 
 function seedInstanceState(instanceKey: string) {
-  const atp = useAtpProductStore();
-  atp.productStores = [{ productStoreId: "CAT_STORE", storeName: "CAT" }];
-  atp.currentProductStore = { productStoreId: "CAT_STORE", storeName: "CAT" };
-  atp.omsInstanceKey = instanceKey;
-
   const ecom = productStore();
   ecom.ecomStores = [{ productStoreId: "CAT_STORE", storeName: "CAT" }];
   ecom.currentEComStore = { productStoreId: "CAT_STORE", storeName: "CAT" };
@@ -61,12 +79,14 @@ function seedInstanceState(instanceKey: string) {
 
 describe("OMS instance scoping of persisted product stores", () => {
   beforeEach(() => {
+    vi.stubGlobal("localStorage", localStorageStub);
     setActivePinia(createPinia());
     mocks.api.mockReset();
     mocks.omsUrl.value = DEMO_KEY;
+    localStorage.clear();
   });
 
-  it("keeps state when the caches are stamped with the connected instance", async () => {
+  it("keeps state when the cache is stamped with the connected instance", async () => {
     seedInstanceState(DEMO_KEY);
 
     expect(await useUserStore().ensureInstanceScope()).toBe(true);
@@ -77,7 +97,7 @@ describe("OMS instance scoping of persisted product stores", () => {
     expect(mocks.api).not.toHaveBeenCalled();
   });
 
-  it("drops all instance-scoped state when the caches were stamped by another instance", async () => {
+  it("drops all instance-scoped state when the cache was stamped by another instance", async () => {
     seedInstanceState(OLD_KEY);
 
     expect(await useUserStore().ensureInstanceScope()).toBe(false);
@@ -129,7 +149,6 @@ describe("OMS instance scoping of persisted product stores", () => {
     expect(ecom.omsInstanceKey).toBe(DEMO_KEY);
     expect(atp.productStores.map((s: any) => s.productStoreId)).toEqual(["DEMO_STORE"]);
     expect(atp.currentProductStore.productStoreId).toBe("DEMO_STORE");
-    expect(atp.omsInstanceKey).toBe(DEMO_KEY);
   });
 
   it("keeps the new user profile when postLogin clears stale instance state", async () => {
@@ -157,6 +176,62 @@ describe("OMS instance scoping of persisted product stores", () => {
     await user.postLogin();
 
     expect(user.current).toEqual({ userId: "new-user", timeZone: "UTC" });
+  });
+
+  it("fetches the product-store catalog once during login", async () => {
+    mocks.api.mockImplementation((config: any) => {
+      if (config.url === "admin/user/profile") {
+        return Promise.resolve({ data: { userId: "new-user", timeZone: "UTC" } });
+      }
+      if (config.url === "admin/user/permissions") {
+        const docs = config.params?.viewIndex === 0
+          ? [{ permissionId: import.meta.env.VITE_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
+          : [];
+        return Promise.resolve({ status: 200, data: { docs } });
+      }
+      if (config.url === "admin/user/productStore") {
+        return Promise.resolve({ data: [{ productStoreId: "DEMO_STORE", storeName: "Demo" }] });
+      }
+      if (config.url === "admin/user/getAvailableTimeZones") {
+        return Promise.resolve({ data: { timeZones: [{ id: "UTC" }] } });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    await useUserStore().postLogin();
+
+    const productStoreRequests = mocks.api.mock.calls.filter(
+      ([config]: any[]) => config.url === "admin/user/productStore",
+    );
+    expect(productStoreRequests).toHaveLength(1);
+  });
+
+  it("keeps the canonical product-store selection when sourcing state resets", () => {
+    seedInstanceState(DEMO_KEY);
+
+    useAtpProductStore().$reset();
+
+    expect(productStore().currentEComStore.productStoreId).toBe("CAT_STORE");
+    expect(useAtpProductStore().currentProductStore.productStoreId).toBe("CAT_STORE");
+  });
+
+  it("does not rehydrate legacy product-store identity into sourcing state", () => {
+    localStorage.setItem("atpProductStore", JSON.stringify({
+      productStores: [{ productStoreId: "OLD_STORE" }],
+      currentProductStore: { productStoreId: "OLD_STORE" },
+      omsInstanceKey: OLD_KEY,
+      configFacilities: [{ facilityId: "CONFIG" }],
+    }));
+    const pinia = createPinia().use(piniaPluginPersistedstate);
+    createApp({}).use(pinia);
+    setActivePinia(pinia);
+
+    const atp = useAtpProductStore();
+
+    expect(atp.configFacilities).toEqual([{ facilityId: "CONFIG" }]);
+    expect(atp.$state).not.toHaveProperty("productStores");
+    expect(atp.$state).not.toHaveProperty("currentProductStore");
+    expect(atp.$state).not.toHaveProperty("omsInstanceKey");
   });
 
   it("does not apply product-store settings returned after the OMS instance changes", async () => {
@@ -202,10 +277,10 @@ describe("OMS instance scoping of persisted product stores", () => {
   it("stamps fetched product stores with the connected instance key", async () => {
     mocks.api.mockResolvedValue({ data: [{ productStoreId: "DEMO_STORE" }] });
 
-    await useAtpProductStore().fetchUserProductStores();
+    await productStore().fetchProductStores();
 
-    expect(useAtpProductStore().omsInstanceKey).toBe(getOmsInstanceKey());
-    expect(useAtpProductStore().omsInstanceKey).toBe(DEMO_KEY);
+    expect(productStore().omsInstanceKey).toBe(getOmsInstanceKey());
+    expect(productStore().omsInstanceKey).toBe(DEMO_KEY);
   });
 
   it("isInstanceScopeStale only flags caches that hold data for another or unknown instance", () => {

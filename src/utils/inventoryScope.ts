@@ -26,15 +26,23 @@ export type InventoryListLocationScope = {
 
 export type InventoryListScope = InventoryListLocationScope | ChannelInventoryScope | InvalidInventoryScope;
 
-export type InventoryListQueryState = {
+export type InventorySignFilter = "" | "positive" | "negative";
+export type SafetyStockOperator = "" | "less-than" | "greater-than";
+
+export type InventoryOperationalFilterState = {
+  allowBrokering: string;
+  allowPickup: string;
+  atpFilter: InventorySignFilter;
+  qohFilter: InventorySignFilter;
+  safetyStockOperator: SafetyStockOperator;
+  safetyStockValue: string;
+};
+
+export type InventoryListQueryState = InventoryOperationalFilterState & {
   facilityIds?: string[];
   channelId?: string;
   productIds: string[];
   sortField: string;
-  allowBrokering: string;
-  allowPickup: string;
-  minimumStockFrom: string;
-  availableToPromiseFrom: string;
   pageIndex: number;
 };
 
@@ -51,6 +59,12 @@ function queryValues(value: LocationQueryValue | LocationQueryValue[] | undefine
 
 export function parseInventoryListQuery(query: LocationQuery): InventoryListQueryState {
   const parsedPageIndex = Number(firstQueryValue(query.pageIndex));
+  const availableToPromiseFrom = firstQueryValue(query.availableToPromise_from);
+  const availableToPromiseThru = firstQueryValue(query.availableToPromise_thru);
+  const quantityOnHandFrom = firstQueryValue(query.quantityOnHand_from);
+  const quantityOnHandThru = firstQueryValue(query.quantityOnHand_thru);
+  const minimumStockFrom = firstQueryValue(query.minimumStock_from);
+  const minimumStockThru = firstQueryValue(query.minimumStock_thru);
 
   return {
     facilityIds: [...new Set(queryValues(query.facilityId))],
@@ -59,10 +73,29 @@ export function parseInventoryListQuery(query: LocationQuery): InventoryListQuer
     sortField: firstQueryValue(query.orderByField),
     allowBrokering: firstQueryValue(query.allowBrokering),
     allowPickup: firstQueryValue(query.allowPickup),
-    minimumStockFrom: firstQueryValue(query.minimumStock_from),
-    availableToPromiseFrom: firstQueryValue(query.availableToPromise_from),
+    atpFilter: availableToPromiseFrom === "1" ? "positive" : availableToPromiseThru === "-1" ? "negative" : "",
+    qohFilter: quantityOnHandFrom === "1" ? "positive" : quantityOnHandThru === "-1" ? "negative" : "",
+    safetyStockOperator: minimumStockFrom !== "" ? "greater-than" : minimumStockThru !== "" ? "less-than" : "",
+    safetyStockValue: minimumStockFrom || minimumStockThru,
     pageIndex: Number.isInteger(parsedPageIndex) && parsedPageIndex >= 0 ? parsedPageIndex : 0,
   };
+}
+
+export function inventoryOperationalFilterParams(state: InventoryOperationalFilterState, includeInventory = true): Record<string, string> {
+  const params: Record<string, string> = {};
+  if(state.allowBrokering) {params.allowBrokering = state.allowBrokering;}
+  if(state.allowPickup) {params.allowPickup = state.allowPickup;}
+  if(state.safetyStockOperator === "greater-than" && state.safetyStockValue !== "") {params.minimumStock_from = state.safetyStockValue;}
+  if(state.safetyStockOperator === "less-than" && state.safetyStockValue !== "") {params.minimumStock_thru = state.safetyStockValue;}
+
+  if(includeInventory) {
+    if(state.atpFilter === "positive") {params.availableToPromise_from = "1";}
+    if(state.atpFilter === "negative") {params.availableToPromise_thru = "-1";}
+    if(state.qohFilter === "positive") {params.quantityOnHand_from = "1";}
+    if(state.qohFilter === "negative") {params.quantityOnHand_thru = "-1";}
+  }
+
+  return params;
 }
 
 export function inventoryListQuery(scope: InventoryListScope, state: InventoryListQueryState): Record<string, string> {
@@ -76,10 +109,7 @@ export function inventoryListQuery(scope: InventoryListScope, state: InventoryLi
 
   if(state.productIds.length) {query.productId = state.productIds.join(",");}
   if(state.sortField) {query.orderByField = state.sortField;}
-  if(state.allowBrokering) {query.allowBrokering = state.allowBrokering;}
-  if(state.allowPickup) {query.allowPickup = state.allowPickup;}
-  if(state.minimumStockFrom) {query.minimumStock_from = state.minimumStockFrom;}
-  if(state.availableToPromiseFrom) {query.availableToPromise_from = state.availableToPromiseFrom;}
+  Object.assign(query, inventoryOperationalFilterParams(state, scope.type === "location"));
   if(state.pageIndex > 0) {query.pageIndex = String(state.pageIndex);}
 
   return query;

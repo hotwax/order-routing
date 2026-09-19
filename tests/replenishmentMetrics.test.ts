@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => vi.fn());
 const loggerError = vi.hoisted(() => vi.fn());
+const runSolrQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("@common", () => ({
   api,
   logger: { error: loggerError },
+  useSolrSearch: () => ({ runSolrQuery }),
 }));
 
 import { useReplenishmentMetrics } from "../src/composables/useReplenishmentMetrics";
@@ -14,15 +16,17 @@ import {
   calculatePurchaseOrderIncomingUnits,
   calculateSalesVelocity,
   calculateTransferOrderIncomingUnits,
+  formatUnitsPerDay,
 } from "../src/utils/replenishmentMetrics";
 
 describe("replenishment metrics", () => {
   beforeEach(() => {
     api.mockReset();
     loggerError.mockReset();
+    runSolrQuery.mockReset();
   });
 
-  it("orders trend points by the displayed history date and prefers post-movement ATP", () => {
+  it("orders trend points by the displayed history date and uses each movement's backend balance", () => {
     expect(buildTrendPoints([
       {
         createdStamp: "2026-09-02T00:00:00Z",
@@ -37,7 +41,7 @@ describe("replenishment metrics", () => {
       },
     ])).toEqual([
       { timestamp: Date.parse("2026-09-01T00:00:00Z"), atp: 7 },
-      { timestamp: Date.parse("2026-09-02T00:00:00Z"), atp: 12 },
+      { timestamp: Date.parse("2026-09-02T00:00:00Z"), atp: 96 },
     ]);
   });
 
@@ -55,6 +59,12 @@ describe("replenishment metrics", () => {
     }, "2026-10-01T00:00:00Z", 30);
 
     expect(velocity).toBe(0.3);
+  });
+
+  it("formats sales velocity without unnecessary decimal noise", () => {
+    expect(formatUnitsPerDay(0)).toBe("0");
+    expect(formatUnitsPerDay(4)).toBe("4");
+    expect(formatUnitsPerDay(1.55)).toBe("1.6");
   });
 
   it("counts eligible purchase-order availability at the receiving facility", () => {
@@ -85,13 +95,13 @@ describe("replenishment metrics", () => {
   });
 
   it("leaves trend metrics available when incoming-order lookup fails", async () => {
-    api.mockRejectedValueOnce(new Error("incoming search unavailable"));
+    runSolrQuery.mockRejectedValueOnce(new Error("incoming search unavailable"));
 
     const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
     await refreshReplenishmentMetrics({
       productId: "M101717",
       facilityId: "CENTRAL_WAREHOUSE",
-      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", availableToPromiseTotal: "12" }],
+      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", lastAvailableToPromise: "10", availableToPromiseDiff: "2" }],
     });
 
     expect(metrics.trendPoints).toEqual([{ timestamp: Date.parse("2026-09-30T00:00:00Z"), atp: 12 }]);
@@ -101,19 +111,17 @@ describe("replenishment metrics", () => {
   });
 
   it("reads grouped sales-order summaries from the native search response", async () => {
-    api
+    runSolrQuery
       .mockResolvedValueOnce({
         data: {
-          response: {
-            grouped: {
-              orderId: {
-                groups: [{ doclist: { docs: [{ orderId: "SO100", orderTypeId: "SALES_ORDER" }] } }],
-              },
+          grouped: {
+            orderId: {
+              groups: [{ doclist: { docs: [{ orderId: "SO100", orderTypeId: "SALES_ORDER" }] } }],
             },
           },
-        },
+        }
       })
-      .mockResolvedValueOnce({ data: { response: { response: { docs: [] } } } });
+      .mockResolvedValueOnce({ data: { response: { docs: [] } } });
 
     const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
     await refreshReplenishmentMetrics({
@@ -124,21 +132,33 @@ describe("replenishment metrics", () => {
     });
 
     expect(metrics.salesVelocityUnitsPerDay).toBe(0.3);
-    expect(api.mock.calls[0][0]).toMatchObject({
-      url: "admin/search/query",
-      data: {
-        params: { group: true, "group.field": "orderId" },
+    expect(runSolrQuery).toHaveBeenCalledWith(expect.objectContaining({
+      json: expect.objectContaining({
+        params: expect.objectContaining({ group: true, "group.field": "orderId" }),
         filter: expect.stringContaining('orderId: ("SO100")'),
-      },
+      }),
+    }));
+  });
+
+  it("treats a search response without the native result envelope as empty", async () => {
+    runSolrQuery
+      .mockResolvedValueOnce({ data: { docs: [{ orderId: "SO100", orderTypeId: "SALES_ORDER" }] } })
+      .mockResolvedValueOnce({ data: { response: { docs: [] } } });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+    await refreshReplenishmentMetrics({
+      productId: "M101717",
+      facilityId: "CENTRAL_WAREHOUSE",
+      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "-9", orderId: "SO100" }],
+      now: "2026-10-01T00:00:00Z",
     });
-    expect(api.mock.calls[0][0].data).not.toHaveProperty("json");
+
+    expect(metrics.salesVelocityUnitsPerDay).toBe(0);
   });
 
   it("reuses cached order details when later refreshes find the same incoming order", async () => {
+    runSolrQuery.mockResolvedValue({ data: { response: { docs: [{ orderId: "PO100", orderTypeId: "PURCHASE_ORDER" }] } } });
     api.mockImplementation((request: { url: string }) => {
-      if(request.url === "admin/search/query") {
-        return Promise.resolve({ data: { response: { response: { docs: [{ orderId: "PO100", orderTypeId: "PURCHASE_ORDER" }] } } } });
-      }
       if(request.url === "oms/purchaseOrders/PO100") {
         return Promise.resolve({
           data: {
@@ -149,7 +169,7 @@ describe("replenishment metrics", () => {
           },
         });
       }
-      return Promise.resolve({ data: { response: { docs: [] } } });
+      return Promise.resolve({ data: {} });
     });
 
     const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
@@ -158,13 +178,59 @@ describe("replenishment metrics", () => {
     await refreshReplenishmentMetrics(payload);
 
     expect(metrics.incomingUnits).toBe(4);
-    const searchRequests = api.mock.calls.filter(([request]) => request.url === "admin/search/query");
-    expect(searchRequests).toHaveLength(2);
-    expect(searchRequests[0][0].data).toMatchObject({
+    expect(runSolrQuery).toHaveBeenCalledTimes(2);
+    expect(runSolrQuery.mock.calls[0][0].json).toMatchObject({
       query: "*:*",
       filter: expect.stringContaining("docType: ORDER"),
     });
-    expect(searchRequests[0][0].data).not.toHaveProperty("json");
     expect(api.mock.calls.filter(([request]) => request.url === "oms/purchaseOrders/PO100")).toHaveLength(1);
+  });
+
+  it("keeps metrics for the newest facility refresh when an older incoming lookup finishes late", async () => {
+    let resolveFirstCandidates: (value: unknown) => void = () => undefined;
+    const firstCandidates = new Promise((resolve) => { resolveFirstCandidates = resolve; });
+    let candidateRequests = 0;
+    runSolrQuery.mockImplementation(() => {
+      candidateRequests += 1;
+      if(candidateRequests === 1) {return firstCandidates;}
+      return Promise.resolve({ data: { response: { docs: [] } } });
+    });
+    api.mockImplementation((request: { url: string }) => {
+      if(request.url === "oms/purchaseOrders/PO100") {
+        return Promise.resolve({
+          data: {
+            order: {
+              originFacilityId: "FIRST",
+              items: [{ productId: "M101717", availableToPromise: "5", statusId: "ITEM_APPROVED" }],
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+    const firstRefresh = refreshReplenishmentMetrics({
+      productId: "M101717",
+      facilityId: "FIRST",
+      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", lastAvailableToPromise: "5", availableToPromiseDiff: "0" }],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    const secondRefresh = refreshReplenishmentMetrics({
+      productId: "M101717",
+      facilityId: "SECOND",
+      inventoryRows: [{ createdStamp: "2026-10-01T00:00:00Z", lastAvailableToPromise: "9", availableToPromiseDiff: "0" }],
+    });
+
+    await secondRefresh;
+    resolveFirstCandidates({
+      data: { response: { docs: [{ orderId: "PO100", orderTypeId: "PURCHASE_ORDER" }] } },
+    });
+    await firstRefresh;
+
+    expect(metrics.trendPoints).toEqual([{ timestamp: Date.parse("2026-10-01T00:00:00Z"), atp: 9 }]);
+    expect(metrics.incomingUnits).toBe(0);
+    expect(metrics.incomingUnavailable).toBe(false);
   });
 });

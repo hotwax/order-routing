@@ -62,6 +62,11 @@ export function toNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+export function formatUnitsPerDay(value: unknown): string {
+  const units = toNumber(value) ?? 0;
+  return Number.isInteger(units) ? String(units) : units.toFixed(1);
+}
+
 function historyTimestamp(row: InventoryDetailRow): number | null {
   const value = row.createdStamp ?? row.effectiveDate;
   if(value === null || value === undefined || value === "") {return null;}
@@ -75,12 +80,9 @@ function historyTimestamp(row: InventoryDetailRow): number | null {
 }
 
 function atpAfterMovement(row: InventoryDetailRow): number | null {
-  const explicitTotal = toNumber(row.availableToPromiseTotal);
-  if(explicitTotal !== null) {return explicitTotal;}
-
   const previousTotal = toNumber(row.lastAvailableToPromise);
   const diff = toNumber(row.availableToPromiseDiff);
-  return previousTotal === null || diff === null ? null : previousTotal + diff;
+  return previousTotal === null ? null : previousTotal + (diff ?? 0);
 }
 
 export function buildTrendPoints(rows: InventoryDetailRow[] = []): TrendPoint[] {

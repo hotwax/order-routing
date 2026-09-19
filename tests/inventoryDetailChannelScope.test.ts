@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { DateTime } from "luxon";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineComponent, ref } from "vue";
+import { defineComponent, reactive, ref } from "vue";
 
 const passthrough = (name: string) => defineComponent({
   name,
@@ -12,6 +12,18 @@ describe("InventoryDetail Channel scope", () => {
   const fetchProductFacility = vi.fn();
   const fetchInventoryLogs = vi.fn();
   const clearInventoryLogs = vi.fn();
+  const updateProductFacility = vi.fn();
+  const refreshReplenishmentMetrics = vi.fn();
+  const resetReplenishmentMetrics = vi.fn();
+  const showToast = vi.fn();
+  const replenishmentMetrics = reactive({
+    loading: false,
+    incomingLoading: false,
+    incomingUnavailable: false,
+    incomingUnits: 0,
+    salesVelocityUnitsPerDay: 0,
+    trendPoints: [],
+  });
   const routerReplace = vi.fn();
   const modalCreate = vi.fn();
   const modalPresent = vi.fn();
@@ -25,6 +37,10 @@ describe("InventoryDetail Channel scope", () => {
     fetchProductFacility.mockReset();
     fetchInventoryLogs.mockReset();
     clearInventoryLogs.mockReset();
+    updateProductFacility.mockReset();
+    refreshReplenishmentMetrics.mockReset();
+    resetReplenishmentMetrics.mockReset();
+    showToast.mockReset();
     routerReplace.mockReset();
     modalCreate.mockReset();
     modalPresent.mockReset();
@@ -63,7 +79,7 @@ describe("InventoryDetail Channel scope", () => {
     }));
     vi.doMock("@common", () => ({
       api: vi.fn(),
-      commonUtil: { getOmsURL: vi.fn(), hasError: vi.fn(() => false) },
+      commonUtil: { getOmsURL: vi.fn(), hasError: vi.fn(() => false), showToast },
       cookieHelper: () => ({ get: () => "" }),
       DxpShopifyImg: passthrough("DxpShopifyImg"),
       emitter: { on: vi.fn(), off: vi.fn() },
@@ -128,8 +144,19 @@ describe("InventoryDetail Channel scope", () => {
       "@/components/ChannelSwitcherModal.vue",
       "@/components/LinkThresholdFacilitiesToGroupModal.vue",
     ].forEach((path) => vi.doMock(path, () => ({ default: passthrough("MockModal") })));
+    vi.doMock("@/components/ReplenishmentCard.vue", () => ({
+      default: defineComponent({
+        name: "ReplenishmentCard",
+        props: ["productId", "facilityId", "minimumStock"],
+        emits: ["save"],
+        template: '<section data-testid="replenishment-card"><button data-testid="save-replenishment" @click="$emit(\'save\', { minimumStock: 6 })">Save Replenishment</button></section>',
+      }),
+    }));
     vi.doMock("@/composables/useProductFacility", () => ({
-      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs }),
+      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs, updateProductFacility }),
+    }));
+    vi.doMock("@/composables/useReplenishmentMetrics", () => ({
+      useReplenishmentMetrics: () => ({ metrics: replenishmentMetrics, refreshReplenishmentMetrics, resetReplenishmentMetrics }),
     }));
     vi.doMock("@/composables/useInventory", () => ({ useInventory: () => ({}) }));
     vi.doMock("@/composables/useSalesOrder", () => ({ useSalesOrder: () => ({}) }));
@@ -208,6 +235,48 @@ describe("InventoryDetail Channel scope", () => {
         currentConfig: expect.objectContaining({ daysToShip: 2, minimumStock: 3 }),
       }),
     }));
+  });
+
+  it("saves replenishment changes directly and refreshes the metrics for the displayed location", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    const card = wrapper.findComponent({ name: "ReplenishmentCard" });
+    expect(card.exists()).toBe(true);
+    expect(card.props()).toMatchObject({ minimumStock: 3 });
+
+    await wrapper.find('[data-testid="save-replenishment"]').trigger("click");
+    await flushPromises();
+
+    expect(updateProductFacility).toHaveBeenCalledWith([{
+      productId: "SKU_1",
+      facilityId: "CENTRAL_WAREHOUSE",
+      minimumStock: 6,
+    }]);
+    expect(fetchProductFacility).toHaveBeenCalledTimes(2);
+    expect(refreshReplenishmentMetrics).toHaveBeenLastCalledWith({
+      productId: "SKU_1",
+      facilityId: "CENTRAL_WAREHOUSE",
+      inventoryRows: inventoryLogs.value,
+    });
+  });
+
+  it("keeps the current card state and explains when a replenishment save fails", async () => {
+    currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
+    updateProductFacility.mockRejectedValueOnce(new Error("write failed"));
+
+    const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");
+    const wrapper = mount(InventoryDetail);
+    await flushPromises();
+
+    await wrapper.find('[data-testid="save-replenishment"]').trigger("click");
+    await flushPromises();
+
+    expect(showToast).toHaveBeenCalledWith("Replenishment settings could not be saved");
+    expect(fetchProductFacility).toHaveBeenCalledTimes(1);
   });
 
   it("treats an explicit but unavailable facility as a scope error instead of substituting one", async () => {

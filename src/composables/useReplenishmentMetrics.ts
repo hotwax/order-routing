@@ -1,4 +1,4 @@
-import { api, logger } from "@common";
+import { api, logger, useSolrSearch } from "@common";
 import { reactive } from "vue";
 import {
   InventoryDetailRow,
@@ -35,10 +35,12 @@ function quoteSolrValue(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function solrDocs(response: any): SolrOrderDoc[] {
-  const data = response?.data?.response ?? {};
-  const grouped = data.grouped?.orderId?.groups?.flatMap((group: any) => group?.doclist?.docs ?? []) ?? [];
-  return grouped.length ? grouped : data.response?.docs ?? data.docs ?? [];
+function searchDocuments(response: any): SolrOrderDoc[] {
+  const result = response?.data;
+  const groups = result?.grouped?.orderId?.groups;
+  if(groups) {return groups.flatMap((group: any) => group.doclist.docs);}
+
+  return result?.response?.docs ?? [];
 }
 
 function resetMetrics(metrics: ReplenishmentMetrics) {
@@ -60,16 +62,15 @@ export function useReplenishmentMetrics() {
     trendPoints: [],
   });
   const orderDetailCache = new Map<string, any>();
+  let activeRefreshId = 0;
 
   async function fetchOrderSummaries(orderIds: string[]): Promise<Record<string, OrderSummary>> {
     const ids = [...new Set(orderIds.filter(Boolean))];
     if(!ids.length) {return {};}
 
     try {
-      const response = await api({
-        url: "admin/search/query",
-        method: "POST",
-        data: {
+      const response = await useSolrSearch().runSolrQuery({
+        json: {
           params: {
             rows: ids.length,
             group: true,
@@ -85,7 +86,7 @@ export function useReplenishmentMetrics() {
           filter: `docType: ORDER AND orderId: (${ids.map(quoteSolrValue).join(" OR ")})`,
         },
       });
-      return solrDocs(response).reduce((summaries, doc) => {
+      return searchDocuments(response).reduce((summaries, doc) => {
         if(doc.orderId) {summaries[doc.orderId] = { orderId: doc.orderId, orderTypeId: doc.orderTypeId };}
         return summaries;
       }, {} as Record<string, OrderSummary>);
@@ -96,10 +97,8 @@ export function useReplenishmentMetrics() {
   }
 
   async function fetchIncomingCandidates(productId: string): Promise<SolrOrderDoc[]> {
-    const response = await api({
-      url: "admin/search/query",
-      method: "POST",
-      data: {
+    const response = await useSolrSearch().runSolrQuery({
+      json: {
         params: {
           rows: 100,
           start: 0,
@@ -111,7 +110,7 @@ export function useReplenishmentMetrics() {
         filter: `docType: ORDER AND productId: ${quoteSolrValue(productId)} AND (orderTypeId: PURCHASE_ORDER OR orderTypeId: TRANSFER_ORDER) AND -orderStatusId: ORDER_CANCELLED AND -orderStatusId: ORDER_COMPLETED`,
       },
     });
-    return solrDocs(response).filter((order) => order.orderId && (order.orderTypeId === "PURCHASE_ORDER" || order.orderTypeId === "TRANSFER_ORDER"));
+    return searchDocuments(response).filter((order) => order.orderId && (order.orderTypeId === "PURCHASE_ORDER" || order.orderTypeId === "TRANSFER_ORDER"));
   }
 
   async function fetchOrderDetail(order: SolrOrderDoc): Promise<any> {
@@ -126,30 +125,36 @@ export function useReplenishmentMetrics() {
     return detail;
   }
 
-  async function refreshIncomingUnits(productId: string, facilityId: string) {
-    metrics.incomingLoading = true;
-    metrics.incomingUnavailable = false;
+  async function refreshIncomingUnits(productId: string, facilityId: string, refreshId: number) {
+    if(refreshId === activeRefreshId) {
+      metrics.incomingLoading = true;
+      metrics.incomingUnavailable = false;
+    }
     try {
       const candidates = await fetchIncomingCandidates(productId);
       const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.orderId, candidate])).values()];
       const details = await Promise.all(uniqueCandidates.map(fetchOrderDetail));
-      metrics.incomingUnits = uniqueCandidates.reduce((total, order, index) => {
+      const incomingUnits = uniqueCandidates.reduce((total, order, index) => {
         const detail = details[index];
         if(order.orderTypeId === "PURCHASE_ORDER") {
           return total + calculatePurchaseOrderIncomingUnits(detail, productId, facilityId);
         }
         return total + calculateTransferOrderIncomingUnits(detail, productId, facilityId);
       }, 0);
+      if(refreshId === activeRefreshId) {metrics.incomingUnits = incomingUnits;}
     } catch(error) {
       logger.error("Failed to refresh incoming replenishment units", error);
-      metrics.incomingUnits = 0;
-      metrics.incomingUnavailable = true;
+      if(refreshId === activeRefreshId) {
+        metrics.incomingUnits = 0;
+        metrics.incomingUnavailable = true;
+      }
     } finally {
-      metrics.incomingLoading = false;
+      if(refreshId === activeRefreshId) {metrics.incomingLoading = false;}
     }
   }
 
   async function refreshReplenishmentMetrics(payload: RefreshReplenishmentMetricsPayload) {
+    const refreshId = ++activeRefreshId;
     if(!payload.productId || !payload.facilityId) {
       resetMetrics(metrics);
       return;
@@ -160,16 +165,18 @@ export function useReplenishmentMetrics() {
     metrics.trendPoints = buildTrendPoints(inventoryRows);
     try {
       const orderSummaries = await fetchOrderSummaries(inventoryRows.map((row) => String(row.orderId ?? "").trim()).filter(Boolean));
+      if(refreshId !== activeRefreshId) {return;}
       metrics.salesVelocityUnitsPerDay = calculateSalesVelocity(inventoryRows, orderSummaries, payload.now ?? Date.now(), payload.days ?? 30);
-      await refreshIncomingUnits(payload.productId, payload.facilityId);
+      await refreshIncomingUnits(payload.productId, payload.facilityId, refreshId);
     } catch(error) {
-      logger.error("Failed to refresh replenishment metrics", error);
+      if(refreshId === activeRefreshId) {logger.error("Failed to refresh replenishment metrics", error);}
     } finally {
-      metrics.loading = false;
+      if(refreshId === activeRefreshId) {metrics.loading = false;}
     }
   }
 
   function resetReplenishmentMetrics() {
+    activeRefreshId += 1;
     resetMetrics(metrics);
   }
 

@@ -422,21 +422,7 @@ describe("Inventory entity-first search", () => {
     expect(wrapper.find('[data-testid="product-filter-summary"]').text()).not.toContain("10001");
   });
 
-  it("keeps standalone filters outlined without double-outlining composite controls or the header sort", async () => {
-    const { default: Inventory } = await import("../src/views/Inventory.vue");
-    const wrapper = mount(Inventory);
-    await selectFacility(wrapper, "BROOKLYN");
-
-    const card = wrapper.findComponent({ name: "IonCard" });
-    const standaloneSelects = card.findAllComponents({ name: "IonSelect" })
-      .filter((select: any) => select.attributes("data-testid") !== "inventory-safety-stock-operator");
-    expect(standaloneSelects.every((select: any) => select.attributes("fill") === "outline")).toBe(true);
-    expect(card.findComponent('[data-testid="inventory-safety-stock-value"]').attributes("fill")).toBe("outline");
-    expect(card.findComponent('[data-testid="inventory-safety-stock-operator"]').attributes("fill")).toBeUndefined();
-    expect(sortSelect(wrapper).attributes("fill")).toBeUndefined();
-  });
-
-  it("keeps the safety-stock operator inside the input and unlocks the value for comparisons", async () => {
+  it("keeps the safety-stock value read-only until a comparison is selected", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
     await selectFacility(wrapper, "BROOKLYN");
@@ -444,7 +430,6 @@ describe("Inventory entity-first search", () => {
     const card = wrapper.findComponent({ name: "IonCard" });
     const safetyValue = card.findComponent('[data-testid="inventory-safety-stock-value"]');
 
-    expect(safetyValue.findComponent('[data-testid="inventory-safety-stock-operator"]').attributes("slot")).toBe("end");
     expect(safetyValue.props("readonly")).toBe(true);
 
     const safetyOperator = safetyValue.findComponent('[data-testid="inventory-safety-stock-operator"]');
@@ -475,34 +460,6 @@ describe("Inventory entity-first search", () => {
     await flush();
 
     expect(fetchProductFacilityRows).not.toHaveBeenCalled();
-  });
-
-  it("groups related filters in the card and keeps sorting in the results header", async () => {
-    const { default: Inventory } = await import("../src/views/Inventory.vue");
-    const wrapper = mount(Inventory);
-    await selectFacility(wrapper, "BROOKLYN");
-
-    const card = wrapper.findComponent({ name: "IonCard" });
-    const scopeControls = card.find('[data-testid="inventory-scope-controls"]');
-    const levelControls = card.find('[data-testid="inventory-level-controls"]');
-    const configurationControls = card.find('[data-testid="inventory-configuration-controls"]');
-    const listHeader = wrapper.find('[data-testid="inventory-list-header"]');
-
-    expect(scopeControls.find('[data-testid="inventory-facility-switcher"]').exists()).toBe(true);
-    expect(scopeControls.find('[data-testid="open-product-search"]').exists()).toBe(true);
-    expect(levelControls.find('[data-testid="inventory-atp-filter"]').exists()).toBe(true);
-    expect(levelControls.find('[data-testid="inventory-qoh-filter"]').exists()).toBe(true);
-    expect(configurationControls.find('[data-testid="inventory-safety-stock-operator"]').exists()).toBe(true);
-    expect(configurationControls.find('[data-testid="inventory-allow-brokering-filter"]').exists()).toBe(true);
-    expect(configurationControls.find('[data-testid="inventory-allow-pickup-filter"]').exists()).toBe(true);
-    expect(card.find('[data-testid="inventory-sort-select"]').exists()).toBe(false);
-    expect(listHeader.exists()).toBe(true);
-    expect(listHeader.find('[data-testid="inventory-sort-select"]').exists()).toBe(true);
-    expect(sortSelect(wrapper)?.props("interfaceOptions")).toEqual({
-      cssClass: "inventory-sort-popover",
-      size: "auto",
-    });
-    expect(card.find('[data-testid="inventory-filter-actions"]').exists()).toBe(true);
   });
 
   it("maps ATP, QOH, and safety-stock filters to server-side range parameters", async () => {

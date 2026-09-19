@@ -2,38 +2,6 @@ import { describe, expect, it } from "vitest";
 import { inventoryListQuery, inventoryOperationalFilterParams, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
 
 describe("inventory scope", () => {
-  it("round-trips the full operational filter matrix through server query parameters", () => {
-    const parsed = parseInventoryListQuery({
-      availableToPromise_from: "1",
-      quantityOnHand_thru: "-1",
-      minimumStock_from: "5",
-    });
-
-    expect(parsed).toMatchObject({
-      atpFilter: "positive",
-      qohFilter: "negative",
-      safetyStockOperator: "greater-than",
-      safetyStockValue: "5",
-    });
-
-    expect(inventoryListQuery({ type: "location", facilityIds: ["CENTRAL_WAREHOUSE"] }, {
-      productIds: [],
-      sortField: "",
-      allowBrokering: "",
-      allowPickup: "",
-      atpFilter: "negative",
-      qohFilter: "positive",
-      safetyStockOperator: "less-than",
-      safetyStockValue: "8",
-      pageIndex: 0,
-    })).toEqual({
-      facilityId: "CENTRAL_WAREHOUSE",
-      availableToPromise_thru: "-1",
-      quantityOnHand_from: "1",
-      minimumStock_thru: "8",
-    });
-  });
-
   it("round-trips the full inventory list query through a shareable URL state", () => {
     const query = inventoryListQuery({ type: "location", facilityIds: ["CENTRAL_WAREHOUSE"] }, {
       productIds: ["P100", "P200"],

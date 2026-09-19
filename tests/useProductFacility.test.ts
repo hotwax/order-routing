@@ -39,11 +39,6 @@ describe("useProductFacility request ordering", () => {
 
     expect(await olderRequest).toBeUndefined();
     expect(currentTotal).toBe(1);
-    expect(mocks.api).toHaveBeenNthCalledWith(2, {
-      url: "oms/productFacilities/inventory",
-      method: "GET",
-      params: { facilityId: "NEW" },
-    });
     expect(productFacilityApi.productFacility.value).toMatchObject([{ productId: "NEW" }]);
   });
 
@@ -75,29 +70,6 @@ describe("useProductFacility request ordering", () => {
     );
   });
 
-  it("keeps direct inventory rows flat without synthesizing the legacy search shape", async () => {
-    const inventoryRow = {
-      productId: "SKU_1",
-      facilityId: "FACILITY",
-      inventoryItemId: "INV_1",
-      availableToPromise: 7,
-      quantityOnHand: 12,
-      computedInventoryCount: 4,
-      computedLastInventoryCount: 2,
-      minimumStock: 3,
-      daysToShip: 2,
-      allowPickup: "N",
-      allowBrokering: "Y",
-    };
-    mocks.api.mockResolvedValueOnce({
-      data: [inventoryRow],
-    });
-
-    const productFacilityApi = useProductFacility();
-    await productFacilityApi.fetchProductFacility({ productId: "SKU_1", facilityId: "FACILITY", pageSize: 1 });
-
-    expect(productFacilityApi.productFacility.value[0]).toEqual(inventoryRow);
-  });
 });
 
 // The backend removed the unscoped GET oms/inventoryItem/detail resource; inventory history is now

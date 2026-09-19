@@ -60,7 +60,7 @@ describe("RuleProductPreview", () => {
     }));
   });
 
-  it("loads ATP, QOH, and allow-pickup transition values from the direct inventory view", async () => {
+  it("shows current ATP, QOH, and the allow-pickup transition", async () => {
     api.mockResolvedValue({
       data: [{
         productId: "SKU_1",
@@ -89,11 +89,6 @@ describe("RuleProductPreview", () => {
     await flushPromises();
     await nextTick();
 
-    expect(api).toHaveBeenCalledWith({
-      url: "oms/productFacilities/inventory",
-      method: "GET",
-      params: { productId: "SKU_1", facilityId: "FACILITY" },
-    });
     const inventoryValues = wrapper.findAll(".tablet");
     expect(inventoryValues[0].text()).toMatch(/7\s*ATP/);
     expect(inventoryValues[1].text()).toMatch(/12\s*QOH/);

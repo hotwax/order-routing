@@ -170,7 +170,7 @@ describe("InventoryDetail Channel scope", () => {
     });
   });
 
-  it("renders and edits a location directly from the flat inventory row", async () => {
+  it("renders current location inventory and passes it to adjustment flows", async () => {
     currentRoute.value = { params: { productId: "SKU_1" }, query: { facilityId: "CENTRAL_WAREHOUSE" } };
 
     const { default: InventoryDetail } = await import("../src/views/InventoryDetail.vue");

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => vi.fn());
 const loggerError = vi.hoisted(() => vi.fn());
@@ -18,12 +18,19 @@ import {
   calculateTransferOrderIncomingUnits,
   formatUnitsPerDay,
 } from "../src/utils/replenishmentMetrics";
+import * as replenishmentMetricUtils from "../src/utils/replenishmentMetrics";
 
 describe("replenishment metrics", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-01T00:00:00Z"));
     api.mockReset();
     loggerError.mockReset();
     runSolrQuery.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("orders trend points by the displayed history date and uses each movement's backend balance", () => {
@@ -45,12 +52,35 @@ describe("replenishment metrics", () => {
     ]);
   });
 
-  it("counts only sales-order ATP decreases inside the rolling window", () => {
+  it("keeps ATP history points inside the displayed 30-day window", () => {
+    expect(buildTrendPoints([
+      {
+        createdStamp: "2026-08-18T00:00:00Z",
+        lastAvailableToPromise: "100",
+        availableToPromiseDiff: "-2",
+      },
+      {
+        createdStamp: "2026-08-20T00:00:00Z",
+        lastAvailableToPromise: "98",
+        availableToPromiseDiff: "-3",
+      },
+      {
+        createdStamp: "2026-09-18T00:00:00Z",
+        lastAvailableToPromise: "95",
+        availableToPromiseDiff: "4",
+      },
+    ], "2026-09-19T00:00:00Z", 30)).toEqual([
+      { timestamp: Date.parse("2026-08-20T00:00:00Z"), atp: 95 },
+      { timestamp: Date.parse("2026-09-18T00:00:00Z"), atp: 99 },
+    ]);
+  });
+
+  it("counts only sales-order QOH decreases inside the rolling window", () => {
     const velocity = calculateSalesVelocity([
-      { createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "-9", orderId: "SO_1" },
-      { createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "-5", orderId: "TO_1" },
-      { createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "4", orderId: "SO_2" },
-      { createdStamp: "2026-08-01T00:00:00Z", availableToPromiseDiff: "-6", orderId: "SO_3" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-9", orderId: "SO_1" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-5", orderId: "TO_1" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "4", orderId: "SO_2" },
+      { createdStamp: "2026-08-01T00:00:00Z", quantityOnHandDiff: "-6", orderId: "SO_3" },
     ], {
       SO_1: { orderId: "SO_1", orderTypeId: "SALES_ORDER" },
       TO_1: { orderId: "TO_1", orderTypeId: "TRANSFER_ORDER" },
@@ -59,6 +89,28 @@ describe("replenishment metrics", () => {
     }, "2026-10-01T00:00:00Z", 30);
 
     expect(velocity).toBe(0.3);
+  });
+
+  it("uses completed or shipped units instead of inventory reservations for sales velocity", () => {
+    const calculateSalesVelocityBreakdown = (replenishmentMetricUtils as any).calculateSalesVelocityBreakdown;
+
+    expect(calculateSalesVelocityBreakdown([
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-3", availableToPromiseDiff: "0", orderId: "POS_STORE" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-2", availableToPromiseDiff: "0", orderId: "POS_SHIP" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-5", availableToPromiseDiff: "-1", orderId: "ONLINE" },
+      { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "0", availableToPromiseDiff: "-7", orderId: "RESERVED" },
+    ], {
+      POS_STORE: { orderId: "POS_STORE", orderTypeId: "SALES_ORDER", salesChannelEnumId: "POS", shipmentMethodTypeId: "STOREPICKUP" },
+      POS_SHIP: { orderId: "POS_SHIP", orderTypeId: "SALES_ORDER", salesChannelEnumId: "POS", shipmentMethodTypeId: "STANDARD" },
+      ONLINE: { orderId: "ONLINE", orderTypeId: "SALES_ORDER", salesChannelEnumId: "WEB" },
+      RESERVED: { orderId: "RESERVED", orderTypeId: "SALES_ORDER", salesChannelEnumId: "WEB" },
+    }, "2026-10-01T00:00:00Z", 30)).toEqual({
+      inStoreUnits: 3,
+      inStoreShipToHomeUnits: 2,
+      onlineUnits: 5,
+      totalUnits: 10,
+      unitsPerDay: 10 / 30,
+    });
   });
 
   it("formats sales velocity without unnecessary decimal noise", () => {
@@ -127,7 +179,7 @@ describe("replenishment metrics", () => {
     await refreshReplenishmentMetrics({
       productId: "M101717",
       facilityId: "CENTRAL_WAREHOUSE",
-      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "-9", orderId: "SO100" }],
+      inventoryRows: [{ createdStamp: "2026-09-30T00:00:00Z", availableToPromiseDiff: "-9", quantityOnHandDiff: "-9", orderId: "SO100" }],
       now: "2026-10-01T00:00:00Z",
     });
 
@@ -184,6 +236,70 @@ describe("replenishment metrics", () => {
       filter: expect.stringContaining("docType: ORDER"),
     });
     expect(api.mock.calls.filter(([request]) => request.url === "oms/purchaseOrders/PO100")).toHaveLength(1);
+  });
+
+  it("includes expected return shipments while exposing transfer rows for the inbound drill-down", async () => {
+    runSolrQuery.mockResolvedValue({
+      data: {
+        response: {
+          docs: [{ orderId: "TO100", orderName: "TO-100", orderTypeId: "TRANSFER_ORDER" }],
+        },
+      },
+    });
+    api.mockImplementation((request: { url: string }) => {
+      if(request.url === "oms/transferOrders/TO100") {
+        return Promise.resolve({
+          data: {
+            order: {
+              facilityId: "SOURCE_STORE",
+              items: [{ productId: "M101717", quantity: "7", totalReceivedQuantity: "2", statusId: "ITEM_PENDING_RECEIPT", orderFacilityId: "CENTRAL_WAREHOUSE" }],
+            },
+          },
+        });
+      }
+      if(request.url === "oms/returnShipments") {
+        return Promise.resolve({ data: { returnShipments: [{ shipmentId: "RETURN100" }] } });
+      }
+      if(request.url === "oms/returnShipments/RETURN100") {
+        return Promise.resolve({
+          data: {
+            items: [{ productId: "M101717", returnQuantity: "4", quantityAccepted: "1" }],
+          },
+        });
+      }
+      if(request.url === "oms/inventoryTransfers") {
+        return Promise.resolve({ data: [{
+          inventoryTransferId: "IT100",
+          productId: "M101717",
+          facilityId: "SOURCE_STORE",
+          facilityIdTo: "CENTRAL_WAREHOUSE",
+          quantity: "3",
+          statusId: "IXF_REQUESTED",
+        }] });
+      }
+      if(request.url === "oms/facilities/SOURCE_STORE") {
+        return Promise.resolve({ data: { facilityId: "SOURCE_STORE", facilityName: "Source Store" } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const { metrics, refreshReplenishmentMetrics } = useReplenishmentMetrics();
+    await refreshReplenishmentMetrics({ productId: "M101717", facilityId: "CENTRAL_WAREHOUSE", inventoryRows: [] });
+
+    expect(metrics.incomingUnits).toBe(11);
+    expect((metrics as any).incomingTransfers).toEqual([{
+      orderId: "TO100",
+      orderName: "TO-100",
+      sourceFacilityId: "SOURCE_STORE",
+      sourceFacilityName: "Source Store",
+      units: 5,
+    }]);
+    expect((metrics as any).requestedTransfers).toEqual([{
+      inventoryTransferId: "IT100",
+      sourceFacilityId: "SOURCE_STORE",
+      sourceFacilityName: "Source Store",
+      units: 3,
+    }]);
   });
 
   it("keeps metrics for the newest facility refresh when an older incoming lookup finishes late", async () => {

@@ -3,19 +3,33 @@ export interface InventoryDetailRow {
   effectiveDate?: string | number | null;
   availableToPromiseTotal?: string | number | null;
   availableToPromiseDiff?: string | number | null;
+  quantityOnHandDiff?: string | number | null;
   lastAvailableToPromise?: string | number | null;
   orderId?: string | number | null;
 }
 
 export interface OrderSummary {
   orderId: string;
+  orderName?: string | null;
   orderTypeId?: string | null;
+  salesChannelEnumId?: string | null;
+  shipmentMethodTypeId?: string | null;
+}
+
+export interface SalesVelocityBreakdown {
+  inStoreUnits: number;
+  inStoreShipToHomeUnits: number;
+  onlineUnits: number;
+  totalUnits: number;
+  unitsPerDay: number;
 }
 
 export interface TrendPoint {
   timestamp: number;
   atp: number;
 }
+
+export const REPLENISHMENT_TREND_WINDOW_DAYS = 30;
 
 interface IncomingOrderItem {
   productId?: string | null;
@@ -85,14 +99,24 @@ function atpAfterMovement(row: InventoryDetailRow): number | null {
   return previousTotal === null ? null : previousTotal + (diff ?? 0);
 }
 
-export function buildTrendPoints(rows: InventoryDetailRow[] = []): TrendPoint[] {
+export function buildTrendPoints(
+  rows: InventoryDetailRow[] = [],
+  now?: string | number,
+  days?: number,
+): TrendPoint[] {
+  const nowTimestamp = now === undefined ? null : typeof now === "number" ? now : Date.parse(now);
+  const hasTrendWindow = typeof nowTimestamp === "number" && Number.isFinite(nowTimestamp)
+    && typeof days === "number" && days > 0;
+  const windowStart = hasTrendWindow ? nowTimestamp - days * 24 * 60 * 60 * 1000 : null;
+
   return rows
     .map((row) => {
       const timestamp = historyTimestamp(row);
       const atp = atpAfterMovement(row);
       return timestamp === null || atp === null ? null : { timestamp, atp };
     })
-    .filter((point): point is TrendPoint => point !== null)
+    .filter((point): point is TrendPoint => point !== null
+      && (!hasTrendWindow || point.timestamp >= windowStart! && point.timestamp <= nowTimestamp!))
     .sort((left, right) => left.timestamp - right.timestamp);
 }
 
@@ -111,23 +135,43 @@ export function calculateSalesVelocity(
   now: string | number = Date.now(),
   days = 30,
 ): number {
+  return calculateSalesVelocityBreakdown(rows, orderSummaries, now, days).unitsPerDay;
+}
+
+export function calculateSalesVelocityBreakdown(
+  rows: InventoryDetailRow[] = [],
+  orderSummaries: Record<string, OrderSummary | undefined> | OrderSummary[] = {},
+  now: string | number = Date.now(),
+  days = 30,
+): SalesVelocityBreakdown {
   const nowTimestamp = typeof now === "number" ? now : Date.parse(now);
-  if(days <= 0 || !Number.isFinite(nowTimestamp)) {return 0;}
+  if(days <= 0 || !Number.isFinite(nowTimestamp)) {
+    return { inStoreUnits: 0, inStoreShipToHomeUnits: 0, onlineUnits: 0, totalUnits: 0, unitsPerDay: 0 };
+  }
 
   const windowStart = nowTimestamp - days * 24 * 60 * 60 * 1000;
   const summaries = orderSummaryMap(orderSummaries);
-  const unitsSold = rows.reduce((total, row) => {
+  const breakdown = rows.reduce((total, row) => {
     const timestamp = historyTimestamp(row);
-    const atpDiff = toNumber(row.availableToPromiseDiff);
+    const qohDiff = toNumber(row.quantityOnHandDiff);
     const orderId = String(row.orderId ?? "").trim();
-    if(timestamp === null || timestamp < windowStart || timestamp > nowTimestamp || atpDiff === null || atpDiff >= 0 || !orderId) {
+    const order = summaries[orderId];
+    if(timestamp === null || timestamp < windowStart || timestamp > nowTimestamp || qohDiff === null || qohDiff >= 0 || !orderId || order?.orderTypeId !== "SALES_ORDER") {
       return total;
     }
-    if(summaries[orderId]?.orderTypeId !== "SALES_ORDER") {return total;}
-    return total + Math.abs(atpDiff);
-  }, 0);
 
-  return unitsSold / days;
+    const units = Math.abs(qohDiff);
+    if(order.salesChannelEnumId === "POS") {
+      if(order.shipmentMethodTypeId === "STOREPICKUP") {total.inStoreUnits += units;}
+      else {total.inStoreShipToHomeUnits += units;}
+    } else {
+      total.onlineUnits += units;
+    }
+    return total;
+  }, { inStoreUnits: 0, inStoreShipToHomeUnits: 0, onlineUnits: 0 });
+  const totalUnits = breakdown.inStoreUnits + breakdown.inStoreShipToHomeUnits + breakdown.onlineUnits;
+
+  return { ...breakdown, totalUnits, unitsPerDay: totalUnits / days };
 }
 
 function destinationForItem(order: IncomingOrder, item: IncomingOrderItem): string | null | undefined {

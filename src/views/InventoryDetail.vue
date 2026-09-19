@@ -150,16 +150,21 @@
 
         <ReplenishmentCard
           v-if="!isChannelScope && !scopeError && selectedFacilityId"
+          :product-id="productId"
+          :facility-id="selectedFacilityId"
           :minimum-stock="productFacilityRecord?.minimumStock"
           :maximum-stock="productFacilityRecord?.maximumStock ?? null"
           :reorder-quantity="productFacilityRecord?.reorderQuantity ?? null"
+          :sales-velocity-breakdown="replenishmentMetrics.salesVelocityBreakdown"
           :sales-velocity-units-per-day="replenishmentMetrics.salesVelocityUnitsPerDay"
+          :incoming-transfers="replenishmentMetrics.incomingTransfers"
+          :requested-transfers="replenishmentMetrics.requestedTransfers"
           :incoming-units="replenishmentMetrics.incomingUnits"
           :incoming-unavailable="replenishmentMetrics.incomingUnavailable"
+          :facility-names="facilityMap"
           :trend-points="replenishmentMetrics.trendPoints"
           :is-loading="replenishmentMetrics.loading"
           :is-saving="isReplenishmentSaving"
-          :restock-href="null"
           @save="saveReplenishmentConfig"
         />
 

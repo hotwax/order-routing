@@ -58,18 +58,18 @@ function mountCard(props: Record<string, unknown> = {}) {
 }
 
 describe("ReplenishmentCard", () => {
-  it("keeps fields omitted by the backend unavailable without hiding usable metrics", () => {
+  it("keeps nullable replenishment fields editable so a product facility can be completed", () => {
     const wrapper = mountCard({ incomingUnavailable: true });
 
     expect(wrapper.text()).toContain("Sales velocity: 1.5 units / day");
     expect(wrapper.text()).toContain("Incoming unavailable");
     expect(wrapper.text()).toContain("No ATP trend data available");
     expect(wrapper.text()).toContain("Restock setup is unavailable for this environment.");
-    expect(wrapper.find('input[aria-label="Maximum stock"]').attributes("disabled")).toBeDefined();
-    expect(wrapper.find('input[aria-label="Reorder quantity"]').attributes("disabled")).toBeDefined();
+    expect(wrapper.find('input[aria-label="Maximum stock"]').attributes("disabled")).toBeUndefined();
+    expect(wrapper.find('input[aria-label="Reorder quantity"]').attributes("disabled")).toBeUndefined();
   });
 
-  it("saves only changed fields that the backend has exposed", async () => {
+  it("saves only changed replenishment fields", async () => {
     const wrapper = mountCard({ maximumStock: null, reorderQuantity: 10 });
 
     await wrapper.find('input[aria-label="Reorder point"]').setValue("6");

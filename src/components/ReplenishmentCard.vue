@@ -39,8 +39,6 @@
               inputmode="numeric"
               :label="translate('Maximum stock')"
               :value="maximumStockValue"
-              :placeholder="maximumStockSupported ? undefined : translate('Unavailable')"
-              :disabled="!maximumStockSupported"
               @ion-input="maximumStockValue = String($event.detail.value ?? '')"
             />
           </ion-item>
@@ -51,8 +49,6 @@
               inputmode="numeric"
               :label="translate('Reorder quantity')"
               :value="reorderQuantityValue"
-              :placeholder="reorderQuantitySupported ? undefined : translate('Unavailable')"
-              :disabled="!reorderQuantitySupported"
               @ion-input="reorderQuantityValue = String($event.detail.value ?? '')"
             />
           </ion-item>
@@ -168,11 +164,6 @@ const nextMinimumStock = computed(() => toNumber(minimumStockValue.value));
 const nextMaximumStock = computed(() => toNumber(maximumStockValue.value));
 const nextReorderQuantity = computed(() => toNumber(reorderQuantityValue.value));
 
-// `undefined` is an omitted field from the current API; `null` means the new API supports the
-// field but this product/facility has no configured value yet. That direct distinction lets the
-// card become editable as soon as #480 is deployed without inventing client-side defaults.
-const maximumStockSupported = computed(() => props.maximumStock !== undefined);
-const reorderQuantitySupported = computed(() => props.reorderQuantity !== undefined);
 const salesVelocityDisplay = computed(() => formatUnitsPerDay(props.salesVelocityUnitsPerDay));
 const incomingLabel = computed(() => props.incomingUnavailable
   ? translate("Incoming unavailable")
@@ -192,8 +183,8 @@ function validInteger(value: number | null): value is number {
 }
 
 const minimumStockChanged = computed(() => changed(minimumStockNumber.value, nextMinimumStock.value));
-const maximumStockChanged = computed(() => maximumStockSupported.value && changed(maximumStockNumber.value, nextMaximumStock.value));
-const reorderQuantityChanged = computed(() => reorderQuantitySupported.value && changed(reorderQuantityNumber.value, nextReorderQuantity.value));
+const maximumStockChanged = computed(() => changed(maximumStockNumber.value, nextMaximumStock.value));
+const reorderQuantityChanged = computed(() => changed(reorderQuantityNumber.value, nextReorderQuantity.value));
 const canSave = computed(() => {
   if(props.isSaving || !minimumStockChanged.value && !maximumStockChanged.value && !reorderQuantityChanged.value) {return false;}
   if(minimumStockChanged.value && !validNumber(nextMinimumStock.value)) {return false;}

@@ -151,8 +151,8 @@
         <ReplenishmentCard
           v-if="!isChannelScope && !scopeError && selectedFacilityId"
           :minimum-stock="productFacilityRecord?.minimumStock"
-          :maximum-stock="replenishmentField('maximumStock')"
-          :reorder-quantity="replenishmentField('reorderQuantity')"
+          :maximum-stock="productFacilityRecord?.maximumStock ?? null"
+          :reorder-quantity="productFacilityRecord?.reorderQuantity ?? null"
           :sales-velocity-units-per-day="replenishmentMetrics.salesVelocityUnitsPerDay"
           :incoming-units="replenishmentMetrics.incomingUnits"
           :incoming-unavailable="replenishmentMetrics.incomingUnavailable"
@@ -1665,11 +1665,6 @@ async function fetchInventoryConfig() {
   });
   if(requestId !== configRequestId || facilityId !== scopeFacilityId.value) {return;}
   productFacilityRecord.value = productFacilityApi.productFacility.value?.[0] ?? null;
-}
-
-function replenishmentField(field: "maximumStock" | "reorderQuantity") {
-  const record = productFacilityRecord.value;
-  return record && Object.prototype.hasOwnProperty.call(record, field) ? record[field] : undefined;
 }
 
 async function refreshCurrentReplenishmentMetrics() {

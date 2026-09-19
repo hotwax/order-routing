@@ -161,9 +161,10 @@ export function calculateSalesVelocityBreakdown(
     }
 
     const units = Math.abs(qohDiff);
-    if(order.salesChannelEnumId === "POS") {
-      if(order.shipmentMethodTypeId === "STOREPICKUP") {total.inStoreUnits += units;}
-      else {total.inStoreShipToHomeUnits += units;}
+    if(order.shipmentMethodTypeId === "POS_COMPLETED") {
+      total.inStoreUnits += units;
+    } else if(order.salesChannelEnumId === "POS_SALES_CHANNEL") {
+      total.inStoreShipToHomeUnits += units;
     } else {
       total.onlineUnits += units;
     }

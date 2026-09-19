@@ -100,8 +100,8 @@ describe("replenishment metrics", () => {
       { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "-5", availableToPromiseDiff: "-1", orderId: "ONLINE" },
       { createdStamp: "2026-09-30T00:00:00Z", quantityOnHandDiff: "0", availableToPromiseDiff: "-7", orderId: "RESERVED" },
     ], {
-      POS_STORE: { orderId: "POS_STORE", orderTypeId: "SALES_ORDER", salesChannelEnumId: "POS", shipmentMethodTypeId: "STOREPICKUP" },
-      POS_SHIP: { orderId: "POS_SHIP", orderTypeId: "SALES_ORDER", salesChannelEnumId: "POS", shipmentMethodTypeId: "STANDARD" },
+      POS_STORE: { orderId: "POS_STORE", orderTypeId: "SALES_ORDER", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "POS_COMPLETED" },
+      POS_SHIP: { orderId: "POS_SHIP", orderTypeId: "SALES_ORDER", salesChannelEnumId: "POS_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD" },
       ONLINE: { orderId: "ONLINE", orderTypeId: "SALES_ORDER", salesChannelEnumId: "WEB" },
       RESERVED: { orderId: "RESERVED", orderTypeId: "SALES_ORDER", salesChannelEnumId: "WEB" },
     }, "2026-10-01T00:00:00Z", 30)).toEqual({

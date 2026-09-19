@@ -34,8 +34,8 @@ describe("Inventory entity-first search", () => {
   const lastParams = () => lastCall()[0];
   const lastOptions = () => lastCall()[1];
 
-  // Location scope renders: facility, sort, allowBrokering, allowPickup.
-  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })[0];
+  const sortSelect = (wrapper: any) => wrapper.findAllComponents({ name: "IonSelect" })
+    .find((component: any) => component.attributes("data-testid") === "inventory-sort-select");
 
   // The facility control opens the multi-facility selector and takes facilityIds off its dismiss payload.
   async function selectFacility(wrapper: any, facilityId: string) {
@@ -59,7 +59,14 @@ describe("Inventory entity-first search", () => {
       return Promise.resolve({ rows: ROWS, total: 1738 });
     });
     fetchProductSummaries = vi.fn(() => Promise.resolve({
-      "10001": { productId: "10001", productName: "XS / Blue", sku: "MH09-XS-Blue" },
+      "10001": {
+        productId: "10001",
+        productName: "XS / Blue",
+        parentProductName: "Abominable Hoodie",
+        groupId: "STYLE-1",
+        sku: "MH09-XS-Blue",
+        SKU: "MH09-XS-Blue",
+      },
     }));
     fetchConfiguredProductIds = vi.fn(() => Promise.resolve(new Set(["10001", "10002"])));
 
@@ -155,6 +162,7 @@ describe("Inventory entity-first search", () => {
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
+      IonList: defineComponent({ name: "IonList", template: "<div><slot /></div>" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSegment: defineComponent({ name: "IonSegment", template: "<div><slot /></div>" }),
@@ -349,6 +357,93 @@ describe("Inventory entity-first search", () => {
 
     expect(lastModalProps).toMatchObject({ selectedProductIds: [] });
     expect(lastParams()).toMatchObject({ productId: "10001,10002", productId_op: "in" });
+  });
+
+  it("reopens the product selector from the active filter card", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001", "10002"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    expect(lastModalProps).toMatchObject({ selectedProductIds: ["10001", "10002"] });
+  });
+
+  it("shows selected parent products in the inventory filter card", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    const summary = wrapper.find('[data-testid="product-filter-summary"]');
+    const parent = wrapper.find('[data-testid="product-filter-parent"]');
+    expect(summary.exists()).toBe(true);
+    expect(summary.text()).toContain("Abominable Hoodie");
+    expect(summary.text()).not.toContain("MH09-XS-Blue");
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(parent.attributes("fill")).toBe("outline");
+    expect(parent.attributes("lines")).toBe("none");
+    expect(parent.find("p").text()).toContain("1 variants selected");
+
+    await wrapper.find('[data-testid="clear-product-filter"]').trigger("click");
+    await flush();
+    expect(lastParams().productId).toBeUndefined();
+    expect(wrapper.find('[data-testid="product-filter-summary"]').exists()).toBe(false);
+  });
+
+  it("keeps parent grouping when an inventory filter removes all matching rows", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    fetchProductFacilityRows.mockImplementation(() => {
+      products.value = [];
+      return Promise.resolve({ rows: [], total: 0 });
+    });
+    const allowPickup = wrapper.findAllComponents({ name: "IonSelect" })
+      .find((select: any) => select.attributes("label") === "Allow Pickup");
+    allowPickup.vm.$emit("ionChange", { detail: { value: "Y" } });
+    await flush();
+
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).toContain("Abominable Hoodie");
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).not.toContain("10001");
+  });
+
+  it("uses outline styling for every inventory dropdown", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    expect(wrapper.findAllComponents({ name: "IonSelect" }).every((select: any) => select.attributes("fill") === "outline")).toBe(true);
+  });
+
+  it("groups selected variants under one parent product", async () => {
+    fetchProductSummaries.mockResolvedValue({
+      "10001": { productId: "10001", productName: "XS / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", SKU: "SKU-1" },
+      "10002": { productId: "10002", productName: "S / Blue", parentProductName: "Abominable Hoodie", groupId: "STYLE-1", SKU: "SKU-2" },
+    });
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+    await selectFacility(wrapper, "BROOKLYN");
+
+    modalDismissData = { productIds: ["10001", "10002"] };
+    await wrapper.find('[data-testid="open-product-search"]').trigger("click");
+    await flush();
+
+    expect(wrapper.findAll('[data-testid="product-filter-parent"]')).toHaveLength(1);
+    expect(wrapper.find('[data-testid="product-filter-summary"]').text()).toContain("2 variants selected");
   });
 
   it("sorts by any view alias, including inventory levels", async () => {

@@ -1082,14 +1082,20 @@ ion-content {
 }
 
 .product-filter-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacer-xs);
   width: 100%;
-  max-width: 300px;
   margin: 0;
 }
 
 @media (max-width: 700px) {
   .filter-controls,
   .filter-card-content > .filter-controls:first-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-filter-summary {
     grid-template-columns: minmax(0, 1fr);
   }
 }

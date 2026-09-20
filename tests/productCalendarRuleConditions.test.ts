@@ -7,7 +7,7 @@ vi.mock("@common", () => ({
 }));
 
 vi.mock("@ionic/vue", () => ({
-  IonButton: defineComponent({ template: "<button><slot /></button>" }),
+  IonButton: defineComponent({ template: "<button v-bind=\"$attrs\"><slot /></button>" }),
   IonCard: defineComponent({ template: "<section><slot /></section>" }),
   IonCardContent: defineComponent({ template: "<div><slot /></div>" }),
   IonCardHeader: defineComponent({ template: "<header><slot /></header>" }),
@@ -51,6 +51,7 @@ describe("ProductCalendarRuleConditions", () => {
       props: { conditions: [condition] },
     });
 
+    expect(wrapper.get("h1").text()).toBe("Products by date");
     expect(wrapper.findAll("select")).toHaveLength(3);
     expect(wrapper.find("input").element.value).toBe("14");
 
@@ -61,7 +62,7 @@ describe("ProductCalendarRuleConditions", () => {
     ]]);
   });
 
-  it("appends another inline condition row without opening a modal", async () => {
+  it("adds an editable draft row without adding a condition to the save payload", async () => {
     const wrapper = mount(ProductCalendarRuleConditions, {
       props: { conditions: [condition] },
     });
@@ -70,14 +71,19 @@ describe("ProductCalendarRuleConditions", () => {
     expect(addCondition).toBeDefined();
     await addCondition?.trigger("click");
 
-    expect(wrapper.emitted("update:conditions")?.at(-1)).toEqual([[
-      condition,
-      {
-        conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
-        fieldName: "releaseDate",
-        operator: "less-than",
-        fieldValue: "14",
-      },
-    ]]);
+    expect(wrapper.findAll("select")).toHaveLength(6);
+    expect(wrapper.emitted("update:conditions")).toBeUndefined();
+  });
+
+  it("returns to an empty base row after removing the last condition", async () => {
+    const wrapper = mount(ProductCalendarRuleConditions, {
+      props: { conditions: [condition] },
+    });
+
+    await wrapper.get('button[aria-label="Remove calendar date condition"]').trigger("click");
+    expect(wrapper.emitted("update:conditions")?.at(-1)).toEqual([[]]);
+
+    await wrapper.setProps({ conditions: [] });
+    expect(wrapper.findAll("select")).toHaveLength(3);
   });
 });

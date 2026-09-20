@@ -63,7 +63,7 @@
               <ion-label>{{ translate("Product calendar") }}</ion-label>
             </ion-item-divider>
             <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)" lines="full">
-              <ion-icon slot="start" :icon="pulseOutline" />
+              <ion-icon slot="start" :icon="calendarOutline" />
               <ion-label class="ion-text-wrap">
                 {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
                 <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
@@ -140,7 +140,7 @@
 <script setup lang="ts">
 import { IonAccordion, IonAccordionGroup, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonReorder, IonToggle, alertController } from '@ionic/vue';
 import { computed, onMounted, ref } from 'vue';
-import { archiveOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, openOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
+import { archiveOutline, calendarOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, openOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
 import router from '@/router';
 import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';

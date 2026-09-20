@@ -60,20 +60,18 @@
         </div>
       </div>
 
-      <ion-item lines="none" class="calendar-condition-actions">
-        <ion-button fill="outline" size="small" @click="addCondition">
-          <ion-icon slot="start" :icon="calendarOutline" />
-          {{ translate("Add condition") }}
-        </ion-button>
-      </ion-item>
+      <ion-button class="calendar-condition-actions" fill="clear" size="small" @click="addCondition">
+        {{ translate("Add condition") }}
+        <ion-icon slot="end" :icon="addCircleOutline" />
+      </ion-button>
     </ion-card-content>
   </ion-card>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { IonButton, IonCard, IonCardContent, IonIcon, IonInput, IonItem, IonNote, IonSelect, IonSelectOption } from "@ionic/vue";
-import { calendarOutline, trashOutline } from "ionicons/icons";
+import { IonButton, IonCard, IonCardContent, IonIcon, IonInput, IonNote, IonSelect, IonSelectOption } from "@ionic/vue";
+import { addCircleOutline, trashOutline } from "ionicons/icons";
 import { translate } from "@common";
 import {
   PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES,

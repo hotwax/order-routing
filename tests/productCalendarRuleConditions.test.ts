@@ -13,7 +13,7 @@ vi.mock("@ionic/vue", () => ({
   IonCardHeader: defineComponent({ template: "<header><slot /></header>" }),
   IonCardSubtitle: defineComponent({ template: "<p><slot /></p>" }),
   IonCardTitle: defineComponent({ template: "<h2><slot /></h2>" }),
-  IonIcon: defineComponent({ template: "<i />" }),
+  IonIcon: defineComponent({ template: "<i v-bind=\"$attrs\" />" }),
   IonItem: defineComponent({ template: "<div><slot /></div>" }),
   IonLabel: defineComponent({ template: "<label><slot /></label>" }),
   IonList: defineComponent({ template: "<div><slot /></div>" }),
@@ -69,6 +69,8 @@ describe("ProductCalendarRuleConditions", () => {
 
     const addCondition = wrapper.findAll("button").find((button) => button.text() === "Add condition");
     expect(addCondition).toBeDefined();
+    expect(addCondition?.attributes("fill")).toBe("clear");
+    expect(addCondition?.find('i[slot="end"]').exists()).toBe(true);
     await addCondition?.trigger("click");
 
     expect(wrapper.findAll("select")).toHaveLength(6);

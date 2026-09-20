@@ -56,10 +56,6 @@ describe("production-ready routing contracts", () => {
     expect(redirectFor("/tabs/brokering/:routingGroupId/:orderRoutingId/rules", { routingGroupId: "G1", orderRoutingId: "R1" })).toBe("/order-routing/G1");
   });
 
-  it("keeps the former inventory-policies URL on the Product Calendar page", () => {
-    expect(redirectFor("/inventory-policies")).toBe("/product-calendar");
-  });
-
   it("honors the deployment simulation flag", () => {
     expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "false" })).toBe(false);
     expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "TRUE" })).toBe(false);

@@ -1336,6 +1336,7 @@
   "Sales ends": "Sales ends",
   "No calendar metafield mappings configured for this ProductStore.": "No calendar metafield mappings configured for this ProductStore.",
   "Product calendar": "Product calendar",
+  "Manage product calendar": "Manage product calendar",
   "No product store selected": "No product store selected",
   "Choose a product store to manage product calendar dates.": "Choose a product store to manage product calendar dates.",
   "ProductStore-scoped lifecycle dates used by ATP rules.": "ProductStore-scoped lifecycle dates used by ATP rules.",

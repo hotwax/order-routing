@@ -9,6 +9,12 @@ const responseRows = (response: any): any[] => {
 };
 
 export const CALENDAR_MAPPING_TYPE = "SHOPIFY_PRODUCT_CALENDAR_DATE";
+export const PRODUCT_CALENDAR_DATE_FIELDS = [
+  "introductionDate",
+  "releaseDate",
+  "supportDiscontinuationDate",
+  "salesDiscontinuationDate"
+] as const;
 
 export const useProductCalendarStore = defineStore("productCalendar", {
   state: () => ({
@@ -37,6 +43,7 @@ export const useProductCalendarStore = defineStore("productCalendar", {
       return this.rows;
     },
     async populate(productStoreId: string) {
+      if (!productStoreId) return;
       const response = await api({
         url: "/oms/productStoreProductCalendar/populate",
         method: "POST",
@@ -48,6 +55,7 @@ export const useProductCalendarStore = defineStore("productCalendar", {
       return response.data;
     },
     async fetchShops(productStoreId: string) {
+      if (!productStoreId) { this.shops = []; return []; }
       const response = await api({
         url: "/sob/shopify/shops",
         method: "GET",
@@ -68,6 +76,9 @@ export const useProductCalendarStore = defineStore("productCalendar", {
       return this.mappings;
     },
     async saveMapping(mapping: any) {
+      if (!PRODUCT_CALENDAR_DATE_FIELDS.includes(mapping?.mappedKey)) {
+        throw new Error("Unsupported product calendar field");
+      }
       const response = await api({
         url: "/sob/shopify/typeMappings",
         method: "POST",

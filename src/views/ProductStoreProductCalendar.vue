@@ -92,7 +92,7 @@ import { DateTime } from "luxon";
 import { commonUtil, logger, translate } from "@common";
 import EmptyState from "@/components/EmptyState.vue";
 import { useAtpProductStore } from "@/store/atpProductStore";
-import { useProductCalendarStore } from "@/store/productCalendarStore";
+import { PRODUCT_CALENDAR_DATE_FIELDS, useProductCalendarStore } from "@/store/productCalendarStore";
 
 const productStore = useAtpProductStore();
 const calendarStore = useProductCalendarStore();
@@ -109,7 +109,7 @@ const search = ref("");
 const populating = ref(false);
 const saving = ref(false);
 const showMapping = ref(false);
-const calendarFields = ["introductionDate", "releaseDate", "supportDiscontinuationDate", "salesDiscontinuationDate"];
+const calendarFields = PRODUCT_CALENDAR_DATE_FIELDS;
 const newMapping = ref({ shopId: "", mappedKey: "releaseDate", mappedValue: "" });
 const filteredRows = computed(() => {
   const q = search.value.trim().toLowerCase();

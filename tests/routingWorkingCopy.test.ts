@@ -259,6 +259,42 @@ describe("routing working-copy projections", () => {
     ]);
   });
 
+  it("round-trips a Product Calendar date condition through projection and save", () => {
+    const raw = {
+      routingRuleId: "rule-calendar",
+      inventoryFilters: [{
+        conditionTypeEnumId: "ENTCT_ATP_DATE_FILTER",
+        fieldName: "releaseDate",
+        operator: "days-since-greater-than-equal-to",
+        fieldValue: "14",
+        sequenceNum: 5,
+      }],
+      actions: [],
+    };
+
+    const projection = projectRuleForEditor(raw);
+    const calendarCondition = projection.inventoryFilters.ENTCT_ATP_DATE_FILTER.releaseDate;
+    calendarCondition.fieldValue = "21";
+    const serialized = serializeRuleWorkingCopy(
+      projection,
+      {
+        ...projection.inventoryFilters.ENTCT_FILTER,
+        ...projection.inventoryFilters.ENTCT_ATP_DATE_FILTER,
+      },
+      projection.inventoryFilters.ENTCT_SORT_BY,
+      projection.actions,
+    );
+
+    expect(raw.inventoryFilters[0].fieldValue).toBe("14");
+    expect(serialized.inventoryFilters).toEqual([{
+      conditionTypeEnumId: "ENTCT_ATP_DATE_FILTER",
+      fieldName: "releaseDate",
+      operator: "days-since-greater-than-equal-to",
+      fieldValue: "21",
+      sequenceNum: 5,
+    }]);
+  });
+
   it("serializes the active routing and replaces it by stable key", () => {
     const first = { orderRoutingId: "route-1", routingName: "First", orderFilters: [], rules: [] };
     const second = { orderRoutingId: "route-2", routingName: "Second", orderFilters: [], rules: [] };

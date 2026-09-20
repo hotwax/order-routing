@@ -66,7 +66,11 @@ const draft = reactive({
   fieldValue: props.condition?.fieldValue?.toString() || "14"
 });
 
-const isValid = computed(() => Boolean(draft.fieldName && draft.operator && /^\d+$/.test(String(draft.fieldValue))));
+const isValid = computed(() => (
+  calendarFields.some((field) => field.name === draft.fieldName)
+  && calendarOperators.some((operator) => operator.value === draft.operator)
+  && /^\d+$/.test(String(draft.fieldValue))
+));
 
 function dismiss() {
   modalController.dismiss({ dismissed: true }, "cancel");

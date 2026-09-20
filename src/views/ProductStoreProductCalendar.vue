@@ -21,9 +21,6 @@
             <p class="muted">{{ translate("ProductStore-scoped lifecycle dates used by ATP rules.") }}</p>
           </div>
           <div class="actions">
-            <ion-button fill="outline" :disabled="loading || populating" @click="populate">
-              {{ populating ? translate("Populating…") : translate("Populate from product defaults") }}
-            </ion-button>
             <ion-button @click="showMapping = true">{{ translate("Add Shopify mapping") }}</ion-button>
           </div>
         </div>
@@ -106,7 +103,6 @@ const visibleMappings = computed(() => {
 });
 const loading = computed(() => calendarStore.loading);
 const search = ref("");
-const populating = ref(false);
 const saving = ref(false);
 const showMapping = ref(false);
 const calendarFields = PRODUCT_CALENDAR_DATE_FIELDS;
@@ -128,14 +124,6 @@ async function refresh() {
   if (!id) return;
   try { await Promise.all([calendarStore.fetchCalendar(id), calendarStore.fetchShops(id), calendarStore.fetchMappings()]); }
   catch (error) { logger.error("Failed to refresh product calendar", error); commonUtil.showToast(translate("Unable to load product calendar.")); }
-}
-async function populate() {
-  const id = currentProductStore.value?.productStoreId;
-  if (!id) return;
-  populating.value = true;
-  try { const result = await calendarStore.populate(id); commonUtil.showToast(translate(`Calendar populated: ${result?.processedCount || 0} products.`)); }
-  catch (error) { logger.error("Failed to populate product calendar", error); commonUtil.showToast(translate("Unable to populate product calendar.")); }
-  finally { populating.value = false; }
 }
 async function saveMapping() {
   const shop = shops.value.find((row: any) => row.shopId === newMapping.value.shopId);

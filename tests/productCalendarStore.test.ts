@@ -20,15 +20,6 @@ describe("productCalendarStore ProductStore scope", () => {
     hasError.mockReturnValue(false);
   });
 
-  it("does not populate an unscoped calendar when productStoreId is missing", async () => {
-    const store = useProductCalendarStore();
-
-    await expect(store.populate("")).resolves.toBeUndefined();
-
-    expect(api).not.toHaveBeenCalled();
-    expect(store.lastPopulated).toBeNull();
-  });
-
   it("does not fetch shops without a ProductStore scope", async () => {
     const store = useProductCalendarStore();
     store.shops = [{ shopId: "STALE" }];

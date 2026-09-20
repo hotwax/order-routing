@@ -21,8 +21,7 @@ export const useProductCalendarStore = defineStore("productCalendar", {
     rows: [] as any[],
     shops: [] as any[],
     mappings: [] as any[],
-    loading: false,
-    lastPopulated: null as any
+    loading: false
   }),
   actions: {
     async fetchCalendar(productStoreId: string) {
@@ -41,18 +40,6 @@ export const useProductCalendarStore = defineStore("productCalendar", {
         this.rows = [];
       } finally { this.loading = false; }
       return this.rows;
-    },
-    async populate(productStoreId: string) {
-      if (!productStoreId) return;
-      const response = await api({
-        url: "/oms/productStoreProductCalendar/populate",
-        method: "POST",
-        data: { productStoreId }
-      }) as any;
-      if (commonUtil.hasError(response)) throw response.data;
-      this.lastPopulated = response.data;
-      await this.fetchCalendar(productStoreId);
-      return response.data;
     },
     async fetchShops(productStoreId: string) {
       if (!productStoreId) { this.shops = []; return []; }
@@ -92,7 +79,6 @@ export const useProductCalendarStore = defineStore("productCalendar", {
       this.rows = [];
       this.shops = [];
       this.mappings = [];
-      this.lastPopulated = null;
     }
   }
 });

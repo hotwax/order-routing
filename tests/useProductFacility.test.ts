@@ -29,7 +29,7 @@ describe("useProductFacility request ordering", () => {
     const older = deferred<any>();
     mocks.api
       .mockReturnValueOnce(older.promise)
-      .mockResolvedValueOnce({ data: { products: [{ productId: "NEW" }], totalCount: 1 } });
+      .mockResolvedValueOnce({ data: [{ productId: "NEW", facilityId: "NEW", availableToPromise: 8, quantityOnHand: 11 }] });
 
     const productFacilityApi = useProductFacility();
     const olderRequest = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
@@ -39,7 +39,7 @@ describe("useProductFacility request ordering", () => {
 
     expect(await olderRequest).toBeUndefined();
     expect(currentTotal).toBe(1);
-    expect(productFacilityApi.productFacility.value).toEqual([{ productId: "NEW" }]);
+    expect(productFacilityApi.productFacility.value).toMatchObject([{ productId: "NEW" }]);
   });
 
   it("invalidates an in-flight response when the current scope is cleared", async () => {
@@ -49,7 +49,7 @@ describe("useProductFacility request ordering", () => {
     const productFacilityApi = useProductFacility();
     const request = productFacilityApi.fetchProductFacility({ facilityId: "OLD" });
     productFacilityApi.clearProductFacility();
-    pending.resolve({ data: { products: [{ productId: "OLD" }], totalCount: 1 } });
+    pending.resolve({ data: [{ productId: "OLD" }] });
 
     expect(await request).toBeUndefined();
     expect(productFacilityApi.productFacility.value).toEqual([]);
@@ -69,6 +69,17 @@ describe("useProductFacility request ordering", () => {
       "Request failed with status code 400",
     );
   });
+
+  it("surfaces a failed configuration write so the caller does not claim a replenishment save succeeded", async () => {
+    const writeError = new Error("Product facility update failed");
+    mocks.api.mockRejectedValueOnce(writeError);
+
+    const productFacilityApi = useProductFacility();
+    await expect(productFacilityApi.updateProductFacility([{ productId: "SKU_1", facilityId: "CENTRAL" }])).rejects.toThrow(writeError);
+
+    expect(mocks.loggerError).toHaveBeenCalledWith("Failed to update product facility records", "Product facility update failed");
+  });
+
 });
 
 // The backend removed the unscoped GET oms/inventoryItem/detail resource; inventory history is now
@@ -80,7 +91,7 @@ describe("useProductFacility inventory history endpoint", () => {
     mocks.loggerError.mockReset();
   });
 
-  it("requests the product/facility scoped inventoryDetail path", async () => {
+  it("requests newest effective inventory movements before pagination", async () => {
     mocks.api.mockResolvedValueOnce({ data: [] });
 
     const productFacilityApi = useProductFacility();
@@ -93,7 +104,7 @@ describe("useProductFacility inventory history endpoint", () => {
     expect(mocks.api).toHaveBeenCalledWith({
       url: "oms/products/SKU_1/facilities/CENTRAL_WAREHOUSE/inventoryDetail",
       method: "GET",
-      params: { pageSize: 250, orderByField: "effectiveDate desc" },
+      params: { pageSize: 250, orderByField: "-effectiveDate" },
     });
   });
 

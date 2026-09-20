@@ -74,13 +74,13 @@
         <template v-else-if="inventoryConfigs[product.productId]">
           <div class="tablet">
             <ion-label>
-              {{ inventoryConfigs[product.productId].computedLastInventoryCount }}
+              {{ inventoryConfigs[product.productId].availableToPromise }}
               <p>{{ translate("ATP") }}</p>
             </ion-label>
           </div>
           <div class="tablet">
             <ion-label>
-              {{ inventoryConfigs[product.productId].lastInventoryCount }}
+              {{ inventoryConfigs[product.productId].quantityOnHand }}
               <p>{{ translate("QOH") }}</p>
             </ion-label>
           </div>
@@ -276,15 +276,16 @@ async function fetchInventoryConfigs() {
       batch.map(async (product) => {
         try {
           const resp = await api({
-            url: "oms/productFacilities/search",
+            url: "oms/productFacilities/inventory",
             method: "GET",
             params: {
-              keyword: product.productId,
+              productId: product.productId,
               facilityId: selectedFacilityId.value
             }
           }) as any;
-          if (resp.data?.products?.length) {
-            configs[product.productId] = resp.data.products[0].inventoryConfig || resp.data.products[0];
+          const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
+          if (rows.length) {
+            configs[product.productId] = rows[0];
           }
         } catch (err) {
           console.error("Failed to fetch config for product", product.productId, err);

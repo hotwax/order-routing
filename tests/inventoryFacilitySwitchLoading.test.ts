@@ -146,6 +146,7 @@ describe("Inventory facility switch loading state", () => {
       IonFooter: defineComponent({ name: "IonFooter", template: "<footer><slot /></footer>" }),
       IonHeader: defineComponent({ name: "IonHeader", template: "<header><slot /></header>" }),
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
+      IonInput: defineComponent({ name: "IonInput", template: "<input />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
@@ -157,7 +158,7 @@ describe("Inventory facility switch loading state", () => {
       IonSelect: defineComponent({
         name: "IonSelect",
         props: ["modelValue"],
-        emits: ["update:modelValue"],
+        emits: ["update:modelValue", "ionChange"],
         template: "<select><slot /></select>",
       }),
       IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
@@ -232,5 +233,25 @@ describe("Inventory facility switch loading state", () => {
     expect(skeletonCount(wrapper)).toBe(0);
 
     await settleFetch(AUSTIN_ROWS, 120);
+  });
+
+  it("keeps rows visible while applying an inventory filter", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+
+    await switchFacilityTo(wrapper, "AUSTIN");
+    await settleFetch(AUSTIN_ROWS);
+    fetchProductFacility.mockClear();
+
+    const atpFilter = wrapper.findComponent('[data-testid="inventory-atp-filter"]');
+    atpFilter.vm.$emit("update:modelValue", "positive");
+    atpFilter.vm.$emit("ionChange", { detail: { value: "positive" } });
+    await nextTick();
+
+    expect(fetchProductFacility).toHaveBeenCalledTimes(1);
+    expect(rowIds(wrapper)).toEqual(["M102977", "M101833"]);
+    expect(skeletonCount(wrapper)).toBe(0);
+
+    await settleFetch(AUSTIN_ROWS);
   });
 });

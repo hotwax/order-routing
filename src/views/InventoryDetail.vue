@@ -83,13 +83,13 @@
             <ion-item v-if="!isChannelScope">
               <ion-label>{{ translate("QOH") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.qoh ?? "-" }}
+                {{ productFacilityRecord?.quantityOnHand ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-if="!isChannelScope" lines="full">
               <ion-label>{{ translate("ATP") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.atp ?? "-" }}
+                {{ productFacilityRecord?.availableToPromise ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-else lines="full">
@@ -105,7 +105,7 @@
             <ion-item-divider color="light">
               <ion-label>{{ translate("Configuration") }}</ion-label>
               <ion-button v-if="!isChannelScope || selectedChannelConfigFacilityId" slot="end" fill="clear" @click="openConfigEditModal">
-                {{ translate(inventoryConfig?.inventoryConfig ? "Edit" : "Add Config") }}
+                {{ translate(productFacilityRecord ? "Edit" : "Add Config") }}
               </ion-button>
               <ion-button v-else slot="end" fill="clear" @click="openChannelConfigModal">
                 {{ translate("Add Config") }}
@@ -127,13 +127,13 @@
             <ion-item>
               <ion-label>{{ translate(isChannelScope ? "Threshold" : "Safety stock") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.minimumStock ?? "-" }}
+                {{ productFacilityRecord?.minimumStock ?? "-" }}
               </ion-label>
             </ion-item>
             <ion-item v-if="!isChannelScope" lines="none">
               <ion-label>{{ translate("Days to Ship") }}</ion-label>
               <ion-label slot="end">
-                {{ inventoryConfig?.inventoryConfig?.daysToShip ?? "-" }}
+                {{ productFacilityRecord?.daysToShip ?? "-" }}
               </ion-label>
             </ion-item>
           </ion-card>
@@ -147,6 +147,26 @@
             </ion-item>
           </ion-card>
         </div>
+
+        <ReplenishmentCard
+          v-if="!isChannelScope && !scopeError && selectedFacilityId"
+          :product-id="productId"
+          :facility-id="selectedFacilityId"
+          :minimum-stock="productFacilityRecord?.minimumStock"
+          :maximum-stock="productFacilityRecord?.maximumStock ?? null"
+          :reorder-quantity="productFacilityRecord?.reorderQuantity ?? null"
+          :sales-velocity-breakdown="replenishmentMetrics.salesVelocityBreakdown"
+          :sales-velocity-units-per-day="replenishmentMetrics.salesVelocityUnitsPerDay"
+          :incoming-transfers="replenishmentMetrics.incomingTransfers"
+          :requested-transfers="replenishmentMetrics.requestedTransfers"
+          :incoming-units="replenishmentMetrics.incomingUnits"
+          :incoming-unavailable="replenishmentMetrics.incomingUnavailable"
+          :facility-names="facilityMap"
+          :trend-points="replenishmentMetrics.trendPoints"
+          :is-loading="replenishmentMetrics.loading"
+          :is-saving="isReplenishmentSaving"
+          @save="saveReplenishmentConfig"
+        />
 
         <section v-if="isChannelScope && !scopeError" class="history-section channel-detail-section">
           <ion-segment :value="channelDetailSegment" @ion-change="updateChannelDetailSegment($event)">
@@ -380,7 +400,7 @@
                   <p>{{ translate("Brokering must be on for the channel before any facility inventory is sellable online.") }}</p>
                 </ion-label>
                 <ion-label slot="end">
-                  {{ inventoryConfig?.inventoryConfig?.allowBrokering ?? "-" }}
+                  {{ productFacilityRecord?.allowBrokering ?? "-" }}
                 </ion-label>
               </ion-item>
               <ion-item>
@@ -704,7 +724,7 @@
                     </p>
                     {{ m.referenceLabel }}
                     <p class="movement-sub">
-                      {{ formatDateTime(m.raw.effectiveDate) }}
+                      {{ formatDateTime(m.historyDate) }}
                     </p>
                   </ion-label>
                   <div slot="end" class="header-deltas">
@@ -905,9 +925,11 @@ import ChannelSwitcherModal from '@/components/ChannelSwitcherModal.vue';
 import LinkThresholdFacilitiesToGroupModal from '@/components/LinkThresholdFacilitiesToGroupModal.vue';
 import ProductFacilityConfigEditModal from '@/components/ProductFacilityConfigEditModal.vue';
 import ProductInventoryEdit from '@/components/ProductInventoryEdit.vue';
+import ReplenishmentCard from '@/components/ReplenishmentCard.vue';
 import { useChannelInventory } from "@/composables/useChannelInventory";
 import { useInventory } from "@/composables/useInventory";
 import { useProductFacility } from "@/composables/useProductFacility";
+import { useReplenishmentMetrics } from "@/composables/useReplenishmentMetrics";
 import { useSalesOrder } from "@/composables/useSalesOrder";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { useChannelStore } from "@/store/channel";
@@ -919,7 +941,7 @@ import { type InventoryScope, inventoryScopeErrorMessage, inventoryScopeQuery, p
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
 import router from "../router";
 
-// Inventory-log effectiveDate arrives as either epoch millis or an ISO string; normalise to a
+// API timestamps arrive as either epoch millis or an ISO string; normalise to a
 // luxon DateTime so both display and date-range filtering share one parse.
 function toDateTime(value: any): DateTime | null {
   if(!value) {return null;}
@@ -1017,6 +1039,9 @@ const inventoryListHref = computed(() => router.resolve({
 // and write the same per-instance state (see useProductFacility for why the singleton was removed).
 const productFacilityApi = useProductFacility();
 const { clearInventoryLogs, inventoryLogs } = productFacilityApi;
+const replenishmentApi = useReplenishmentMetrics();
+const { metrics: replenishmentMetrics, refreshReplenishmentMetrics, resetReplenishmentMetrics } = replenishmentApi;
+const isReplenishmentSaving = ref(false);
 const channelInventoryApi = useChannelInventory();
 const {
   brokeringDisabledAtp,
@@ -1039,11 +1064,11 @@ const {
   virtualQueueDemand,
   virtualQueueDemandState,
 } = channelInventoryApi;
-const inventoryConfig = ref<any>({});
+const productFacilityRecord = ref<any>({});
 
 // The remaining computation steps come from the channel's configuration facility record.
-const channelThresholdValue = computed(() => Number(inventoryConfig.value?.inventoryConfig?.minimumStock) || 0);
-const channelBrokeringAllowed = computed(() => (inventoryConfig.value?.inventoryConfig?.allowBrokering ?? "Y") !== "N");
+const channelThresholdValue = computed(() => Number(productFacilityRecord.value?.minimumStock) || 0);
+const channelBrokeringAllowed = computed(() => (productFacilityRecord.value?.allowBrokering ?? "Y") !== "N");
 // Our reconstruction of get#ProductOnlineAtp: channel-member ATP, minus facilities excluded by
 // brokering, minus safety stock at contributing facilities, minus the channel threshold, minus
 // order items still promised at virtual queue facilities — floored at zero like OMS does.
@@ -1086,6 +1111,7 @@ const dateRangeOptions = [
 const movements = computed(() =>
   (inventoryLogs.value || []).map((row: any) => ({
     ...classifyMovement(row, { orderSummaries: orderSummaries.value, reasonDescById: reasonDescById.value, returnSummaries: returnSummaries.value }),
+    historyDate: row.createdStamp ?? row.effectiveDate,
     balance: movementBalance(row)
   })));
 
@@ -1126,7 +1152,7 @@ const filteredMovements = computed(() => {
     if(activeTypeFilter.value !== "ALL" && m.typeKey !== activeTypeFilter.value) {return false;}
     if(q && !m.searchText.includes(q)) {return false;}
     if(start || end) {
-      const dt = toDateTime(m.raw.effectiveDate);
+      const dt = toDateTime(m.historyDate);
       if(!dt) {return false;}
       if(start && dt < start) {return false;}
       if(end && dt > end) {return false;}
@@ -1357,7 +1383,7 @@ async function syncInventoryDetailScopeUrl() {
 }
 
 function configurationValue(field: string, locationFallback = "-") {
-  const value = inventoryConfig.value?.inventoryConfig?.[field];
+  const value = productFacilityRecord.value?.[field];
   if(value !== undefined && value !== null && value !== "") {return value;}
 
   return isChannelScope.value ? "-" : locationFallback;
@@ -1569,8 +1595,9 @@ watch(selectedChannelId, async (channelId) => {
 
 async function loadScopeData() {
   historyLoadRequestId += 1;
-  inventoryConfig.value = null;
+  productFacilityRecord.value = null;
   clearInventoryLogs();
+  resetReplenishmentMetrics();
   channelInventoryApi.clear();
   orderSummaries.value = {};
   movementImpact.value = {};
@@ -1628,7 +1655,7 @@ let configRequestId = 0;
 async function fetchInventoryConfig() {
   const facilityId = scopeFacilityId.value;
   if(!facilityId) {
-    inventoryConfig.value = null;
+    productFacilityRecord.value = null;
 
     return;
   }
@@ -1642,7 +1669,34 @@ async function fetchInventoryConfig() {
     facilityId
   });
   if(requestId !== configRequestId || facilityId !== scopeFacilityId.value) {return;}
-  inventoryConfig.value = productFacilityApi.productFacility.value?.[0] ?? null;
+  productFacilityRecord.value = productFacilityApi.productFacility.value?.[0] ?? null;
+}
+
+async function refreshCurrentReplenishmentMetrics() {
+  await refreshReplenishmentMetrics({
+    productId: productId.value,
+    facilityId: selectedFacilityId.value,
+    inventoryRows: inventoryLogs.value,
+  });
+}
+
+async function saveReplenishmentConfig(payload: { minimumStock?: number; maximumStock?: number; reorderQuantity?: number }) {
+  if(!selectedFacilityId.value || !Object.keys(payload).length) {return;}
+  isReplenishmentSaving.value = true;
+  try {
+    await productFacilityApi.updateProductFacility([{
+      productId: productId.value,
+      facilityId: selectedFacilityId.value,
+      ...payload,
+    }]);
+    await fetchInventoryConfig();
+    await refreshCurrentReplenishmentMetrics();
+  } catch(error) {
+    logger.error("Failed to save replenishment settings", error);
+    commonUtil.showToast(translate("Replenishment settings could not be saved"));
+  } finally {
+    isReplenishmentSaving.value = false;
+  }
 }
 
 async function fetchInventoryLogs() {
@@ -1663,6 +1717,7 @@ async function loadInventoryHistory() {
     clearInventoryLogs();
     orderSummaries.value = {};
     returnSummaries.value = {};
+    resetReplenishmentMetrics();
     isHistoryLoading.value = false;
 
     return;
@@ -1683,7 +1738,8 @@ async function loadInventoryHistory() {
     // letting the return rows repaint a beat later.
     const [summaries, returns] = await Promise.all([
       orderIds.length ? orderRoutingStore().fetchOrderSummaries(orderIds) : Promise.resolve({}),
-      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({})
+      returnIds.length ? inventoryApi.fetchReturnSummaries(returnIds) : Promise.resolve({}),
+      refreshCurrentReplenishmentMetrics(),
     ]);
     if(requestId === historyLoadRequestId &&
       productIdSnapshot === productId.value &&
@@ -1856,7 +1912,7 @@ async function openInventoryEditModal() {
     componentProps: {
       selectedFacility: selectedFacilityId.value,
       selectedProducts: [{ productId: productId.value }],
-      currentConfig: inventoryConfig.value?.inventoryConfig
+      currentConfig: productFacilityRecord.value
     }
   });
   await modal.present();
@@ -1872,7 +1928,7 @@ async function openConfigEditModal() {
     componentProps: {
       selectedFacility: facilityId,
       selectedProducts: [{ productId: productId.value }],
-      currentConfig: inventoryConfig.value?.inventoryConfig,
+      currentConfig: productFacilityRecord.value,
       scopeType: scopeType.value
     }
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inventoryListQuery, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
+import { inventoryListQuery, inventoryOperationalFilterParams, inventoryScopeQuery, parseInventoryListQuery, parseInventoryListScope, parseInventoryScope, resolveInventoryChannelId } from "../src/utils/inventoryScope";
 
 describe("inventory scope", () => {
   it("round-trips the full inventory list query through a shareable URL state", () => {
@@ -8,8 +8,10 @@ describe("inventory scope", () => {
       sortField: "-availableToPromise",
       allowBrokering: "Y",
       allowPickup: "N",
-      minimumStockFrom: "5",
-      availableToPromiseFrom: "10",
+      atpFilter: "positive",
+      qohFilter: "negative",
+      safetyStockOperator: "greater-than",
+      safetyStockValue: "5",
       pageIndex: 2,
     });
 
@@ -20,7 +22,8 @@ describe("inventory scope", () => {
       allowBrokering: "Y",
       allowPickup: "N",
       minimumStock_from: "5",
-      availableToPromise_from: "10",
+      availableToPromise_from: "1",
+      quantityOnHand_thru: "-1",
       pageIndex: "2",
     });
     expect(parseInventoryListQuery(query)).toEqual({
@@ -30,10 +33,33 @@ describe("inventory scope", () => {
       sortField: "-availableToPromise",
       allowBrokering: "Y",
       allowPickup: "N",
-      minimumStockFrom: "5",
-      availableToPromiseFrom: "10",
+      atpFilter: "positive",
+      qohFilter: "negative",
+      safetyStockOperator: "greater-than",
+      safetyStockValue: "5",
       pageIndex: 2,
     });
+  });
+
+  it("converts strict safety-stock comparisons to inclusive server boundaries", () => {
+    const baseFilters = {
+      allowBrokering: "",
+      allowPickup: "",
+      atpFilter: "" as const,
+      qohFilter: "" as const,
+    };
+
+    expect(inventoryOperationalFilterParams({
+      ...baseFilters,
+      safetyStockOperator: "greater-than",
+      safetyStockValue: "5",
+    })).toMatchObject({ minimumStock_from: "6" });
+
+    expect(inventoryOperationalFilterParams({
+      ...baseFilters,
+      safetyStockOperator: "less-than",
+      safetyStockValue: "5",
+    })).toMatchObject({ minimumStock_thru: "4" });
   });
 
   it("accepts repeated or comma-separated product IDs and rejects invalid pages", () => {
@@ -49,8 +75,10 @@ describe("inventory scope", () => {
       sortField: "",
       allowBrokering: "",
       allowPickup: "",
-      minimumStockFrom: "",
-      availableToPromiseFrom: "",
+      atpFilter: "",
+      qohFilter: "",
+      safetyStockOperator: "",
+      safetyStockValue: "",
       pageIndex: 0,
     });
 

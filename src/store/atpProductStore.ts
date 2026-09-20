@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { api, logger, commonUtil } from '@common'
 import { DateTime } from 'luxon'
-import { useUserStore } from '@/store/userStore'
+import { productStore as useProductStore } from '@/store/productStore'
 import { buildProductQuery } from '@/utils/productSync'
 
 // SOLR facet fields the applied product filters map to.
@@ -13,9 +13,7 @@ const FILTER_FIELD_MAP: Record<string, string> = {
   productFeatures: 'productFeatures'
 }
 
-export interface ProductStoreState {
-  productStores: any[]
-  currentProductStore: any
+export interface AtpProductStoreState {
   configFacilities: any[];
   appliedFilters: {
     included: {
@@ -49,9 +47,7 @@ export interface ProductStoreState {
 }
 
 export const useAtpProductStore = defineStore('atpProductStore', {
-  state: (): ProductStoreState => ({
-    productStores: [],
-    currentProductStore: {},
+  state: (): AtpProductStoreState => ({
     configFacilities: [],
     appliedFilters: {
       included: {
@@ -84,8 +80,12 @@ export const useAtpProductStore = defineStore('atpProductStore', {
     facetOptions: {},
   }),
   getters: {
-    getProductStores: (state) => state.productStores,
-    getCurrentProductStore: (state) => state.currentProductStore,
+    // Product-store identity belongs to productStore. These projections preserve the sourcing
+    // store's read API while ensuring there is only one persisted catalog and selection.
+    productStores: () => useProductStore().ecomStores,
+    currentProductStore: () => useProductStore().currentEComStore,
+    getProductStores: () => useProductStore().ecomStores,
+    getCurrentProductStore: () => useProductStore().currentEComStore,
     getConfigFacilities: (state) => state.configFacilities ? JSON.parse(JSON.stringify(state.configFacilities)) : [],
     getAppliedFilters: (state) => state.appliedFilters,
     getAppliedFiltersOperator: (state) => state.appliedFiltersOperator,
@@ -100,28 +100,6 @@ export const useAtpProductStore = defineStore('atpProductStore', {
     },
   },
   actions: {
-    setCurrentProductStore(productStore: any) {
-      if (!productStore) {
-        productStore = this.productStores.find((store: any) => store.productStoreId === productStore.productStoreId);
-      }
-      this.currentProductStore = productStore;
-    },
-    async fetchUserProductStores() {
-      try {
-        const resp = await api({
-          url: "admin/user/productStore",
-          method: "GET"
-        });
-        // Disallow login if the user is not associated with any product store
-        if (!commonUtil.hasError(resp)) {
-          this.productStores = resp.data
-        } else {
-          throw resp.data;
-        }
-      } catch (error: any) {
-        logger.error(error)
-      }
-    },
     async fetchConfigFacilities() {
       let configFacilities = [];
       try {
@@ -256,7 +234,6 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       return facilitiesData;
     },
     async fetchPickupGroups() {
-      const userStore = useUserStore()
       let groups = [] as any;
       const pickGroupFacilities = {} as any;
       try {
@@ -498,5 +475,7 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       return { products: [], total: 0 };
     }
   },
-  persist: true
+  // Older releases persisted a second product-store catalog and selection in this store. Omit
+  // those legacy keys during hydrate so they cannot return as shadow state after this refactor.
+  persist: { omit: ['productStores', 'currentProductStore', 'omsInstanceKey'] }
 })

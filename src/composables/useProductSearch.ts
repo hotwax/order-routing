@@ -16,6 +16,7 @@ export interface ProductSummary {
   productId: string;
   productName?: string;
   parentProductName?: string;
+  title?: string;
   sku?: string;
   mainImageUrl?: string;
   groupId?: string;
@@ -32,6 +33,7 @@ function toSummary(doc: any): ProductSummary {
     productId: doc.productId,
     productName: doc.productName,
     parentProductName: doc.parentProductName,
+    title: doc.title,
     sku: doc.sku,
     mainImageUrl: doc.mainImageUrl,
     groupId: doc.groupId,

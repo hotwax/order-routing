@@ -138,7 +138,7 @@
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-      <ion-fab-button :disabled="selectedSegment === 'RG_SHIPPING_FACILITY' ? !facilityGroups.length : !configFacilities.length" @click="currentRule.ruleId ? updateRule() : createRule()">
+      <ion-fab-button :disabled="!ruleId && (selectedSegment === 'RG_SHIPPING_FACILITY' ? !facilityGroups.length : !configFacilities.length)" @click="currentRule.ruleId ? updateRule() : createRule()">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
     </ion-fab>
@@ -419,10 +419,10 @@ function isRuleValid() {
     return false;
   }
 
-  if(selectedSegment.value === 'RG_SHIPPING_FACILITY' && !formData.value.areAllSelected && !formData.value.selectedFacilityGroups.included.length) {
+  if(!props.ruleId && selectedSegment.value === 'RG_SHIPPING_FACILITY' && !formData.value.areAllSelected && !formData.value.selectedFacilityGroups.included.length) {
     commonUtil.showToast(translate("Please include atleast one facility."))
     return false;
-  } else if(selectedSegment.value === 'RG_SHIPPING_CHANNEL' && !formData.value.areAllSelected && !formData.value.selectedConfigFacilites.length) {
+  } else if(!props.ruleId && selectedSegment.value === 'RG_SHIPPING_CHANNEL' && !formData.value.areAllSelected && !formData.value.selectedConfigFacilites.length) {
     commonUtil.showToast(translate("Please select atleast one channel."))
     return false;
   }

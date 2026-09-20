@@ -59,10 +59,10 @@
             <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')?.fieldValue)">
               <ion-label>{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
-            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || condition.fieldName">
+            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)">
               <ion-label class="ion-text-wrap">
                 {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
-                <p>{{ calendarOperatorLabels[condition.operator] || condition.operator }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+                <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
               </ion-label>
             </ion-item>
           </ion-card>
@@ -145,6 +145,7 @@ import {
   DEFAULT_CONDITION_FILTER_ENUMS,
   parseRoutingEditorEnvJson
 } from "@/utils/routingEditorEnv"
+import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel } from "@/utils/productCalendarDateConditions";
 
 const props = defineProps({
   group: {
@@ -165,19 +166,7 @@ const calendarFieldLabels: Record<string, string> = {
   supportDiscontinuationDate: "Support discontinuation date",
   salesDiscontinuationDate: "Sales discontinuation date"
 };
-const calendarOperatorLabels: Record<string, string> = {
-  "days-since-less-than": "Days since <",
-  "days-since-less-than-equal-to": "Days since ≤",
-  "days-since-greater-than": "Days since >",
-  "days-since-greater-than-equal-to": "Days since ≥",
-  "days-since-equals": "Days since =",
-  "days-till-less-than": "Days till <",
-  "days-till-less-than-equal-to": "Days till ≤",
-  "days-till-greater-than": "Days till >",
-  "days-till-greater-than-equal-to": "Days till ≥",
-  "days-till-equals": "Days till ="
-};
-const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter((condition: any) => condition.conditionTypeEnumId === "ENTCT_ATP_DATE_FILTER"));
+const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter(isProductStoreProductDateCondition));
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

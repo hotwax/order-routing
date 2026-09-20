@@ -259,40 +259,64 @@ describe("routing working-copy projections", () => {
     ]);
   });
 
-  it("round-trips a Product Calendar date condition through projection and save", () => {
+  it("round-trips ProductStoreProduct date-since and date-till conditions through projection and save", () => {
     const raw = {
       routingRuleId: "rule-calendar",
-      inventoryFilters: [{
-        conditionTypeEnumId: "ENTCT_ATP_DATE_FILTER",
-        fieldName: "releaseDate",
-        operator: "days-since-greater-than-equal-to",
-        fieldValue: "14",
-        sequenceNum: 5,
-      }],
+      inventoryFilters: {
+        ENTCT_PSP_DATE_SINCE: {
+          releaseDate: {
+            conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
+            fieldName: "releaseDate",
+            operator: "greater-than-equal-to",
+            fieldValue: "14",
+            sequenceNum: 5,
+          },
+        },
+        ENTCT_PSP_DATE_TILL: {
+          salesDiscontinuationDate: {
+            conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
+            fieldName: "salesDiscontinuationDate",
+            operator: "less-than-equal-to",
+            fieldValue: "30",
+            sequenceNum: 10,
+          },
+        },
+      },
       actions: [],
     };
 
     const projection = projectRuleForEditor(raw);
-    const calendarCondition = projection.inventoryFilters.ENTCT_ATP_DATE_FILTER.releaseDate;
-    calendarCondition.fieldValue = "21";
+    projection.inventoryFilters.ENTCT_PSP_DATE_SINCE.releaseDate.fieldValue = "21";
+    projection.inventoryFilters.ENTCT_PSP_DATE_TILL.salesDiscontinuationDate.fieldValue = "45";
     const serialized = serializeRuleWorkingCopy(
       projection,
       {
         ...projection.inventoryFilters.ENTCT_FILTER,
-        ...projection.inventoryFilters.ENTCT_ATP_DATE_FILTER,
+        ...projection.inventoryFilters.ENTCT_PSP_DATE_SINCE,
+        ...projection.inventoryFilters.ENTCT_PSP_DATE_TILL,
       },
       projection.inventoryFilters.ENTCT_SORT_BY,
       projection.actions,
     );
 
-    expect(raw.inventoryFilters[0].fieldValue).toBe("14");
-    expect(serialized.inventoryFilters).toEqual([{
-      conditionTypeEnumId: "ENTCT_ATP_DATE_FILTER",
-      fieldName: "releaseDate",
-      operator: "days-since-greater-than-equal-to",
-      fieldValue: "21",
-      sequenceNum: 5,
-    }]);
+    expect(raw.inventoryFilters.ENTCT_PSP_DATE_SINCE.releaseDate.fieldValue).toBe("14");
+    expect(raw.inventoryFilters.ENTCT_PSP_DATE_TILL.salesDiscontinuationDate.fieldValue).toBe("30");
+    expect(serialized.inventoryFilters).toEqual([
+      {
+        conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
+        fieldName: "releaseDate",
+        operator: "greater-than-equal-to",
+        fieldValue: "21",
+        sequenceNum: 5,
+      },
+      {
+        conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
+        fieldName: "salesDiscontinuationDate",
+        operator: "less-than-equal-to",
+        fieldValue: "45",
+        sequenceNum: 10,
+      },
+    ]);
   });
 
   it("serializes the active routing and replaces it by stable key", () => {

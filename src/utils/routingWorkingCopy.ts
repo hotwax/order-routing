@@ -1,3 +1,5 @@
+import { PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES } from "./productCalendarDateConditions";
+
 function cloneValue<T>(value: T): T {
   if (value === undefined || value === null) return value;
   return JSON.parse(JSON.stringify(value));
@@ -232,7 +234,8 @@ export function projectRuleForEditor(rule: any) {
     ? projection.inventoryFilters
     : [
         ...Object.values(projection.inventoryFilters?.ENTCT_FILTER || {}),
-        ...Object.values(projection.inventoryFilters?.ENTCT_ATP_DATE_FILTER || {}),
+        ...Object.values(projection.inventoryFilters?.[PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES.SINCE] || {}),
+        ...Object.values(projection.inventoryFilters?.[PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES.TILL] || {}),
         ...Object.values(projection.inventoryFilters?.ENTCT_SORT_BY || {})
       ];
   const actions = Array.isArray(projection.actions)

@@ -32,12 +32,13 @@ import ProductCalendarConditionModal from "../src/components/ProductCalendarCond
 describe("ProductCalendarConditionModal", () => {
   beforeEach(() => dismiss.mockReset());
 
-  it("refuses to save an operator outside the days-since and days-till contract", async () => {
+  it("rejects the retired composite date-distance operators", async () => {
     const wrapper = mount(ProductCalendarConditionModal, {
       props: {
         condition: {
+          conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
           fieldName: "releaseDate",
-          operator: "equals",
+          operator: "days-since-less-than-equal-to",
           fieldValue: "14",
         },
       },
@@ -50,12 +51,13 @@ describe("ProductCalendarConditionModal", () => {
     expect(dismiss).not.toHaveBeenCalled();
   });
 
-  it("returns the selected date field, days-till operator, and integer threshold", async () => {
+  it("returns the PSP date direction with a standard comparison operator and integer threshold", async () => {
     const wrapper = mount(ProductCalendarConditionModal, {
       props: {
         condition: {
+          conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
           fieldName: "salesDiscontinuationDate",
-          operator: "days-till-greater-than-equal-to",
+          operator: "greater-than-equal-to",
           fieldValue: 30,
         },
       },
@@ -68,8 +70,9 @@ describe("ProductCalendarConditionModal", () => {
     expect(dismiss).toHaveBeenCalledWith({
       dismissed: true,
       condition: {
+        conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
         fieldName: "salesDiscontinuationDate",
-        operator: "days-till-greater-than-equal-to",
+        operator: "greater-than-equal-to",
         fieldValue: "30",
       },
     }, "save");

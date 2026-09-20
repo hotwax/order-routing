@@ -18,7 +18,14 @@
           </ion-select>
         </ion-item>
         <ion-item>
-          <ion-select v-model="draft.operator" :label="translate('Date distance')" label-placement="stacked" interface="popover">
+          <ion-select v-model="draft.conditionTypeEnumId" :label="translate('Date direction')" label-placement="stacked" interface="popover">
+            <ion-select-option v-for="direction in calendarDirections" :key="direction.value" :value="direction.value">
+              {{ translate(direction.label) }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-item>
+          <ion-select v-model="draft.operator" :label="translate('Operator')" label-placement="stacked" interface="popover">
             <ion-select-option v-for="operator in calendarOperators" :key="operator.value" :value="operator.value">
               {{ translate(operator.label) }}
             </ion-select-option>
@@ -37,8 +44,9 @@
 import { computed, reactive } from "vue";
 import { IonButton, IonButtons, IonContent, IonHeader, IonInput, IonItem, IonList, IonPage, IonSelect, IonSelectOption, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { translate } from "@common";
+import { PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES, PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS, PRODUCT_STORE_PRODUCT_DATE_OPERATORS } from "@/utils/productCalendarDateConditions";
 
-const props = defineProps<{ condition?: { fieldName?: string; operator?: string; fieldValue?: string | number } }>();
+const props = defineProps<{ condition?: { conditionTypeEnumId?: string; fieldName?: string; operator?: string; fieldValue?: string | number } }>();
 
 const calendarFields = [
   { name: "introductionDate", label: "Introduction date" },
@@ -47,27 +55,19 @@ const calendarFields = [
   { name: "salesDiscontinuationDate", label: "Sales discontinuation date" }
 ];
 
-const calendarOperators = [
-  { value: "days-since-less-than", label: "Days since is less than" },
-  { value: "days-since-less-than-equal-to", label: "Days since is less than or equal to" },
-  { value: "days-since-greater-than", label: "Days since is greater than" },
-  { value: "days-since-greater-than-equal-to", label: "Days since is greater than or equal to" },
-  { value: "days-since-equals", label: "Days since equals" },
-  { value: "days-till-less-than", label: "Days till is less than" },
-  { value: "days-till-less-than-equal-to", label: "Days till is less than or equal to" },
-  { value: "days-till-greater-than", label: "Days till is greater than" },
-  { value: "days-till-greater-than-equal-to", label: "Days till is greater than or equal to" },
-  { value: "days-till-equals", label: "Days till equals" }
-];
+const calendarDirections = PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS;
+const calendarOperators = PRODUCT_STORE_PRODUCT_DATE_OPERATORS;
 
 const draft = reactive({
+  conditionTypeEnumId: props.condition?.conditionTypeEnumId || PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES.SINCE,
   fieldName: props.condition?.fieldName || "releaseDate",
-  operator: props.condition?.operator || "days-since-less-than",
+  operator: props.condition?.operator || "less-than",
   fieldValue: props.condition?.fieldValue?.toString() || "14"
 });
 
 const isValid = computed(() => (
   calendarFields.some((field) => field.name === draft.fieldName)
+  && calendarDirections.some((direction) => direction.value === draft.conditionTypeEnumId)
   && calendarOperators.some((operator) => operator.value === draft.operator)
   && /^\d+$/.test(String(draft.fieldValue))
 ));

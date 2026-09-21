@@ -71,6 +71,7 @@
       </EmptyState>
 
       <ProductFilters />
+      <ProductCalendarRuleConditions v-model:conditions="calendarDateConditions" />
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
@@ -86,6 +87,7 @@ import { IonBackButton, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonC
 import { addOutline, cloudUploadOutline, openOutline, saveOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
+import ProductCalendarRuleConditions from '@/components/ProductCalendarRuleConditions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
 import { computed, ref } from 'vue';
@@ -93,6 +95,7 @@ import { useUserStore } from '@/store/userStore';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { useRuleStore } from '@/store/rule';
 import { ruleUtil } from '@/utils/ruleUtil';
+import { buildLegacyRuleConditions, getProductStoreProductDateConditions, getRuleConditionsToRemove } from '@/utils/legacyRuleCalendarConditions';
 import router from '@/router';
 
 const userStore = useUserStore();
@@ -106,6 +109,7 @@ const formData = ref({
   areAllChannelsSelected: false
 }) as any;
 const currentRule = ref({}) as any;
+const calendarDateConditions = ref<any[]>([]);
 const props = defineProps(["ruleId"]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
@@ -126,6 +130,7 @@ onIonViewDidEnter(async () => {
 
       if(!commonUtil.hasError(resp)) {
         currentRule.value = resp.data[0];
+        calendarDateConditions.value = getProductStoreProductDateConditions(currentRule.value.ruleConditions);
 
         formData.value.ruleName = currentRule.value.ruleName;
         formData.value.threshold = currentRule.value.ruleActions[0]?.fieldValue ? currentRule.value.ruleActions[0].fieldValue : ''
@@ -176,6 +181,7 @@ onIonViewWillLeave(() => {
   }
   productStore.clearAppliedFilters()
   productStore.clearAppliedFiltersOperator()
+  calendarDateConditions.value = []
   emitter.off("productStoreOrConfigChanged", redirectLink);
 })
 
@@ -230,9 +236,10 @@ async function createThresholdRule() {
 
     const rule = await ruleStore.createRule(params)
 
+    const generatedRuleConditions = ruleUtil.generateRuleConditions(rule.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value);
     await ruleStore.updateRuleApi({
       ...params,
-      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value),
+      "ruleConditions": buildLegacyRuleConditions({ ruleId: rule.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: [] }),
       "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_THRESHOLD", formData.value.threshold, false, [])
     }, rule.ruleId);
 
@@ -251,13 +258,9 @@ async function updateRule() {
   if(!isRuleValid()) return;
 
   const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value);
-  updatedRuleConditions.map((updatedCondition: any) => {
-    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
-    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
-  })
-
-  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+  const generatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, "ENTCT_ATP_FACILITIES", appliedFilters.value, formData.value.selectedConfigFacilites, formData.value.areAllChannelsSelected, appliedFiltersOperator.value);
+  const updatedRuleConditions = buildLegacyRuleConditions({ ruleId: props.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: currentRuleConditions });
+  const conditionsToRemove = getRuleConditionsToRemove(currentRuleConditions, updatedRuleConditions);
 
   try {
     await ruleStore.updateRuleApi({

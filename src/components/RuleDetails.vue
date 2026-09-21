@@ -59,6 +59,16 @@
             <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')?.fieldValue)">
               <ion-label>{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
+            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)">
+              <ion-label class="ion-text-wrap">
+                {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
+                <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item v-if="calendarDateConditions.length && productCalendarLink" :href="productCalendarLink" target="_blank" rel="noopener noreferrer" button>
+              <ion-label>{{ translate("Manage product calendar") }}</ion-label>
+              <ion-icon slot="end" :icon="openOutline" />
+            </ion-item>
           </ion-card>
           <ion-card>
             <ion-item>
@@ -131,7 +141,7 @@ import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
 import { translate } from "@common";
 import { IonButton, IonButtons, IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenu, IonMenuToggle, IonNote, IonTitle, IonToggle, IonToolbar } from "@ionic/vue";
-import { arrowBackOutline, bookmarkOutline, filterOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
+import { arrowBackOutline, bookmarkOutline, filterOutline, openOutline, optionsOutline, swapVerticalOutline } from "ionicons/icons"
 import { computed, ref } from "vue"
 import InlineHint from "@/components/InlineHint.vue"
 import {
@@ -139,6 +149,8 @@ import {
   DEFAULT_CONDITION_FILTER_ENUMS,
   parseRoutingEditorEnvJson
 } from "@/utils/routingEditorEnv"
+import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel } from "@/utils/productCalendarDateConditions";
+import { productCalendarHref } from "@/utils/productCalendarNavigation";
 
 const props = defineProps({
   group: {
@@ -153,6 +165,14 @@ const props = defineProps({
 
 const actionEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_ACTION_ENUMS as string | undefined, DEFAULT_ACTION_ENUMS)
 const conditionFilterEnums = parseRoutingEditorEnvJson(import.meta.env.VITE_RULE_FILTER_ENUMS as string | undefined, DEFAULT_CONDITION_FILTER_ENUMS)
+const calendarFieldLabels: Record<string, string> = {
+  introductionDate: "Introduction date",
+  releaseDate: "Launch date",
+  supportDiscontinuationDate: "Support discontinuation date",
+  salesDiscontinuationDate: "Sales discontinuation date"
+};
+const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter(isProductStoreProductDateCondition));
+const productCalendarLink = computed(() => productCalendarHref(props.group?.productStoreId || productStore().getCurrentEComStore?.productStoreId));
 let inventoryRuleFilterOptions = ref({}) as any
 let inventoryRuleSortOptions = ref({}) as any
 let inventoryRuleActions = ref({}) as any

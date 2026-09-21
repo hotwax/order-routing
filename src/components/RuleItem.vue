@@ -58,6 +58,23 @@
             </ion-item>
           </template>
 
+          <template v-if="calendarDateConditions.length">
+            <ion-item-divider color="light">
+              <ion-label>{{ translate("Product calendar") }}</ion-label>
+            </ion-item-divider>
+            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)" lines="full">
+              <ion-icon slot="start" :icon="calendarOutline" />
+              <ion-label class="ion-text-wrap">
+                {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
+                <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item v-if="productCalendarLink" :href="productCalendarLink" target="_blank" rel="noopener noreferrer" button lines="full">
+              <ion-label>{{ translate("Manage product calendar") }}</ion-label>
+              <ion-icon slot="end" :icon="openOutline" />
+            </ion-item>
+          </template>
+
           <template v-if="areProductFiltersSelected()">
             <ion-item-divider color="light" v-if="isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'contains') || isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'not-contains')">
               <ion-label>{{ translate("Product tags") }}</ion-label>
@@ -123,12 +140,14 @@
 <script setup lang="ts">
 import { IonAccordion, IonAccordionGroup, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonReorder, IonToggle, alertController } from '@ionic/vue';
 import { computed, onMounted, ref } from 'vue';
-import { archiveOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
+import { archiveOutline, calendarOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, openOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
 import router from '@/router';
 import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil } from '@common';
+import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel } from '@/utils/productCalendarDateConditions';
+import { productCalendarHref } from '@/utils/productCalendarNavigation';
 
 const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
@@ -140,6 +159,14 @@ const configFacilities = computed(() => productStore.getConfigFacilities)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
 const isReorderActive = computed(() => ruleStore.isReorderActive);
 const selectedSegment = computed(() => productStore.getSelectedSegment)
+const calendarFieldLabels: Record<string, string> = {
+  introductionDate: "Introduction date",
+  releaseDate: "Launch date",
+  supportDiscontinuationDate: "Support discontinuation date",
+  salesDiscontinuationDate: "Sales discontinuation date"
+};
+const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter(isProductStoreProductDateCondition));
+const productCalendarLink = computed(() => productCalendarHref(currentProductStore.value?.productStoreId));
 
 const selectedPage = ref({
   path: '',

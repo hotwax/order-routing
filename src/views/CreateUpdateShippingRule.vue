@@ -134,10 +134,11 @@
       </template>
 
       <ProductFilters />
+      <ProductCalendarRuleConditions v-model:conditions="calendarDateConditions" />
     </ion-content>
 
     <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-      <ion-fab-button :disabled="selectedSegment === 'RG_SHIPPING_FACILITY' ? !facilityGroups.length : !configFacilities.length" @click="currentRule.ruleId ? updateRule() : createRule()">
+      <ion-fab-button :disabled="!ruleId && (selectedSegment === 'RG_SHIPPING_FACILITY' ? !facilityGroups.length : !configFacilities.length)" @click="currentRule.ruleId ? updateRule() : createRule()">
         <ion-icon :icon="saveOutline" />
       </ion-fab-button>
     </ion-fab>
@@ -150,6 +151,7 @@ import { computed, ref } from 'vue';
 import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import ProductFilters from '@/components/ProductFilters.vue';
+import ProductCalendarRuleConditions from '@/components/ProductCalendarRuleConditions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
@@ -160,6 +162,7 @@ import { useUserStore } from '@/store/userStore';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { useRuleStore } from '@/store/rule';
 import { ruleUtil } from '@/utils/ruleUtil';
+import { buildLegacyRuleConditions, getProductStoreProductDateConditions, getRuleConditionsToRemove } from '@/utils/legacyRuleCalendarConditions';
 import router from '@/router';
 import { useFacilityGroupNetOutcome } from '@/composables/useFacilityGroupNetOutcome';
 
@@ -169,6 +172,7 @@ const ruleStore = useRuleStore();
 
 const props = defineProps(["ruleId"]);
 const currentRule = ref({}) as any;
+const calendarDateConditions = ref<any[]>([]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
 const appliedFilters = computed(() => productStore.getAppliedFilters)
@@ -202,6 +206,7 @@ onIonViewDidEnter(async () => {
 
       if(!commonUtil.hasError(resp)) {
         currentRule.value = resp.data[0];
+        calendarDateConditions.value = getProductStoreProductDateConditions(currentRule.value.ruleConditions);
 
         formData.value.ruleName = currentRule.value.ruleName;
         formData.value.isBrokeringAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
@@ -255,6 +260,7 @@ onIonViewWillLeave(() => {
     selectedConfigFacilites: []
   }
   productStore.clearAppliedFilters()
+  calendarDateConditions.value = []
   emitter.off("productStoreOrConfigChanged", redirectLink);
 })
 
@@ -360,9 +366,10 @@ async function createRule() {
     }
 
     const rule = await ruleStore.createRule(params)
+    const generatedRuleConditions = ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
     await ruleStore.updateRuleApi({
       ...params,
-      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected),
+      "ruleConditions": buildLegacyRuleConditions({ ruleId: rule.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: [] }),
       "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_BROKERING", formData.value.isBrokeringAllowed, false, [])
     }, rule.ruleId);
 
@@ -381,14 +388,9 @@ async function updateRule() {
   if(!isRuleValid()) return;
 
   const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
-
-  updatedRuleConditions.map((updatedCondition: any) => {
-    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
-    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
-  })
-
-  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+  const generatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_SHIPPING_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected);
+  const updatedRuleConditions = buildLegacyRuleConditions({ ruleId: props.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: currentRuleConditions });
+  const conditionsToRemove = getRuleConditionsToRemove(currentRuleConditions, updatedRuleConditions);
 
   try {
     await ruleStore.updateRuleApi({
@@ -417,10 +419,10 @@ function isRuleValid() {
     return false;
   }
 
-  if(selectedSegment.value === 'RG_SHIPPING_FACILITY' && !formData.value.areAllSelected && !formData.value.selectedFacilityGroups.included.length) {
+  if(!props.ruleId && selectedSegment.value === 'RG_SHIPPING_FACILITY' && !formData.value.areAllSelected && !formData.value.selectedFacilityGroups.included.length) {
     commonUtil.showToast(translate("Please include atleast one facility."))
     return false;
-  } else if(selectedSegment.value === 'RG_SHIPPING_CHANNEL' && !formData.value.areAllSelected && !formData.value.selectedConfigFacilites.length) {
+  } else if(!props.ruleId && selectedSegment.value === 'RG_SHIPPING_CHANNEL' && !formData.value.areAllSelected && !formData.value.selectedConfigFacilites.length) {
     commonUtil.showToast(translate("Please select atleast one channel."))
     return false;
   }

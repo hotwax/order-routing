@@ -259,6 +259,66 @@ describe("routing working-copy projections", () => {
     ]);
   });
 
+  it("round-trips ProductStoreProduct date-since and date-till conditions through projection and save", () => {
+    const raw = {
+      routingRuleId: "rule-calendar",
+      inventoryFilters: {
+        ENTCT_PSP_DATE_SINCE: {
+          releaseDate: {
+            conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
+            fieldName: "releaseDate",
+            operator: "greater-than-equal-to",
+            fieldValue: "14",
+            sequenceNum: 5,
+          },
+        },
+        ENTCT_PSP_DATE_TILL: {
+          salesDiscontinuationDate: {
+            conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
+            fieldName: "salesDiscontinuationDate",
+            operator: "less-than-equal-to",
+            fieldValue: "30",
+            sequenceNum: 10,
+          },
+        },
+      },
+      actions: [],
+    };
+
+    const projection = projectRuleForEditor(raw);
+    projection.inventoryFilters.ENTCT_PSP_DATE_SINCE.releaseDate.fieldValue = "21";
+    projection.inventoryFilters.ENTCT_PSP_DATE_TILL.salesDiscontinuationDate.fieldValue = "45";
+    const serialized = serializeRuleWorkingCopy(
+      projection,
+      {
+        ...projection.inventoryFilters.ENTCT_FILTER,
+        ...projection.inventoryFilters.ENTCT_PSP_DATE_SINCE,
+        ...projection.inventoryFilters.ENTCT_PSP_DATE_TILL,
+      },
+      projection.inventoryFilters.ENTCT_SORT_BY,
+      projection.actions,
+    );
+
+    expect(raw.inventoryFilters.ENTCT_PSP_DATE_SINCE.releaseDate.fieldValue).toBe("14");
+    expect(raw.inventoryFilters.ENTCT_PSP_DATE_TILL.salesDiscontinuationDate.fieldValue).toBe("30");
+    expect(serialized.inventoryFilters).toEqual([
+      {
+        conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
+        fieldName: "releaseDate",
+        operator: "greater-than-equal-to",
+        fieldValue: "21",
+        sequenceNum: 5,
+      },
+      {
+        conditionTypeEnumId: "ENTCT_PSP_DATE_TILL",
+        fieldName: "salesDiscontinuationDate",
+        operator: "less-than-equal-to",
+        fieldValue: "45",
+        sequenceNum: 10,
+      },
+    ]);
+  });
+
   it("serializes the active routing and replaces it by stable key", () => {
     const first = { orderRoutingId: "route-1", routingName: "First", orderFilters: [], rules: [] };
     const second = { orderRoutingId: "route-2", routingName: "Second", orderFilters: [], rules: [] };

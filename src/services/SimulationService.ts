@@ -142,7 +142,7 @@ export async function fetchPastSimulations(f: PastSimulationsFilters, signal?: A
   }
   const params = pastSimulationsQuery(f);
   const resp: any = await simApi({
-    url: "sim-routing/brokeringSimulations",
+    url: "sim-routing/simulations",
     method: "GET",
     params,
     ...(signal ? { signal } : {}),
@@ -157,7 +157,7 @@ export async function fetchPastSimulations(f: PastSimulationsFilters, signal?: A
 /** Fetch one persisted simulation with its variants (R2). Returns the raw response for the adapter. */
 export async function fetchPastSimulation(simulationId: string, signal?: AbortSignal): Promise<any> {
   const resp: any = await simApi({
-    url: `sim-routing/brokeringSimulations/${simulationId}`,
+    url: `sim-routing/simulations/${simulationId}`,
     method: "GET",
     ...(signal ? { signal } : {}),
   });

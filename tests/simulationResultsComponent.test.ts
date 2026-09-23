@@ -56,6 +56,18 @@ describe("persisted simulation results", () => {
     expect(wrapper.text()).toContain("Attempted: 3");
   });
 
+  it("does not label unrecorded eligible entries as zero", async () => {
+    mocks.items.mockReset().mockResolvedValue({ itemList: [], totalCount: 0 });
+    mocks.rules.mockResolvedValue({ ruleResultList: [
+      { ruleResultSeqId: 1, orderRoutingId: "R1", eligibleEntryCount: null, attemptedItemCount: 3, brokeredItemCount: 2, queuedItemCount: 1 },
+    ], totalCount: 1 });
+    const wrapper = mount(SimulationResults, { props: { run: completeRun() }, global: { stubs } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Attempted: 3");
+    expect(wrapper.text()).not.toContain("Eligible: 0");
+  });
+
   it("shows real paged item outcomes beneath the baseline and variation aggregates", async () => {
     mocks.items.mockReset().mockResolvedValue({ itemList: [
       { ruleResultSeqId: 1, itemSeqId: 1, orderId: "O1", orderItemSeqId: "01", productId: "P1", facilityId: "F1", finalReason: "BROKERED", routedQty: 1, itemQty: 1 },

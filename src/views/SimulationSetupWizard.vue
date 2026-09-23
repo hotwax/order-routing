@@ -869,7 +869,7 @@ async function launchSimulation() {
       while (attempts < 15) {
         attempts++;
         const pollResp = await simApi({
-          url: `sim-routing/brokeringSimulations/${resp.data.simulationId}`,
+          url: `sim-routing/simulations/${resp.data.simulationId}`,
           method: "GET"
         });
         const sim = pollResp?.data?.simulation;

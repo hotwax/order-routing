@@ -66,10 +66,20 @@
 
       <ion-item v-if="sim.interruptedVariationRun" class="interrupted-run" lines="none" color="warning">
         <ion-label class="ion-text-wrap">
-          <strong>{{ translate("Previous run outcome unknown") }}</strong>
+          <strong>{{ sim.interruptedVariationRun.simulationId ? translate("Check saved simulation") : translate("Previous run outcome unknown") }}</strong>
           <p>{{ sim.runCompareError }}</p>
         </ion-label>
         <ion-button
+          v-if="sim.interruptedVariationRun.simulationId"
+          slot="end"
+          size="small"
+          data-testid="view-saved-interrupted-variation"
+          @click="router.push(`/simulate/history/${sim.interruptedVariationRun.simulationId}`)"
+        >
+          {{ translate("View saved result") }}
+        </ion-button>
+        <ion-button
+          v-else
           slot="end"
           size="small"
           data-testid="rerun-interrupted-variation"
@@ -108,7 +118,7 @@
             @click="discardActive()"
           >
             <ion-icon slot="start" :icon="trashOutline" />
-            {{ translate("Discard") }}
+            {{ translate("Delete") }}
           </ion-button>
         </div>
 
@@ -238,10 +248,9 @@ const isSaving = ref(false);
 // been kicked off — while running, on success, or on error — so the user can open it to watch/read.
 const showResults = ref(false);
 const hasResults = computed(() => !!(
-  sim.baselineRunResult
+  sim.currentRun
   || sim.isRunningBaselineRun
   || sim.baselineRunError
-  || sim.variationRunResult
   || sim.isRunningVariationRun
   || sim.runCompareError
 ));
@@ -405,11 +414,11 @@ async function discardActive() {
   if (!sim.isSimulationReady || !sim.activeVariationId || isRunningAnySource.value || isSaving.value || sim.isSavingVariation) return;
   const variationId = sim.activeVariationId;
   const alert = await alertController.create({
-    header: translate("Discard variation?"),
-    message: translate("This variation will be removed from the active simulation list. Its live baseline will not be changed."),
+    header: translate("Delete variation?"),
+    message: translate("This permanently deletes the saved variation and its routing configuration. The live baseline will not be changed."),
     buttons: [
       { text: translate("Cancel"), role: "cancel" },
-      { text: translate("Discard"), role: "destructive" }
+      { text: translate("Delete"), role: "destructive" }
     ]
   });
   await alert.present();
@@ -419,7 +428,7 @@ async function discardActive() {
   isSaving.value = true;
   try {
     const discarded = await sim.discardVariation(variationId);
-    commonUtil.showToast(discarded ? translate("Variation discarded") : (sim.loadError || translate("Failed to discard variation")));
+    commonUtil.showToast(discarded ? translate("Variation deleted") : (sim.loadError || translate("Failed to delete variation")));
   } finally {
     isSaving.value = false;
   }

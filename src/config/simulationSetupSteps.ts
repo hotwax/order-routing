@@ -36,72 +36,64 @@ export const SIMULATION_SETUP_STEPS: SimulationSetupStep[] = [
     id: "backend-connection",
     group: "backend",
     label: "Simulation Remote Auth",
-    summary: "Configure the sister Sim Routing instance REST URL and API Key in OMS.",
-    description: "Main OMS communicates with the sister Sim Routing container using a secure SystemMessageRemote (SIM_ROUTING_CONFIG) and OMS user API key.",
-    actionLabel: "Verify & Save Auth"
-  },
-  {
-    id: "prod-source",
-    group: "backend",
-    label: "Source replica check",
-    summary: "Verify connection to the production read replica datasource.",
-    description: "The data ingestion DAG reads facilities, products, stock, and queued orders from the prod-source replica.",
-    actionLabel: "Verify replica"
+    summary: "Save the sister instance credentials and test them through Main OMS.",
+    description: "Main OMS uses SIM_ROUTING_CONFIG to authenticate to Sim Routing. Listing its datastores proves this connection works.",
+    actionLabel: "Test connection"
   },
   {
     id: "datastore-select",
     group: "datastore",
-    label: "Datastore schema",
-    summary: "Choose an existing datastore or provision a new schema.",
-    description: "Each simulation datastore is a dedicated MySQL schema (m4sim_<id>) with 28 copy tables and 14 simulation tables.",
-    actionLabel: "Provision datastore"
-  },
-  {
-    id: "data-fill",
-    group: "datastore",
-    label: "Data ingestion (DAG)",
-    summary: "Execute the 5-step data copy graph into the datastore.",
-    description: "Streams and batches facility masters, facilities, routing trees, closure products with stock, and approved queued orders.",
-    actionLabel: "Start data fill"
-  },
-  {
-    id: "readiness-gate",
-    group: "datastore",
-    label: "Fidelity & readiness",
-    summary: "Run integrity checks and mark the datastore as ready.",
-    description: "Verifies column shapes, closure reachability, and order totals against the source replica before enabling simulations.",
-    actionLabel: "Validate fidelity"
+    label: "Choose a datastore",
+    summary: "Select an existing copy or create an empty one.",
+    description: "A new datastore is an empty MySQL database. Select a Ready copy to skip the fill.",
+    actionLabel: "Select or create"
   },
   {
     id: "open-datastore",
     group: "datastore",
-    label: "Open datastore pool",
-    summary: "Mount the datastore as the active connection target.",
-    description: "Instructs the simulation datasource factory to route all brokering operations to this active schema.",
+    label: "Open datastore",
+    summary: "Make the selected copy active before filling or simulating.",
+    description: "Opening selects the database Sim Routing reads and writes. Open a Created datastore before filling it, or a Ready datastore before running simulations.",
     actionLabel: "Open datastore"
+  },
+  {
+    id: "data-fill",
+    group: "datastore",
+    label: "Copy source data",
+    summary: "Fill a new datastore from the configured prod-source database.",
+    description: "The background fill reads facility, routing, product, stock, and queued-order data from prod-source. Its progress and failures prove whether source access works.",
+    actionLabel: "Start fill"
+  },
+  {
+    id: "readiness-gate",
+    group: "datastore",
+    label: "Confirm readiness",
+    summary: "Check the datastore state after the fill.",
+    description: "Sim Routing marks the datastore Ready after its fill completes and passes the built-in check. Refresh its state here; there is no manual readiness action.",
+    actionLabel: "Refresh status"
   },
   {
     id: "routing-baseline",
     group: "routing",
-    label: "Baseline routing groups",
-    summary: "Inspect and validate current routing configuration.",
-    description: "Loads the routing groups, routings, rules, conditions, and actions copied from production.",
-    actionLabel: "Inspect rules"
+    label: "Choose baseline group",
+    summary: "Select a copied routing group and check its references.",
+    description: "Choose a routing group copied into the active datastore. Validation checks whether its rule references resolve in that copy.",
+    actionLabel: "Validate group"
   },
   {
     id: "create-variation",
     group: "routing",
-    label: "Create variation",
-    summary: "Clone a baseline routing group into an experimental variation.",
-    description: "Variations allow testing alternate ranking orders, facility groupings, or threshold conditions safely.",
+    label: "Optional variation",
+    summary: "Clone a group if you want to prepare a what-if run.",
+    description: "A fresh clone has the same rules as its parent until you edit it. You can run the baseline alone without creating one.",
     actionLabel: "Clone variation"
   },
   {
     id: "execute-simulation",
     group: "simulation",
     label: "Execute simulation",
-    summary: "Run comparative brokering simulation across baseline and variations.",
-    description: "Simulates full order allocation, evaluates facility capacity and stock depletion, and records item-level decisions.",
+    summary: "Run the selected group against the active datastore.",
+    description: "Submit the baseline, optionally include a variation, then follow the persisted run until it completes or fails.",
     actionLabel: "Launch simulation"
   }
 ];

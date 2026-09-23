@@ -1,5 +1,5 @@
 // src/types/variation.ts
-// Shapes for the H2 variation (what-if) feature. Pure TS — no runtime imports, safe under `npx tsx`.
+// Shapes for saved what-if variations in the open Sim Routing datastore.
 
 /** A scope filter (on a routing) or an inventory condition (on a rule). operator/fieldValue are null
  *  for an unset placeholder row the engine ignores. */
@@ -55,90 +55,4 @@ export interface VariationListItem {
   statusId: string;
   createdDate: number;
   createdByUserId?: string;
-}
-
-/** Where an order item ultimately ended up after this routing ran. Mirrors OrderTrace.FinalReason. */
-export type FinalReason = "FULLY_BROKERED" | "PARTIALLY_BROKERED" | "QUEUED" | "UNFILLABLE" | "ERROR";
-
-/** A single rule attempt's outcome. Mirrors RuleAttempt.Outcome in the sim-routing serializer. */
-export type RuleOutcome = "FULL_BROKER" | "PARTIAL_BROKER" | "QUEUED" | "NO_INVENTORY" | "ERROR" | "SKIPPED_BY_ACTION";
-
-/** One facility assignment produced by a rule. Mirrors OrderAssignment in the sim-routing serializer. */
-export interface OrderAssignment {
-  orderId: string;
-  orderItemSeqId: string;
-  shipGroupSeqId: string;
-  facilityId: string | null; // null == backordered
-  routedQty: number;
-  itemQty: number;
-}
-
-/** One rule's attempt at routing an order. Mirrors RuleAttempt in the sim-routing serializer. */
-export interface RuleAttempt {
-  routingRuleId: string;
-  sequenceNum?: number;
-  durationMs?: number;
-  suggestedFulfillmentLocations?: unknown;
-  actionFilters?: unknown;
-  outcome: RuleOutcome | string | null;
-  runNextRule?: boolean;
-  errorMessage?: string | null;
-}
-
-/** Per-order trace from a group run. Fields are optional-tolerant: older payloads may omit them. */
-export interface OrderTrace {
-  orderId: string;
-  shipGroupSeqId?: string;
-  orderItemSeqId?: string;
-  finalReason: FinalReason | string | null;
-  finalAssignments?: OrderAssignment[];
-  ruleAttempts?: RuleAttempt[];
-}
-
-/** Per-routing result from a group run (variation run or parent live-config run). No routingName. */
-export interface RoutingRunResult {
-  orderRoutingId: string;
-  sequenceNum: number;
-  eligibleEntryCount: number;
-  attemptedItemCount: number;
-  brokeredItemCount: number;
-  queuedItemCount: number;
-  orderTraces?: OrderTrace[];
-}
-
-export interface GroupRunResult {
-  /** Present when the backend persisted this run to canonical simulation history. */
-  simulationId?: string;
-  routingGroupId: string;
-  productStoreId: string;
-  attemptedItemCount: number;
-  brokeredItemCount: number;
-  queuedItemCount: number;
-  routingResults: RoutingRunResult[];
-}
-
-/** One row of the parent-vs-variation comparison table. Either side may be null. */
-export interface CompareRow {
-  routingName: string;
-  parentRoutingId: string | null;     // e.g. 100008
-  variationRoutingId: string | null;  // e.g. VM100204_100008
-  parent: RoutingRunResult | null;
-  variation: RoutingRunResult | null;
-}
-
-// --- From VariationService ---
-
-export interface VariationConditionInput {
-  conditionSeqId: string;
-  fieldName: string;
-  operator: string;
-  fieldValue: string;
-  sequenceNum: number;
-  conditionTypeEnumId?: string;
-}
-
-export interface VariationActionInput {
-  actionSeqId: string;
-  actionTypeEnumId: string;
-  actionValue: string | null;
 }

@@ -1,14 +1,11 @@
 import { defineStore } from 'pinia'
-import { commonUtil, logger } from '@common'
-import { simApi } from '@/services/SimApiService'
+import { api, commonUtil, logger } from '@common'
+import { simulationSetupError } from '@/services/SimulationSetupService'
 
 let referenceRequestController: AbortController | null = null
 
-// Dedicated store for the Simulate tab's editor reference data. The simulation page runs against the
-// sim Moqui, separate from the login OMS the rest of the app talks to, so its facilities / facility
-// groups / shipping methods / sales channels must come from — and stay scoped to — the sim instance.
-// Keeping this data here (instead of the shared productStore/utilStore) is what guarantees the two
-// backends never share in-memory state. The sandbox-mode RoutingGroupEditor is the only consumer.
+// Sandbox editor reference data comes from the open Sim Routing datastore through Main OMS.
+// It stays separate from the live OMS productStore/utilStore data.
 export const useSimReferenceStore = defineStore('simReference', {
   state: () => {
     return {
@@ -47,7 +44,7 @@ export const useSimReferenceStore = defineStore('simReference', {
     async fetchReferenceData(payload: { productStoreId: string; force?: boolean }): Promise<boolean> {
       const { productStoreId, force } = payload
       // Cache by productStoreId: the same group's data is reused across sim-tab visits.
-      if (!force && productStoreId === this.productStoreId && Object.keys(this.facilities).length) {
+      if (!force && productStoreId && productStoreId === this.productStoreId && this.loadState === "ready") {
         return true
       }
 
@@ -71,59 +68,40 @@ export const useSimReferenceStore = defineStore('simReference', {
       }
       this.loadState = "loading"
 
-      /** Fetch one reference slice from the sim instance, reduced to a map keyed by `keyField`.
-       *  Returns {} for an empty/garbage body and null when the request errored. */
-      const fetchMap = async (url: string, params: Record<string, any>, keyField: string): Promise<Record<string, any> | null> => {
-        try {
-          const resp = await simApi({
-            url,
-            method: "GET",
-            params,
-            signal,
-          })
-          if (commonUtil.hasError(resp)) return null
-          if (Array.isArray(resp.data) && resp.data.length) {
-            return resp.data.reduce((map: any, item: any) => { map[item[keyField]] = item; return map }, {})
-          }
-          return {}
-        } catch (err) {
-          logger.error(err)
-          return null
-        }
-      }
+      try {
+        const response: any = await api({
+          url: `order-routing/simulation/references/${encodeURIComponent(productStoreId)}`,
+          method: "GET", signal,
+        })
+        if (generation !== this.loadGeneration) return false
+        const data = response?.data
+        if (commonUtil.hasError(response) || ![
+          data?.facilities, data?.shippingMethods, data?.facilityGroups, data?.salesChannels,
+        ].every(Array.isArray)) throw new Error("Sim Routing returned incomplete reference data.")
 
-      const [facilities, shippingMethods, facilityGroups, salesChannels] = await Promise.all([
-        fetchMap(`order-routing/facilities`, { pageSize: 500 }, "facilityId"),
-        productStoreId
-          ? fetchMap(`order-routing/productStores/${productStoreId}/shippingMethods`, { productStoreId, pageSize: 200 }, "shipmentMethodTypeId")
-          : Promise.resolve({}),
-        productStoreId
-          ? fetchMap(`order-routing/productStores/${productStoreId}/facilityGroups`, { productStoreId, pageSize: 200 }, "facilityGroupId")
-          : Promise.resolve({}),
-        fetchMap(`order-routing/omsenums`, { enumTypeId: "ORDER_SALES_CHANNEL", ...(productStoreId ? { productStoreId } : {}), pageSize: 500 }, "enumId"),
-      ])
-
-      if (generation !== this.loadGeneration) return false
-      // null = that slice errored: leave the cache key uncommitted so the next visit refetches.
-      const failed = [facilities, shippingMethods, facilityGroups, salesChannels].some((r) => r === null)
-      if (failed) {
+        const keyed = (items: any[], key: string) => items.reduce((map: Record<string, any>, item: any) => {
+          if (item?.[key]) map[item[key]] = item
+          return map
+        }, {})
+        this.facilities = keyed(data.facilities, "facilityId")
+        this.shippingMethods = keyed(data.shippingMethods, "shipmentMethodTypeId")
+        this.facilityGroups = keyed(data.facilityGroups, "facilityGroupId")
+        this.salesChannels = keyed(data.salesChannels, "enumId")
+        this.productStoreId = productStoreId
+        this.loadState = "ready"
+        return true
+      } catch (err) {
+        if (generation !== this.loadGeneration) return false
+        logger.error(err)
         this.productStoreId = ""
         this.facilities = {}
         this.shippingMethods = {}
         this.facilityGroups = {}
         this.salesChannels = {}
         this.loadState = "error"
-        this.loadError = "Simulation reference data could not be loaded completely."
+        this.loadError = simulationSetupError(err)
         return false
       }
-
-      this.facilities = facilities!
-      this.shippingMethods = shippingMethods!
-      this.facilityGroups = facilityGroups!
-      this.salesChannels = salesChannels!
-      this.productStoreId = productStoreId
-      this.loadState = "ready"
-      return true
     },
   },
 })

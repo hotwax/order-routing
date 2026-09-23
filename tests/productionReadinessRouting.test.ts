@@ -10,6 +10,7 @@ import { registerWorkingFlushHook, simulationStore } from "../src/store/simulati
 import { useUserStore } from "../src/store/userStore";
 import { VariationService } from "../src/services/VariationService";
 import { SimulationService } from "../src/services/SimulationService";
+import { SimulationStorage } from "../src/services/simulationStorage";
 import { orderRoutingStore } from "../src/store/orderRoutingStore";
 
 function redirectFor(path: string, params: Record<string, string> = {}) {
@@ -51,12 +52,8 @@ describe("production-ready routing contracts", () => {
 
   it("honors the deployment simulation flag", () => {
     expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "false" })).toBe(false);
-    expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "TRUE" })).toBe(false);
-    expect(isFeatureEnabled("simulation", {
-      VITE_SIMULATION_ENABLED: "TRUE",
-      VITE_SIM_ALLOW_OMS_BEARER: "true",
-      VITE_SIM_URL: "https://sim.example.test"
-    })).toBe(true);
+    expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "TRUE" })).toBe(true);
+    expect(isFeatureEnabled("simulation", { VITE_SIMULATION_ENABLED: "TRUE" })).toBe(true);
   });
 
   it("allows an authorized user to open the Test Drive route directly", () => {
@@ -187,12 +184,11 @@ describe("production-ready routing contracts", () => {
     sim.activeVariationId = "V1";
     sim.variations = [{ id: "V1", label: "Saved", serverVid: "V1", group: structuredClone(saved) }] as any;
     sim.working = structuredClone(saved);
-    sim.parentRunByGroupId.G1 = { routingGroupId: "G1", routingResults: [] } as any;
-    const run = vi.spyOn(VariationService, "runVariation").mockResolvedValue({
-      routingGroupId: "V1",
-      routingResults: [],
-      simulationId: "S1"
-    } as any);
+    const submit = vi.spyOn(SimulationService, "submitSimulation").mockResolvedValue({ simulationId: "S1", statusId: "BRSIM_QUEUED" });
+    const run = vi.spyOn(SimulationService, "waitForSimulation").mockResolvedValue({
+      simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE" },
+      variants: [{ variantSeqId: 1, isBaseline: "Y" }, { variantSeqId: 2, isBaseline: "N" }]
+    });
     const disposeFlush = registerWorkingFlushHook(() => {
       sim.working.routings[0].orderRoutingId = "editor-key";
       sim.working.routings[0].orderFilters.reverse();
@@ -201,16 +197,42 @@ describe("production-ready routing contracts", () => {
 
     try {
       expect(await sim.runActiveVariation()).toBe(true);
-      expect(run).toHaveBeenCalledWith("V1", 500, expect.any(AbortSignal));
+      expect(submit).toHaveBeenCalledWith(["G1", "V1"]);
+      expect(run).toHaveBeenCalledWith("S1", expect.any(Function), expect.any(AbortSignal));
       expect(sim.runCompareError).toBeNull();
     } finally {
       disposeFlush();
     }
   });
 
+  it("shows a confirmed failed variation run as failed, not as an unknown interrupted run", async () => {
+    const sim = simulationStore();
+    const group = { routingGroupId: "G1", routings: [] };
+    sim.routingGroupId = "G1";
+    sim.groupLoadState = "ready";
+    sim.baseline = structuredClone(group);
+    sim.working = structuredClone(group);
+    sim.activeVariationId = "V1";
+    sim.variations = [{ id: "V1", label: "Saved", serverVid: "V1", group: structuredClone(group) }] as any;
+    const clearRecovery = vi.spyOn(SimulationStorage, "clearVariationRun");
+    vi.spyOn(SimulationService, "submitSimulation").mockResolvedValue({ simulationId: "S_FAILED", statusId: "BRSIM_QUEUED" });
+    vi.spyOn(SimulationService, "waitForSimulation").mockImplementation(async (_id, onUpdate) => {
+      onUpdate?.({
+        simulation: { simulationId: "S_FAILED", statusId: "BRSIM_FAILED" },
+        variants: [{ variantSeqId: 1, isBaseline: "Y" }, { variantSeqId: 2, isBaseline: "N", failed: "Y", failureReason: "No orders" }],
+      });
+      throw new Error("No orders");
+    });
+
+    expect(await sim.runActiveVariation()).toBe(false);
+    expect(sim.currentRun?.simulation.statusId).toBe("BRSIM_FAILED");
+    expect(sim.runCompareError).toBe("No orders");
+    expect(sim.interruptedVariationRun).toBeNull();
+    expect(clearRecovery).toHaveBeenCalledWith("G1");
+  });
+
   it("ignores a slower previous group load after navigation", async () => {
     const sim = simulationStore();
-    sim.simGroups = [{ routingGroupId: "A" }, { routingGroupId: "B" }];
     const a = deferred<any>();
     const b = deferred<any>();
     sim.fetchSimGroupDetail = vi.fn((id: string) => id === "A" ? a.promise : b.promise) as any;
@@ -264,23 +286,20 @@ describe("production-ready routing contracts", () => {
     sim.activeVariationId = "V1";
     sim.variations = [{ id: "V1", label: "First", serverVid: "V1", group: structuredClone(group) }] as any;
     const variationRun = deferred<any>();
-    const parentRun = deferred<any>();
-    vi.spyOn(VariationService, "runVariation").mockReturnValue(variationRun.promise);
-    vi.spyOn(SimulationService, "runParentLiveConfig").mockReturnValue(parentRun.promise);
+    vi.spyOn(SimulationService, "submitSimulation").mockResolvedValue({ simulationId: "S1", statusId: "BRSIM_QUEUED" });
+    vi.spyOn(SimulationService, "waitForSimulation").mockReturnValue(variationRun.promise);
     sim.fetchSimGroupDetail = vi.fn(async () => ({ routingGroupId: "G2", routings: [] })) as any;
     sim.fetchServerVariations = vi.fn(async () => []) as any;
 
     const running = sim.runActiveVariation();
     expect(sim.isRunningVariationRun).toBe(true);
     await sim.loadGroup("G2");
-    variationRun.resolve({ routingGroupId: "V1", routingResults: [], simulationId: "S1" });
-    parentRun.resolve({ routingGroupId: "G1", routingResults: [] });
+    variationRun.resolve({ simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE" }, variants: [] });
     expect(await running).toBe(false);
 
     expect(sim.routingGroupId).toBe("G2");
     expect(sim.groupLoadState).toBe("ready");
-    expect(sim.variationRunResult).toBeNull();
-    expect(sim.parentRunByGroupId.G1).toBeUndefined();
+    expect(sim.currentRun).toBeNull();
     expect(sim.lastSimulationId).toBeNull();
     expect(sim.isRunningVariationRun).toBe(false);
   });
@@ -293,39 +312,39 @@ describe("production-ready routing contracts", () => {
     sim.baseline = structuredClone(group);
     sim.working = structuredClone(group);
     const baselineRun = deferred<any>();
-    vi.spyOn(SimulationService, "runParentLiveConfig").mockReturnValue(baselineRun.promise);
+    vi.spyOn(SimulationService, "submitSimulation").mockResolvedValue({ simulationId: "S_BASE", statusId: "BRSIM_QUEUED" });
+    vi.spyOn(SimulationService, "waitForSimulation").mockReturnValue(baselineRun.promise);
     sim.fetchSimGroupDetail = vi.fn(async () => ({ routingGroupId: "G2", routings: [] })) as any;
     sim.fetchServerVariations = vi.fn(async () => []) as any;
 
     const running = sim.runBaseline();
     expect(sim.isRunningBaselineRun).toBe(true);
     await sim.loadGroup("G2");
-    baselineRun.resolve({ routingGroupId: "G1", routingResults: [], simulationId: "S_BASE" });
+    baselineRun.resolve({ simulation: { simulationId: "S_BASE", statusId: "BRSIM_COMPLETE" }, variants: [] });
     expect(await running).toBe(false);
 
     expect(sim.routingGroupId).toBe("G2");
-    expect(sim.baselineRunResult).toBeNull();
-    expect(sim.parentRunByGroupId.G1).toBeUndefined();
+    expect(sim.currentRun).toBeNull();
     expect(sim.lastSimulationId).toBeNull();
     expect(sim.isRunningBaselineRun).toBe(false);
   });
 
-  it("invalidates the parent comparison cache whenever a group baseline is reloaded", async () => {
+  it("invalidates the current persisted run whenever a group baseline is reloaded", async () => {
     const sim = simulationStore();
-    sim.parentRunByGroupId.G1 = { routingGroupId: "G1", routingResults: [] } as any;
-    sim.simGroups = [{ routingGroupId: "G1" }];
+    sim.currentRun = { simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE" }, variants: [] };
+    sim.lastSimulationId = "S1";
     sim.fetchSimGroupDetail = vi.fn(async () => ({ routingGroupId: "G1", routings: [] })) as any;
     sim.fetchServerVariations = vi.fn(async () => []) as any;
 
     await sim.loadGroup("G1");
 
-    expect(sim.parentRunByGroupId.G1).toBeUndefined();
+    expect(sim.currentRun).toBeNull();
+    expect(sim.lastSimulationId).toBeNull();
     expect(sim.groupLoadState).toBe("ready");
   });
 
   it("fails closed when authoritative group detail cannot be loaded", async () => {
     const sim = simulationStore();
-    sim.simGroups = [{ routingGroupId: "G1" }];
     sim.fetchSimGroupDetail = vi.fn(async () => { throw new Error("raw detail unavailable"); }) as any;
     const create = vi.spyOn(VariationService, "createVariation");
 
@@ -339,7 +358,6 @@ describe("production-ready routing contracts", () => {
 
   it("fails closed when the server variation list cannot be loaded", async () => {
     const sim = simulationStore();
-    sim.simGroups = [{ routingGroupId: "G1" }];
     sim.fetchSimGroupDetail = vi.fn(async () => ({ routingGroupId: "G1", routings: [] })) as any;
     sim.fetchServerVariations = vi.fn(async () => { throw new Error("variation list unavailable"); }) as any;
     const create = vi.spyOn(VariationService, "createVariation");
@@ -351,7 +369,7 @@ describe("production-ready routing contracts", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("archives a partially-created variation when its config cannot be saved", async () => {
+  it("deletes a partially-created variation when its config cannot be saved", async () => {
     const sim = simulationStore();
     sim.routingGroupId = "G1";
     sim.groupLoadState = "ready";
@@ -368,7 +386,7 @@ describe("production-ready routing contracts", () => {
     expect(sim.loadError).toContain("could not be configured");
   });
 
-  it("refreshes a partially-created variation when discard is unavailable on an older backend", async () => {
+  it("refreshes a partially-created variation when deletion fails", async () => {
     const sim = simulationStore();
     sim.routingGroupId = "G1";
     sim.groupLoadState = "ready";

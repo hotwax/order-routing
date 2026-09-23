@@ -41,7 +41,7 @@ const authGuard = async (to: any, _from: any, next: any) => {
 
     return next("/login");
   }
-  next();
+  return next();
 };
 
 // A persisted browser history entry must not be allowed to open a routing group from a previous

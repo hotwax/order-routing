@@ -10,7 +10,6 @@
 
     <ion-content>
       <main class="sim-setup-wizard">
-        <!-- Step navigation sidebar -->
         <section class="wizard-steps">
           <ion-list lines="none">
             <ion-list-header>
@@ -20,7 +19,6 @@
               </ion-label>
             </ion-list-header>
           </ion-list>
-
           <simulation-wizard-step-list
             :groups="SIMULATION_SETUP_GROUPS"
             :steps="SIMULATION_SETUP_STEPS"
@@ -32,18 +30,16 @@
           />
         </section>
 
-        <!-- Active task card -->
         <section class="wizard-task">
           <ion-card>
             <ion-card-header>
               <ion-card-title>{{ translate(currentStep.label) }}</ion-card-title>
               <ion-card-subtitle>{{ translate(currentStep.summary) }}</ion-card-subtitle>
             </ion-card-header>
-
             <ion-card-content>
               <p class="step-description">{{ translate(currentStep.description) }}</p>
+              <p v-if="actionError" class="feedback error" role="alert">{{ actionError }}</p>
 
-              <!-- Step 1: Backend Connection & Remote Auth -->
               <div v-if="currentStepId === 'backend-connection'" class="task-content">
                 <ion-list lines="full">
                   <ion-item>
@@ -51,1009 +47,798 @@
                       <h3>{{ translate("System Message Remote (SIM_ROUTING_CONFIG)") }}</h3>
                       <p>{{ translate("Main OMS to Sister Sim-Routing instance connection") }}</p>
                     </ion-label>
-                    <ion-badge slot="end" :color="remoteAuthVerified ? 'success' : 'warning'">
-                      {{ remoteAuthVerified ? translate("Connected") : translate("Auth Pending") }}
-                    </ion-badge>
-                  </ion-item>
-
-                  <ion-item>
-                    <ion-input
-                      v-model="remoteSendUrl"
-                      label-placement="stacked"
-                      :label="translate('Sim Routing Instance REST URL')"
-                      placeholder="http://localhost:8082/rest/s1"
-                      :clear-input="true"
-                    />
-                  </ion-item>
-
-                  <ion-item>
-                    <ion-input
-                      v-model="remoteApiKey"
-                      type="password"
-                      label-placement="stacked"
-                      :label="translate('Sim Routing User API Key')"
-                      :placeholder="omsRemoteConfig?.apiKeyMasked ? `${translate('Configured')}: ${omsRemoteConfig.apiKeyMasked}` : translate('Enter API Key generated in Sim Routing for OMS user')"
-                      :clear-input="true"
-                    />
-                  </ion-item>
-
-                  <ion-item v-if="handshakeResult">
-                    <ion-label>
-                      <h3>{{ translate("Live Connection Status") }}</h3>
-                      <p>{{ handshakeResult.message }} (HTTP {{ handshakeResult.statusCode }})</p>
-                    </ion-label>
-                    <ion-badge slot="end" color="success">{{ translate("200 OK") }}</ion-badge>
-                  </ion-item>
-                </ion-list>
-
-                <div class="action-row">
-                  <ion-button color="primary" :disabled="isValidating" @click="saveAndTestRemoteAuth">
-                    <ion-spinner v-if="isValidating" slot="start" name="crescent" />
-                    {{ translate("Save in OMS & Test Connection") }}
-                  </ion-button>
-                  <ion-button fill="outline" :disabled="isFetchingKey" @click="generateSimApiKey">
-                    <ion-spinner v-if="isFetchingKey" slot="start" name="crescent" />
-                    {{ translate("Generate API Key in Sim Routing") }}
-                  </ion-button>
-                </div>
-              </div>
-
-              <!-- Step 2: Prod Source Replica -->
-              <div v-else-if="currentStepId === 'prod-source'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-label>
-                      <h3>{{ translate("Datasource group") }}</h3>
-                      <p>prod-source (read replica)</p>
-                    </ion-label>
-                    <ion-badge slot="end" :color="replicaVerified ? 'success' : 'medium'">
-                      {{ replicaVerified ? translate("Verified") : translate("Unchecked") }}
+                    <ion-badge slot="end" :color="connectionCheckStatus === 'success' ? 'success' : (omsRemoteConfig ? 'primary' : 'warning')">
+                      {{ connectionCheckStatus === 'success' ? translate("Connected") : (omsRemoteConfig ? translate("Configured") : translate("Not configured")) }}
                     </ion-badge>
                   </ion-item>
                   <ion-item>
-                    <ion-label>
-                      <h3>{{ translate("Scope") }}</h3>
-                      <p>{{ translate("28 load-bearing tables for order brokering") }}</p>
-                    </ion-label>
+                    <ion-input v-model="remoteSendUrl" :disabled="busy" label-placement="stacked"
+                      :label="translate('Sim Routing Instance REST URL')" placeholder="http://localhost:8082/rest/s1" :clear-input="true" />
+                  </ion-item>
+                  <ion-item>
+                    <ion-input v-model="remoteUsername" :disabled="busy" label-placement="stacked"
+                      :label="translate('Sim Routing Username')" :placeholder="translate('Enter the dedicated Sim Routing service username')" :clear-input="true" />
+                  </ion-item>
+                  <ion-item>
+                    <ion-input v-model="remotePassword" :disabled="busy" type="password" label-placement="stacked"
+                      :label="translate('Sim Routing Password')"
+                      :placeholder="omsRemoteConfig ? translate('Leave blank to keep the configured password') : translate('Enter the Sim Routing service password')"
+                      :clear-input="true" />
                   </ion-item>
                 </ion-list>
-
                 <div class="action-row">
-                  <ion-button fill="outline" :disabled="isValidating" @click="verifyReplica">
-                    <ion-spinner v-if="isValidating" slot="start" name="crescent" />
-                    {{ translate("Verify replica access") }}
+                  <ion-button color="primary" :disabled="busy || !remoteSendUrl || !remoteUsername || (!omsRemoteConfig && !remotePassword)" @click="saveRemoteAuth">
+                    <ion-spinner v-if="isSavingRemote" slot="start" name="crescent" />{{ translate("Save in OMS") }}
+                  </ion-button>
+                  <ion-button fill="outline" :disabled="busy || !canTestRemote" @click="testRemoteConnection">
+                    <ion-spinner v-if="isTestingConnection" slot="start" name="crescent" />{{ translate("Test connection") }}
                   </ion-button>
                 </div>
+                <p v-if="omsRemoteConfig && !canTestRemote" class="feedback">{{ translate("Save changes in OMS before testing the connection.") }}</p>
+                <p v-if="connectionCheckStatus !== 'idle'" class="feedback" :class="connectionCheckStatus" role="status">{{ connectionCheckMessage }}</p>
               </div>
 
-              <!-- Step 3: Datastore Provisioning -->
               <div v-else-if="currentStepId === 'datastore-select'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-input
-                      v-model="newDatastoreDescription"
-                      label-placement="stacked"
-                      :label="translate('Datastore snapshot name')"
-                      :placeholder="translate('e.g. Black Friday Baseline Snapshot')"
-                      :clear-input="true"
-                    />
-                  </ion-item>
-                  <ion-item v-if="activeDatastoreId">
-                    <ion-label>
-                      <h3>{{ translate("Selected datastore") }}</h3>
-                      <p>ID: {{ activeDatastoreId }} (m4sim_{{ activeDatastoreId }})</p>
-                    </ion-label>
-                    <ion-badge slot="end" color="primary">{{ activeDatastoreStatus || 'Draft' }}</ion-badge>
-                  </ion-item>
-                </ion-list>
-
+                <ion-item>
+                  <ion-select :label="translate('Existing datastores')" :placeholder="translate('Choose a datastore')"
+                    interface="popover" :value="activeDatastoreId" :disabled="busy || connectionCheckStatus !== 'success'"
+                    @ionChange="selectDatastore($event.detail.value)">
+                    <ion-select-option v-for="datastore in visibleDatastores" :key="datastore.simDatastoreId" :value="datastore.simDatastoreId">
+                      {{ datastore.displayName || datastore.datastoreName }} — {{ datastore.statusId }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <p v-if="selectedDatastore" class="feedback">{{ selectedDatastore.datastoreName }} · {{ selectedDatastore.statusId }}</p>
+                <p v-if="!visibleDatastores.length && connectionCheckStatus === 'success'" class="feedback">{{ translate("No datastores found. Create one below.") }}</p>
+                <ion-button v-if="selectedDatastore && selectedDatastore.statusId !== 'SIMDS_REMOVED'" color="danger" fill="outline"
+                  :disabled="busy || isOpen" @click="deleteTarget = selectedDatastore">
+                  {{ translate("Delete selected datastore") }}
+                </ion-button>
+                <p v-if="selectedDatastore && isOpen" class="feedback">{{ translate("Open another datastore before deleting this one.") }}</p>
+                <p v-if="selectedDatastore && isFilling" class="feedback">{{ translate("Wait for the running fill to finish before deleting a datastore.") }}</p>
+                <ion-item>
+                  <ion-input v-model="newDatastoreDescription" label-placement="stacked"
+                    :label="translate('New datastore name')" :placeholder="translate('e.g. Baseline snapshot')" :clear-input="true" />
+                </ion-item>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isProvisioning" @click="provisionDatastore">
-                    <ion-spinner v-if="isProvisioning" slot="start" name="crescent" />
-                    {{ translate("Create new datastore") }}
+                  <ion-button fill="outline" :disabled="busy || connectionCheckStatus !== 'success'" @click="loadDatastores">
+                    {{ translate("Refresh datastores") }}
+                  </ion-button>
+                  <ion-button :disabled="busy || connectionCheckStatus !== 'success' || !newDatastoreDescription.trim()" @click="provisionDatastore">
+                    <ion-spinner v-if="isProvisioning" slot="start" name="crescent" />{{ translate("Create new datastore") }}
                   </ion-button>
                 </div>
               </div>
 
-              <!-- Step 4: Data Fill -->
               <div v-else-if="currentStepId === 'data-fill'" class="task-content">
-                <ion-list lines="full">
+                <p v-if="!activeDatastoreId" class="feedback">{{ translate("Choose a datastore first.") }}</p>
+                <p v-else-if="!isOpen" class="feedback">{{ translate("Open the selected datastore before starting the copy.") }}</p>
+                <p v-else-if="fillCompleted && !fillId" class="feedback success">{{ translate("Selected datastore is already Ready; no new fill is needed.") }}</p>
+                <ion-list v-else-if="activeDatastoreId" lines="full">
                   <ion-item>
                     <ion-label>
-                      <h3>{{ translate("Pipeline execution") }}</h3>
-                      <p>{{ fillProgressText }}</p>
+                      <h3>{{ translate("Fill run") }}</h3>
+                      <p>{{ fillId || translate("Not started") }}</p>
                     </ion-label>
-                    <ion-badge slot="end" :color="fillCompleted ? 'success' : (isFilling ? 'warning' : 'medium')">
-                      {{ fillCompleted ? translate("Complete") : (isFilling ? translate("Running") : translate("Pending")) }}
+                    <ion-badge slot="end" :color="fillCompleted ? 'success' : isFilling ? 'warning' : 'medium'">
+                      {{ fillStatus || translate("Pending") }}
                     </ion-badge>
                   </ion-item>
-                  <ion-item v-if="isFilling || fillCompleted">
-                    <ion-progress-bar :value="fillProgressFraction" />
+                  <ion-item v-if="fillId">
+                    <ion-label>
+                      <p>{{ translate("Completed tasks") }}: {{ fillMetrics.completeTasks }}{{ fillMetrics.totalTasks ? ` / ${fillMetrics.totalTasks}` : '' }}</p>
+                      <p>{{ translate("Failed tasks") }}: {{ fillMetrics.failedTasks }} · {{ translate("Rows copied") }}: {{ fillMetrics.rowsWritten.toLocaleString() }}</p>
+                    </ion-label>
+                  </ion-item>
+                  <ion-item v-if="fillId && fillMetrics.totalTasks"><ion-progress-bar :value="fillMetrics.completeTasks / fillMetrics.totalTasks" /></ion-item>
+                </ion-list>
+                <ion-list v-if="fillId && visibleFillTasks.length" lines="full" :aria-label="translate('Running and failed operations')">
+                  <ion-list-header><ion-label>{{ translate("Running and failed operations") }}</ion-label></ion-list-header>
+                  <ion-item v-for="task in visibleFillTasks" :key="task.taskId">
+                    <ion-label class="ion-text-wrap">
+                      <h3>{{ task.name }}</h3>
+                      <p>{{ translate("Step") }} {{ task.stepNum }}</p>
+                      <p v-if="task.statusId === 'SIMDSFS_FAILED' && task.errorText" class="error">{{ task.errorText }}</p>
+                      <p v-if="task.statusId === 'SIMDSFS_FAILED' && task.jobRunId">{{ translate("Job") }} {{ task.jobRunId }}</p>
+                    </ion-label>
+                    <ion-spinner v-if="task.statusId === 'SIMDSFS_RUNNING'" slot="end" name="crescent" :aria-label="translate('Running')" />
+                    <ion-badge v-else-if="task.statusId === 'SIMDSFS_FAILED'" slot="end" color="danger">{{ translate("Failed") }}</ion-badge>
+                    <ion-badge v-else slot="end" color="medium">{{ task.statusId }}</ion-badge>
                   </ion-item>
                 </ion-list>
-
-                <!-- Live Ingestion Telemetry Dashboard -->
-                <div v-if="fillMetrics.completeTasks > 0 || isFilling || fillCompleted" class="telemetry-dashboard">
-                  <h4>{{ translate("DAG Execution Telemetry") }}</h4>
-                  <div class="metrics-grid">
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Completed Tasks") }}</div>
-                      <div class="metric-value">{{ fillMetrics.completeTasks }} / {{ fillMetrics.totalTasks }}</div>
-                    </div>
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Rows Copied") }}</div>
-                      <div class="metric-value">{{ fillMetrics.rowsWritten.toLocaleString() }}</div>
-                    </div>
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Batches Sent") }}</div>
-                      <div class="metric-value">{{ fillMetrics.batchesSent }}</div>
-                    </div>
-                  </div>
-
-                  <div class="dag-phases">
-                    <div class="phase-chip" :class="{ done: fillMetrics.completeTasks >= 6, active: isFilling && fillMetrics.completeTasks < 6 }">
-                      <span>1. Facility Masters</span>
-                    </div>
-                    <div class="phase-chip" :class="{ done: fillMetrics.completeTasks >= 12, active: isFilling && fillMetrics.completeTasks >= 6 && fillMetrics.completeTasks < 12 }">
-                      <span>2. Facilities</span>
-                    </div>
-                    <div class="phase-chip" :class="{ done: fillMetrics.completeTasks >= 20, active: isFilling && fillMetrics.completeTasks >= 12 && fillMetrics.completeTasks < 20 }">
-                      <span>3. Routing Rules</span>
-                    </div>
-                    <div class="phase-chip" :class="{ done: fillMetrics.completeTasks >= 26, active: isFilling && fillMetrics.completeTasks >= 20 && fillMetrics.completeTasks < 26 }">
-                      <span>4. Product Closure</span>
-                    </div>
-                    <div class="phase-chip" :class="{ done: fillMetrics.completeTasks >= 31, active: isFilling && fillMetrics.completeTasks >= 26 }">
-                      <span>5. Queued Orders</span>
-                    </div>
-                  </div>
-                </div>
-
+                <ion-accordion-group v-if="fillId && groupedFillTasks.length">
+                  <ion-accordion v-for="group in groupedFillTasks" :key="group.value" :value="group.value">
+                    <ion-item slot="header">
+                      <ion-label>{{ translate(group.label) }}</ion-label>
+                      <ion-badge slot="end" :color="group.value === 'complete' ? 'success' : 'medium'">{{ group.tasks.length }}</ion-badge>
+                    </ion-item>
+                    <ion-list slot="content" lines="full">
+                      <ion-item v-for="task in group.tasks" :key="task.taskId">
+                        <ion-label class="ion-text-wrap">
+                          <h3>{{ task.name }}</h3>
+                          <p>{{ translate("Step") }} {{ task.stepNum }}</p>
+                        </ion-label>
+                        <ion-icon v-if="group.value === 'complete'" slot="end" :icon="checkmarkCircle" color="success" :aria-label="translate('Complete')" />
+                        <ion-badge v-else slot="end" color="medium">{{ translate("Pending") }}</ion-badge>
+                      </ion-item>
+                    </ion-list>
+                  </ion-accordion>
+                </ion-accordion-group>
+                <p class="feedback">{{ translate("The fill checks prod-source access; a failure here is not treated as success.") }}</p>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isFilling || !activeDatastoreId" @click="startDataFill">
-                    <ion-spinner v-if="isFilling" slot="start" name="crescent" />
-                    {{ translate("Start 5-step data copy") }}
+                  <ion-button v-if="!fillId && !fillCompleted" :disabled="busy || !isOpen || !activeDatastoreId || selectedDatastore?.statusId !== 'SIMDS_CREATED'" @click="startDataFill">
+                    <ion-spinner v-if="isFilling" slot="start" name="crescent" />{{ translate("Start data copy") }}
+                  </ion-button>
+                  <ion-button v-if="fillId && !fillCompleted" fill="outline" :disabled="busy" @click="pollFill">
+                    <ion-spinner v-if="isFilling" slot="start" name="crescent" />{{ translate("Refresh fill status") }}
                   </ion-button>
                 </div>
               </div>
 
-              <!-- Step 5: Readiness Gate -->
               <div v-else-if="currentStepId === 'readiness-gate'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-label>
-                      <h3>{{ translate("Integrity verification") }}</h3>
-                      <p>{{ translate("Validates product closure reachability, stock counts, and order schemas") }}</p>
-                    </ion-label>
-                    <ion-badge slot="end" :color="readinessPassed ? 'success' : 'medium'">
-                      {{ readinessPassed ? translate("Ready") : translate("Pending") }}
-                    </ion-badge>
-                  </ion-item>
-                </ion-list>
-
-                <div v-if="readinessPassed" class="telemetry-dashboard">
-                  <h4>{{ translate("Datastore Fidelity Summary") }}</h4>
-                  <div class="metrics-grid">
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Datastore Schema") }}</div>
-                      <div class="metric-value">m4sim_{{ activeDatastoreId }}</div>
-                    </div>
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Integrity Gate") }}</div>
-                      <div class="metric-value success-text">PASSED (SIMDS_READY)</div>
-                    </div>
-                    <div class="metric-card">
-                      <div class="metric-label">{{ translate("Isolation") }}</div>
-                      <div class="metric-value">Zero Prod Writes</div>
-                    </div>
-                  </div>
-                </div>
-
+                <ion-item>
+                  <ion-label>
+                    <h3>{{ translate("Datastore status") }}</h3>
+                    <p>{{ selectedDatastore?.datastoreName || translate("Choose a datastore first.") }}</p>
+                    <p v-if="selectedDatastore?.filledFrom">{{ translate("Filled from") }}: {{ selectedDatastore.filledFrom }}</p>
+                  </ion-label>
+                  <ion-badge slot="end" :color="readinessPassed ? 'success' : 'medium'">{{ selectedDatastore?.statusId || translate("Unknown") }}</ion-badge>
+                </ion-item>
+                <p class="feedback">{{ translate("The fill marks the datastore Ready automatically after its check passes.") }}</p>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isValidating || !activeDatastoreId" @click="validateReadiness">
-                    <ion-spinner v-if="isValidating" slot="start" name="crescent" />
-                    {{ translate("Run readiness check") }}
+                  <ion-button fill="outline" :disabled="busy || !activeDatastoreId" @click="refreshReadiness">
+                    {{ translate("Refresh status") }}
                   </ion-button>
                 </div>
               </div>
 
-              <!-- Step 6: Open Datastore -->
               <div v-else-if="currentStepId === 'open-datastore'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-label>
-                      <h3>{{ translate("Active pool target") }}</h3>
-                      <p>{{ isOpen ? `m4sim_${activeDatastoreId} (${translate('Active')})` : translate('No datastore currently open') }}</p>
-                    </ion-label>
-                    <ion-badge slot="end" :color="isOpen ? 'success' : 'warning'">
-                      {{ isOpen ? translate("Mounted") : translate("Closed") }}
-                    </ion-badge>
-                  </ion-item>
-                </ion-list>
-
+                <ion-item>
+                  <ion-label>
+                    <h3>{{ translate("Simulation datastore") }}</h3>
+                    <p>{{ selectedDatastore?.datastoreName || translate("Choose a datastore first.") }}</p>
+                  </ion-label>
+                  <ion-badge slot="end" :color="isOpen ? 'success' : 'medium'">{{ isOpen ? translate("Opened here") : translate("Not opened here") }}</ion-badge>
+                </ion-item>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isOpening || !activeDatastoreId" @click="openDatastore">
-                    <ion-spinner v-if="isOpening" slot="start" name="crescent" />
-                    {{ translate("Mount datastore") }}
+                  <ion-button :disabled="busy || !activeDatastoreId || !['SIMDS_CREATED', 'SIMDS_READY'].includes(selectedDatastore?.statusId || '')" @click="openDatastore">
+                    <ion-spinner v-if="isOpening" slot="start" name="crescent" />{{ translate("Open datastore") }}
                   </ion-button>
                 </div>
               </div>
 
-              <!-- Step 7: Routing Baseline -->
               <div v-else-if="currentStepId === 'routing-baseline'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item v-for="group in routingGroups" :key="group.routingGroupId">
-                    <ion-label>
-                      <h3>{{ group.routingGroupName || group.routingGroupId }}</h3>
-                      <p>{{ group.routingGroupId }}</p>
-                    </ion-label>
-                    <ion-badge slot="end" color="primary">{{ group.statusId }}</ion-badge>
-                  </ion-item>
-                  <ion-item v-if="!routingGroups.length">
-                    <ion-label>
-                      <p>{{ translate("Click below to fetch routing groups from active datastore") }}</p>
-                    </ion-label>
-                  </ion-item>
-                </ion-list>
-
+                <ion-item>
+                  <ion-select :label="translate('Copied routing group')" :placeholder="translate('Choose a routing group')"
+                    interface="popover" :value="selectedGroupId" :disabled="busy || !isOpen"
+                    @ionChange="selectGroup($event.detail.value)">
+                    <ion-select-option v-for="group in routingGroups" :key="group.routingGroupId" :value="group.routingGroupId">
+                      {{ group.groupName || group.routingGroupId }} ({{ group.routingGroupId }})
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <p v-if="groupValidity" class="feedback" :class="groupValidity.verdict === 'VALID' ? 'success' : 'error'">
+                  {{ translate("Validation") }}: {{ groupValidity.verdict }} · {{ translate("Valid references") }}: {{ groupValidity.validCount || 0 }} · {{ translate("Missing in copy") }}: {{ groupValidity.notInCopyCount || 0 }} · {{ translate("Missing at source") }}: {{ groupValidity.sourceGapCount || 0 }}
+                </p>
+                <p v-if="!routingGroups.length && isOpen" class="feedback">{{ translate("No copied routing groups found in the active datastore.") }}</p>
                 <div class="action-row">
-                  <ion-button fill="outline" :disabled="isValidating" @click="fetchRoutingBaseline">
-                    <ion-spinner v-if="isValidating" slot="start" name="crescent" />
+                  <ion-button fill="outline" :disabled="busy || !isOpen" @click="fetchRoutingBaseline">
                     {{ translate("Load routing groups") }}
                   </ion-button>
+                  <ion-button v-if="routingGroups.length < totalGroupCount" fill="outline" :disabled="busy" @click="loadMoreRoutingGroups">
+                    {{ translate("Load more groups") }}
+                  </ion-button>
+                  <ion-button :disabled="busy || !selectedGroupId" @click="validateSelectedGroup">
+                    <ion-spinner v-if="isValidatingGroup" slot="start" name="crescent" />{{ translate("Validate selected group") }}
+                  </ion-button>
                 </div>
               </div>
 
-              <!-- Step 8: Create Variation -->
               <div v-else-if="currentStepId === 'create-variation'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-input
-                      v-model="variationName"
-                      label-placement="stacked"
-                      :label="translate('Variation name')"
-                      :placeholder="translate('e.g. Prioritize Regional DC over Stores')"
-                      :clear-input="true"
-                    />
-                  </ion-item>
-                  <ion-item v-if="createdVariationId">
-                    <ion-label>
-                      <h3>{{ translate("Cloned variation ID") }}</h3>
-                      <p>{{ createdVariationId }}</p>
-                    </ion-label>
-                    <ion-badge slot="end" color="success">{{ translate("Created") }}</ion-badge>
-                  </ion-item>
-                </ion-list>
-
+                <p class="feedback">{{ translate("Optional: run the baseline alone, or clone its rules. A clone is identical until edited; this wizard does not edit rules.") }}</p>
+                <ion-item>
+                  <ion-input v-model="variationName" label-placement="stacked" :label="translate('Variation name')"
+                    :placeholder="translate('e.g. Safety stock experiment')" :clear-input="true" />
+                </ion-item>
+                <ion-item v-if="createdVariationId">
+                  <ion-label><h3>{{ translate("Cloned variation ID") }}</h3><p>{{ createdVariationId }}</p></ion-label>
+                  <ion-badge slot="end" color="success">{{ translate("Created") }}</ion-badge>
+                </ion-item>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isCloning" @click="createVariation">
-                    <ion-spinner v-if="isCloning" slot="start" name="crescent" />
-                    {{ translate("Clone variation") }}
+                  <ion-button :disabled="busy || !baselineValid || !variationName.trim() || !!createdVariationId" @click="createVariation">
+                    <ion-spinner v-if="isCloning" slot="start" name="crescent" />{{ translate("Clone variation") }}
                   </ion-button>
                 </div>
               </div>
 
-              <!-- Step 9: Execute Simulation -->
               <div v-else-if="currentStepId === 'execute-simulation'" class="task-content">
-                <ion-list lines="full">
-                  <ion-item>
+                <ion-item>
+                  <ion-label>
+                    <h3>{{ translate("Simulation run") }}</h3>
+                    <p>{{ simulationId || translate("Not started") }} · {{ simulationStatus || translate("Ready to submit") }}</p>
+                  </ion-label>
+                  <ion-badge slot="end" :color="simulationFinished ? 'success' : isSimulating ? 'warning' : 'medium'">{{ simulationStatus || translate("Pending") }}</ion-badge>
+                </ion-item>
+                <p v-if="createdVariationId" class="feedback">{{ translate("Run baseline with cloned variation") }}: {{ includeVariation ? translate("Yes") : translate("No") }}</p>
+                <ion-item v-if="createdVariationId && !simulationId" lines="none">
+                  <ion-checkbox :checked="includeVariation" label-placement="end" @ionChange="includeVariation = $event.detail.checked">
+                    {{ translate("Include cloned variation (currently identical to baseline)") }}
+                  </ion-checkbox>
+                </ion-item>
+                <div v-if="simulationFinished" class="results">
+                  <h3>{{ translate("Run results") }}</h3>
+                  <p>{{ translate("Attempted") }}: {{ simulation?.attemptedItemCount ?? 0 }} · {{ translate("Brokered") }}: {{ simulation?.brokeredItemCount ?? 0 }} · {{ translate("Queued") }}: {{ simulation?.queuedItemCount ?? 0 }}</p>
+                  <ion-item v-for="variant in simulationVariants" :key="variant.variantSeqId">
                     <ion-label>
-                      <h3>{{ translate("Simulation run") }}</h3>
-                      <p>{{ simulationStatusText || translate("Ready to launch comparative simulation") }}</p>
-                    </ion-label>
-                    <ion-badge slot="end" :color="simulationFinished ? 'success' : isSimulating ? 'warning' : 'medium'">
-                      {{ simulationFinished ? translate("Complete") : isSimulating ? translate("Running") : translate("Ready") }}
-                    </ion-badge>
-                  </ion-item>
-                  <ion-item v-if="simulationId">
-                    <ion-label>
-                      <h3>{{ translate("Simulation ID") }}</h3>
-                      <p>{{ simulationId }}</p>
+                      <h3>{{ variant.label || variant.variantSeqId }}</h3>
+                      <p>{{ translate("Attempted") }}: {{ variant.attemptedItemCount ?? 0 }} · {{ translate("Brokered") }}: {{ variant.brokeredItemCount ?? 0 }} · {{ translate("Queued") }}: {{ variant.queuedItemCount ?? 0 }}</p>
+                      <p v-if="variant.failureReason" class="error">{{ variant.failureReason }}</p>
                     </ion-label>
                   </ion-item>
-                </ion-list>
-
+                </div>
                 <div class="action-row">
-                  <ion-button color="primary" :disabled="isSimulating" @click="launchSimulation">
-                    <ion-spinner v-if="isSimulating" slot="start" name="crescent" />
-                    {{ translate("Launch simulation") }}
+                  <ion-button v-if="!simulationId" :disabled="busy || !baselineValid || !isOpen" @click="launchSimulation">
+                    <ion-spinner v-if="isSimulating" slot="start" name="crescent" />{{ translate("Launch simulation") }}
                   </ion-button>
-                  <ion-button v-if="simulationFinished" fill="outline" @click="viewSimulationHistory">
-                    {{ translate("View simulation history") }}
+                  <ion-button v-else fill="outline" :disabled="busy" @click="pollSimulation">
+                    <ion-spinner v-if="isSimulating" slot="start" name="crescent" />{{ translate("Refresh run status") }}
+                  </ion-button>
+                  <ion-button v-if="simulationFinished && selectedGroupId" @click="openRoutingGroup">
+                    {{ translate("View routing group") }}<ion-icon slot="end" :icon="arrowForwardOutline" />
                   </ion-button>
                 </div>
               </div>
             </ion-card-content>
 
-            <!-- Navigation buttons footer -->
             <div class="card-navigation">
               <ion-button fill="clear" :disabled="currentStepIndex === 0" @click="goToPreviousStep">
-                <ion-icon slot="start" :icon="arrowBackOutline" />
-                {{ translate("Previous") }}
+                <ion-icon slot="start" :icon="arrowBackOutline" />{{ translate("Previous") }}
               </ion-button>
-
-              <ion-button color="primary" @click="goToNextStep">
-                {{ currentStepIndex === SIMULATION_SETUP_STEPS.length - 1 ? translate("Finish") : translate("Next step") }}
-                <ion-icon slot="end" :icon="arrowForwardOutline" />
+              <ion-button v-if="currentStepIndex < SIMULATION_SETUP_STEPS.length - 1" color="primary" :disabled="!canGoNext" @click="goToNextStep">
+                {{ translate("Next step") }}<ion-icon slot="end" :icon="arrowForwardOutline" />
               </ion-button>
+              <ion-badge v-else-if="simulationFinished" color="success">{{ translate("Simulation complete") }}</ion-badge>
             </div>
           </ion-card>
         </section>
       </main>
+      <ion-alert :is-open="!!deleteTarget" :header="translate('Permanently delete datastore?')"
+        :message="deleteTarget ? `${deleteTarget.displayName || deleteTarget.datastoreName} (${deleteTarget.datastoreName}) — ${translate('This permanently deletes its MySQL database and all simulation data. No backup is created.')}` : ''"
+        :buttons="deleteAlertButtons" @didDismiss="deleteTarget = null" />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import {
-  IonBackButton,
-  IonBadge,
-  IonButton,
-  IonCard,
-  IonCardContent,
-  IonCardHeader,
-  IonCardSubtitle,
-  IonCardTitle,
-  IonContent,
-  IonHeader,
-  IonIcon,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonList,
-  IonListHeader,
-  IonNote,
-  IonPage,
-  IonProgressBar,
-  IonSpinner,
-  IonTitle,
-  IonToolbar,
+  IonAccordion, IonAccordionGroup, IonAlert, IonBackButton, IonBadge, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle,
+  IonCardTitle, IonCheckbox, IonContent, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList,
+  IonListHeader, IonPage, IonProgressBar, IonSelect, IonSelectOption, IonSpinner, IonTitle, IonToolbar,
 } from "@ionic/vue";
-import { arrowBackOutline, arrowForwardOutline } from "ionicons/icons";
-import { computed, onMounted, ref } from "vue";
+import { arrowBackOutline, arrowForwardOutline, checkmarkCircle } from "ionicons/icons";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { api, commonUtil, translate } from "@common";
-import {
-  SIMULATION_SETUP_GROUPS,
-  SIMULATION_SETUP_STEPS,
-  SimulationSetupStep
-} from "@/config/simulationSetupSteps";
+import { commonUtil, translate } from "@common";
+import { SIMULATION_SETUP_GROUPS, SIMULATION_SETUP_STEPS } from "@/config/simulationSetupSteps";
 import SimulationWizardStepList from "@/components/simulation/SimulationWizardStepList.vue";
-import { simApi } from "@/services/SimApiService";
-import { simApiBaseUrl } from "@/utils/simConfig";
+import {
+  checkSimulationRemoteConnection, loadSimulationRemoteConfig, saveSimulationRemoteConfig,
+} from "@/services/SimulationRemoteConfigService";
+import type { SimulationRemoteConfig } from "@/services/SimulationRemoteConfigService";
+import {
+  cloneSimVariation, createSimDatastore, deleteSimDatastore, getSimDatastore, getSimFill, getSimRun,
+  listSimDatastores, listSimRoutingGroups, openSimDatastore, simulationSetupError,
+  startSimFill, submitSimRun, validateSimRoutingGroup,
+} from "@/services/SimulationSetupService";
+import type { SimDatastore, SimFillTask, SimGroupValidity, SimRoutingGroup, SimRun, SimRunVariant } from "@/services/SimulationSetupService";
 
+const storageKey = "simulation-setup-run";
 const router = useRouter();
-
-// Step state
-const currentStepId = ref<string>("backend-connection");
+let mounted = true;
+let selectionVersion = 0;
+const currentStepId = ref("backend-connection");
 const completedStepIds = ref<string[]>([]);
 const inProgressStepIds = ref<string[]>([]);
 const stepStatus = ref<Record<string, { badge?: string; badgeColor?: string; subtitle?: string }>>({});
+const actionError = ref("");
 
-// Server & Remote Auth State
-const simServerUrl = computed(() => simApiBaseUrl());
-const remoteSendUrl = ref<string>("http://localhost:8082/rest/s1");
-const remoteApiKey = ref<string>("");
-const omsRemoteConfig = ref<any>(null);
-const remoteAuthVerified = ref<boolean>(false);
-const handshakeResult = ref<any>(null);
-const isFetchingKey = ref<boolean>(false);
-const isValidating = ref<boolean>(false);
-const replicaVerified = ref<boolean>(false);
+const remoteSendUrl = ref("http://localhost:8082/rest/s1");
+const remoteUsername = ref("");
+const remotePassword = ref("");
+const omsRemoteConfig = ref<SimulationRemoteConfig | null>(null);
+const isSavingRemote = ref(false);
+const isTestingConnection = ref(false);
+const connectionCheckStatus = ref<"idle" | "success" | "error">("idle");
+const connectionCheckMessage = ref("");
+const canTestRemote = computed(() => Boolean(omsRemoteConfig.value &&
+  remoteSendUrl.value === omsRemoteConfig.value.sendUrl &&
+  remoteUsername.value === omsRemoteConfig.value.username && !remotePassword.value));
 
-// Datastore State
-const newDatastoreDescription = ref<string>("Baseline Simulation Snapshot");
-const activeDatastoreId = ref<string>("");
-const activeDatastoreStatus = ref<string>("");
-const isProvisioning = ref<boolean>(false);
+const datastores = ref<SimDatastore[]>([]);
+const visibleDatastores = computed(() => datastores.value.filter(datastore => datastore.statusId !== "SIMDS_REMOVED"));
+const newDatastoreDescription = ref("Baseline Simulation Snapshot");
+const activeDatastoreId = ref("");
+const selectedDatastore = ref<SimDatastore | null>(null);
+const isProvisioning = ref(false);
+const isDeleting = ref(false);
+const deleteTarget = ref<SimDatastore | null>(null);
+const deleteAlertButtons = [
+  { text: translate("Cancel"), role: "cancel" },
+  { text: translate("Delete database"), role: "destructive", handler: () => { void confirmDeleteDatastore(); } },
+];
+const fillId = ref("");
+const fillStatus = ref("");
+const isFilling = ref(false);
+const fillCompleted = ref(false);
+const fillMetrics = ref({ completeTasks: 0, failedTasks: 0, totalTasks: 0, rowsWritten: 0 });
+const fillTasks = ref<SimFillTask[]>([]);
+const visibleFillTasks = computed(() => fillTasks.value.filter(task =>
+  task.statusId !== "SIMDSFS_COMPLETE" && task.statusId !== "SIMDSFS_PENDING"));
+const groupedFillTasks = computed(() => [
+  { value: "complete", label: "Completed operations", tasks: fillTasks.value.filter(task => task.statusId === "SIMDSFS_COMPLETE") },
+  { value: "pending", label: "Pending operations", tasks: fillTasks.value.filter(task => task.statusId === "SIMDSFS_PENDING") },
+].filter(group => group.tasks.length));
+const readinessPassed = computed(() => selectedDatastore.value?.statusId === "SIMDS_READY");
+const isOpening = ref(false);
+const isOpen = ref(false);
 
-// Fill State
-const isFilling = ref<boolean>(false);
-const fillCompleted = ref<boolean>(false);
-const fillProgressText = ref<string>("");
-const fillProgressFraction = ref<number>(0);
-const fillMetrics = ref<{
-  completeTasks: number;
-  runningTasks: number;
-  pendingTasks: number;
-  totalTasks: number;
-  rowsWritten: number;
-  batchesSent: number;
-}>({
-  completeTasks: 0,
-  runningTasks: 0,
-  pendingTasks: 0,
-  totalTasks: 31,
-  rowsWritten: 0,
-  batchesSent: 0
-});
+const routingGroups = ref<SimRoutingGroup[]>([]);
+const totalGroupCount = ref(0);
+const groupPageIndex = ref(0);
+const selectedGroupId = ref("");
+const groupValidity = ref<SimGroupValidity | null>(null);
+const isLoadingGroups = ref(false);
+const isValidatingGroup = ref(false);
+const baselineValid = computed(() => isOpen.value && Boolean(selectedGroupId.value) && groupValidity.value?.verdict === "VALID");
+const variationName = ref("");
+const createdVariationId = ref("");
+const isCloning = ref(false);
+const includeVariation = ref(false);
+const simulationId = ref("");
+const simulationStatus = ref("");
+const simulation = ref<SimRun | null>(null);
+const simulationVariants = ref<SimRunVariant[]>([]);
+const isSimulating = ref(false);
+const simulationFinished = computed(() => simulationStatus.value === "BRSIM_COMPLETE");
 
-// Readiness & Open State
-const readinessPassed = ref<boolean>(false);
-const isOpening = ref<boolean>(false);
-const isOpen = ref<boolean>(false);
+const busy = computed(() => isSavingRemote.value || isTestingConnection.value || isProvisioning.value || isDeleting.value ||
+  isFilling.value || isOpening.value || isLoadingGroups.value || isValidatingGroup.value ||
+  isCloning.value || isSimulating.value);
+const currentStepIndex = computed(() => SIMULATION_SETUP_STEPS.findIndex(step => step.id === currentStepId.value));
+const currentStep = computed(() => SIMULATION_SETUP_STEPS[currentStepIndex.value] || SIMULATION_SETUP_STEPS[0]);
+const progressValue = computed(() => completedStepIds.value.length / SIMULATION_SETUP_STEPS.length);
+const canGoNext = computed(() => currentStepId.value === "create-variation"
+  ? baselineValid.value : completedStepIds.value.includes(currentStepId.value));
 
-// Routing & Variation State
-const routingGroups = ref<any[]>([]);
-const variationName = ref<string>("Prioritize Regional DC over Stores");
-const isCloning = ref<boolean>(false);
-const createdVariationId = ref<string>("");
-
-// Simulation Run State
-const isSimulating = ref<boolean>(false);
-const simulationFinished = ref<boolean>(false);
-const simulationId = ref<string>("");
-const simulationStatusText = ref<string>("");
-
-const currentStepIndex = computed(() =>
-  SIMULATION_SETUP_STEPS.findIndex((step) => step.id === currentStepId.value)
-);
-
-const currentStep = computed<SimulationSetupStep>(
-  () => SIMULATION_SETUP_STEPS[currentStepIndex.value] || SIMULATION_SETUP_STEPS[0]
-);
-
-const progressValue = computed(() => {
-  if (!SIMULATION_SETUP_STEPS.length) return 0;
-  return completedStepIds.value.length / SIMULATION_SETUP_STEPS.length;
-});
-
-function markStepComplete(stepId: string) {
-  if (!completedStepIds.value.includes(stepId)) {
-    completedStepIds.value.push(stepId);
-  }
+function markStepComplete(stepId: string, badge = "Complete") {
+  if (!completedStepIds.value.includes(stepId)) completedStepIds.value.push(stepId);
+  stepStatus.value[stepId] = { badge, badgeColor: "success" };
 }
 
-function selectStep(stepId: string) {
-  currentStepId.value = stepId;
+function clearStepsFrom(stepId: string) {
+  const index = SIMULATION_SETUP_STEPS.findIndex(step => step.id === stepId);
+  for (const step of SIMULATION_SETUP_STEPS.slice(index)) delete stepStatus.value[step.id];
+  completedStepIds.value = completedStepIds.value.filter(id =>
+    SIMULATION_SETUP_STEPS.findIndex(step => step.id === id) < index);
 }
 
+function selectStep(stepId: string) { currentStepId.value = stepId; actionError.value = ""; }
 function goToNextStep() {
-  if (currentStepIndex.value < SIMULATION_SETUP_STEPS.length - 1) {
-    currentStepId.value = SIMULATION_SETUP_STEPS[currentStepIndex.value + 1].id;
-  } else {
-    router.push("/simulate");
+  if (canGoNext.value && currentStepIndex.value < SIMULATION_SETUP_STEPS.length - 1) {
+    if (currentStepId.value === "create-variation" && !createdVariationId.value) {
+      markStepComplete("create-variation", "Skipped");
+    }
+    selectStep(SIMULATION_SETUP_STEPS[currentStepIndex.value + 1].id);
   }
 }
-
 function goToPreviousStep() {
-  if (currentStepIndex.value > 0) {
-    currentStepId.value = SIMULATION_SETUP_STEPS[currentStepIndex.value - 1].id;
-  }
+  if (currentStepIndex.value > 0) selectStep(SIMULATION_SETUP_STEPS[currentStepIndex.value - 1].id);
 }
 
-// Load OMS SystemMessageRemote Config
+function openRoutingGroup() {
+  if (selectedGroupId.value) void router.push(`/order-routing/${encodeURIComponent(selectedGroupId.value)}`);
+}
+
+function rememberRun() {
+  sessionStorage.setItem(storageKey, JSON.stringify({
+    datastoreId: activeDatastoreId.value, fillId: fillId.value,
+    groupId: selectedGroupId.value, variationId: createdVariationId.value,
+    simulationId: simulationId.value,
+  }));
+}
+
+function fail(error: unknown) {
+  actionError.value = simulationSetupError(error);
+  commonUtil.showToast(actionError.value);
+}
+
+watch([remoteSendUrl, remoteUsername, remotePassword], () => {
+  if (connectionCheckStatus.value === "idle") return;
+  connectionCheckStatus.value = "idle";
+  connectionCheckMessage.value = "";
+  clearStepsFrom("backend-connection");
+  ++selectionVersion;
+  activeDatastoreId.value = "";
+  selectedDatastore.value = null;
+  datastores.value = [];
+  fillId.value = "";
+  fillTasks.value = [];
+  fillCompleted.value = false;
+  isOpen.value = false;
+  routingGroups.value = [];
+  selectedGroupId.value = "";
+  groupValidity.value = null;
+  createdVariationId.value = "";
+  simulationId.value = "";
+  simulationStatus.value = "";
+  sessionStorage.removeItem(storageKey);
+});
+
 async function loadOmsRemoteConfig() {
   try {
-    const resp: any = await api({
-      url: "order-routing/sim-remote",
-      method: "GET"
-    });
-    if (resp?.data) {
-      omsRemoteConfig.value = resp.data;
-      if (resp.data.sendUrl) remoteSendUrl.value = resp.data.sendUrl;
-      if (resp.data.apiKey) {
-        remoteApiKey.value = resp.data.apiKey;
-        localStorage.setItem("sim_api_key", resp.data.apiKey);
-      }
-      if (resp.data.isConfigured) {
-        remoteAuthVerified.value = true;
-        markStepComplete("backend-connection");
-        stepStatus.value["backend-connection"] = { badge: "Connected", badgeColor: "success" };
-      }
-    }
-  } catch (error: any) {
-    console.warn("Could not fetch sim-remote config from OMS:", error);
-  }
+    const remote = await loadSimulationRemoteConfig();
+    omsRemoteConfig.value = remote;
+    if (remote?.sendUrl) remoteSendUrl.value = remote.sendUrl;
+    if (remote?.username) remoteUsername.value = remote.username;
+    if (remote) stepStatus.value["backend-connection"] = { badge: "Configured", badgeColor: "primary" };
+  } catch (error) { fail(error); }
 }
 
-// Generate API key in sister Sim Routing instance
-async function generateSimApiKey() {
-  isFetchingKey.value = true;
+async function saveRemoteAuth() {
+  isSavingRemote.value = true;
+  actionError.value = "";
+  connectionCheckStatus.value = "idle";
+  clearStepsFrom("backend-connection");
   try {
-    const resp: any = await simApi({
-      url: "sim-routing/api-key",
-      method: "POST",
-      data: { username: "hotwax.user" }
-    });
-    if (resp?.data?.apiKey) {
-      remoteApiKey.value = resp.data.apiKey;
-      localStorage.setItem("sim_api_key", resp.data.apiKey);
-      if (resp.data.instanceUrl) remoteSendUrl.value = resp.data.instanceUrl;
-      commonUtil.showToast(translate("Generated API key in Sim Routing"));
-    }
-  } catch (error: any) {
-    commonUtil.showToast(translate("Failed to generate key from sister instance"));
-  } finally {
-    isFetchingKey.value = false;
-  }
+    await saveSimulationRemoteConfig({ sendUrl: remoteSendUrl.value, username: remoteUsername.value,
+      password: remotePassword.value }, Boolean(omsRemoteConfig.value));
+    remotePassword.value = "";
+    await loadOmsRemoteConfig();
+    commonUtil.showToast(translate("Sim Routing credentials saved in OMS"));
+  } catch (error) { fail(error); }
+  finally { isSavingRemote.value = false; }
 }
 
-// Save in OMS and test connection
-async function saveAndTestRemoteAuth() {
-  isValidating.value = true;
+async function testRemoteConnection() {
+  if (!canTestRemote.value) return;
+  isTestingConnection.value = true;
+  actionError.value = "";
+  connectionCheckStatus.value = "idle";
+  completedStepIds.value = completedStepIds.value.filter(id => id !== "backend-connection");
+  delete stepStatus.value["backend-connection"];
   try {
-    if (remoteApiKey.value) {
-      localStorage.setItem("sim_api_key", remoteApiKey.value);
-    }
-    // 1. Save config in OMS SystemMessageRemote
-    await api({
-      url: "order-routing/sim-remote",
-      method: "POST",
-      data: {
-        sendUrl: remoteSendUrl.value,
-        apiKey: remoteApiKey.value
-      }
-    });
-
-    // 2. Test live connection from OMS to Sim-Routing
-    const testResp: any = await api({
-      url: "order-routing/sim-remote/test",
-      method: "POST"
-    });
-
-    if (testResp?.data?.connected) {
-      if (remoteApiKey.value) localStorage.setItem("sim_api_key", remoteApiKey.value);
-      handshakeResult.value = testResp.data;
-      remoteAuthVerified.value = true;
-      markStepComplete("backend-connection");
-      stepStatus.value["backend-connection"] = { badge: "Connected", badgeColor: "success" };
-      await loadOmsRemoteConfig();
-      commonUtil.showToast(translate("Successfully connected with Sim Routing"));
-    } else {
-      throw new Error(testResp?.data?.message || "Connection failed");
-    }
-  } catch (error: any) {
-    remoteAuthVerified.value = false;
-    commonUtil.showToast(translate("Remote connection failed"));
-  } finally {
-    isValidating.value = false;
-  }
+    const count = await checkSimulationRemoteConnection();
+    if (!mounted) return;
+    connectionCheckStatus.value = "success";
+    connectionCheckMessage.value = translate("Connected through Main OMS. {count} datastores found.").replace("{count}", String(count));
+    markStepComplete("backend-connection", "Connected");
+    await loadDatastores();
+  } catch (error) {
+    connectionCheckStatus.value = "error";
+    connectionCheckMessage.value = simulationSetupError(error);
+    stepStatus.value["backend-connection"] = { badge: "Check failed", badgeColor: "danger" };
+  } finally { isTestingConnection.value = false; }
 }
 
-// 2. Replica check
-async function verifyReplica() {
-  isValidating.value = true;
+async function loadDatastores() {
+  actionError.value = "";
   try {
-    // Check OMS connection
-    const resp: any = await api({
-      url: "order-routing/sim-remote/test",
-      method: "POST"
-    });
-    if (resp?.data?.connected) {
-      replicaVerified.value = true;
-      markStepComplete("prod-source");
-      stepStatus.value["prod-source"] = { badge: "Verified", badgeColor: "success" };
-      commonUtil.showToast(translate("prod-source replica verified"));
-    } else {
-      throw new Error(resp?.data?.message || "Replica unreachable");
+    datastores.value = await listSimDatastores();
+    const saved = sessionStorage.getItem(storageKey);
+    const savedRun = saved ? JSON.parse(saved) : null;
+    if (!activeDatastoreId.value && savedRun?.datastoreId && visibleDatastores.value.some(d => d.simDatastoreId === savedRun.datastoreId)) {
+      await chooseDatastore(savedRun.datastoreId, savedRun);
+    } else if (activeDatastoreId.value) {
+      await refreshReadiness();
     }
-  } catch (error: any) {
-    commonUtil.showToast(translate("Failed to verify replica: " + (error?.message || error)));
-  } finally {
-    isValidating.value = false;
-  }
+  } catch (error) { fail(error); }
 }
 
-// 3. Provision datastore
+async function selectDatastore(id: string) {
+  if (id) await chooseDatastore(id);
+}
+
+async function chooseDatastore(id: string, savedRun?: Record<string, string>) {
+  const version = ++selectionVersion;
+  actionError.value = "";
+  try {
+    const datastore = await getSimDatastore(id);
+    if (version !== selectionVersion || !mounted) return;
+    clearStepsFrom("datastore-select");
+    activeDatastoreId.value = id;
+    selectedDatastore.value = datastore;
+    fillId.value = savedRun?.fillId || "";
+    fillStatus.value = "";
+    fillTasks.value = [];
+    fillCompleted.value = datastore.statusId === "SIMDS_READY";
+    fillMetrics.value = { completeTasks: 0, failedTasks: 0, totalTasks: 0, rowsWritten: 0 };
+    isOpen.value = false;
+    routingGroups.value = [];
+    totalGroupCount.value = 0;
+    groupPageIndex.value = 0;
+    selectedGroupId.value = "";
+    groupValidity.value = null;
+    createdVariationId.value = "";
+    includeVariation.value = false;
+    simulationId.value = "";
+    simulationStatus.value = "";
+    simulation.value = null;
+    simulationVariants.value = [];
+    markStepComplete("datastore-select", "Selected");
+    if (fillCompleted.value) {
+      markStepComplete("data-fill", "Ready copy");
+      markStepComplete("readiness-gate", "Ready");
+    }
+    if (savedRun?.groupId) selectedGroupId.value = savedRun.groupId;
+    if (savedRun?.variationId) createdVariationId.value = savedRun.variationId;
+    if (savedRun?.simulationId) simulationId.value = savedRun.simulationId;
+    rememberRun();
+    if (fillId.value && !fillCompleted.value) await refreshFillOnce();
+    if (simulationId.value) await refreshSimulationOnce();
+  } catch (error) { fail(error); }
+}
+
 async function provisionDatastore() {
   isProvisioning.value = true;
+  actionError.value = "";
   try {
-    const resp = await simApi({
-      url: "sim-routing/datastores",
-      method: "POST",
-      data: {
-        displayName: newDatastoreDescription.value || "Baseline Simulation Snapshot",
-        description: newDatastoreDescription.value || "Baseline Simulation Snapshot"
-      }
-    });
-    if (resp?.data?.simDatastoreId) {
-      activeDatastoreId.value = resp.data.simDatastoreId;
-      activeDatastoreStatus.value = resp.data.statusId || "SIMDS_CREATED";
-      markStepComplete("datastore-select");
-      stepStatus.value["datastore-select"] = {
-        badge: `m4sim_${resp.data.simDatastoreId}`,
-        badgeColor: "success"
-      };
-      commonUtil.showToast(translate("Provisioned datastore schema"));
-    } else {
-      throw new Error(resp?.data?.errors || "Failed to create datastore");
+    const id = await createSimDatastore(newDatastoreDescription.value.trim());
+    datastores.value = await listSimDatastores();
+    await chooseDatastore(id);
+  } catch (error) { fail(error); }
+  finally { isProvisioning.value = false; }
+}
+
+async function confirmDeleteDatastore() {
+  const target = deleteTarget.value;
+  if (!target || busy.value || isOpen.value) return;
+  isDeleting.value = true;
+  actionError.value = "";
+  try {
+    await deleteSimDatastore(target.simDatastoreId);
+    datastores.value = await listSimDatastores();
+    if (activeDatastoreId.value === target.simDatastoreId) {
+      ++selectionVersion;
+      clearStepsFrom("datastore-select");
+      activeDatastoreId.value = "";
+      selectedDatastore.value = null;
+      fillId.value = "";
+      fillStatus.value = "";
+      fillTasks.value = [];
+      fillCompleted.value = false;
+      isOpen.value = false;
+      routingGroups.value = [];
+      selectedGroupId.value = "";
+      groupValidity.value = null;
+      createdVariationId.value = "";
+      simulationId.value = "";
+      simulationStatus.value = "";
+      sessionStorage.removeItem(storageKey);
     }
-  } catch (error: any) {
-    commonUtil.showToast(translate("Failed to provision datastore: " + (error?.message || error)));
-  } finally {
-    isProvisioning.value = false;
+    commonUtil.showToast(translate("Datastore database deleted"));
+  } catch (error) { fail(error); }
+  finally { isDeleting.value = false; }
+}
+
+async function refreshFillOnce() {
+  if (!activeDatastoreId.value || !fillId.value) return;
+  const progress = await getSimFill(activeDatastoreId.value, fillId.value);
+  fillStatus.value = progress.statusId;
+  fillTasks.value = progress.tasks || [];
+  const counts = progress.taskCounts || {};
+  const total = Object.values(counts).reduce((sum, count) => sum + Number(count || 0), 0);
+  fillMetrics.value = {
+    completeTasks: Number(counts.SIMDSFS_COMPLETE || 0),
+    failedTasks: Number(counts.SIMDSFS_FAILED || 0),
+    totalTasks: total || fillMetrics.value.totalTasks,
+    rowsWritten: Number(progress.rowsWritten || 0),
+  };
+  if (progress.statusId === "SIMDSF_COMPLETE") {
+    fillCompleted.value = true;
+    markStepComplete("data-fill");
+    await refreshReadiness();
+  } else if (progress.statusId === "SIMDSF_FAILED") {
+    throw new Error(translate(fillTasks.value.some(task => task.statusId === "SIMDSFS_FAILED")
+      ? "Data copy stopped. Review the failed task below."
+      : "Data copy stopped. Task details are not available from Sim Routing."));
+  } else if (progress.statusId === "SIMDSF_CANCELLED") {
+    throw new Error(translate("Data copy was cancelled."));
   }
 }
 
-// 4. Data fill
 async function startDataFill() {
-  if (!activeDatastoreId.value) return;
+  if (!activeDatastoreId.value || !isOpen.value || selectedDatastore.value?.statusId !== "SIMDS_CREATED") return;
   isFilling.value = true;
-  fillProgressText.value = translate("Submitting data copy DAG...");
-  fillProgressFraction.value = 0.1;
-
+  actionError.value = "";
   try {
-    // 1. Submit fill job
-    const fillResp = await simApi({
-      url: `sim-routing/datastores/${activeDatastoreId.value}/fill`,
-      method: "POST"
-    });
-    const fillRunId = fillResp?.data?.runWorkEffortId;
-    if (!fillRunId) {
-      throw new Error(fillResp?.data?.errors || "Failed to submit fill DAG");
-    }
+    const openedName = await openSimDatastore(activeDatastoreId.value);
+    if (openedName !== selectedDatastore.value?.datastoreName) throw new Error("Sim Routing opened a different datastore.");
+    const submitted = await startSimFill(activeDatastoreId.value);
+    fillId.value = submitted.fillId;
+    fillMetrics.value.totalTasks = submitted.taskCount;
+    rememberRun();
+    await waitForFill();
+  } catch (error) { fail(error); }
+  finally { isFilling.value = false; }
+}
 
-    fillProgressText.value = translate("Running 5-step DAG ingestion...");
-    fillProgressFraction.value = 0.3;
+async function pollFill() {
+  if (!fillId.value) return;
+  isFilling.value = true;
+  actionError.value = "";
+  try { await waitForFill(); }
+  catch (error) { fail(error); }
+  finally { isFilling.value = false; }
+}
 
-    // 2. Poll and tick until complete
-    let attempts = 0;
-    while (attempts < 20) {
-      attempts++;
-      // Trigger a tick to advance ready tasks immediately
-      try {
-        await simApi({
-          url: `sim-routing/datastores/${activeDatastoreId.value}/fill/tick`,
-          method: "POST"
-        });
-      } catch (_) {}
-
-      // Check progress
-      const progResp = await simApi({
-        url: `sim-routing/datastores/${activeDatastoreId.value}/fill/${fillRunId}`,
-        method: "GET"
-      });
-      const fillData = progResp?.data?.fill;
-      const statusId = fillData?.statusId;
-      const completeTasks = fillData?.taskCounts?.SIMDSFS_COMPLETE || 0;
-      const runningTasks = fillData?.taskCounts?.SIMDSFS_RUNNING || 0;
-      const pendingTasks = fillData?.taskCounts?.SIMDSFS_PENDING || 0;
-      const totalTasks = fillData?.taskCount || 31;
-
-      fillMetrics.value.completeTasks = completeTasks;
-      fillMetrics.value.runningTasks = runningTasks;
-      fillMetrics.value.pendingTasks = pendingTasks;
-      fillMetrics.value.totalTasks = totalTasks;
-      if (fillData?.rowsWritten != null) fillMetrics.value.rowsWritten = fillData.rowsWritten;
-      if (fillData?.batchesSent != null) fillMetrics.value.batchesSent = fillData.batchesSent;
-
-      if (totalTasks > 0) {
-        fillProgressFraction.value = Math.max(0.1, Math.min(1.0, completeTasks / totalTasks));
-      }
-
-      if (statusId === "SIMDSF_COMPLETE" || completeTasks >= totalTasks) {
-        break;
-      }
-      if (statusId === "SIMDSF_FAILED") {
-        throw new Error("Fill DAG execution failed in backend");
-      }
-      await new Promise(r => setTimeout(r, 1000));
-    }
-
-    fillProgressFraction.value = 1.0;
-    fillCompleted.value = true;
-    fillProgressText.value = translate("Ingestion complete (All tasks copied)");
-    markStepComplete("data-fill");
-    stepStatus.value["data-fill"] = { badge: "Complete", badgeColor: "success" };
-    commonUtil.showToast(translate("Data fill DAG completed successfully"));
-  } catch (error: any) {
-    // If background worker already marked datastore or ready
-    fillProgressFraction.value = 1.0;
-    fillCompleted.value = true;
-    fillProgressText.value = translate("Ingestion completed");
-    markStepComplete("data-fill");
-    stepStatus.value["data-fill"] = { badge: "Complete", badgeColor: "success" };
-  } finally {
-    isFilling.value = false;
+async function waitForFill() {
+  const expectedId = fillId.value;
+  const version = selectionVersion;
+  while (mounted && fillId.value === expectedId && selectionVersion === version) {
+    await refreshFillOnce();
+    if (fillCompleted.value) return;
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 }
 
-// 5. Readiness check
-async function validateReadiness() {
+async function refreshReadiness() {
   if (!activeDatastoreId.value) return;
-  isValidating.value = true;
+  actionError.value = "";
   try {
-    await simApi({
-      url: `sim-routing/datastores/${activeDatastoreId.value}/ready`,
-      method: "POST"
-    });
-    readinessPassed.value = true;
-    markStepComplete("readiness-gate");
-    stepStatus.value["readiness-gate"] = { badge: "Ready", badgeColor: "success" };
-    commonUtil.showToast(translate("Datastore marked ready"));
-  } catch (error: any) {
-    // If already marked ready
-    readinessPassed.value = true;
-    markStepComplete("readiness-gate");
-    stepStatus.value["readiness-gate"] = { badge: "Ready", badgeColor: "success" };
-  } finally {
-    isValidating.value = false;
-  }
+    selectedDatastore.value = await getSimDatastore(activeDatastoreId.value);
+    if (readinessPassed.value) {
+      fillCompleted.value = true;
+      markStepComplete("data-fill", "Ready copy");
+      markStepComplete("readiness-gate", "Ready");
+    } else {
+      clearStepsFrom("readiness-gate");
+      groupValidity.value = null;
+    }
+  } catch (error) { fail(error); }
 }
 
-// 6. Open datastore
 async function openDatastore() {
-  if (!activeDatastoreId.value) return;
+  if (!activeDatastoreId.value || !["SIMDS_CREATED", "SIMDS_READY"].includes(selectedDatastore.value?.statusId || "")) return;
   isOpening.value = true;
+  actionError.value = "";
   try {
-    await simApi({
-      url: `sim-routing/datastores/${activeDatastoreId.value}/open`,
-      method: "POST"
-    });
+    const openedName = await openSimDatastore(activeDatastoreId.value);
+    if (openedName !== selectedDatastore.value?.datastoreName) throw new Error("Sim Routing opened a different datastore.");
     isOpen.value = true;
-    markStepComplete("open-datastore");
-    stepStatus.value["open-datastore"] = { badge: `m4sim_${activeDatastoreId.value} (Active)`, badgeColor: "success" };
-    commonUtil.showToast(translate("Datastore opened for simulation"));
-  } catch (error: any) {
-    commonUtil.showToast(translate("Failed to open datastore: " + (error?.message || error)));
-  } finally {
-    isOpening.value = false;
-  }
+    markStepComplete("open-datastore", "Opened");
+    if (readinessPassed.value) await fetchRoutingBaseline();
+  } catch (error) { fail(error); }
+  finally { isOpening.value = false; }
 }
 
-// 7. Routing baseline
 async function fetchRoutingBaseline() {
-  isValidating.value = true;
+  if (!isOpen.value) return;
+  isLoadingGroups.value = true;
+  actionError.value = "";
   try {
-    const resp = await simApi({
-      url: "sim-routing/groups",
-      method: "GET"
-    });
-    const list = resp?.data?.groupList || (Array.isArray(resp?.data) ? resp.data : []);
-    if (list.length > 0) {
-      routingGroups.value = list;
-    } else {
-      routingGroups.value = [{ routingGroupId: "MORNING_ORDER_GROUP", groupName: "Morning order routing group", statusId: "ROUTING_ACTIVE" }];
+    const page = await listSimRoutingGroups(0);
+    routingGroups.value = page.groups;
+    totalGroupCount.value = page.totalCount;
+    groupPageIndex.value = 0;
+    if (selectedGroupId.value && !routingGroups.value.some(group => group.routingGroupId === selectedGroupId.value)) {
+      selectedGroupId.value = "";
+      groupValidity.value = null;
     }
-    markStepComplete("routing-baseline");
-    stepStatus.value["routing-baseline"] = { badge: `${routingGroups.value.length} Loaded`, badgeColor: "success" };
-  } catch (error: any) {
-    commonUtil.showToast(translate("Failed to fetch routing baseline: " + (error?.message || error)));
-  } finally {
-    isValidating.value = false;
-  }
+  } catch (error) { fail(error); }
+  finally { isLoadingGroups.value = false; }
 }
 
-// 8. Create variation
+async function loadMoreRoutingGroups() {
+  if (!isOpen.value || routingGroups.value.length >= totalGroupCount.value) return;
+  isLoadingGroups.value = true;
+  actionError.value = "";
+  try {
+    const nextPage = groupPageIndex.value + 1;
+    const page = await listSimRoutingGroups(nextPage);
+    routingGroups.value.push(...page.groups);
+    totalGroupCount.value = page.totalCount;
+    groupPageIndex.value = nextPage;
+  } catch (error) { fail(error); }
+  finally { isLoadingGroups.value = false; }
+}
+
+function selectGroup(id: string) {
+  selectedGroupId.value = id;
+  groupValidity.value = null;
+  clearStepsFrom("routing-baseline");
+  createdVariationId.value = "";
+  includeVariation.value = false;
+  simulationId.value = "";
+  simulationStatus.value = "";
+  rememberRun();
+}
+
+async function validateSelectedGroup() {
+  if (!selectedGroupId.value || !isOpen.value) return;
+  isValidatingGroup.value = true;
+  actionError.value = "";
+  clearStepsFrom("routing-baseline");
+  try {
+    groupValidity.value = await validateSimRoutingGroup(selectedGroupId.value);
+    if (groupValidity.value.verdict === "VALID") markStepComplete("routing-baseline", "Valid");
+    else actionError.value = translate("This group has unresolved references in the datastore. Choose another group or repair the copy before running.");
+    rememberRun();
+  } catch (error) { fail(error); }
+  finally { isValidatingGroup.value = false; }
+}
+
 async function createVariation() {
+  if (!baselineValid.value || !variationName.value.trim()) return;
   isCloning.value = true;
+  actionError.value = "";
   try {
-    const baseGroupId = routingGroups.value[0]?.routingGroupId || "MORNING_ORDER_GROUP";
-    const resp = await simApi({
-      url: `sim-routing/groups/${baseGroupId}/variations`,
-      method: "POST",
-      data: { variationName: variationName.value }
-    });
-    if (resp?.data?.variationGroupId) {
-      createdVariationId.value = resp.data.variationGroupId;
-      markStepComplete("create-variation");
-      stepStatus.value["create-variation"] = { badge: resp.data.variationGroupId, badgeColor: "success" };
-      commonUtil.showToast(translate("Cloned routing variation successfully"));
-    } else {
-      throw new Error(resp?.data?.errors || "Failed to clone variation");
-    }
-  } catch (error: any) {
-    commonUtil.showToast(translate("Variation clone note: " + (error?.message || error)));
-    createdVariationId.value = "VAR_" + Date.now().toString().slice(-5);
-    markStepComplete("create-variation");
-    stepStatus.value["create-variation"] = { badge: createdVariationId.value, badgeColor: "success" };
-  } finally {
-    isCloning.value = false;
-  }
+    createdVariationId.value = await cloneSimVariation(selectedGroupId.value, variationName.value.trim());
+    markStepComplete("create-variation", "Cloned");
+    rememberRun();
+  } catch (error) { fail(error); }
+  finally { isCloning.value = false; }
 }
 
-// 9. Launch simulation
+async function refreshSimulationOnce() {
+  if (!simulationId.value) return;
+  const result = await getSimRun(simulationId.value);
+  simulation.value = result.simulation;
+  simulationVariants.value = result.variants;
+  simulationStatus.value = result.simulation.statusId;
+  if (result.simulation.statusId === "BRSIM_COMPLETE") markStepComplete("execute-simulation");
+  else if (result.simulation.statusId === "BRSIM_FAILED") throw new Error(`Simulation ${simulationId.value} failed. Check the run record in Sim Routing.`);
+}
+
 async function launchSimulation() {
+  if (!baselineValid.value || !isOpen.value || simulationId.value) return;
   isSimulating.value = true;
-  simulationStatusText.value = translate("Submitting comparative simulation batch...");
-
+  actionError.value = "";
   try {
-    const baseGroupId = routingGroups.value[0]?.routingGroupId || "MORNING_ORDER_GROUP";
-    const groupIdsToRun = [baseGroupId];
-    if (createdVariationId.value && createdVariationId.value !== baseGroupId) {
-      groupIdsToRun.push(createdVariationId.value);
-    }
-    const resp = await simApi({
-      url: "sim-routing/simulations",
-      method: "POST",
-      data: { routingGroupIds: groupIdsToRun }
-    });
+    const ids = [selectedGroupId.value];
+    if (includeVariation.value && createdVariationId.value) ids.push(createdVariationId.value);
+    const submitted = await submitSimRun(ids);
+    simulationId.value = submitted.simulationId;
+    simulationStatus.value = "BRSIM_QUEUED";
+    rememberRun();
+    await waitForSimulation();
+  } catch (error) { fail(error); }
+  finally { isSimulating.value = false; }
+}
 
-    if (resp?.data?.simulationId) {
-      simulationId.value = resp.data.simulationId;
-      simulationStatusText.value = translate("Simulation running...");
+async function pollSimulation() {
+  if (!simulationId.value) return;
+  isSimulating.value = true;
+  actionError.value = "";
+  try { await waitForSimulation(); }
+  catch (error) { fail(error); }
+  finally { isSimulating.value = false; }
+}
 
-      // Poll until complete
-      let attempts = 0;
-      while (attempts < 15) {
-        attempts++;
-        const pollResp = await simApi({
-          url: `sim-routing/simulations/${resp.data.simulationId}`,
-          method: "GET"
-        });
-        const sim = pollResp?.data?.simulation;
-        if (sim?.statusId === "BRSIM_COMPLETE") {
-          break;
-        }
-        await new Promise(r => setTimeout(r, 1000));
-      }
-
-      simulationFinished.value = true;
-      simulationStatusText.value = translate("Simulation finished successfully");
-      markStepComplete("execute-simulation");
-      stepStatus.value["execute-simulation"] = { badge: "Complete", badgeColor: "success" };
-      commonUtil.showToast(translate("Simulation completed"));
-    } else {
-      throw new Error(resp?.data?.errors || "Failed to launch simulation");
-    }
-  } catch (error: any) {
-    commonUtil.showToast(translate("Simulation error: " + (error?.message || error)));
-  } finally {
-    isSimulating.value = false;
+async function waitForSimulation() {
+  const expectedId = simulationId.value;
+  const version = selectionVersion;
+  while (mounted && simulationId.value === expectedId && selectionVersion === version) {
+    await refreshSimulationOnce();
+    if (simulationFinished.value) return;
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
 }
 
-function viewSimulationHistory() {
-  router.push("/simulate");
-}
-
-onMounted(() => {
-  loadOmsRemoteConfig();
-});
+onMounted(() => { mounted = true; loadOmsRemoteConfig(); });
+onUnmounted(() => { mounted = false; });
 </script>
 
 <style scoped>
-.sim-setup-wizard {
-  display: flex;
-  align-items: flex-start;
-  gap: 48px;
-  padding: 24px 20px 48px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.wizard-steps {
-  flex: 0 0 360px;
-  max-width: 360px;
-  width: 100%;
-}
-
-.wizard-task {
-  flex: 1 1 540px;
-  max-width: 680px;
-  width: 100%;
-}
-
-.step-description {
-  color: var(--ion-color-medium);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 16px;
-}
-
-.task-content {
-  margin: 16px 0;
-}
-
-.action-row {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.card-navigation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e0e0e0));
-  padding: 16px;
-  margin-top: 12px;
-}
-
-.telemetry-dashboard {
-  background: var(--ion-color-step-50, var(--ion-color-light, #f8f9fa));
-  border: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e5e7eb));
-  border-radius: 8px;
-  padding: 16px;
-  margin: 16px 0;
-}
-
-.telemetry-dashboard h4 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--ion-color-medium, #989aa2);
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.metric-card {
-  background: var(--ion-item-background, var(--ion-card-background, #ffffff));
-  border: 1px solid var(--ion-border-color, var(--ion-color-step-150, #e5e7eb));
-  border-radius: 6px;
-  padding: 12px;
-  text-align: center;
-}
-
-.metric-label {
-  font-size: 11px;
-  color: var(--ion-color-medium, #989aa2);
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.metric-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ion-text-color, #111827);
-}
-
-.success-text {
-  color: var(--ion-color-success, #2dd36f);
-}
-
-.dag-phases {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.phase-chip {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  background: var(--ion-color-step-150, #e5e7eb);
-  color: var(--ion-color-medium, #989aa2);
-  transition: all 0.3s ease;
-}
-
-.phase-chip.done {
-  background: rgba(45, 211, 111, 0.18);
-  color: var(--ion-color-success, #2dd36f);
-  font-weight: 600;
-}
-
-.phase-chip.active {
-  background: rgba(255, 196, 9, 0.22);
-  color: var(--ion-color-warning, #ffc409);
-  font-weight: 600;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-@media (max-width: 900px) {
-  .sim-setup-wizard {
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px 12px;
-  }
-
-  .wizard-steps,
-  .wizard-task {
-    max-width: none;
-    width: 100%;
-  }
-
-  .wizard-task {
-    order: 1;
-  }
-
-  .wizard-steps {
-    order: 2;
-  }
-}
+.sim-setup-wizard { display: flex; align-items: flex-start; gap: 48px; padding: 24px 20px 48px; max-width: 1200px; margin: 0 auto; }
+.wizard-steps { flex: 0 0 360px; max-width: 360px; width: 100%; }
+.wizard-task { flex: 1 1 540px; max-width: 680px; width: 100%; }
+.step-description { color: var(--ion-color-medium); font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+.task-content { margin: 16px 0; }
+.action-row { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.feedback { margin: 12px 0; color: var(--ion-color-medium); font-size: 14px; }
+.success { color: var(--ion-color-success); }
+.error { color: var(--ion-color-danger); }
+.results { margin-top: 24px; padding: 16px; border: 1px solid var(--ion-color-medium); border-radius: 6px; }
+.card-navigation { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--ion-color-step-150, #e0e0e0); padding: 16px; margin-top: 12px; }
+@media (max-width: 850px) { .sim-setup-wizard { flex-direction: column; gap: 12px; } .wizard-steps, .wizard-task { flex: auto; max-width: 100%; } }
 </style>

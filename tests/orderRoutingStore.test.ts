@@ -29,9 +29,6 @@ vi.mock("@/store/product", () => ({
   productStore: vi.fn(() => ({ fetchProducts: vi.fn() }))
 }));
 
-vi.mock("@/utils/simConfig", () => ({
-  simApiBaseUrl: () => "https://sim.example/rest/s1/"
-}));
 
 const mockedApi = vi.mocked(api);
 

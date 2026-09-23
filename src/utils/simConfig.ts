@@ -1,6 +1,5 @@
-// Pure deployment-config resolvers for the simulation and assistant backends.
-// Every optional backend is fail closed: callers must opt in explicitly and provide a
-// transport-safe URL before a request can be constructed.
+// Pure deployment-config resolvers. Simulation uses the authenticated Main OMS facade;
+// only the optional assistant needs a browser-visible service URL.
 
 type Env = Record<string, any>;
 
@@ -73,37 +72,12 @@ export function isTestDriveEnabled(env: Env = import.meta.env): boolean {
   return testDriveConfigError(env) === null;
 }
 
-/** Product store id scoping simulation routing-group + reference-data queries. */
-export function simProductStoreId(env: Env = import.meta.env): string {
-  return ((env && env.VITE_SIM_PRODUCT_STORE_ID) || "").trim();
-}
-
-/** Explain why simulation cannot be enabled for this deployment. */
+/** Simulation is exposed only when this app deployment opts in. Main OMS owns remote auth. */
 export function simulationConfigError(env: Env = import.meta.env): string | null {
   if (!isExplicitlyEnabled(env?.VITE_SIMULATION_ENABLED)) {
     return "VITE_SIMULATION_ENABLED must be set to true.";
   }
-  if (!isExplicitlyEnabled(env?.VITE_SIM_ALLOW_OMS_BEARER)) {
-    return "VITE_SIM_ALLOW_OMS_BEARER must be set to true after verifying that the configured simulation origin accepts the OMS JWT.";
-  }
-  try {
-    validatedServiceOrigin(env?.VITE_SIM_URL, "VITE_SIM_URL");
-    return null;
-  } catch (error) {
-    return error instanceof Error ? error.message : "VITE_SIM_URL is invalid.";
-  }
-}
-
-/** Bare origin of the explicitly trusted simulation Moqui. Throws before any request when disabled. */
-export function simBaseURL(env: Env = import.meta.env): string {
-  const error = simulationConfigError(env);
-  if (error) throw new Error(`Simulation is unavailable: ${error}`);
-  return validatedServiceOrigin(env?.VITE_SIM_URL, "VITE_SIM_URL");
-}
-
-/** Base URL shared by all simulation REST APIs: {VITE_SIM_URL}/rest/s1/ */
-export function simApiBaseUrl(env: Env = import.meta.env): string {
-  return `${simBaseURL(env)}/rest/s1/`;
+  return null;
 }
 
 /** Whether the brokering Simulation tab/feature is safe to expose for this deployment. */

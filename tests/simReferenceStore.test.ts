@@ -1,141 +1,106 @@
-// tests/simReferenceStore.test.ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 
-const simApi = vi.fn();
+const api = vi.fn();
 vi.mock("@common", () => ({
-  commonUtil: {
-    hasError: (resp: any) => resp?._error === true,
-  },
+  api: (...args: any[]) => api(...args),
+  commonUtil: { hasError: (resp: any) => resp?._error === true },
   logger: { error: () => {}, warn: () => {} },
 }));
-vi.mock("@/services/SimApiService", () => ({ simApi: (...a: any[]) => simApi(...a) }));
 
-// Relative import for the SUT (matches the repo's existing vitest store-test pattern).
 import { useSimReferenceStore } from "../src/store/simReferenceStore";
 
-// Representative per-endpoint responses, dispatched by request url.
-function wireApi() {
-  simApi.mockImplementation((config: any) => {
-    const url: string = config.url;
-    if (url === "order-routing/facilities") {
-      return Promise.resolve({ data: [
-        { facilityId: "F1", parentTypeId: "VIRTUAL_FACILITY", facilityName: "Virtual" },
-        { facilityId: "F2", parentTypeId: "WAREHOUSE", facilityName: "Warehouse" },
-      ] });
-    }
-    if (url.endsWith("/shippingMethods")) {
-      return Promise.resolve({ data: [{ shipmentMethodTypeId: "SM1", description: "Ground" }] });
-    }
-    if (url.endsWith("/facilityGroups")) {
-      return Promise.resolve({ data: [{ facilityGroupId: "FG1", facilityGroupName: "Group One" }] });
-    }
-    if (url === "order-routing/omsenums") {
-      return Promise.resolve({ data: [
-        { enumId: "WEB", enumTypeId: "ORDER_SALES_CHANNEL", description: "Web" },
-        { enumId: "POS", enumTypeId: "ORDER_SALES_CHANNEL", description: "POS" },
-      ] });
-    }
-    return Promise.resolve({ data: [] });
-  });
+function references(facilityId = "F1") {
+  return { data: {
+    facilities: [
+      { facilityId, parentTypeId: "VIRTUAL_FACILITY", facilityName: "Virtual" },
+      { facilityId: "F2", parentTypeId: "WAREHOUSE", facilityName: "Warehouse" },
+    ],
+    shippingMethods: [{ shipmentMethodTypeId: "SM1", description: "Ground" }],
+    facilityGroups: [{ facilityGroupId: "FG1", facilityGroupName: "Group One" }],
+    salesChannels: [
+      { enumId: "WEB", enumTypeId: "ORDER_SALES_CHANNEL", description: "Web" },
+      { enumId: "POS", enumTypeId: "ORDER_SALES_CHANNEL", description: "POS" },
+    ],
+  } };
 }
 
 describe("simReferenceStore", () => {
-  beforeEach(() => { setActivePinia(createPinia()); simApi.mockReset(); wireApi(); });
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    api.mockReset();
+    api.mockResolvedValue(references());
+  });
 
-  it("fetches every reference slice from the sim Moqui, never the OMS default", async () => {
-    const s = useSimReferenceStore();
-    await s.fetchReferenceData({ productStoreId: "STORE" });
+  it("loads every reference slice through one scoped Main OMS facade request", async () => {
+    const store = useSimReferenceStore();
+    expect(await store.fetchReferenceData({ productStoreId: "STORE" })).toBe(true);
 
-    expect(simApi).toHaveBeenCalledTimes(4);
-
-    // Sales channels keyed by enumId (what the editor's <ion-select> iterates).
-    expect(s.getSalesChannels).toEqual({
-      WEB: { enumId: "WEB", enumTypeId: "ORDER_SALES_CHANNEL", description: "Web" },
-      POS: { enumId: "POS", enumTypeId: "ORDER_SALES_CHANNEL", description: "POS" },
+    expect(api).toHaveBeenCalledOnce();
+    expect(api).toHaveBeenCalledWith({
+      url: "order-routing/simulation/references/STORE", method: "GET", signal: expect.any(AbortSignal),
     });
-    // Facilities keyed by id; virtual getter filters to VIRTUAL_FACILITY.
-    expect(Object.keys(s.getVirtualFacilities)).toEqual(["F1"]);
-    expect(s.getShippingMethods.SM1.description).toBe("Ground");
-    expect(s.getFacilityGroups.FG1.facilityGroupName).toBe("Group One");
+    expect(store.getSalesChannels.WEB.description).toBe("Web");
+    expect(Object.keys(store.getVirtualFacilities)).toEqual(["F1"]);
+    expect(store.getShippingMethods.SM1.description).toBe("Ground");
+    expect(store.getFacilityGroups.FG1.facilityGroupName).toBe("Group One");
   });
 
-  it("scopes the omsenums request to ORDER_SALES_CHANNEL + the product store", async () => {
-    const s = useSimReferenceStore();
-    await s.fetchReferenceData({ productStoreId: "STORE" });
-    const enumsCall = simApi.mock.calls.find((c) => c[0].url === "order-routing/omsenums");
-    expect(enumsCall?.[0].params).toMatchObject({ enumTypeId: "ORDER_SALES_CHANNEL", productStoreId: "STORE" });
+  it("caches complete data by store and refetches when forced or the store changes", async () => {
+    const store = useSimReferenceStore();
+    await store.fetchReferenceData({ productStoreId: "STORE" });
+    await store.fetchReferenceData({ productStoreId: "STORE" });
+    expect(api).toHaveBeenCalledOnce();
+
+    await store.fetchReferenceData({ productStoreId: "STORE", force: true });
+    await store.fetchReferenceData({ productStoreId: "OTHER" });
+    expect(api).toHaveBeenCalledTimes(3);
+    expect(api.mock.calls[2][0].url).toBe("order-routing/simulation/references/OTHER");
   });
 
-  it("caches by productStoreId: skips a redundant refetch, refetches on force or a changed store", async () => {
-    const s = useSimReferenceStore();
-    await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(simApi).toHaveBeenCalledTimes(4);
-
-    // Same store, already loaded -> no new requests.
-    await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(simApi).toHaveBeenCalledTimes(4);
-
-    // force -> refetch.
-    await s.fetchReferenceData({ productStoreId: "STORE", force: true });
-    expect(simApi).toHaveBeenCalledTimes(8);
-
-    // Different store -> refetch.
-    await s.fetchReferenceData({ productStoreId: "OTHER" });
-    expect(simApi).toHaveBeenCalledTimes(12);
+  it("caches a complete response even when the store has no facilities", async () => {
+    const store = useSimReferenceStore();
+    api.mockResolvedValue({ data: { ...references().data, facilities: [] } });
+    await store.fetchReferenceData({ productStoreId: "EMPTY" });
+    await store.fetchReferenceData({ productStoreId: "EMPTY" });
+    expect(store.loadState).toBe("ready");
+    expect(api).toHaveBeenCalledOnce();
   });
 
-  it("does NOT cache a partial failure: a failed slice leaves the store eligible for refetch", async () => {
-    const s = useSimReferenceStore();
-    // Facilities succeed but shipping methods reject (transient outage).
-    simApi.mockImplementation((config: any) => {
-      if (config.url.endsWith("/shippingMethods")) return Promise.reject(new Error("503"));
-      if (config.url === "order-routing/facilities") {
-        return Promise.resolve({ data: [{ facilityId: "F1", parentTypeId: "VIRTUAL_FACILITY" }] });
-      }
-      return Promise.resolve({ data: [] });
-    });
-    await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(s.facilities).toEqual({});
-    expect(s.getShippingMethods).toEqual({});
-    expect(s.loadState).toBe("error");
+  it("does not cache an incomplete response and retries on the next visit", async () => {
+    const store = useSimReferenceStore();
+    api.mockResolvedValueOnce({ data: { facilities: [] } });
+    expect(await store.fetchReferenceData({ productStoreId: "STORE" })).toBe(false);
+    expect(store.facilities).toEqual({});
+    expect(store.loadState).toBe("error");
 
-    // Next visit retries instead of serving the broken cache.
-    simApi.mockClear();
-    wireApi();
-    await s.fetchReferenceData({ productStoreId: "STORE" });
-    expect(simApi).toHaveBeenCalledTimes(4);
-    expect(s.getShippingMethods.SM1.description).toBe("Ground");
+    expect(await store.fetchReferenceData({ productStoreId: "STORE" })).toBe(true);
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(store.getShippingMethods.SM1.description).toBe("Ground");
   });
 
-  it("fails closed without issuing any unscoped request when productStoreId is missing", async () => {
-    const s = useSimReferenceStore();
-    await expect(s.fetchReferenceData({ productStoreId: "" })).resolves.toBe(false);
-    expect(simApi).not.toHaveBeenCalled();
-    expect(s.loadState).toBe("error");
+  it("rejects a missing store without issuing an unscoped request", async () => {
+    const store = useSimReferenceStore();
+    expect(await store.fetchReferenceData({ productStoreId: "" })).toBe(false);
+    expect(api).not.toHaveBeenCalled();
+    expect(store.loadState).toBe("error");
   });
 
   it("ignores an older store load that resolves after a newer one", async () => {
-    const s = useSimReferenceStore();
+    const store = useSimReferenceStore();
     let resolveOld!: (value: any) => void;
-    const oldFacilities = new Promise((resolve) => { resolveOld = resolve; });
-    let facilityCall = 0;
-    simApi.mockImplementation((config: any) => {
-      if (config.url === "order-routing/facilities") {
-        facilityCall += 1;
-        if (facilityCall === 1) return oldFacilities;
-        return Promise.resolve({ data: [{ facilityId: "NEW_F", parentTypeId: "VIRTUAL_FACILITY" }] });
-      }
-      return Promise.resolve({ data: [] });
-    });
+    const oldRequest = new Promise((resolve) => { resolveOld = resolve; });
+    api.mockImplementationOnce(() => oldRequest);
+    api.mockResolvedValueOnce(references("NEW_F"));
 
-    const oldLoad = s.fetchReferenceData({ productStoreId: "OLD" });
-    const newLoad = s.fetchReferenceData({ productStoreId: "NEW" });
-    await newLoad;
-    resolveOld({ data: [{ facilityId: "OLD_F", parentTypeId: "VIRTUAL_FACILITY" }] });
-    await oldLoad;
+    const oldLoad = store.fetchReferenceData({ productStoreId: "OLD" });
+    const newLoad = store.fetchReferenceData({ productStoreId: "NEW" });
+    expect(await newLoad).toBe(true);
+    resolveOld(references("OLD_F"));
+    expect(await oldLoad).toBe(false);
 
-    expect(s.productStoreId).toBe("NEW");
-    expect(Object.keys(s.facilities)).toEqual(["NEW_F"]);
+    expect(store.productStoreId).toBe("NEW");
+    expect(Object.keys(store.facilities)).toContain("NEW_F");
+    expect(Object.keys(store.facilities)).not.toContain("OLD_F");
   });
 });

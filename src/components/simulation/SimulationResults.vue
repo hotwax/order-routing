@@ -81,9 +81,9 @@
           </ion-item>
         </ion-list>
         <div v-if="rulesTotal > pageSize" class="item-pagination">
-          <ion-button fill="clear" :disabled="rulePageIndex === 0 || rulesLoading" @click="rulePageIndex--">{{ translate('Previous rules') }}</ion-button>
+          <ion-button fill="clear" :disabled="rulePageIndex === 0 || rulesLoading" @click="rulePageIndex--; loadRules()">{{ translate('Previous rules') }}</ion-button>
           <ion-note>{{ rulePageIndex * pageSize + 1 }}–{{ Math.min((rulePageIndex + 1) * pageSize, rulesTotal) }} / {{ rulesTotal }}</ion-note>
-          <ion-button fill="clear" :disabled="(rulePageIndex + 1) * pageSize >= rulesTotal || rulesLoading" @click="rulePageIndex++">{{ translate('Next rules') }}</ion-button>
+          <ion-button fill="clear" :disabled="(rulePageIndex + 1) * pageSize >= rulesTotal || rulesLoading" @click="rulePageIndex++; loadRules()">{{ translate('Next rules') }}</ion-button>
         </div>
 
         <h2>{{ translate('Order item outcomes') }}</h2>
@@ -109,9 +109,9 @@
           </ion-item>
         </ion-list>
         <div v-if="itemsTotal > pageSize" class="item-pagination">
-          <ion-button fill="clear" :disabled="pageIndex === 0 || itemsLoading" @click="pageIndex--">{{ translate('Previous') }}</ion-button>
+          <ion-button fill="clear" :disabled="pageIndex === 0 || itemsLoading" @click="pageIndex--; loadItems()">{{ translate('Previous') }}</ion-button>
           <ion-note>{{ pageIndex * pageSize + 1 }}–{{ Math.min((pageIndex + 1) * pageSize, itemsTotal) }} / {{ itemsTotal }}</ion-note>
-          <ion-button fill="clear" :disabled="(pageIndex + 1) * pageSize >= itemsTotal || itemsLoading" @click="pageIndex++">{{ translate('Next') }}</ion-button>
+          <ion-button fill="clear" :disabled="(pageIndex + 1) * pageSize >= itemsTotal || itemsLoading" @click="pageIndex++; loadItems()">{{ translate('Next') }}</ion-button>
         </div>
       </section>
     </template>
@@ -176,7 +176,6 @@ watch(completedRunKey, () => {
   pageIndex.value = 0;
   rulePageIndex.value = 0;
 }, { immediate: true });
-watch(selectedVariantSeqId, () => { pageIndex.value = 0; rulePageIndex.value = 0; });
 
 async function loadRules() {
   const simulationId = displayRun.value?.simulation?.simulationId;
@@ -199,7 +198,6 @@ async function loadRules() {
     if (generation === ruleRequestGeneration) rulesLoading.value = false;
   }
 }
-watch([completedRunKey, selectedVariantSeqId, rulePageIndex], loadRules, { immediate: true });
 
 async function loadItems() {
   const simulationId = displayRun.value?.simulation?.simulationId;
@@ -222,7 +220,21 @@ async function loadItems() {
     if (generation === requestGeneration) itemsLoading.value = false;
   }
 }
-watch([completedRunKey, selectedVariantSeqId, pageIndex], loadItems, { immediate: true });
+
+// Sim Routing intermittently fails when two reads overlap, so a run or variant change loads the
+// routing outcomes first and the item outcomes after, never both at once.
+let outcomesGeneration = 0;
+async function loadOutcomes() {
+  const generation = ++outcomesGeneration;
+  pageIndex.value = 0;
+  rulePageIndex.value = 0;
+  items.value = [];
+  itemsTotal.value = 0;
+  itemsLoading.value = Boolean(completedRunKey.value);
+  await loadRules();
+  if (generation === outcomesGeneration) await loadItems();
+}
+watch([completedRunKey, selectedVariantSeqId], loadOutcomes, { immediate: true });
 </script>
 
 <style scoped>

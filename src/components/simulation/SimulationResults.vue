@@ -73,8 +73,7 @@
           <ion-item v-for="rule in rules" :key="rule.ruleResultSeqId">
             <ion-label class="ion-text-wrap">
               <h3>{{ translate('Routing') }} {{ rule.orderRoutingId || rule.ruleResultSeqId }}</h3>
-              <p>{{ translate('Eligible') }}: {{ count(rule.eligibleEntryCount) }} ·
-                {{ translate('Attempted') }}: {{ count(rule.attemptedItemCount) }}</p>
+              <p><template v-if="rule.eligibleEntryCount != null">{{ translate('Eligible') }}: {{ count(rule.eligibleEntryCount) }} · </template>{{ translate('Attempted') }}: {{ count(rule.attemptedItemCount) }}</p>
               <p>{{ translate('Brokered') }}: {{ count(rule.brokeredItemCount) }} ·
                 {{ translate('Queued') }}: {{ count(rule.queuedItemCount) }}</p>
             </ion-label>

@@ -2,7 +2,6 @@ import { createApp } from "vue"
 import App from "./App.vue"
 import router from "./router";
 
-
 import { IonicVue } from "@ionic/vue";
 
 /* Core CSS required for Ionic components to work properly */
@@ -65,5 +64,9 @@ router.isReady().then(async () => {
     logger.error('[IndexedDB] Failed to open CommonDB', error)
   }
 
+  if (import.meta.env.DEV) {
+    const { tryDevAutoLogin } = await import('@common/dev/autoLogin');
+    await tryDevAutoLogin();
+  }
   app.mount("#app");
 });

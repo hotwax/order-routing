@@ -9,6 +9,7 @@ import { ideTraceVue } from 'chrome-ide-trace/vite'
 import { versionInfoUtil } from '../../common/utils/versionInfoUtil';
 import { VitePWA } from 'vite-plugin-pwa'
 import manifest from "./manifest.json"
+import { sharedDevEnvPlugin } from '../../common/vite/sharedDevEnv'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -20,7 +21,7 @@ export default defineConfig(({ mode }) => {
   build: {
     outDir: appBuild ? `dist/${appBuild}` : 'dist'
   },
-  plugins: [
+  plugins: [sharedDevEnvPlugin(),
     !process.env.VITEST && ideTraceVue(),
     vue(),
     legacy(),

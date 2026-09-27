@@ -2,7 +2,6 @@ import { createApp } from "vue"
 import App from "./App.vue"
 import router from "./router";
 
-
 import { IonicVue } from "@ionic/vue";
 
 /* Core CSS required for Ionic components to work properly */
@@ -72,6 +71,11 @@ router.isReady().then(async () => {
     await useUserStore().ensureInstanceScope({ refetch: useAuth().isAuthenticated.value })
   } catch (error) {
     logger.error('OMS Instance - Could not validate instance scope on hydrate', error)
+  }
+
+  if (import.meta.env.DEV) {
+    const { tryDevAutoLogin } = await import('@common/dev/autoLogin');
+    await tryDevAutoLogin();
   }
 
   app.mount("#app");

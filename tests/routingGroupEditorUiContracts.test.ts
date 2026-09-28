@@ -70,7 +70,7 @@ describe("routing group editor UI contracts", () => {
     expect(canvasSource).toContain('assertCurrentCircuitContext(circuitContext)');
     expect(editorSource).toContain('simulationWorking: cloneSnapshotValue(sim.working)');
     expect(editorSource).toContain('restoreObjectInPlace(sim.working, snap.simulationWorking)');
-    expect(editorSource).toContain('variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || "")');
+    expect(editorSource).toContain('variationId: String(group.value.variationGroupId || sim.working?.variationGroupId || "")');
     expect(editorSource).toContain('...buildRoutingAgentSnapshot(editorReferenceMaps.value)');
     expect(editorSource).toContain('if (isSandbox.value) return ""');
   });

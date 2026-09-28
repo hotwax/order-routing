@@ -1422,7 +1422,7 @@ async function buildCircuitDraftManifest() {
     assistantContext: isSandbox.value
       ? {
           mode: "variation",
-          variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || ""),
+          variationId: String(group.value.variationGroupId || sim.working?.variationGroupId || ""),
           routingGroupId: String(group.value.routingGroupId || routingGroupId.value || "")
         }
       : {

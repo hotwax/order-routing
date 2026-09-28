@@ -35,14 +35,14 @@ assert.ok(Array.isArray(payload), "toConfigPayload must return an array, not a b
 assert.deepStrictEqual(payload, [
     {
       routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
-      filters: [
+      orderFilters: [
         { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB_SALES_CHANNEL", sequenceNum: 3 },
         { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
       ],
       rules: [
         {
           ruleName: "Pick", statusId: "RULE_ACTIVE", sequenceNum: 1, assignmentEnumId: "ORA_SELECTED",
-          inventoryConditions: [
+          inventoryFilters: [
             { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 },
             { conditionTypeEnumId: "ENTCT_SORT_BY", fieldName: "distance", operator: null, fieldValue: null, sequenceNum: 1 },
           ],
@@ -58,7 +58,7 @@ assert.deepStrictEqual(payload, [
 const variationRoutings = [
   {
     orderRoutingId: "VM1_100008", routingName: "Standard", statusId: "ROUTING_ACTIVE", sequenceNum: 5,
-    filters: [
+    orderFilters: [
       // out of order on purpose -> must sort by sequenceNum
       { conditionSeqId: "07", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", operator: "not-equals", fieldValue: "_NA_", sequenceNum: 4 },
       { conditionSeqId: "06", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "salesChannelEnumId", operator: "equals", fieldValue: "WEB_SALES_CHANNEL", sequenceNum: 3 },
@@ -66,7 +66,7 @@ const variationRoutings = [
     rules: [
       {
         routingRuleId: "VM1_100524", ruleName: "Pick", statusId: "RULE_ACTIVE", sequenceNum: 1, assignmentEnumId: "ORA_SELECTED",
-        inventoryConditions: [
+        inventoryFilters: [
           { conditionSeqId: "01", conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "equals", fieldValue: "PICKUP", sequenceNum: 0 },
         ],
         actions: [{ actionSeqId: "01", actionTypeEnumId: "ORA_NEXT_RULE", actionValue: null }],
@@ -76,7 +76,7 @@ const variationRoutings = [
 ];
 
 const canvas = fromVariationRoutings(variationRoutings);
-// renamed collections + sorted + _excluded rewrite on the not-equals filter
+// preserved backend collection names + sorted + _excluded rewrite on the not-equals filter
 assert.strictEqual(canvas[0].orderFilters[0].fieldName, "salesChannelEnumId"); // seq 3 first
 assert.strictEqual(canvas[0].orderFilters[1].fieldName, "facilityId_excluded"); // not-equals -> _excluded
 assert.strictEqual(canvas[0].orderFilters[1].operator, "not-equals");
@@ -89,7 +89,7 @@ assert.strictEqual(canvas[0].rules[0].routingRuleId, "VM1_100524");
 
 // round-trip: fromVariationRoutings -> toConfigPayload strips the _excluded suffix back off
 const round = toConfigPayload(canvas);
-assert.strictEqual(round[0].filters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
+assert.strictEqual(round[0].orderFilters.find((f: any) => f.operator === "not-equals").fieldName, "facilityId");
 
 console.log("variationConfigAdapter tests passed");
 });

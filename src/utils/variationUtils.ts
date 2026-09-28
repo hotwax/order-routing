@@ -67,7 +67,7 @@ function ruleOut(r: any) {
     statusId: r.statusId,
     sequenceNum: r.sequenceNum ?? 0,
     assignmentEnumId: r.assignmentEnumId,
-    inventoryConditions: (r.inventoryFilters ?? []).map(conditionOut),
+    inventoryFilters: (r.inventoryFilters ?? []).map(conditionOut),
     actions: (r.actions ?? []).map((a: any) => ({ actionTypeEnumId: a.actionTypeEnumId, actionValue: a.actionValue ?? null })),
   };
 }
@@ -77,7 +77,7 @@ export function toConfigPayload(routings: any[]): any[] {
     routingName: rt.routingName,
     statusId: rt.statusId,
     sequenceNum: rt.sequenceNum ?? 0,
-    filters: (rt.orderFilters ?? []).map(conditionOut),
+    orderFilters: (rt.orderFilters ?? []).map(conditionOut),
     rules: (rt.rules ?? []).map(ruleOut),
   }));
 }
@@ -102,10 +102,10 @@ export function isEquivalentVariationConfig(leftGroup: any, rightGroup: any): bo
   const canonicalize = (group: any) => canonicalBySequence(toConfigPayload(group?.routings ?? []))
     .map((routing: any) => ({
       ...routing,
-      filters: canonicalBySequence(routing.filters),
+      orderFilters: canonicalBySequence(routing.orderFilters),
       rules: canonicalBySequence(routing.rules).map((rule: any) => ({
         ...rule,
-        inventoryConditions: canonicalBySequence(rule.inventoryConditions),
+        inventoryFilters: canonicalBySequence(rule.inventoryFilters),
         // Actions have no persisted sequence field and the editor stores them in a keyed map.
         actions: (rule.actions ?? []).slice().sort((left: any, right: any) =>
           JSON.stringify(left).localeCompare(JSON.stringify(right)))
@@ -133,7 +133,7 @@ function ruleIn(r: any) {
     statusId: r.statusId,
     sequenceNum: r.sequenceNum ?? 0,
     assignmentEnumId: r.assignmentEnumId,
-    inventoryFilters: bySeq((r.inventoryConditions ?? []).map(conditionIn)),
+    inventoryFilters: bySeq((r.inventoryFilters ?? []).map(conditionIn)),
     actions: (r.actions ?? []).map((a: any) => ({
       actionSeqId: a.actionSeqId, actionTypeEnumId: a.actionTypeEnumId, actionValue: a.actionValue ?? null,
     })),
@@ -146,7 +146,7 @@ export function fromVariationRoutings(routings: any[]): any[] {
     routingName: rt.routingName,
     statusId: rt.statusId,
     sequenceNum: rt.sequenceNum ?? 0,
-    orderFilters: bySeq((rt.filters ?? []).map(conditionIn)),
+    orderFilters: bySeq((rt.orderFilters ?? []).map(conditionIn)),
     rules: bySeq((rt.rules ?? []).map(ruleIn)),
   })));
 }

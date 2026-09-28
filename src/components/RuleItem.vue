@@ -148,7 +148,6 @@ const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
 
 const props = defineProps(["rule", "ruleIndex"])
-const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const total = computed(() => ruleStore.getTotalRulesCount)
 const configFacilities = computed(() => productStore.getConfigFacilities)
 const facilityGroups = computed(() => productStore.getFacilityGroups)

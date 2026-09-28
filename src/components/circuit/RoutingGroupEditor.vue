@@ -792,7 +792,8 @@ import {
   settleRoutingEditorDiscard,
   serializeRoutingWorkingCopy,
   serializeRuleWorkingCopy,
-  updateRoutingFilterCondition
+  updateRoutingFilterCondition,
+  updateRuleFilterCondition
 } from "@/utils/routingWorkingCopy";
 import {
   buildVariationConfigDiff,
@@ -2882,23 +2883,12 @@ async function cloneRule(rule: any) {
 
 
 function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
-  const filters = JSON.parse(JSON.stringify(inventoryRuleFilterOptions.value))
-  const filter = filters[conditionFilterEnums[fieldName].code]
-  const fieldValue = event.detail.value
-
-  if (filter) {
-    filter.fieldValue = fieldValue
-    if (operator) filter.operator = operator
-  } else {
-    filters[conditionFilterEnums[fieldName].code] = {
-      conditionTypeEnumId: "ENTCT_FILTER",
-      fieldName: conditionFilterEnums[fieldName].code,
-      fieldValue,
-      operator: operator || "equals",
-      sequenceNum: Object.keys(filters).length + 1
-    }
-  }
-  inventoryRuleFilterOptions.value = filters
+  inventoryRuleFilterOptions.value = updateRuleFilterCondition(
+    inventoryRuleFilterOptions.value,
+    conditionFilterEnums[fieldName].code,
+    event.detail.value,
+    operator
+  )
   hasUnsavedChanges.value = true
 }
 

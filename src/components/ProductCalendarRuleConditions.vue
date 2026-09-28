@@ -74,9 +74,9 @@ import { IonButton, IonCard, IonCardContent, IonIcon, IonInput, IonNote, IonSele
 import { addCircleOutline, trashOutline } from "ionicons/icons";
 import { translate } from "@common";
 import {
-  PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES,
   PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS,
   PRODUCT_STORE_PRODUCT_DATE_OPERATORS,
+  productStoreProductDateConditionKey,
 } from "@/utils/productCalendarDateConditions";
 
 type CalendarCondition = Record<string, any>;
@@ -99,15 +99,16 @@ const calendarFields = [
 
 const baseCondition = ref<CalendarCondition>(createEmptyCondition());
 const draftConditions = ref<Array<{ id: string; condition: CalendarCondition }>>([]);
+// An incomplete edit to an already-saved row is parked here rather than emitted, so a half-typed
+// condition can never reach the parent's save payload.
+const pendingSavedEdits = ref<Record<string, CalendarCondition>>({});
 let nextDraftId = 1;
 
 const calendarConditionRows = computed<CalendarConditionRow[]>(() => {
-  const savedRows = props.conditions.map((condition, index) => ({
-    id: `saved:${condition.conditionSeqId || `${condition.conditionTypeEnumId}:${condition.fieldName}:${index}`}`,
-    kind: "saved" as const,
-    condition,
-    index,
-  }));
+  const savedRows = props.conditions.map((condition, index) => {
+    const id = `saved:${condition.conditionSeqId || `${condition.conditionTypeEnumId}:${condition.fieldName}:${index}`}`;
+    return { id, kind: "saved" as const, condition: pendingSavedEdits.value[id] || condition, index };
+  });
   const draftRows = draftConditions.value.map((draft, index) => ({
     id: draft.id,
     kind: "draft" as const,
@@ -138,13 +139,37 @@ function isCompleteCondition(condition: CalendarCondition) {
     && /^\d+$/.test(String(condition.fieldValue));
 }
 
+// A condition is identified by its direction and date alone, so the emitted list carries at most
+// one row per identity. Two rows sharing a pair would both match the same persisted condition in
+// buildLegacyRuleConditions and be handed the same conditionSeqId.
+function withCondition(condition: CalendarCondition, replaceIndex = -1) {
+  const identity = productStoreProductDateConditionKey(condition);
+  const next = replaceIndex >= 0
+    ? props.conditions.map((existing, index) => (index === replaceIndex ? condition : existing))
+    : [...props.conditions, condition];
+  const writtenIndex = replaceIndex >= 0 ? replaceIndex : next.length - 1;
+  return next.filter((existing, index) => (
+    index === writtenIndex || productStoreProductDateConditionKey(existing) !== identity
+  ));
+}
+
+function clearPendingEdit(rowId: string) {
+  if (!(rowId in pendingSavedEdits.value)) return;
+  const remaining = { ...pendingSavedEdits.value };
+  delete remaining[rowId];
+  pendingSavedEdits.value = remaining;
+}
+
 function updateCondition(row: CalendarConditionRow, updates: CalendarCondition) {
   const updatedCondition = { ...row.condition, ...updates };
 
   if (row.kind === "saved") {
-    emit("update:conditions", props.conditions.map((condition, index) => (
-      index === row.index ? updatedCondition : condition
-    )));
+    if (!isCompleteCondition(updatedCondition)) {
+      pendingSavedEdits.value = { ...pendingSavedEdits.value, [row.id]: updatedCondition };
+      return;
+    }
+    clearPendingEdit(row.id);
+    emit("update:conditions", withCondition(updatedCondition, row.index));
     return;
   }
 
@@ -158,7 +183,7 @@ function updateCondition(row: CalendarConditionRow, updates: CalendarCondition) 
 
   if (!isCompleteCondition(updatedCondition)) return;
 
-  emit("update:conditions", [...props.conditions, updatedCondition]);
+  emit("update:conditions", withCondition(updatedCondition));
   if (row.kind === "base") baseCondition.value = createEmptyCondition();
   else draftConditions.value = draftConditions.value.filter((_, index) => index !== row.index);
 }
@@ -181,6 +206,7 @@ function removeCondition(row: CalendarConditionRow) {
     return;
   }
 
+  clearPendingEdit(row.id);
   emit("update:conditions", props.conditions.filter((_, index) => index !== row.index));
   if (props.conditions.length === 1 && !draftConditions.value.length) {
     baseCondition.value = createEmptyCondition();

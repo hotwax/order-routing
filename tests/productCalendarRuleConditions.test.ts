@@ -77,6 +77,49 @@ describe("ProductCalendarRuleConditions", () => {
     expect(wrapper.emitted("update:conditions")).toBeUndefined();
   });
 
+  it("holds an incomplete edit to a saved row out of the save payload", async () => {
+    const wrapper = mount(ProductCalendarRuleConditions, {
+      props: { conditions: [condition] },
+    });
+
+    await wrapper.find("input").setValue("");
+
+    // The row still shows what was typed, but the parent keeps the last valid condition.
+    expect(wrapper.find("input").element.value).toBe("");
+    expect(wrapper.emitted("update:conditions")).toBeUndefined();
+
+    await wrapper.find("input").setValue("21");
+
+    expect(wrapper.emitted("update:conditions")?.at(-1)).toEqual([[
+      { ...condition, fieldValue: "21" },
+    ]]);
+  });
+
+  it("keeps one condition per direction-and-date pair instead of duplicating an identity", async () => {
+    const wrapper = mount(ProductCalendarRuleConditions, {
+      props: { conditions: [condition] },
+    });
+
+    const addCondition = wrapper.findAll("button").find((button) => button.text() === "Add condition");
+    await addCondition?.trigger("click");
+
+    // Complete the draft with the same direction and date as the persisted row.
+    const draftSelects = wrapper.findAll("select").slice(3);
+    await draftSelects[0].setValue("releaseDate");
+    await draftSelects[1].setValue("ENTCT_PSP_DATE_SINCE");
+    await draftSelects[2].setValue("greater-than");
+    await wrapper.findAll("input")[1].setValue("30");
+
+    const emitted = wrapper.emitted("update:conditions")?.at(-1)?.[0] as any[];
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toMatchObject({
+      conditionTypeEnumId: "ENTCT_PSP_DATE_SINCE",
+      fieldName: "releaseDate",
+      operator: "greater-than",
+      fieldValue: "30",
+    });
+  });
+
   it("returns to an empty base row after removing the last condition", async () => {
     const wrapper = mount(ProductCalendarRuleConditions, {
       props: { conditions: [condition] },

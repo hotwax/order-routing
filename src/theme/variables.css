@@ -445,3 +445,9 @@ ion-toolbar > ion-segment {
   max-width: 50ch;
   margin-inline: auto;
 }
+
+/* The compact inventory header should not force its longer sort choices to truncate. */
+ion-popover.inventory-sort-popover {
+  --width: max-content;
+  --max-width: calc(100vw - var(--spacer-base) - var(--spacer-base));
+}

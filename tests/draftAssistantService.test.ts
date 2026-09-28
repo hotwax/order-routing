@@ -332,7 +332,7 @@ function validate(operations: DraftOperation[]) {
       },
       {
         target: "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT",
-        label: "Facility order limit check",
+        label: "Override facility order limit",
         valueType: "boolean",
         currentValue: true,
         options: [
@@ -426,7 +426,6 @@ function validate(operations: DraftOperation[]) {
     ["route.orderSorts.SHIP_BY", true],
     ["selectedRule.inventoryFilters.FACILITY_GROUP", "STORES"],
     ["selectedRule.inventoryFilters.FACILITY_GROUP_EXCLUDED", "WAREHOUSES"],
-    ["selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT", false],
     ["selectedRule.inventorySorts.PROXIMITY", true],
     ["selectedRule.unavailableItemsAction", "ORA_MV_TO_QUEUE"],
     ["selectedRule.unavailableItemsQueueId", "UNFILLABLE_PARKING"]

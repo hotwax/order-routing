@@ -4,27 +4,19 @@ import { Ref, ref } from "vue"
 interface ProductFacility {
   productId: string;
   facilityId: string;
-  allowBrokering: string;
-  allowPickup: string;
-  minimumStock: string;
-  computedLastInventoryCount: string;
-  lastInventoryCount: string;
-  maximumStock: string;
-  inventoryItemId: string;
-  isChecked: boolean;
-  inventoryConfig?: {
-    atp?: string | number | null;
-    qoh?: string | number | null;
-    minimumStock?: string | number | null;
-    allowPickup?: string | null;
-    allowBrokering?: string | null;
-  };
-  onlineAtp: string;
-  // Aliases contributed by ProductFacilityInventoryItemView's optional InventoryItem join. Absent on
-  // rows from the plain ProductFacility entity (channel scope), hence optional.
-  availableToPromise?: number;
-  quantityOnHand?: number;
-  computedInventoryCount?: number;
+  productName?: string;
+  allowBrokering?: string | null;
+  allowPickup?: string | null;
+  minimumStock?: string | number | null;
+  maximumStock?: string | number | null;
+  reorderQuantity?: string | number | null;
+  daysToShip?: string | number | null;
+  inventoryItemId?: string | null;
+  isChecked?: boolean;
+  onlineAtp?: string | number | null;
+  availableToPromise?: string | number | null;
+  quantityOnHand?: string | number | null;
+  computedInventoryCount?: string | number | null;
 }
 
 function getErrorMessage(error: unknown) {
@@ -46,15 +38,16 @@ export function useProductFacility() {
     const requestId = ++productFacilityRequestId
     try {
       const resp = await api({
-        url: "oms/productFacilities/search",
+        url: "oms/productFacilities/inventory",
         method: "GET",
         params: payload
       }) as any
 
       if(requestId !== productFacilityRequestId) {return undefined}
-      productFacility.value = resp.data?.products ?? []
+      const rows = Array.isArray(resp.data) ? resp.data : resp.data?.products ?? [];
+      productFacility.value = rows
 
-      return resp.data?.totalCount ?? 0
+      return resp.data?.totalCount ?? rows.length
     } catch (err) {
       logger.error("Failed to fetch product facility records", getErrorMessage(err))
       if(requestId !== productFacilityRequestId) {return undefined}
@@ -67,10 +60,8 @@ export function useProductFacility() {
   /**
    * ProductFacility-first listing: pages and sorts over the rows a facility actually has.
    *
-   * The older fetchProductFacility() below calls oms/productFacilities/search, which pages a Solr
-   * *product* result set and left-joins ProductFacility onto it — so its total is a product count
-   * that does not vary by facility, and pages contain products the facility does not stock. These
-   * endpoints query the entity instead, so the total is the facility's real row count.
+   * The list fetcher queries the entity instead of the legacy Solr-backed product search, so the
+   * total is the facility's real row count and pages contain only configured ProductFacility rows.
    *
    * withInventory selects the view (adds availableToPromise / quantityOnHand / computedInventoryCount
    * from the optional InventoryItem join). Channel scope passes false: it shows online ATP sourced
@@ -83,16 +74,19 @@ export function useProductFacility() {
       const resp = await api({ url: path, method: "GET", params }) as any
 
       if(requestId !== productFacilityRequestId) {return undefined}
-      const rows = Array.isArray(resp.data) ? resp.data : []
+      if(!Array.isArray(resp.data)) {throw new Error("Invalid inventory response")}
+      const rows = resp.data
+      const total = await resolveTotal(resp, path, params)
+      if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = rows
 
-      return { rows, total: await resolveTotal(resp, path, params, rows.length) }
+      return { rows, total }
     } catch (err) {
       logger.error("Failed to fetch product facility rows", getErrorMessage(err))
       if(requestId !== productFacilityRequestId) {return undefined}
       productFacility.value = []
 
-      return { rows: [], total: 0 }
+      throw err
     }
   }
 
@@ -101,21 +95,33 @@ export function useProductFacility() {
    * cross-origin when the server lists it in Access-Control-Expose-Headers, so fall back to the
    * sibling /count resource (which returns the total in the body) when it is not readable.
    */
-  async function resolveTotal(resp: any, path: string, params: any, rowCount: number): Promise<number> {
+  async function resolveTotal(resp: any, path: string, params: any): Promise<number> {
     const header = resp?.headers?.["x-total-count"] ?? resp?.headers?.get?.("x-total-count")
     const parsed = Number(header)
-    if(Number.isFinite(parsed) && header !== null && header !== undefined && header !== "") {return parsed}
-
-    try {
-      const countResp = await api({ url: `${path}/count`, method: "GET", params }) as any
-      const count = Number(countResp?.data?.count)
-
-      return Number.isFinite(count) ? count : rowCount
-    } catch (err) {
-      logger.error("Failed to fetch product facility count", getErrorMessage(err))
-
-      return rowCount
+    if(Number.isInteger(parsed) && parsed >= 0 && header !== null && header !== undefined && header !== "") {return parsed}
+    const countResp = await api({ url: `${path}/count`, method: "GET", params }) as any
+    const count = countResp?.data?.count
+    if(count === null || count === undefined || count === "" || !Number.isInteger(Number(count)) || Number(count) < 0) {
+      throw new Error("Invalid inventory count response")
     }
+    return Number(count)
+  }
+
+  // Filtered inventory pages cannot prove that a ProductFacility configuration is absent.
+  // One facility has at most one row per product, so each ID batch fits in one entity page.
+  async function fetchConfiguredProductIds(facilityId: string, productIds: string[]): Promise<Set<string>> {
+    const ids = [...new Set(productIds)]
+    const configured = new Set<string>()
+    for(let index = 0; index < ids.length; index += 50) {
+      const batch = ids.slice(index, index + 50)
+      const resp = await api({
+        url: "oms/productFacilities", method: "GET",
+        params: { facilityId, productId: batch.join(","), productId_op: "in", pageSize: batch.length, pageIndex: 0 }
+      }) as any
+      if(!Array.isArray(resp.data)) {throw new Error("Invalid configuration response")}
+      resp.data.forEach((row: any) => configured.add(row.productId))
+    }
+    return configured
   }
 
   function clearProductFacility() {
@@ -125,13 +131,14 @@ export function useProductFacility() {
 
   async function updateProductFacility(payload: any) {
     try {
-      await api({
+      return await api({
         url: "oms/productFacilities",
         method: "POST",
         data: payload
       })
     } catch (err) {
-      logger.error("Updated product facility records", getErrorMessage(err))
+      logger.error("Failed to update product facility records", getErrorMessage(err))
+      throw err
     }
   }
 
@@ -149,7 +156,11 @@ export function useProductFacility() {
         method: "GET",
         params: {
           ...query,
-          orderByField: "effectiveDate desc"
+          // `createdStamp` is the preferred audit timestamp when an OMS deployment exposes it,
+          // but Rails currently omits it from this history resource. `effectiveDate` is returned
+          // on the movement rows, so sort it newest-first rather than accepting the API's
+          // unspecified (oldest-first) order for a missing field.
+          orderByField: "-effectiveDate"
         }
       })
 
@@ -172,6 +183,7 @@ export function useProductFacility() {
     fetchInventoryLogs,
     fetchProductFacility,
     fetchProductFacilityRows,
+    fetchConfiguredProductIds,
     inventoryLogs,
     updateProductFacility
   }

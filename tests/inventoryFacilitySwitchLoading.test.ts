@@ -9,6 +9,7 @@ describe("Inventory facility switch loading state", () => {
   const products = ref<any[]>([]);
   let resolveFetch: ((rows: any[], total?: number) => void) | null = null;
   let fetchProductFacility: ReturnType<typeof vi.fn>;
+  let modalDismissData: any = null;
 
   const AUSTIN_ROWS = [
     { productId: "M102977", inventoryConfig: { atp: "12", qoh: "12" } },
@@ -37,10 +38,11 @@ describe("Inventory facility switch loading state", () => {
   }
 
   async function switchFacilityTo(wrapper: any, facilityId: string) {
-    const select = wrapper.findAllComponents({ name: "IonSelect" })[0];
-    select.vm.$emit("update:modelValue", facilityId);
-    await nextTick();
-    await nextTick();
+    // Keep the payload in place until the modal's onDidDismiss promise has actually resolved.
+    modalDismissData = { facilityIds: [facilityId] };
+    await wrapper.find('[data-testid="inventory-facility-switcher"]').trigger("click");
+    await flush();
+    modalDismissData = null;
   }
 
   const nextPageButton = (wrapper: any) => wrapper.find('[data-testid="inventory-next-page"]');
@@ -144,6 +146,7 @@ describe("Inventory facility switch loading state", () => {
       IonFooter: defineComponent({ name: "IonFooter", template: "<footer><slot /></footer>" }),
       IonHeader: defineComponent({ name: "IonHeader", template: "<header><slot /></header>" }),
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
+      IonInput: defineComponent({ name: "IonInput", template: "<input />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
@@ -155,7 +158,7 @@ describe("Inventory facility switch loading state", () => {
       IonSelect: defineComponent({
         name: "IonSelect",
         props: ["modelValue"],
-        emits: ["update:modelValue"],
+        emits: ["update:modelValue", "ionChange"],
         template: "<select><slot /></select>",
       }),
       IonSelectOption: defineComponent({ name: "IonSelectOption", template: "<option><slot /></option>" }),
@@ -163,7 +166,12 @@ describe("Inventory facility switch loading state", () => {
       IonThumbnail: defineComponent({ name: "IonThumbnail", template: "<div><slot /></div>" }),
       IonTitle: defineComponent({ name: "IonTitle", template: "<h1><slot /></h1>" }),
       IonToolbar: defineComponent({ name: "IonToolbar", template: "<div><slot /></div>" }),
-      modalController: { create: vi.fn() },
+      modalController: {
+        create: vi.fn(() => Promise.resolve({
+          present: vi.fn(() => Promise.resolve()),
+          onDidDismiss: () => Promise.resolve({ data: modalDismissData }),
+        })),
+      },
       onIonViewDidEnter: vi.fn(),
       onIonViewDidLeave: vi.fn(),
     }));
@@ -225,5 +233,25 @@ describe("Inventory facility switch loading state", () => {
     expect(skeletonCount(wrapper)).toBe(0);
 
     await settleFetch(AUSTIN_ROWS, 120);
+  });
+
+  it("keeps rows visible while applying an inventory filter", async () => {
+    const { default: Inventory } = await import("../src/views/Inventory.vue");
+    const wrapper = mount(Inventory);
+
+    await switchFacilityTo(wrapper, "AUSTIN");
+    await settleFetch(AUSTIN_ROWS);
+    fetchProductFacility.mockClear();
+
+    const atpFilter = wrapper.findComponent('[data-testid="inventory-atp-filter"]');
+    atpFilter.vm.$emit("update:modelValue", "positive");
+    atpFilter.vm.$emit("ionChange", { detail: { value: "positive" } });
+    await nextTick();
+
+    expect(fetchProductFacility).toHaveBeenCalledTimes(1);
+    expect(rowIds(wrapper)).toEqual(["M102977", "M101833"]);
+    expect(skeletonCount(wrapper)).toBe(0);
+
+    await settleFetch(AUSTIN_ROWS);
   });
 });

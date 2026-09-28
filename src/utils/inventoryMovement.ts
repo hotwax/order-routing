@@ -46,9 +46,15 @@ export interface OrderSummary {
   customerPartyName?: string;
 }
 
+export interface ReturnSummary {
+  orderName?: string;
+  orderId?: string;
+}
+
 export interface MovementContext {
   orderSummaries?: Record<string, OrderSummary>;
   reasonDescById?: Record<string, string>;
+  returnSummaries?: Record<string, ReturnSummary>;
 }
 
 export interface ClassifiedMovement {
@@ -129,14 +135,17 @@ function buildLink(typeKey: MovementTypeKey, row: any): string | null {
   }
 }
 
-function buildReferenceLabel(typeKey: MovementTypeKey, row: any, order?: OrderSummary, reasonDesc?: string): string {
+function buildReferenceLabel(typeKey: MovementTypeKey, row: any, order?: OrderSummary, reasonDesc?: string, returnSummary?: ReturnSummary): string {
   switch (typeKey) {
     case "SALES_ORDER":
     case "TRANSFER":
     case "PURCHASE":
       return order?.orderName || row.orderId || "-";
     case "RETURN":
-      return row.returnId || "-";
+      // A return is easier to place by the order it came back from than by its own id, so lead with
+      // the order once resolved — falling back to its raw id when the header carries no display
+      // name, exactly as order rows do. The returnId stays in searchText and the expanded detail.
+      return returnSummary?.orderName || returnSummary?.orderId || row.returnId || "-";
     case "CYCLE_COUNT":
       return reasonDesc || row.reasonEnumId || "Cycle count";
     case "MANUAL_VARIANCE":
@@ -153,11 +162,12 @@ function buildReferenceLabel(typeKey: MovementTypeKey, row: any, order?: OrderSu
 export function classifyMovement(row: any, ctx: MovementContext = {}): ClassifiedMovement {
   const order = row.orderId ? ctx.orderSummaries?.[row.orderId] : undefined;
   const reasonDesc = row.reasonEnumId ? ctx.reasonDescById?.[row.reasonEnumId] : undefined;
+  const returnSummary = row.returnId ? ctx.returnSummaries?.[row.returnId] : undefined;
   const typeKey = classifyType(row, order);
   const presentation = TYPE_PRESENTATION[typeKey];
-  const referenceLabel = buildReferenceLabel(typeKey, row, order, reasonDesc);
+  const referenceLabel = buildReferenceLabel(typeKey, row, order, reasonDesc, returnSummary);
 
-  const searchText = [row.orderId, order?.orderName, row.returnId, row.physicalInventoryId, referenceLabel]
+  const searchText = [row.orderId, order?.orderName, row.returnId, returnSummary?.orderName, returnSummary?.orderId, row.physicalInventoryId, referenceLabel]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -203,3 +213,47 @@ export function movementTypeColor(typeKey: MovementTypeKey): string {
 }
 
 export { cubeOutline };
+
+export interface MovementBalance {
+  atp: number | null;
+  qoh: number | null;
+}
+
+function toFiniteOrNull(value: any): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+
+  return Number.isFinite(n) ? n : null;
+}
+
+function balanceAfter(last: any, diff: any): number | null {
+  const base = toFiniteOrNull(last);
+  if (base === null) return null;
+
+  return base + (toFiniteOrNull(diff) ?? 0);
+}
+
+/**
+ * Stock balance a movement left behind.
+ *
+ * The scoped history endpoint (products/{productId}/facilities/{facilityId}/inventoryDetail)
+ * returns lastQuantityOnHand / lastAvailableToPromise — the balance immediately *before* the
+ * movement — so the resulting balance is that figure plus the row's diff. These are the backend's
+ * own numbers rather than a reconstruction, which matters because the deltas alone do not form a
+ * continuous chain: a row can end at -1 while the next reports a prior balance of 0, so summing
+ * diffs drifts away from the truth.
+ *
+ * Do not substitute quantityOnHandTotal / availableToPromiseTotal. Those come from the parent
+ * InventoryItem and are identical on every row (the item's *current* total), not a per-row balance.
+ *
+ * Issue #469 pulled an earlier version of this display because it invented the balance from a fake
+ * 0 baseline back when the older oms/inventoryItem/detail endpoint omitted these keys. That is why
+ * a missing `last` yields null here instead of falling back to 0: an unknown balance is omitted,
+ * never fabricated.
+ */
+export function movementBalance(row: any): MovementBalance {
+  return {
+    atp: balanceAfter(row?.lastAvailableToPromise, row?.availableToPromiseDiff),
+    qoh: balanceAfter(row?.lastQuantityOnHand, row?.quantityOnHandDiff)
+  };
+}

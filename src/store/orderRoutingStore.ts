@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { logger, translate, commonUtil, api } from "@common"
+import { logger, translate, commonUtil, api, useSolrSearch } from "@common"
 import { DateTime } from "luxon"
 import { productStore } from './productStore'
 import { productStore as useProduct } from './product'
@@ -1052,12 +1052,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
 
       try {
-        const resp = await api({
-          url: "solr-query",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
-        });
+        const resp = await useSolrSearch().runSolrQuery(payload);
 
         if(!commonUtil.hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
           const productIds: Array<string> = [];
@@ -1123,12 +1118,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
       }
 
       try {
-        const resp = await api({
-          url: "solr-query",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: payload
-        });
+        const resp = await useSolrSearch().runSolrQuery(payload);
 
         if (!commonUtil.hasError(resp) && resp.data?.grouped?.orderId?.groups?.length) {
           resp.data.grouped.orderId.groups.forEach((group: any) => {

@@ -13,6 +13,13 @@ import { SimulationService } from "../src/services/SimulationService";
 import { SimulationStorage } from "../src/services/simulationStorage";
 import { orderRoutingStore } from "../src/store/orderRoutingStore";
 
+// Store failures intentionally show a toast. Rendering/animating Ionic overlays is a browser concern,
+// not part of these store contracts, and jsdom cannot construct their shadow styles.
+vi.mock("@ionic/vue", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@ionic/vue")>(),
+  toastController: { create: vi.fn(async () => ({ present: vi.fn(), dismiss: vi.fn() })) }
+}));
+
 function redirectFor(path: string, params: Record<string, string> = {}) {
   const record = router.getRoutes().find((route) => route.path === path);
   expect(record, `missing route record for ${path}`).toBeTruthy();
@@ -293,6 +300,8 @@ describe("production-ready routing contracts", () => {
 
     const running = sim.runActiveVariation();
     expect(sim.isRunningVariationRun).toBe(true);
+    // The race under test is the run vs. navigation, not an authenticated group-directory fetch.
+    sim.simGroups = [{ routingGroupId: "G2" }];
     await sim.loadGroup("G2");
     variationRun.resolve({ simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE" }, variants: [] });
     expect(await running).toBe(false);
@@ -319,6 +328,7 @@ describe("production-ready routing contracts", () => {
 
     const running = sim.runBaseline();
     expect(sim.isRunningBaselineRun).toBe(true);
+    sim.simGroups = [{ routingGroupId: "G2" }];
     await sim.loadGroup("G2");
     baselineRun.resolve({ simulation: { simulationId: "S_BASE", statusId: "BRSIM_COMPLETE" }, variants: [] });
     expect(await running).toBe(false);

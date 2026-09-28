@@ -93,6 +93,14 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain(':dirty="isRuleConditionCardDirty(\'ENTCT_FILTER\')"');
   });
 
+  it("renders the facility order limit override as presence-based read-only text", () => {
+    const overrideRow = editorSource.match(/<ion-item v-else-if="item\.target\.endsWith\('\.FACILITY_ORDER_LIMIT'\)"[\s\S]*?<\/ion-item>/)?.[0] || "";
+
+    expect(overrideRow).toContain('translate("Override facility order limit")');
+    expect(overrideRow).not.toContain("ion-toggle");
+    expect(overrideRow).not.toContain("updateRuleFilterValue");
+  });
+
   it("uses the AccxUI single-step modal and list-divider structure for variation differences", () => {
     expect(variationDiffModalSource.match(/<ion-toolbar>/g)).toHaveLength(2);
     expect(variationDiffModalSource).toContain('<ion-icon slot="icon-only" :icon="closeOutline" />');

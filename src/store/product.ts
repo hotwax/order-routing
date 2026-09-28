@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { logger, commonUtil, api } from "@common"
+import { logger, commonUtil, api, useSolrSearch } from "@common"
 
 export const productStore = defineStore('product', {
   state: () => {
@@ -34,13 +34,11 @@ export const productStore = defineStore('product', {
       if (productIdFilter === '') return;
   
       try {
-        const resp = await api({
-          url: "searchProducts",
-          method: "post",
-          baseURL: commonUtil.getOmsURL(),
-          data: {
-            "filters": ['productId: (' + productIdFilter + ')'],
-            "viewSize": productIds.length
+        const resp = await useSolrSearch().runSolrQuery({
+          json: {
+            params: { rows: productIds.length, start: 0 },
+            query: "*:*",
+            filter: 'docType: PRODUCT AND productId: (' + productIdFilter + ')'
           }
         })
         if(resp.data.response && !commonUtil.hasError(resp)) {

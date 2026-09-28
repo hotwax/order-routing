@@ -16,7 +16,7 @@ const settingLabels: Record<string, string> = {
   PROXIMITY: "Proximity",
   MEASUREMENT_SYSTEM: "Measurement unit",
   BRK_SAFETY_STOCK: "Safety stock",
-  FACILITY_ORDER_LIMIT: "Facility order limit",
+  FACILITY_ORDER_LIMIT: "Override facility order limit",
   SHIP_THRESHOLD: "Shipment threshold",
   WOS: "Week of supply",
   QUEUE: "Queue",

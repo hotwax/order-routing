@@ -78,6 +78,21 @@ describe("ProductSearchModal", () => {
     expect(wrapper.text()).toContain("Abominable Hoodie");
   });
 
+  it("makes later styles reachable without losing the first page", async () => {
+    const wrapper = await mountModal();
+    searchStyles.mockResolvedValueOnce({ styles: [STYLE], total: 26 });
+    wrapper.findComponent({ name: "IonSearchbar" }).vm.$emit("ionInput", { detail: { value: "hoodie" } });
+    await flush();
+    const more = wrapper.findAllComponents({ name: "IonButton" }).find((button: any) => button.text() === "Load more");
+    expect(more).toBeDefined();
+    searchStyles.mockResolvedValueOnce({ styles: [{ productId: "S26", productName: "Later style" }], total: 26 });
+    await more!.trigger("click");
+    await flush();
+    expect(wrapper.text()).toContain("Later style");
+    expect(wrapper.text()).toContain("Abominable Hoodie");
+    expect(searchStyles).toHaveBeenLastCalledWith("hoodie", { pageIndex: 1 });
+  });
+
   it("drills into a style to show its variants", async () => {
     const wrapper = await mountModal();
 
@@ -87,6 +102,19 @@ describe("ProductSearchModal", () => {
     expect(fetchVariants).toHaveBeenCalledWith("10000");
     expect(wrapper.text()).toContain("XS / Blue");
     expect(wrapper.text()).toContain("XS / Green");
+  });
+
+  it("loads later variant pages before selecting every variant", async () => {
+    const wrapper = await mountModal();
+    fetchVariants.mockResolvedValueOnce({ variants: VARIANTS, total: 3 });
+    fetchVariants.mockResolvedValueOnce({ variants: [{ productId: "10003", productName: "Later variant" }], total: 3 });
+    await styleRows(wrapper)[0].trigger("click");
+    await flush();
+    const selectAll = wrapper.findAllComponents({ name: "IonButton" }).find((button: any) => button.text().includes("Select all"));
+    await selectAll.trigger("click");
+    await flush();
+    await applyButton(wrapper).trigger("click");
+    expect(dismiss).toHaveBeenCalledWith({ productIds: ["10001", "10002", "10003"] });
   });
 
   it("returns the chosen variant ids", async () => {

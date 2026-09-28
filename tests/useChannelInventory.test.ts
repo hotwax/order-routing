@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const api = vi.fn();
 const hasError = vi.fn(() => false);
 const loggerError = vi.fn();
+const runSolrQuery = vi.fn();
 
 vi.mock("@common", () => ({
   api,
   commonUtil: { hasError, getOmsURL: () => "" },
   logger: { error: loggerError },
+  useSolrSearch: () => ({ runSolrQuery }),
 }));
 
 describe("useChannelInventory", () => {
@@ -16,6 +18,7 @@ describe("useChannelInventory", () => {
     hasError.mockReset();
     hasError.mockReturnValue(false);
     loggerError.mockReset();
+    runSolrQuery.mockReset();
   });
 
   it("loads authoritative Online ATP and composes NA Shopify mappings", async () => {
@@ -172,13 +175,13 @@ describe("useChannelInventory", () => {
           ],
         });
       }
-      if(url === "solr-query") {
-        return Promise.resolve({ data: { response: { numFound: 3 }, facets: { count: 3, queueDemand: 4 } } });
-      }
+
       if(url === "oms/getProductOnlineAtp") {return Promise.resolve({ data: { productOnlineAtp: [] } });}
 
       return Promise.resolve({ data: [] });
     });
+
+    runSolrQuery.mockResolvedValue({ status: 200, data: { response: { numFound: 3 }, facets: { count: 3, queueDemand: 4 } } });
 
     const { useChannelInventory } = await import("../src/composables/useChannelInventory");
     const channelInventory = useChannelInventory();
@@ -186,14 +189,14 @@ describe("useChannelInventory", () => {
 
     expect(channelInventory.virtualQueueDemand.value).toBe(4);
     expect(channelInventory.virtualQueueDemandState.value).toBe("loaded");
-    expect(api).toHaveBeenCalledWith(expect.objectContaining({
-      url: "solr-query",
-      data: {
-        json: expect.objectContaining({
-          filter: expect.stringContaining("productId: \"SKU_1\" AND facilityId: (\"_NA_\" OR \"BACKORDER_PARKING\") AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)"),
-        }),
-      },
-    }));
+    // Routed through the shared backend-aware Solr adapter rather than a hard-coded endpoint:
+    // the raw "solr-query" resource does not exist in the OMS REST API and returned 404.
+    expect(runSolrQuery).toHaveBeenCalledWith({
+      json: expect.objectContaining({
+        filter: expect.stringContaining("productId: \"SKU_1\" AND facilityId: (\"_NA_\" OR \"BACKORDER_PARKING\") AND -orderItemStatusId: (ITEM_CANCELLED OR ITEM_COMPLETED OR ITEM_REJECTED)"),
+      }),
+    });
+    expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ url: "solr-query" }));
   });
 
   it("loads channel-scoped inventory upload service-job runs with linked evidence", async () => {

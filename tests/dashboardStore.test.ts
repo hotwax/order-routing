@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore } from "@/store/productStore";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { api, useSolrSearch } from "@common";
 
@@ -37,7 +37,7 @@ describe("dashboardStore.loadFoundations", () => {
   });
 
   it("loads facility groups using the same selected-store brokering scope as the Facility groups page", async () => {
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    productStore().$patch({ currentEComStore: { productStoreId: "STORE" } });
     mockedApi.mockImplementation(async (request: any) => {
       if (request.url === "admin/productStores/STORE/facilityGroups" && request.params?.facilityGroupTypeId === "BROKERING_GROUP") {
         return {
@@ -97,7 +97,7 @@ describe("dashboardStore.loadRouting", () => {
   });
 
   it("loads the queue summary through the backend-aware Solr adapter", async () => {
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    productStore().$patch({ currentEComStore: { productStoreId: "STORE" } });
     mockedRunSolrQuery.mockResolvedValue({
       data: {
         response: {
@@ -133,7 +133,7 @@ describe("dashboardStore.loadRouting", () => {
   });
 
   it("keeps the queue count unavailable when the Solr request fails", async () => {
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    productStore().$patch({ currentEComStore: { productStoreId: "STORE" } });
     mockedRunSolrQuery.mockRejectedValue(new Error("Request failed"));
 
     await useDashboardStore().loadRouting();
@@ -144,7 +144,7 @@ describe("dashboardStore.loadRouting", () => {
   });
 
   it("keeps the queue count unavailable when the Solr response is malformed", async () => {
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    productStore().$patch({ currentEComStore: { productStoreId: "STORE" } });
     mockedRunSolrQuery.mockResolvedValue({ data: {} });
 
     await useDashboardStore().loadRouting();

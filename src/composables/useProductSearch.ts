@@ -1,4 +1,5 @@
 import { logger, useSolrSearch } from "@common";
+import { useAtpProductStore } from "@/store/atpProductStore";
 
 /**
  * Solr-backed product lookups for the ProductFacility-first inventory list.
@@ -15,10 +16,13 @@ export interface ProductSummary {
   productId: string;
   productName?: string;
   parentProductName?: string;
+  title?: string;
   sku?: string;
   mainImageUrl?: string;
   groupId?: string;
   productFeatures?: string[];
+  internalName?: string;
+  goodIdentifications?: any[];
 }
 
 // Solr rejects very long boolean clauses; enrich in batches well under the default maxBooleanClauses.
@@ -29,10 +33,13 @@ function toSummary(doc: any): ProductSummary {
     productId: doc.productId,
     productName: doc.productName,
     parentProductName: doc.parentProductName,
+    title: doc.title,
     sku: doc.sku,
     mainImageUrl: doc.mainImageUrl,
     groupId: doc.groupId,
-    productFeatures: doc.productFeatures
+    productFeatures: doc.productFeatures,
+    internalName: doc.internalName,
+    goodIdentifications: doc.goodIdentifications
   };
 }
 
@@ -44,8 +51,29 @@ function numFoundOf(resp: any): number {
   return resp?.data?.response?.numFound ?? 0;
 }
 
+// Identifiers are exact values, not Solr syntax. Quotes preserve spaces and colons.
+function quoteIdentifier(value: string): string {
+  return '"' + value.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+}
+
 export function useProductSearch() {
   const { runSolrQuery } = useSolrSearch();
+
+  /**
+   * Restrict a product query to the selected store.
+   *
+   * Membership comes from the ProductStoreProduct entity, which the indexer folds into the PRODUCT
+   * document as productStoreIds. Without this the modal searches the whole catalogue and offers
+   * products belonging to another store entirely.
+   *
+   * Yields no clause when no store is selected yet, so an early search still returns something
+   * rather than silently matching nothing.
+   */
+  function storeScope(): string[] {
+    const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+
+    return productStoreId ? [`productStoreIds:${quoteIdentifier(productStoreId)}`] : [];
+  }
 
   function query(filter: string[], params: Record<string, any>) {
     return runSolrQuery({
@@ -68,7 +96,7 @@ export function useProductSearch() {
       const batch = unique.slice(i, i + ENRICH_BATCH_SIZE);
       try {
         const resp = await query(
-          ["docType:PRODUCT", `productId:(${batch.join(" OR ")})`],
+          ["docType:PRODUCT", `productId:(${batch.map(quoteIdentifier).join(" OR ")})`],
           { rows: batch.length }
         );
         docsOf(resp).forEach((doc: any) => {
@@ -76,57 +104,103 @@ export function useProductSearch() {
         });
       } catch (err) {
         // A failed enrichment must not blank the list — rows still render from their entity data.
-        logger.error("Failed to enrich products from Solr", err);
+        logger.error("Failed to enrich products from Solr");
       }
     }
 
     return summaries;
   }
 
-  /** Search parent styles (virtual products) for the product-search modal. */
+  // Fields a retailer might actually type: a style name, a variant SKU or barcode, an internal name,
+  // or a bare productId off a label.
+  const KEYWORD_FIELDS = "productId productName internalName sku upc goodIdentifications parentProductName groupName keywordSearchText";
+
+  /**
+   * Search styles for the product-search modal.
+   *
+   * The results are always styles, but the *match* is not restricted to them: searching only
+   * isVirtual documents means a variant SKU, barcode or productId finds nothing, which is exactly
+   * what a retailer reaches for first. So the query runs across every product document and each hit
+   * is collapsed to its style — groupId, which on a style is its own productId — then deduped so the
+   * modal still lists one row per style.
+   */
   async function searchStyles(keyword: string, { pageIndex = 0, pageSize = 25 } = {}) {
-    const filter = ["docType:PRODUCT", "isVirtual:true"];
-    const params: Record<string, any> = { rows: pageSize, start: pageIndex * pageSize };
     const trimmed = keyword?.trim();
 
-    if(trimmed) {
-      params.defType = "edismax";
-      params.qf = "productId productName internalName sku keywordSearchText";
+    // Without a keyword there is nothing to collapse, so list styles directly and page accurately.
+    if(!trimmed) {
+      try {
+        const resp = await query(
+          ["docType:PRODUCT", "isVirtual:true", ...storeScope()],
+          { rows: pageSize, start: pageIndex * pageSize, sort: "productId asc" }
+        );
+
+        return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
+      } catch (err) {
+        logger.error("Failed to list product styles");
+        throw err;
+      }
     }
 
     try {
       const resp = await runSolrQuery({
         json: {
-          query: trimmed ? `${trimmed}*` : "*:*",
-          filter,
-          params,
+          query: `${trimmed}*`,
+          filter: ["docType:PRODUCT", ...storeScope()],
+          params: {
+            rows: pageSize,
+            start: pageIndex * pageSize,
+            sort: "score desc, productId asc",
+            group: true,
+            "group.field": "groupId",
+            "group.ngroups": true,
+            "group.limit": 1,
+            defType: "edismax",
+            qf: KEYWORD_FIELDS,
+            fl: "productId,groupId"
+          },
           collection: "enterpriseSearch"
         }
       });
 
-      return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
-    } catch (err) {
-      logger.error("Failed to search product styles", err);
+      // Use standard grouping: OMS groupId is SortableTextField, not a collapse-compatible StrField.
+      const grouped = resp?.data?.grouped?.groupId;
+      const styleIds: string[] = [];
+      (grouped?.groups || []).forEach((group: any) => {
+        const doc = group.doclist?.docs?.[0];
+        const styleId = doc?.groupId || doc?.productId;
+        if(styleId && !styleIds.includes(styleId)) {styleIds.push(styleId);}
+      });
 
-      return { styles: [], total: 0 };
+      const pageIds = styleIds;
+      if(!pageIds.length) {return { styles: [], total: grouped?.ngroups ?? 0 };}
+
+      const summaries = await fetchProductSummaries(pageIds);
+
+      return {
+        styles: pageIds.map((id) => summaries[id] || { productId: id }),
+        total: grouped.ngroups
+      };
+    } catch (err) {
+      logger.error("Failed to search product styles");
+      throw err;
     }
   }
 
   /** List the variants of a style. Variants carry the parent's productId in groupId. */
-  async function fetchVariants(groupId: string, { pageSize = 200 } = {}) {
+  async function fetchVariants(groupId: string, { pageIndex = 0, pageSize = 200 } = {}) {
     if(!groupId) {return { variants: [], total: 0 };}
 
     try {
       const resp = await query(
-        ["docType:PRODUCT", "isVariant:true", `groupId:${groupId}`],
-        { rows: pageSize, sort: "productId asc" }
+        ["docType:PRODUCT", "isVariant:true", `groupId:${quoteIdentifier(groupId)}`, ...storeScope()],
+        { rows: pageSize, start: pageIndex * pageSize, sort: "productId asc" }
       );
 
       return { variants: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
     } catch (err) {
-      logger.error("Failed to fetch product variants", err);
-
-      return { variants: [], total: 0 };
+      logger.error("Failed to fetch product variants");
+      throw err;
     }
   }
 

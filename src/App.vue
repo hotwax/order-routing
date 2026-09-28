@@ -78,36 +78,12 @@
           </ion-list>
         </ion-content>
 
-        <ion-footer>
-          <ion-toolbar>
-            <ion-item lines="none">
-              <ion-label class="ion-text-wrap">
-                <p class="overline">{{ instanceUrl }}</p>
-              </ion-label>
-              <ion-note slot="end">{{ userProfile?.timeZone }}</ion-note>
-            </ion-item>
-            <ion-item v-if="productStores?.length > 1" lines="none">
-              <ion-select
-                interface="popover"
-                :value="currentProductStore.productStoreId"
-                @ionChange="setProductStore($event)"
-              >
-                <ion-select-option
-                  v-for="store in productStores"
-                  :key="store.productStoreId"
-                  :value="store.productStoreId"
-                >
-                  {{ store.storeName ? store.storeName : store.productStoreId }}
-                </ion-select-option>
-              </ion-select>
-            </ion-item>
-            <ion-item v-else-if="currentProductStore?.productStoreId" lines="none">
-              <ion-label class="ion-text-wrap">
-                {{ currentProductStore.storeName ? currentProductStore.storeName : currentProductStore.productStoreId }}
-              </ion-label>
-            </ion-item>
-          </ion-toolbar>
-        </ion-footer>
+        <DxpOmsInstanceFooter
+          :instance-label="instanceUrl"
+          :product-stores="productStores"
+          :current-product-store-id="currentProductStore.productStoreId"
+          @update:product-store="(productStoreId, ionEvent) => setProductStore(ionEvent)"
+        />
       </ion-menu>
       <ion-router-outlet id="main-content" />
     </ion-split-pane>
@@ -284,7 +260,6 @@ import {
   alertController,
   IonApp,
   IonContent,
-  IonFooter,
   IonHeader,
   IonIcon,
   IonItem,
@@ -293,10 +268,7 @@ import {
   IonListHeader,
   IonMenu,
   IonMenuToggle,
-  IonNote,
   IonRouterOutlet,
-  IonSelect,
-  IonSelectOption,
   IonSplitPane,
   IonTitle,
   IonToolbar,
@@ -306,10 +278,9 @@ import {
 import { computed, onBeforeMount, onMounted, onUnmounted } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
-import { commonUtil, emitter, FastTravel, translate } from "@common";
+import { commonUtil, DxpOmsInstanceFooter, emitter, FastTravel, translate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
-import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore } from "@/store/productStore";
 import { isFeatureEnabled } from "@/utils/simConfig";
 import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
@@ -318,15 +289,15 @@ import { useUtilStore } from "./store/utilStore";
 
 const userStore = useUserStore();
 const utilStore = useUtilStore();
-const atpProductStore = useAtpProductStore();
+const productStoreState = productStore();
 const loaderLifecycle = createGlobalLoaderLifecycle(
   (options) => loadingController.create(options),
   translate
 );
 
 const userProfile = computed(() => userStore.getUserProfile);
-const currentProductStore = computed(() => atpProductStore.getCurrentProductStore);
-const productStores = computed(() => atpProductStore.getProductStores);
+const currentProductStore = computed(() => productStoreState.getCurrentEComStore);
+const productStores = computed(() => productStoreState.ecomStores);
 const instanceUrl = computed(() => commonUtil.getOmsURL());
 
 const menuItems = computed(() => {
@@ -405,9 +376,7 @@ async function setProductStore(event: SelectCustomEvent) {
           {
             text: translate("Yes"),
             handler: async () => {
-              const store = productStores.value.find((s: any) => s.productStoreId === event.detail.value);
-              atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
-              productStore().setEcomStore({ productStoreId: event.detail.value });
+              await productStoreState.setEcomStore({ productStoreId: event.detail.value });
               emitter.emit("productStoreOrConfigChanged");
             }
           }
@@ -415,9 +384,7 @@ async function setProductStore(event: SelectCustomEvent) {
       });
       alert.present();
     } else {
-      const store = productStores.value.find((s: any) => s.productStoreId === event.detail.value);
-      atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
-      productStore().setEcomStore({ productStoreId: event.detail.value });
+      await productStoreState.setEcomStore({ productStoreId: event.detail.value });
       emitter.emit("productStoreOrConfigChanged");
     }
   }

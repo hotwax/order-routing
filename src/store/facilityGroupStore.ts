@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { api, commonUtil, logger } from "@common";
-import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore as useProductStore } from "@/store/productStore";
 import { DateTime } from "luxon";
 
 export interface FacilityGroupState {
@@ -105,8 +105,8 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       this.deriveGroupTypes();
     },
     async createGroup(payload: any) {
-      const product = useAtpProductStore();
-      const productStoreId = product.currentProductStore?.productStoreId;
+      const product = useProductStore();
+      const productStoreId = product.currentEComStore?.productStoreId;
       const resp = await api({
         url: "admin/facilityGroups",
         method: "POST",
@@ -132,8 +132,8 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       // Link an already-existing group to the current product store. Backs the
       // "use an existing group" empty-state action; mirrors the association call
       // that createGroup() performs for freshly created groups.
-      const product = useAtpProductStore();
-      const productStoreId = product.currentProductStore?.productStoreId;
+      const product = useProductStore();
+      const productStoreId = product.currentEComStore?.productStoreId;
       if (!productStoreId) throw new Error("No product store selected");
       const resp = await api({
         url: `admin/productStores/${productStoreId}/facilityGroups/${facilityGroupId}/association`,
@@ -174,12 +174,12 @@ export const useFacilityGroupStore = defineStore("facilityGroup", {
       await this.fetchGroupFacilities(facilityGroupId);
     },
     async fetchGroupProductStoreAssociations() {
-      const productStore = useAtpProductStore();
-      if (!productStore.getProductStores.length) {
-        await productStore.fetchUserProductStores();
+      const productStore = useProductStore();
+      if (!productStore.ecomStores.length) {
+        await productStore.fetchProductStores();
       }
 
-      const stores = productStore.getProductStores;
+      const stores = productStore.ecomStores;
       if (!stores.length) return;
 
       const groupStoresMap: Record<string, any[]> = {};

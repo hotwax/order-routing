@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@common";
-import { useAtpProductStore } from "@/store/atpProductStore";
+import { productStore } from "@/store/productStore";
 import { useInventoryUpdatesStore } from "@/store/inventoryUpdates";
 
 vi.mock("@common", () => ({
@@ -26,7 +26,7 @@ describe("inventory update monitoring store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mockedApi.mockReset();
-    useAtpProductStore().$patch({ currentProductStore: { productStoreId: "STORE" } });
+    productStore().$patch({ currentEComStore: { productStoreId: "STORE" } });
   });
 
   it("derives jobs only from current-store ATP inventory rule groups", async () => {
@@ -89,14 +89,14 @@ describe("inventory update monitoring store", () => {
   });
 
   it("discards a schedule response once the product store has changed", async () => {
-    const atpStore = useAtpProductStore();
+    const stores = productStore();
     mockedApi.mockImplementation(async (request: any) => {
       if (request.url === "available-to-promise/ruleGroups") {
         return { data: [{ ruleGroupId: "M100052", groupTypeEnumId: "RG_THRESHOLD", jobName: "ATP_Rule_Group_M100052" }] };
       }
       if (String(request.url).endsWith("/schedule")) {
         // The user switches product store while the per-group detail requests are still running.
-        atpStore.$patch({ currentProductStore: { productStoreId: "OTHER_STORE" } });
+        stores.$patch({ currentEComStore: { productStoreId: "OTHER_STORE" } });
         return { data: { schedule: { paused: "N", cronExpression: "0 0 * ? * *" } } };
       }
       return { data: [{ jobRunId: "RUN", startTime: 10 }] };

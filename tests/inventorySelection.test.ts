@@ -27,10 +27,10 @@ describe("Inventory product selection", () => {
       translate: (label: string) => label,
     }));
     vi.doMock("../src/router", () => ({
-      default: { push: vi.fn() },
+      default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: { facilityId: "BROOKLYN" } } } },
     }));
     vi.doMock("../src/router/index", () => ({
-      default: { push: vi.fn() },
+      default: { push: vi.fn(), replace: vi.fn(), currentRoute: { value: { query: { facilityId: "BROOKLYN" } } } },
     }));
     vi.doMock("@/components/ProductFacilityConfigEditModal.vue", () => ({
       default: defineComponent({ name: "ProductFacilityConfigEditModal", template: "<div />" }),
@@ -103,6 +103,7 @@ describe("Inventory product selection", () => {
       IonFooter: defineComponent({ name: "IonFooter", template: "<footer><slot /></footer>" }),
       IonHeader: defineComponent({ name: "IonHeader", template: "<header><slot /></header>" }),
       IonIcon: defineComponent({ name: "IonIcon", template: "<span />" }),
+      IonInput: defineComponent({ name: "IonInput", template: "<input />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
       IonList: defineComponent({ name: "IonList", template: "<div><slot /></div>" }),
@@ -126,6 +127,9 @@ describe("Inventory product selection", () => {
   it("passes only currently checked products into the bulk inventory edit modal", async () => {
     const { default: Inventory } = await import("../src/views/Inventory.vue");
     const wrapper = mount(Inventory);
+    const ionic = await import("@ionic/vue");
+    await ionic.onIonViewDidEnter.mock.calls[0][0]();
+    await nextTick();
 
     const selectButton = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Select");
     await selectButton?.trigger("click");

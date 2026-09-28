@@ -56,11 +56,8 @@
               <ion-label>{{ translate("Safety stock") }}</ion-label>
               <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "BRK_SAFETY_STOCK").fieldValue : "-" }}</ion-label>
             </ion-item>
-            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')">
-              <!-- TODO: for now not changing the UI for this filter, as we need discuss what to display like enabled/disabled, true/false etc-->
-              <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" disabled>
-                {{ translate("Turn of the facility order limit check") }}
-              </ion-toggle>
+            <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')?.fieldValue)">
+              <ion-label>{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
           </ion-card>
           <ion-card>

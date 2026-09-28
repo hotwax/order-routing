@@ -313,20 +313,64 @@ export function updateRoutingFilterCondition(
     ? selectedValues.map((value: any) => String(value)).filter(Boolean).join(",")
     : selectedValues;
   const existing = next[fieldName];
+  // The operator follows the value: several selections match with in/not-in, one with
+  // equals/not-equals, and the _excluded variants negate. Rows added from the filter modal carry
+  // no operator at all, so it has to be derived on every value change, not only on create.
+  const isExcluded = fieldName.endsWith("_excluded");
+  const isMultiValue = String(fieldValue ?? "").includes(",");
+  const operator = isExcluded
+    ? isMultiValue ? "not-in" : "not-equals"
+    : isMultiValue ? "in" : "equals";
 
   if (existing) {
     existing.fieldValue = fieldValue;
+    existing.operator = operator;
   } else {
     next[fieldName] = {
       conditionTypeEnumId: "ENTCT_FILTER",
       fieldName,
       fieldValue,
-      operator: "equals",
+      operator,
       sequenceNum: Object.keys(next).filter((key) => key !== parameter).length + 1
     };
   }
 
   if (parameter !== fieldName) delete next[parameter];
+  return next;
+}
+
+/**
+ * Update an inventory-rule filter (OrderRoutingRuleInvCond) value.
+ *
+ * `defaultOperator` is what the control implies (less-equals for proximity, greater for safety
+ * stock); it only fills a missing operator so a user-chosen one, like safety stock's
+ * greater-equals, survives a later value edit. Rows added from the filter modal can carry an empty
+ * operator, and _excluded rows must stay not-equals or save serialization keeps the suffix.
+ */
+export function updateRuleFilterCondition(
+  options: Record<string, any>,
+  fieldName: string,
+  fieldValue: any,
+  defaultOperator = ""
+) {
+  const next = cloneValue(options || {});
+  const isExcluded = fieldName.endsWith("_excluded");
+  const fallbackOperator = isExcluded ? "not-equals" : defaultOperator || "equals";
+  const existing = next[fieldName];
+
+  if (existing) {
+    existing.fieldValue = fieldValue;
+    existing.operator = isExcluded ? "not-equals" : existing.operator || fallbackOperator;
+  } else {
+    next[fieldName] = {
+      conditionTypeEnumId: "ENTCT_FILTER",
+      fieldName,
+      fieldValue,
+      operator: fallbackOperator,
+      sequenceNum: Object.keys(next).length + 1
+    };
+  }
+
   return next;
 }
 

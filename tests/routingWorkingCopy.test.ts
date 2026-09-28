@@ -16,7 +16,8 @@ import {
   settleRoutingEditorDiscard,
   serializeRoutingWorkingCopy,
   serializeRuleWorkingCopy,
-  updateRoutingFilterCondition
+  updateRoutingFilterCondition,
+  updateRuleFilterCondition
 } from "../src/utils/routingWorkingCopy";
 
 describe("routing working-copy projections", () => {
@@ -301,7 +302,8 @@ describe("routing working-copy projections", () => {
     expect(Object.keys(updated)).toEqual(["facilityId"]);
     expect(updated.facilityId).toEqual({
       ...filters.facilityId,
-      fieldValue: "QUEUE_A,QUEUE_B"
+      fieldValue: "QUEUE_A,QUEUE_B",
+      operator: "in"
     });
     expect(filters.facilityId.fieldValue).toBe("QUEUE_A");
   });
@@ -320,11 +322,63 @@ describe("routing working-copy projections", () => {
         conditionTypeEnumId: "ENTCT_FILTER",
         fieldName: "shipmentMethodTypeId",
         fieldValue: "STANDARD,STORE_PICKUP",
-        operator: "equals",
+        operator: "in",
         sequenceNum: 1
       }
     });
     expect(serializeRoutingWorkingCopy({ orderFilters: [], rules: [] }, updated, {}, []).orderFilters)
       .toEqual([updated.shipmentMethodTypeId]);
+  });
+
+  it("keeps a chosen rule-filter operator and fills missing ones from the control default", () => {
+    // Rows added from the inventory filter modal carry an empty operator.
+    let filters: Record<string, any> = {
+      brokeringSafetyStock: { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "brokeringSafetyStock", operator: "", sequenceNum: 0 },
+      facilityGroupId: { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityGroupId", operator: "", sequenceNum: 5 }
+    };
+
+    filters = updateRuleFilterCondition(filters, "brokeringSafetyStock", "5", "greater");
+    expect(filters.brokeringSafetyStock).toMatchObject({ fieldValue: "5", operator: "greater" });
+    // The user switches the operator, then edits the value: the choice must survive.
+    filters.brokeringSafetyStock.operator = "greater-equals";
+    filters = updateRuleFilterCondition(filters, "brokeringSafetyStock", "7", "greater");
+    expect(filters.brokeringSafetyStock).toMatchObject({ fieldValue: "7", operator: "greater-equals" });
+
+    filters = updateRuleFilterCondition(filters, "facilityGroupId", "GROUP_A");
+    expect(filters.facilityGroupId.operator).toBe("equals");
+
+    filters = updateRuleFilterCondition(filters, "facilityGroupId_excluded", "GROUP_B");
+    expect(filters.facilityGroupId_excluded).toMatchObject({ fieldValue: "GROUP_B", operator: "not-equals" });
+
+    filters = updateRuleFilterCondition(filters, "distance", "50", "less-equals");
+    expect(filters.distance.operator).toBe("less-equals");
+  });
+
+  it("derives the operator from the selection count and exclusion on every value change", () => {
+    const enums = {
+      QUEUE: { code: "facilityId" },
+      QUEUE_EXCLUDED: { code: "facilityId_excluded" },
+      PRIORITY_EXCLUDED: { code: "priority_excluded" }
+    };
+    // Rows added from the filter modal have no operator until a value is chosen.
+    let filters: Record<string, any> = {
+      facilityId: { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId", sequenceNum: 0 },
+      facilityId_excluded: { conditionTypeEnumId: "ENTCT_FILTER", fieldName: "facilityId_excluded", sequenceNum: 5 }
+    };
+
+    filters = updateRoutingFilterCondition(filters, enums, "QUEUE", ["Q1"], true);
+    expect(filters.facilityId.operator).toBe("equals");
+    filters = updateRoutingFilterCondition(filters, enums, "QUEUE", ["Q1", "Q2"], true);
+    expect(filters.facilityId.operator).toBe("in");
+    filters = updateRoutingFilterCondition(filters, enums, "QUEUE", ["Q2"], true);
+    expect(filters.facilityId.operator).toBe("equals");
+
+    filters = updateRoutingFilterCondition(filters, enums, "QUEUE_EXCLUDED", ["Q3"], true);
+    expect(filters.facilityId_excluded.operator).toBe("not-equals");
+    filters = updateRoutingFilterCondition(filters, enums, "QUEUE_EXCLUDED", ["Q3", "Q4"], true);
+    expect(filters.facilityId_excluded.operator).toBe("not-in");
+
+    filters = updateRoutingFilterCondition(filters, enums, "PRIORITY_EXCLUDED", "2");
+    expect(filters.priority_excluded.operator).toBe("not-equals");
   });
 });

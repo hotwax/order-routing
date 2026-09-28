@@ -120,7 +120,7 @@ describe("ProductCalendarRuleConditions", () => {
     });
   });
 
-  it("returns to an empty base row after removing the last condition", async () => {
+  it("reopens a blank row after removing the last condition", async () => {
     const wrapper = mount(ProductCalendarRuleConditions, {
       props: { conditions: [condition] },
     });

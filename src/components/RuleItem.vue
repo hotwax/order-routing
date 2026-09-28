@@ -65,7 +65,7 @@
             <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)" lines="full">
               <ion-icon slot="start" :icon="calendarOutline" />
               <ion-label class="ion-text-wrap">
-                {{ calendarFieldLabels[condition.fieldName] || condition.fieldName }}
+                {{ productStoreProductDateFieldLabel(condition.fieldName) }}
                 <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
               </ion-label>
             </ion-item>
@@ -142,7 +142,7 @@ import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil } from '@common';
-import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel } from '@/utils/productCalendarDateConditions';
+import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel, productStoreProductDateFieldLabel } from '@/utils/productCalendarDateConditions';
 
 const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
@@ -154,12 +154,6 @@ const configFacilities = computed(() => productStore.getConfigFacilities)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
 const isReorderActive = computed(() => ruleStore.isReorderActive);
 const selectedSegment = computed(() => productStore.getSelectedSegment)
-const calendarFieldLabels: Record<string, string> = {
-  introductionDate: "Introduction date",
-  releaseDate: "Launch date",
-  supportDiscontinuationDate: "Support discontinuation date",
-  salesDiscontinuationDate: "Sales discontinuation date"
-};
 const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter(isProductStoreProductDateCondition));
 
 const selectedPage = ref({

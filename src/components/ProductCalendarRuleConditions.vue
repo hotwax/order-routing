@@ -15,7 +15,7 @@
             :value="row.condition.fieldName"
             @ionChange="updateCondition(row, { fieldName: $event.detail.value })"
           >
-            <ion-select-option v-for="field in calendarFields" :key="field.name" :value="field.name">
+            <ion-select-option v-for="field in PRODUCT_STORE_PRODUCT_DATE_FIELDS" :key="field.name" :value="field.name">
               {{ translate(field.label) }}
             </ion-select-option>
           </ion-select>
@@ -69,12 +69,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { IonButton, IonCard, IonCardContent, IonIcon, IonInput, IonNote, IonSelect, IonSelectOption } from "@ionic/vue";
 import { addCircleOutline, trashOutline } from "ionicons/icons";
 import { translate } from "@common";
 import {
   PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS,
+  PRODUCT_STORE_PRODUCT_DATE_FIELDS,
   PRODUCT_STORE_PRODUCT_DATE_OPERATORS,
   productStoreProductDateConditionKey,
 } from "@/utils/productCalendarDateConditions";
@@ -82,7 +83,7 @@ import {
 type CalendarCondition = Record<string, any>;
 type CalendarConditionRow = {
   id: string;
-  kind: "saved" | "draft" | "base";
+  kind: "saved" | "draft";
   condition: CalendarCondition;
   index: number;
 };
@@ -90,14 +91,6 @@ type CalendarConditionRow = {
 const props = defineProps<{ conditions: CalendarCondition[] }>();
 const emit = defineEmits<{ "update:conditions": [conditions: CalendarCondition[]] }>();
 
-const calendarFields = [
-  { name: "introductionDate", label: "Introduction date" },
-  { name: "releaseDate", label: "Launch date" },
-  { name: "supportDiscontinuationDate", label: "Support discontinuation date" },
-  { name: "salesDiscontinuationDate", label: "Sales discontinuation date" },
-];
-
-const baseCondition = ref<CalendarCondition>(createEmptyCondition());
 const draftConditions = ref<Array<{ id: string; condition: CalendarCondition }>>([]);
 // An incomplete edit to an already-saved row is parked here rather than emitted, so a half-typed
 // condition can never reach the parent's save payload.
@@ -116,12 +109,15 @@ const calendarConditionRows = computed<CalendarConditionRow[]>(() => {
     index,
   }));
 
-  if (!savedRows.length && !draftRows.length) {
-    return [{ id: "base", kind: "base", condition: baseCondition.value, index: 0 }];
-  }
-
   return [...savedRows, ...draftRows];
 });
+
+// The card always offers somewhere to type, so an empty list keeps one blank draft open.
+watch(
+  [() => props.conditions.length, () => draftConditions.value.length],
+  ([savedCount, draftCount]) => { if (!savedCount && !draftCount) addCondition(); },
+  { immediate: true },
+);
 
 function createEmptyCondition(): CalendarCondition {
   return {
@@ -133,7 +129,7 @@ function createEmptyCondition(): CalendarCondition {
 }
 
 function isCompleteCondition(condition: CalendarCondition) {
-  return calendarFields.some((field) => field.name === condition.fieldName)
+  return PRODUCT_STORE_PRODUCT_DATE_FIELDS.some((field) => field.name === condition.fieldName)
     && PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS.some((direction) => direction.value === condition.conditionTypeEnumId)
     && PRODUCT_STORE_PRODUCT_DATE_OPERATORS.some((operator) => operator.value === condition.operator)
     && /^\d+$/.test(String(condition.fieldValue));
@@ -173,19 +169,14 @@ function updateCondition(row: CalendarConditionRow, updates: CalendarCondition) 
     return;
   }
 
-  if (row.kind === "base") {
-    baseCondition.value = updatedCondition;
-  } else {
-    draftConditions.value = draftConditions.value.map((draft, index) => (
-      index === row.index ? { ...draft, condition: updatedCondition } : draft
-    ));
-  }
+  draftConditions.value = draftConditions.value.map((draft, index) => (
+    index === row.index ? { ...draft, condition: updatedCondition } : draft
+  ));
 
   if (!isCompleteCondition(updatedCondition)) return;
 
   emit("update:conditions", withCondition(updatedCondition));
-  if (row.kind === "base") baseCondition.value = createEmptyCondition();
-  else draftConditions.value = draftConditions.value.filter((_, index) => index !== row.index);
+  draftConditions.value = draftConditions.value.filter((_, index) => index !== row.index);
 }
 
 function addCondition() {
@@ -196,11 +187,6 @@ function addCondition() {
 }
 
 function removeCondition(row: CalendarConditionRow) {
-  if (row.kind === "base") {
-    baseCondition.value = createEmptyCondition();
-    return;
-  }
-
   if (row.kind === "draft") {
     draftConditions.value = draftConditions.value.filter((_, index) => index !== row.index);
     return;
@@ -208,9 +194,6 @@ function removeCondition(row: CalendarConditionRow) {
 
   clearPendingEdit(row.id);
   emit("update:conditions", props.conditions.filter((_, index) => index !== row.index));
-  if (props.conditions.length === 1 && !draftConditions.value.length) {
-    baseCondition.value = createEmptyCondition();
-  }
 }
 </script>
 

@@ -8,6 +8,13 @@ export const PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS = [
   { value: PRODUCT_STORE_PRODUCT_DATE_CONDITION_TYPES.TILL, label: "Days till" }
 ] as const;
 
+export const PRODUCT_STORE_PRODUCT_DATE_FIELDS = [
+  { name: "introductionDate", label: "Introduction date" },
+  { name: "releaseDate", label: "Launch date" },
+  { name: "supportDiscontinuationDate", label: "Support discontinuation date" },
+  { name: "salesDiscontinuationDate", label: "Sales discontinuation date" }
+] as const;
+
 export const PRODUCT_STORE_PRODUCT_DATE_OPERATORS = [
   { value: "less-than", label: "Is less than", symbol: "<" },
   { value: "less-than-equal-to", label: "Is less than or equal to", symbol: "≤" },
@@ -28,4 +35,8 @@ export function productStoreProductDateConditionLabel(condition: any) {
   const direction = PRODUCT_STORE_PRODUCT_DATE_DIRECTIONS.find(({ value }) => value === condition?.conditionTypeEnumId)?.label || "Date";
   const operator = PRODUCT_STORE_PRODUCT_DATE_OPERATORS.find(({ value }) => value === condition?.operator)?.symbol || condition?.operator || "";
   return `${direction} ${operator}`.trim();
+}
+
+export function productStoreProductDateFieldLabel(fieldName: string) {
+  return PRODUCT_STORE_PRODUCT_DATE_FIELDS.find(({ name }) => name === fieldName)?.label || fieldName;
 }

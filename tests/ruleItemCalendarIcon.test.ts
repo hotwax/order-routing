@@ -27,8 +27,6 @@ vi.mock("@/store/atpProductStore", () => ({
   }),
 }));
 
-vi.mock("@/utils/productCalendarNavigation", () => ({ productCalendarHref: () => null }));
-
 vi.mock("@ionic/vue", () => ({
   IonAccordion: defineComponent({ name: "IonAccordion", template: "<section><slot /></section>" }),
   IonAccordionGroup: defineComponent({ name: "IonAccordionGroup", template: "<section><slot /></section>" }),

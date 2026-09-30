@@ -59,6 +59,17 @@
             <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT')?.fieldValue)">
               <ion-label>{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
+            <ion-item v-if="[true, 'Y', 'true'].includes(getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'USE_CPCM')?.fieldValue)">
+              <ion-label>{{ translate("Use carrier postal code mapping") }}</ion-label>
+            </ion-item>
+            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIPPING_ZONE')">
+              <ion-label>{{ translate("Shipping zone") }}</ion-label>
+              <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIPPING_ZONE").operator }} {{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIPPING_ZONE").fieldValue ?? "-" }}</ion-label>
+            </ion-item>
+            <ion-item v-if="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'GROUND_TRANSIT_TIME')">
+              <ion-label>{{ translate("Ground transit time") }}</ion-label>
+              <ion-label slot="end">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "GROUND_TRANSIT_TIME").operator }} {{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "GROUND_TRANSIT_TIME").fieldValue ?? "-" }} {{ translate("days") }}</ion-label>
+            </ion-item>
           </ion-card>
           <ion-card>
             <ion-item>

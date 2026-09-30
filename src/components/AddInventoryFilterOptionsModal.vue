@@ -15,10 +15,10 @@
 
       <ion-list v-else>
         <ion-item v-for="condition in enumerations" :key="condition.enumId">
-          <ion-checkbox :disabled="isConditionDisabled(condition.enumId)" :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">
-            <template v-if="isConditionDisabled(condition.enumId)">
+          <ion-checkbox :disabled="!!getDisabledReason(condition)" :checked="isConditionOptionSelected(condition.enumCode)" @ionChange="addConditionOption(condition)">
+            <template v-if="getDisabledReason(condition)">
               <ion-label>{{ condition.description || condition.enumCode }}</ion-label>
-              <ion-note>{{ `Only applicable when ${dependentOptions[condition.enumId].label} is selected` }}</ion-note>
+              <ion-note>{{ getDisabledReason(condition) }}</ion-note>
             </template>
             <template v-else-if="condition.enumCode.includes('_excluded')">
               <ion-label>{{ condition.description || condition.enumCode }}</ion-label>
@@ -73,6 +73,9 @@ const props = defineProps({
   },
   filterOptions: {
     type: Object
+  },
+  sortOptions: {
+    type: Object
   }
 })
 let inventoryRuleConditions = ref({}) as any
@@ -82,13 +85,34 @@ let areFiltersUpdated = ref(false)
 // Added those enums here that needs to be hidden form the UI
 const hiddenOptions = ["IIP_MSMNT_SYSTEM", "IIP_SPLIT_ITEM_GROUP"]
 
+const cpcmLabel = "Use Carrier Postal Code Mapping"
+
 // Add entries for the enums those are dependent on another filter {enumId: { code, label }}
-const dependentOptions = {"ISP_CUST_SEQ": { code: "facilityGroupId", label: "Facility group" }} as any
+// Shipping zone and ground transit time come from the carrier postal code mapping, so they are only usable once useCpcm is added to the rule
+const dependentOptions = {
+  ISP_CUST_SEQ: { code: "facilityGroupId", label: "Facility group" },
+  IFP_SHIPPING_ZONE: { code: "useCpcm", label: cpcmLabel },
+  IFP_GROUND_TRANSIT_TIME: { code: "useCpcm", label: cpcmLabel },
+  ISP_SHIPPING_ZONE: { code: "useCpcm", label: cpcmLabel },
+  ISP_GROUND_TRANSIT_TIME: { code: "useCpcm", label: cpcmLabel }
+} as any
+// Options that must not be mixed on the same rule {enumId: [{ code, label, type }]}, type tells whether the conflicting code is a filter or a sort
+// A rule either selects facilities by distance or by carrier postal code mapping, not both
+const conflictingOptions = {
+  IIP_PROXIMITY: [{ code: "useCpcm", label: cpcmLabel, type: "filter" }],
+  ISP_PROXIMITY: [{ code: "useCpcm", label: cpcmLabel, type: "filter" }],
+  IFP_USE_CPCM: [{ code: "distance", label: "Proximity filter", type: "filter" }, { code: "distance", label: "Proximity sort", type: "sort" }]
+} as any
 // managing this object, as we have some filters for which we need to have its associated filter, like in this case when we have PROXIMITY we also need to add MEASUREMENT_SYSTEM(this is not available on UI for selection and included in hiddenOptions)
 const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultValue: "IMPERIAL" }} as any
 // This is a presence-based override: selecting it always means bypass the facility order limit.
 // Removing the condition restores the normal limit check.
-const fixedConditionValues = { IFP_IGNORE_ORD_FAC_LIMIT: "Y" } as Record<string, string>
+// useCpcm is also presence-based, the backend only enables the mapping when the value is "true".
+const fixedConditionValues = { IFP_IGNORE_ORD_FAC_LIMIT: "Y", IFP_USE_CPCM: "true" } as Record<string, string>
+// Operator to preselect when adding a new comparison condition
+const defaultOperators = { IFP_SHIPPING_ZONE: "equals", IFP_GROUND_TRANSIT_TIME: "less-equals" } as Record<string, string>
+
+const isFilterModal = computed(() => props.conditionTypeEnumId === "ENTCT_FILTER")
 
 onMounted(() => {
   inventoryRuleConditions.value = props.ruleConditions ? JSON.parse(JSON.stringify(props.ruleConditions)) : {}
@@ -120,6 +144,12 @@ function addConditionOption(condition: any) {
     delete inventoryRuleConditions.value[condition.enumCode]
     // When removing a condition, also remove its associated option if available
     associatedEnum && delete inventoryRuleConditions.value[associatedEnum.enumCode]
+    // Also remove the filters that are only applicable along with the removed filter
+    if(isFilterModal.value) {
+      enumerations.value
+        .filter((option: any) => dependentOptions[option.enumId]?.code === condition.enumCode)
+        .forEach((option: any) => delete inventoryRuleConditions.value[option.enumCode])
+    }
   } else {
     // checking unchecking an option and then checking it again, we need to use the same values
     if(props.ruleConditions?.[condition.enumCode]) {
@@ -137,7 +167,7 @@ function addConditionOption(condition: any) {
         fieldName: condition.enumCode,
         sequenceNum: Object.keys(inventoryRuleConditions.value).length && inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]]?.sequenceNum >= 0 ? inventoryRuleConditions.value[Object.keys(inventoryRuleConditions.value)[Object.keys(inventoryRuleConditions.value).length - 1]].sequenceNum + 5 : 0,  // added check for `>= 0` as sequenceNum can be 0 which will result in again setting the new seqNum to 0
         createdDate: DateTime.now().toMillis(),
-        operator: condition.enumCode.includes("_excluded") ? "not-equals" : fixedConditionValues[condition.enumId] ? "equals" : "",
+        operator: condition.enumCode.includes("_excluded") ? "not-equals" : fixedConditionValues[condition.enumId] ? "equals" : defaultOperators[condition.enumId] || "",
         ...(fixedConditionValues[condition.enumId] ? { fieldValue: fixedConditionValues[condition.enumId] } : {})
       }
 
@@ -172,12 +202,28 @@ function closeModal(action = "close") {
   modalController.dismiss({ dismissed: true, filters: inventoryRuleConditions.value }, action)
 }
 
-function isConditionDisabled(enumId: string) {
-  if(!dependentOptions[enumId]) {
-    return false;
-  }
+// Filters/sorts being edited in this modal are read from the local state, the other type from the rule
+function isRuleOptionApplied(code: string, type: "filter" | "sort") {
+  const options = (type === "filter") === isFilterModal.value ? inventoryRuleConditions.value : type === "filter" ? props.filterOptions : props.sortOptions
+  const condition = options?.[code]
+  return Boolean(condition) && ![false, "N", "false"].includes(condition.fieldValue)
+}
+
+// Returns the reason for which the option can't be selected, an already selected option is never disabled so that it can be removed
+function getDisabledReason(condition: any) {
+  if(isConditionOptionSelected(condition.enumCode)) return ""
 
   // Added check on code as we only have code once a filter is selected
-  return !props.filterOptions?.[dependentOptions[enumId].code]
+  const dependentOption = dependentOptions[condition.enumId]
+  if(dependentOption && !isRuleOptionApplied(dependentOption.code, "filter")) {
+    return translate("Only applicable when {label} is selected", { label: translate(dependentOption.label) })
+  }
+
+  const conflictingOption = conflictingOptions[condition.enumId]?.find((option: any) => isRuleOptionApplied(option.code, option.type))
+  if(conflictingOption) {
+    return translate("Not applicable when {label} is selected", { label: translate(conflictingOption.label) })
+  }
+
+  return ""
 }
 </script>

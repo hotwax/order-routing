@@ -19,26 +19,7 @@
         <ion-badge v-else slot="end" :color="isFailed ? 'danger' : 'success'">{{ statusLabel }}</ion-badge>
       </ion-item>
 
-      <ion-list v-if="displayRun.variants?.length">
-        <ion-item v-for="variant in displayRun.variants" :key="variant.variantSeqId">
-          <ion-label class="ion-text-wrap">
-            <h2>{{ variant.isBaseline === 'Y' ? translate('Baseline') : (variant.label || translate('Variation')) }}</h2>
-            <p v-if="variant.failureReason" class="failure">{{ variant.failureReason }}</p>
-            <p>{{ translate('Attempted') }}: {{ count(variant.attemptedItemCount) }} ·
-              {{ translate('Brokered') }}: {{ count(variant.brokeredItemCount) }} ·
-              {{ translate('Queued') }}: {{ count(variant.queuedItemCount) }}</p>
-            <p v-if="canCompare(variant)" class="comparison">
-              {{ translate('Compared with baseline') }} ·
-              {{ translate('Brokered') }}: {{ difference(variant.brokeredItemCount, baselineVariant?.brokeredItemCount) }} ·
-              {{ translate('Queued') }}: {{ difference(variant.queuedItemCount, baselineVariant?.queuedItemCount) }}
-            </p>
-          </ion-label>
-          <ion-badge v-if="variant.failed === 'Y'" slot="end" color="danger">{{ translate('Failed') }}</ion-badge>
-        </ion-item>
-      </ion-list>
-      <ion-note v-else class="ion-padding-horizontal" color="medium">
-        {{ isRunning ? translate('Waiting for the first result…') : translate('No variant results were recorded.') }}
-      </ion-note>
+
 
       <ion-note v-if="displayRun.simulation.statusId === 'BRSIM_COMPLETE' && displayRun.simulation.attemptedItemCount != null && Number(displayRun.simulation.attemptedItemCount) === 0"
         color="warning" class="ion-padding-horizontal empty-run-note">
@@ -86,6 +67,30 @@
           {{ translate('Shipping distance measured for') }} {{ count(selectedVariant?.distanceMeasuredShipmentCount) }} /
           {{ count(selectedVariant?.fulfillmentShipmentCount) }} {{ translate('fulfillment shipments') }}.
         </ion-note>
+      </section>
+
+      <ion-list v-if="displayRun.variants?.length">
+        <ion-item v-for="variant in displayRun.variants" :key="variant.variantSeqId">
+          <ion-label class="ion-text-wrap">
+            <h2>{{ variant.isBaseline === 'Y' ? translate('Baseline') : (variant.label || translate('Variation')) }}</h2>
+            <p v-if="variant.failureReason" class="failure">{{ variant.failureReason }}</p>
+            <p>{{ translate('Attempted') }}: {{ count(variant.attemptedItemCount) }},
+              {{ translate('Brokered') }}: {{ count(variant.brokeredItemCount) }},
+              {{ translate('Queued') }}: {{ count(variant.queuedItemCount) }}</p>
+            <p v-if="canCompare(variant)" class="comparison">
+              {{ translate('Compared with baseline') }},
+              {{ translate('Brokered') }}: {{ difference(variant.brokeredItemCount, baselineVariant?.brokeredItemCount) }},
+              {{ translate('Queued') }}: {{ difference(variant.queuedItemCount, baselineVariant?.queuedItemCount) }}
+            </p>
+          </ion-label>
+          <ion-badge v-if="variant.failed === 'Y'" slot="end" color="danger">{{ translate('Failed') }}</ion-badge>
+        </ion-item>
+      </ion-list>
+      <ion-note v-else class="ion-padding-horizontal" color="medium">
+        {{ isRunning ? translate('Waiting for the first result…') : translate('No variant results were recorded.') }}
+      </ion-note>
+
+      <section v-if="hasPersistedOutcomes && displayRun.variants?.length" class="item-outcomes">
         <h2>{{ translate('Simulation details') }}</h2>
         <h2>{{ translate('Routing outcomes') }}</h2>
         <ion-item v-if="rulesLoading" lines="none">

@@ -1448,5 +1448,19 @@
   "Clear filters": "Clear filters",
   "Safety stock threshold": "Safety stock threshold",
   "Threshold value": "Threshold value",
-  "Value": "Value"
+  "Value": "Value",
+  "Use carrier postal code mapping": "Use carrier postal code mapping",
+  "Use Carrier Postal Code Mapping": "Use Carrier Postal Code Mapping",
+  "Shipping zone": "Shipping zone",
+  "Ground transit time": "Ground transit time",
+  "Add shipping zone": "Add shipping zone",
+  "Add ground transit time (days)": "Add ground transit time (days)",
+  "equals": "equals",
+  "less": "less",
+  "less than or equal to": "less than or equal to",
+  "Proximity filter": "Proximity filter",
+  "Proximity sort": "Proximity sort",
+  "Only applicable when {label} is selected": "Only applicable when {label} is selected",
+  "Not applicable when {label} is selected": "Not applicable when {label} is selected",
+  "This rule uses carrier postal code mapping along with proximity. Use either proximity or carrier postal code mapping to select facilities.": "This rule uses carrier postal code mapping along with proximity. Use either proximity or carrier postal code mapping to select facilities."
 }

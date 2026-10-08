@@ -27,7 +27,7 @@
           <ion-item :class="{ 'dirty-setting-row': item.dirty }">
           <ion-label>
             {{ translate(item.label) }}
-            <p v-if="item.value">{{ translate(item.value) }}</p>
+            <p class="item-value" v-if="item.value">{{ translate(item.value) }}</p>
           </ion-label>
           <ion-icon
             v-if="card.kind === 'sort' && !item.value"
@@ -95,5 +95,9 @@ const itemsContainer = computed(() => props.reorderable ? IonReorderGroup : IonL
 
 .dirty-setting-row {
   --background: rgba(var(--ion-color-warning-rgb), 0.16);
+}
+
+p.item-value {
+  overflow-wrap: anywhere;
 }
 </style>

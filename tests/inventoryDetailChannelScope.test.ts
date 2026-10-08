@@ -90,7 +90,7 @@ describe("InventoryDetail Channel scope", () => {
       const components = [
         "IonAccordion", "IonAccordionGroup", "IonButton", "IonButtons", "IonCard", "IonCardHeader",
         "IonCardTitle", "IonChip", "IonContent", "IonDatetime", "IonDatetimeButton", "IonHeader", "IonIcon",
-        "IonItem", "IonItemDivider", "IonLabel", "IonList", "IonListHeader", "IonModal", "IonPage", "IonRow",
+        "IonItem", "IonItemDivider", "IonLabel", "IonList", "IonListHeader", "IonMenuButton", "IonModal", "IonPage", "IonRow",
         "IonSearchbar", "IonSegment", "IonSegmentButton", "IonSkeletonText", "IonTitle", "IonToolbar",
       ];
 

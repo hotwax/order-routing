@@ -8,15 +8,17 @@ import {
   albumsOutline,
   businessOutline,
   calendarOutline,
-  cloudUploadOutline,
+  documentsOutline,
   flaskOutline,
   globeOutline,
   pulseOutline,
   sendOutline,
   settingsOutline,
+  sparklesOutline,
   storefrontOutline
 } from "ionicons/icons";
 import { RouteRecordRaw } from "vue-router";
+import Actions from "@/authorization/actions";
 
 
 declare module "vue-router" {
@@ -39,7 +41,7 @@ const authGuard = async (to: any, _from: any, next: any) => {
 
     return next("/login");
   }
-  next();
+  return next();
 };
 
 // A persisted browser history entry must not be allowed to open a routing group from a previous
@@ -65,7 +67,7 @@ const routingGroupGuard = (to: any, from: any, next: any) =>
 const simulateGuard = (to: any, from: any, next: any) =>
   isFeatureEnabled("simulation") ? authGuard(to, from, next) : next("/order-routing");
 
-export const ROUTING_TEST_DRIVE_PERMISSION_ID = "ROUTING_TEST_DRIVE_VIEW";
+export const ROUTING_TEST_DRIVE_PERMISSION_ID = Actions.APP_TEST_DRIVE_VIEW;
 
 export function routingGroupRequiresSaveBeforeTest(routingGroupId: string): boolean {
   const store = orderRoutingStore();
@@ -162,18 +164,6 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
-    path: "/inventory-channels",
-    name: "Inventory channels",
-    component: () => import("@/views/InventoryChannels.vue"),
-    beforeEnter: authGuard,
-    meta: {
-      title: "Channels",
-      icon: cloudUploadOutline,
-      section: "sourcing",
-      menuIndex: 5
-    }
-  },
-  {
     path: "/inventory",
     name: "Inventory",
     component: () => import("@/views/Inventory.vue"),
@@ -185,6 +175,18 @@ const routes: Array<RouteRecordRaw> = [
       menuIndex: 6,
       childRoutes: ["/inventory/"],
       minVersion: "v6.0.0"
+    }
+  },
+  {
+    path: "/inventory-updates",
+    name: "Inventory updates",
+    component: () => import("@/views/InventoryUpdates.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Inventory updates",
+      icon: documentsOutline,
+      section: "sourcing",
+      menuIndex: 7
     }
   },
   {
@@ -330,6 +332,18 @@ const routes: Array<RouteRecordRaw> = [
       icon: businessOutline,
       section: "routing",
       menuIndex: 11
+    }
+  },
+  {
+    path: "/simulation-setup",
+    name: "Simulation setup",
+    component: () => import("@/views/SimulationSetupWizard.vue"),
+    beforeEnter: authGuard,
+    meta: {
+      title: "Simulation setup",
+      icon: sparklesOutline,
+      section: "routing",
+      menuIndex: 12
     }
   },
 

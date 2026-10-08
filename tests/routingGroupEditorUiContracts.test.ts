@@ -70,7 +70,7 @@ describe("routing group editor UI contracts", () => {
     expect(canvasSource).toContain('assertCurrentCircuitContext(circuitContext)');
     expect(editorSource).toContain('simulationWorking: cloneSnapshotValue(sim.working)');
     expect(editorSource).toContain('restoreObjectInPlace(sim.working, snap.simulationWorking)');
-    expect(editorSource).toContain('variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || "")');
+    expect(editorSource).toContain('variationId: String(group.value.variationGroupId || sim.working?.variationGroupId || "")');
     expect(editorSource).toContain('...buildRoutingAgentSnapshot(editorReferenceMaps.value)');
     expect(editorSource).toContain('if (isSandbox.value) return ""');
   });
@@ -91,6 +91,14 @@ describe("routing group editor UI contracts", () => {
     expect(editorSource).toContain("isRuleConditionCardDirty('ENTCT_FILTER')");
     expect(editorSource).toContain("'dirty-setting-row'");
     expect(editorSource).toContain(':dirty="isRuleConditionCardDirty(\'ENTCT_FILTER\')"');
+  });
+
+  it("renders the facility order limit override as presence-based read-only text", () => {
+    const overrideRow = editorSource.match(/<ion-item v-else-if="item\.target\.endsWith\('\.FACILITY_ORDER_LIMIT'\)"[\s\S]*?<\/ion-item>/)?.[0] || "";
+
+    expect(overrideRow).toContain('translate("Override facility order limit")');
+    expect(overrideRow).not.toContain("ion-toggle");
+    expect(overrideRow).not.toContain("updateRuleFilterValue");
   });
 
   it("uses the AccxUI single-step modal and list-divider structure for variation differences", () => {

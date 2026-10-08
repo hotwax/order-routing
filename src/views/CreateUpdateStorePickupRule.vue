@@ -120,16 +120,13 @@
               {{ translate("Create channel") }}
               <ion-icon slot="end" :icon="addOutline" />
             </ion-button>
-            <ion-button fill="outline" @click="goToChannels()">
-              {{ translate("Manage channels") }}
-              <ion-icon slot="end" :icon="openOutline" />
-            </ion-button>
           </template>
         </EmptyState>
       </template>
 
       <!-- Product Filters (as in main) -->
       <ProductFilters />
+      <ProductCalendarRuleConditions v-model:conditions="calendarDateConditions" />
 
       <div class="section-header">
         <h1>{{ translate("Preview") }}</h1>
@@ -151,11 +148,12 @@
 
 <script setup lang="ts">
 import { IonBackButton, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonCheckbox, IonChip, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonNote, IonPage, IonSpinner, IonText, IonTitle, IonToggle, IonToolbar, modalController, onIonViewDidEnter, onIonViewWillLeave } from '@ionic/vue';
-import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, openOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
+import { addCircleOutline, addOutline, businessOutline, closeCircle, cloudUploadOutline, eyeOutline, linkOutline, saveOutline, storefrontOutline } from 'ionicons/icons'
 import { commonUtil, emitter, logger, translate } from "@common";
 import { computed, ref } from 'vue';
 import RuleProductPreview from '@/components/RuleProductPreview.vue';
 import ProductFilters from '@/components/ProductFilters.vue';
+import ProductCalendarRuleConditions from '@/components/ProductCalendarRuleConditions.vue';
 import FacilityGroupImpactModal from '@/components/FacilityGroupImpactModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import CreateGroupModal from '@/components/CreateGroupModal.vue';
@@ -166,12 +164,14 @@ import AddProductFacilityGroupModal from '@/components/AddProductFacilityGroupMo
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { useRuleStore } from '@/store/rule';
 import { ruleUtil } from '@/utils/ruleUtil';
+import { buildLegacyRuleConditions, getProductStoreProductDateConditions, getRuleConditionsToRemove } from '@/utils/legacyRuleCalendarConditions';
 import { useFacilityGroupNetOutcome } from '@/composables/useFacilityGroupNetOutcome';
 
 const productStore = useAtpProductStore();
 const ruleStore = useRuleStore();
 
 const currentRule = ref({}) as any;
+const calendarDateConditions = ref<any[]>([]);
 const props = defineProps(["ruleId"]);
 
 const configFacilities = computed(() => productStore.getConfigFacilities)
@@ -208,6 +208,7 @@ onIonViewDidEnter(async () => {
       
       if(!commonUtil.hasError(resp)) {
         currentRule.value = resp.data[0];
+        calendarDateConditions.value = getProductStoreProductDateConditions(currentRule.value.ruleConditions);
 
         formData.value.ruleName = currentRule.value.ruleName;
         formData.value.isPickupAllowed = currentRule.value.ruleActions[0]?.fieldValue === "Y";
@@ -266,6 +267,7 @@ onIonViewWillLeave(() => {
   }
   productStore.clearAppliedFilters()
   productStore.clearAppliedFiltersOperator()
+  calendarDateConditions.value = []
   emitter.off("productStoreOrConfigChanged", redirectLink);
 })
 
@@ -299,10 +301,6 @@ async function createChannel() {
   const modal = await modalController.create({ component: CreateGroupModal });
   modal.onDidDismiss().then(() => productStore.fetchConfigFacilities());
   return modal.present();
-}
-
-function goToChannels() {
-  router.push("/inventory-channels");
 }
 
 async function openFacilityImpactModal() {
@@ -371,9 +369,10 @@ async function createRule() {
     }
 
     const rule = await ruleStore.createRule(params)
+    const generatedRuleConditions = ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value);
     await ruleStore.updateRuleApi({
       ...params,
-      "ruleConditions": ruleUtil.generateRuleConditions(rule.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value),
+      "ruleConditions": buildLegacyRuleConditions({ ruleId: rule.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: [] }),
       "ruleActions": ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_PICKUP", formData.value.isPickupAllowed, false, [])
     }, rule.ruleId);
 
@@ -393,14 +392,9 @@ async function updateRule() {
   if(!isRuleValid()) return;
 
   const currentRuleConditions = JSON.parse(JSON.stringify(currentRule.value.ruleConditions));
-  const updatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value);
-
-  updatedRuleConditions.map((updatedCondition: any) => {
-    const current = currentRuleConditions.find((condition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator);
-    if(current) updatedCondition["conditionSeqId"] = current.conditionSeqId;
-  })
-
-  const conditionsToRemove = currentRuleConditions.filter((condition: any) => !updatedRuleConditions.some((updatedCondition: any) => condition.conditionTypeEnumId === updatedCondition.conditionTypeEnumId && condition.fieldName === updatedCondition.fieldName && condition.operator === updatedCondition.operator && condition.conditionSeqId === updatedCondition.conditionSeqId))
+  const generatedRuleConditions = ruleUtil.generateRuleConditions(props.ruleId, selectedSegment.value === 'RG_PICKUP_FACILITY' ? "ENTCT_ATP_FAC_GROUPS" : "ENTCT_ATP_FACILITIES", appliedFilters.value, selectedSegment.value === 'RG_PICKUP_FACILITY' ? formData.value.selectedFacilityGroups : formData.value.selectedConfigFacilites, formData.value.areAllSelected, appliedFiltersOperator.value);
+  const updatedRuleConditions = buildLegacyRuleConditions({ ruleId: props.ruleId, generatedConditions: generatedRuleConditions, calendarConditions: calendarDateConditions.value, currentConditions: currentRuleConditions });
+  const conditionsToRemove = getRuleConditionsToRemove(currentRuleConditions, updatedRuleConditions);
 
   try {
     await ruleStore.updateRuleApi({

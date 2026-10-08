@@ -166,10 +166,13 @@ export const useRuleStore = defineStore('rule', {
       });
     },
     async fetchRuleGroupHistory(payload: any) {
+      // jobName identifies the path segment, so it is encoded there and kept out of the query
+      // string rather than being spread in as a redundant param.
+      const { jobName, ...params } = payload;
       return await api({
-        url: `admin/serviceJobs/${payload.jobName}/runs`,
+        url: `admin/serviceJobs/${encodeURIComponent(jobName)}/runs`,
         method: "GET",
-        params: payload
+        params
       });
     },
     async fetchRulesDirect(payload: any) {

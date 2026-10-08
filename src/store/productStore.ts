@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { logger, commonUtil, api, translate } from '@common'
 import { orderRoutingStore } from './orderRoutingStore'
 import { useUtilStore } from './utilStore'
+import { getOmsInstanceKey } from '@/utils/omsInstance'
 
 interface ProductStoreReferenceDataPayload {
   productStoreId?: string;
@@ -17,6 +18,9 @@ export const productStore = defineStore('productStore', {
     return {
       ecomStores: [] as any,
       currentEComStore: {} as any,
+      // OMS instance the persisted ecomStores were fetched from; state is dropped when it
+      // no longer matches the connected instance (see userStore.ensureInstanceScope).
+      omsInstanceKey: '' as string,
       facilities: {} as any,
       shippingMethods: {} as any,
       facilityGroups: {} as any,
@@ -91,18 +95,24 @@ export const productStore = defineStore('productStore', {
   },
   actions: {
     async fetchProductStores(): Promise<any> {
+      const requestedInstanceKey = getOmsInstanceKey();
       try {
         const resp = await api({
           url: "admin/user/productStore",
           method: "GET",
           baseURL : commonUtil.getMaargURL(),
         });
+        if (getOmsInstanceKey() !== requestedInstanceKey) {
+          logger.warn("Product Store - Discarding response; OMS instance changed in flight");
+          return Promise.resolve([]);
+        }
         if (commonUtil.hasError(resp) || resp.data.length === 0) {
           throw resp.data;
         } else {
           this.ecomStores = resp.data;
           this.currentEComStore = resp.data[0];
-          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId);
+          this.omsInstanceKey = requestedInstanceKey;
+          await this.fetchProductStoreSettings(this.currentEComStore.productStoreId, requestedInstanceKey);
           return Promise.resolve(resp.data);
         }
       } catch(error: any) {
@@ -120,7 +130,7 @@ export const productStore = defineStore('productStore', {
       useUtilStore().updateProductCategories({});
       await this.fetchProductStoreSettings(productStore.productStoreId);
     },
-    async fetchProductStoreSettings(productStoreId: string) {
+    async fetchProductStoreSettings(productStoreId: string, expectedInstanceKey?: string) {
       const productStoreSettings = {} as any
 
       if (productStoreId) {
@@ -145,6 +155,11 @@ export const productStore = defineStore('productStore', {
         } catch (error) {
           logger.error("Failed to fetch settings", error)
         }
+      }
+
+      if (expectedInstanceKey && getOmsInstanceKey() !== expectedInstanceKey) {
+        logger.warn("Product Store Setting - Discarding response; OMS instance changed in flight");
+        return;
       }
 
       const defaultProductStoreSettings = {

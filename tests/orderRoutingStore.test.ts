@@ -4,9 +4,11 @@ import { api } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 
 const productStoreId = vi.hoisted(() => ({ value: "STORE" }));
+const mockedRunSolrQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("@common", () => ({
   api: vi.fn(),
+  useSolrSearch: vi.fn(() => ({ runSolrQuery: mockedRunSolrQuery })),
   commonUtil: {
     hasError: vi.fn((response: any) => Boolean(response?.error || response?.data?._ERROR_MESSAGE_)),
     sortSequence: vi.fn((items: any[] = []) => [...items].sort((a, b) => Number(a?.sequenceNum ?? 0) - Number(b?.sequenceNum ?? 0))),
@@ -29,9 +31,6 @@ vi.mock("@/store/product", () => ({
   productStore: vi.fn(() => ({ fetchProducts: vi.fn() }))
 }));
 
-vi.mock("@/utils/simConfig", () => ({
-  simApiBaseUrl: () => "https://sim.example/rest/s1/"
-}));
 
 const mockedApi = vi.mocked(api);
 
@@ -507,5 +506,149 @@ describe("orderRoutingStore clone lifecycle", () => {
     expect(saveRequest.data.routings[0]).not.toHaveProperty("routingGroupId");
     expect(saveRequest.data.routings[0].rules[0]).not.toHaveProperty("routingRuleId");
     expect(store.groups.some((g: any) => g.routingGroupId === cloneId)).toBe(false);
+  });
+});
+
+describe("saveRoutingGroupRaw child deletions", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockedApi.mockReset();
+  });
+
+  // The group POST only upserts, so a route filter / rule condition / action the user removed in the
+  // editor has to be deleted explicitly or it survives on the backend and returns with the readback.
+  function persistedGroup() {
+    return {
+      routingGroupId: "G1",
+      isRoutingGroupDetailLoaded: true,
+      routings: [{
+        orderRoutingId: "R1",
+        orderFilters: [
+          { conditionSeqId: "00001", fieldName: "queue" },
+          { conditionSeqId: "00002", fieldName: "orderDate" }
+        ],
+        rules: [{
+          routingRuleId: "RR1",
+          inventoryFilters: [
+            { conditionSeqId: "00010", fieldName: "facilityGroupId" },
+            { conditionSeqId: "00011", fieldName: "distance" }
+          ],
+          actions: [
+            { actionSeqId: "00020", actionTypeEnumId: "ORA_NEXT_RULE" },
+            { actionSeqId: "00021", actionTypeEnumId: "ORA_MV_TO_QUEUE" }
+          ]
+        }]
+      }]
+    };
+  }
+
+  function requestLog() {
+    return mockedApi.mock.calls.map(([request]: any) => [request.method, request.url]);
+  }
+
+  it("deletes each removed child between the group upsert and the readback", async () => {
+    mockedApi
+      .mockResolvedValueOnce({ data: { routingGroupId: "G1" } })
+      .mockResolvedValue({ data: persistedGroup() });
+    const store = orderRoutingStore();
+    store.baseline = persistedGroup();
+
+    // Drop one route filter, one rule condition and one action, keeping their parents intact.
+    const outgoing = JSON.parse(JSON.stringify(persistedGroup()));
+    const routing = outgoing.routings[0];
+    routing.orderFilters = routing.orderFilters.filter((f: any) => f.conditionSeqId !== "00002");
+    routing.rules[0].inventoryFilters = routing.rules[0].inventoryFilters.filter((f: any) => f.conditionSeqId !== "00011");
+    routing.rules[0].actions = routing.rules[0].actions.filter((a: any) => a.actionSeqId !== "00020");
+
+    await store.saveRoutingGroupRaw(outgoing);
+
+    const log = requestLog();
+    expect(log[0]).toEqual(["POST", "order-routing/groups"]);
+
+    const deletes = mockedApi.mock.calls
+      .map(([request]: any) => request)
+      .filter((request: any) => request.method === "DELETE");
+    expect(deletes).toHaveLength(3);
+    expect(deletes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ url: "order-routing/routings/R1/orderFilters", data: { conditionSeqId: "00002" } }),
+      expect.objectContaining({ url: "order-routing/rules/RR1/inventoryFilters", data: { conditionSeqId: "00011" } }),
+      expect.objectContaining({ url: "order-routing/rules/RR1/actions", data: { actionSeqId: "00020" } })
+    ]));
+
+    // Ordering matters: after the upsert so a failed save cannot destroy rows, before the
+    // readback so the refetched group reflects the removals.
+    const readbackIndex = log.findIndex(([, url]: any) => url === "order-routing/groups/G1/raw");
+    const lastDeleteIndex = log.reduce((last: number, [method]: any, index: number) => method === "DELETE" ? index : last, -1);
+    expect(lastDeleteIndex).toBeGreaterThan(0);
+    expect(readbackIndex).toBeGreaterThan(lastDeleteIndex);
+  });
+
+  it("issues no deletes when nothing persisted was removed", async () => {
+    mockedApi
+      .mockResolvedValueOnce({ data: { routingGroupId: "G1" } })
+      .mockResolvedValue({ data: persistedGroup() });
+    const store = orderRoutingStore();
+    store.baseline = persistedGroup();
+
+    await store.saveRoutingGroupRaw(JSON.parse(JSON.stringify(persistedGroup())));
+
+    expect(requestLog().every(([method]: any) => method !== "DELETE")).toBe(true);
+  });
+
+  it("issues no deletes for a brand-new group that has no server baseline", async () => {
+    mockedApi
+      .mockResolvedValueOnce({ data: { routingGroupId: "G1" } })
+      .mockResolvedValue({ data: persistedGroup() });
+    const store = orderRoutingStore();
+    store.baseline = {};
+
+    const outgoing = { ...JSON.parse(JSON.stringify(persistedGroup())), isNew: true };
+    outgoing.routings[0].orderFilters = [];
+
+    await store.saveRoutingGroupRaw(outgoing);
+
+    expect(requestLog().every(([method]: any) => method !== "DELETE")).toBe(true);
+  });
+});
+
+describe("orderRoutingStore order summary resolution", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.mocked(api).mockReset();
+    mockedRunSolrQuery.mockReset();
+  });
+
+  // Regression: fetchOrderSummaries used to POST to the bare "solr-query" resource, which is not
+  // defined in the OMS REST API and answered 404 ("Service REST API Root resource not found").
+  // Every order then failed to resolve, so classifyMovement fell through to its SALES_ORDER
+  // default and Inventory history rendered transfer orders as sales orders showing a raw orderId.
+  it("resolves order summaries through the shared Solr adapter, preserving order type", async () => {
+    mockedRunSolrQuery.mockResolvedValue({
+      data: {
+        grouped: {
+          orderId: {
+            groups: [
+              { doclist: { docs: [{ orderId: "117312", orderName: "TO11484", orderTypeId: "TRANSFER_ORDER", orderStatusId: "ORDER_APPROVED" }] } },
+              { doclist: { docs: [{ orderId: "129508", orderName: "#1000859", orderTypeId: "SALES_ORDER", orderStatusId: "ORDER_APPROVED" }] } }
+            ]
+          }
+        }
+      }
+    });
+
+    const summaries = await orderRoutingStore().fetchOrderSummaries(["117312", "129508"]);
+
+    expect(mockedRunSolrQuery).toHaveBeenCalledTimes(1);
+    expect(summaries["117312"]).toEqual(expect.objectContaining({ orderName: "TO11484", orderTypeId: "TRANSFER_ORDER" }));
+    expect(summaries["129508"]).toEqual(expect.objectContaining({ orderName: "#1000859", orderTypeId: "SALES_ORDER" }));
+    // must not reach for the non-existent resource again
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith(expect.objectContaining({ url: "solr-query" }));
+  });
+
+  it("short-circuits without querying when there are no order ids", async () => {
+    const summaries = await orderRoutingStore().fetchOrderSummaries([]);
+
+    expect(summaries).toEqual({});
+    expect(mockedRunSolrQuery).not.toHaveBeenCalled();
   });
 });

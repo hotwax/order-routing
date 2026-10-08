@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   routeRef: null as any,
   alertRole: "cancel",
   alertCreate: vi.fn(),
-  showToast: vi.fn()
+  showToast: vi.fn(),
+  routerPush: vi.fn()
 }));
 
 vi.mock("@common", () => ({
@@ -18,7 +19,7 @@ vi.mock("@common", () => ({
 vi.mock("vue-router", async () => {
   const { ref } = await import("vue");
   mocks.routeRef = ref({ path: "/order-routing/G1" });
-  return { useRouter: () => ({ currentRoute: mocks.routeRef }) };
+  return { useRouter: () => ({ currentRoute: mocks.routeRef, push: mocks.routerPush }) };
 });
 
 vi.mock("@/store/simulationStore", () => ({
@@ -111,8 +112,7 @@ function createSimulation() {
     isRunningVariationRun: false,
     isRunningBaselineRun: false,
     isSavingVariation: false,
-    variationRunResult: null,
-    baselineRunResult: null,
+    currentRun: null,
     runCompareError: null,
     baselineRunError: null,
     interruptedVariationRun: null,
@@ -268,7 +268,7 @@ describe("VariationRail interaction safety", () => {
 
     expect(mocks.sim.discardVariation).toHaveBeenCalledWith("V1");
     expect(mocks.sim.activeVariationId).toBe("");
-    expect(mocks.showToast).toHaveBeenCalledWith("Variation discarded");
+    expect(mocks.showToast).toHaveBeenCalledWith("Variation deleted");
   });
 
   it("switches between baseline and a saved variation through the store", async () => {
@@ -370,7 +370,7 @@ describe("VariationRail interaction safety", () => {
   });
 
   it("closes teleported results state when its cached detail route becomes inactive", async () => {
-    mocks.sim.variationRunResult = { routingGroupId: "V1" };
+    mocks.sim.currentRun = { simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE" }, variants: [] };
     const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
     const resultsButton = wrapper.findAllComponents({ name: "IonFabButton" })[1];
     await resultsButton.trigger("click");
@@ -391,7 +391,6 @@ describe("VariationRail interaction safety", () => {
       variationId: "V1",
       serverVariationId: "V1",
       variationLabel: "First",
-      sampleCap: 500,
       startedAt: Date.now(),
       status: "interrupted"
     };
@@ -405,5 +404,19 @@ describe("VariationRail interaction safety", () => {
 
     expect(mocks.sim.loadVariation).toHaveBeenCalledWith("V1");
     expect(mocks.sim.runActiveVariation).toHaveBeenCalledOnce();
+  });
+
+  it("opens an accepted saved run instead of encouraging a blind duplicate rerun", async () => {
+    mocks.sim.interruptedVariationRun = {
+      routingGroupId: "G1", variationId: "V1", serverVariationId: "V1",
+      variationLabel: "First", simulationId: "S1", startedAt: Date.now(), status: "interrupted"
+    };
+    mocks.sim.runCompareError = "Simulation S1 was submitted. Check its saved status.";
+    const wrapper = mount(VariationRail, { props: { routingGroupId: "G1" } });
+
+    expect(wrapper.text()).toContain("Check saved simulation");
+    expect(wrapper.find('[data-testid="rerun-interrupted-variation"]').exists()).toBe(false);
+    await wrapper.find('[data-testid="view-saved-interrupted-variation"]').trigger("click");
+    expect(mocks.routerPush).toHaveBeenCalledWith("/simulate/history/S1");
   });
 });

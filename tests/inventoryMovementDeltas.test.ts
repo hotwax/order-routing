@@ -7,7 +7,7 @@ const passthrough = (name: string) => defineComponent({
   template: "<div><slot name='start' /><slot name='header' /><slot /><slot name='end' /><slot name='content' /></div>",
 });
 
-// Regression coverage for issue #469: the oms/inventoryItem/detail API never returns
+// Regression coverage for issue #469: the inventory-history API never returns
 // lastAvailableToPromise/lastQuantityOnHand, so the ATP/QOH delta pills must show the
 // signed change only, never a fabricated "0 -> diff" total built from a fake 0 baseline.
 describe("InventoryDetail movement deltas (location scope)", () => {
@@ -46,7 +46,13 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       productFacility.value = [{
         productId: "SKU_1",
         facilityId: params.facilityId,
-        inventoryConfig: { allowBrokering: "Y", allowPickup: "N", minimumStock: 3, atp: 100, qoh: 120 },
+        inventoryItemId: "INV_1",
+        allowBrokering: "Y",
+        allowPickup: "N",
+        minimumStock: 3,
+        daysToShip: 2,
+        availableToPromise: 100,
+        quantityOnHand: 120,
       }];
 
       return 1;
@@ -126,8 +132,23 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       "@/components/ChannelSwitcherModal.vue",
       "@/components/LinkThresholdFacilitiesToGroupModal.vue",
     ].forEach((path) => vi.doMock(path, () => ({ default: passthrough("MockModal") })));
+    vi.doMock("@/components/ReplenishmentCard.vue", () => ({ default: passthrough("ReplenishmentCard") }));
     vi.doMock("@/composables/useProductFacility", () => ({
-      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs }),
+      useProductFacility: () => ({ productFacility, inventoryLogs, fetchProductFacility, fetchInventoryLogs, clearInventoryLogs, updateProductFacility: vi.fn() }),
+    }));
+    vi.doMock("@/composables/useReplenishmentMetrics", () => ({
+      useReplenishmentMetrics: () => ({
+        metrics: {
+          loading: false,
+          incomingLoading: false,
+          incomingUnavailable: false,
+          incomingUnits: 0,
+          salesVelocityUnitsPerDay: 0,
+          trendPoints: [],
+        },
+        refreshReplenishmentMetrics: vi.fn(),
+        resetReplenishmentMetrics: vi.fn(),
+      }),
     }));
     vi.doMock("@/composables/useInventory", () => ({ useInventory: () => ({}) }));
     vi.doMock("@/composables/useSalesOrder", () => ({ useSalesOrder: () => ({}) }));
@@ -136,6 +157,7 @@ describe("InventoryDetail movement deltas (location scope)", () => {
       getSecondaryProductIdentifier: () => "Test Product",
     }));
     vi.doMock("@/utils/inventoryMovement", () => ({
+      movementBalance: vi.fn(() => ({ atp: null, qoh: null })),
       classifyMovement: vi.fn((row: any) => ({
         raw: row,
         icon: "icon",

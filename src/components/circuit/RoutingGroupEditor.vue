@@ -112,7 +112,7 @@
         </ion-item>
       </ion-card>
 
-      <ion-card v-if="!isSandbox && testDriveEnabled && userStore.hasPermission('ROUTING_TEST_DRIVE_VIEW')">
+      <ion-card v-if="!isSandbox && testDriveEnabled && userStore.hasPermission(Actions.APP_TEST_DRIVE_VIEW)">
         <ion-card-header>
           <ion-card-subtitle>{{ translate("Test drive") }}</ion-card-subtitle>
         </ion-card-header>
@@ -479,6 +479,14 @@
             :dirty="isRuleConditionCardDirty('ENTCT_FILTER')"
             :show-context="false"
           >
+            <template #before-items>
+              <ion-item v-if="isCpcmMixedWithDistance()" lines="none">
+                <ion-icon slot="start" color="warning" :icon="warningOutline" />
+                <ion-label class="ion-text-wrap">
+                  <p>{{ translate("This rule uses carrier postal code mapping along with proximity. Use either proximity or carrier postal code mapping to select facilities.") }}</p>
+                </ion-label>
+              </ion-item>
+            </template>
             <template #header-actions>
               <ion-button size="default" v-if="isInventoryRuleFiltersApplied()" slot="end" fill="clear" @click="addInventoryFilterOptions('INV_FILTER_PRM_TYPE', 'ENTCT_FILTER', 'Filters')">
                 <ion-icon slot="icon-only" :icon="optionsOutline"/>
@@ -518,7 +526,7 @@
                     <ion-select-option value="IMPERIAL">{{ translate("miles") }}</ion-select-option>
                   </ion-select>
                 </ion-chip>
-                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
+                <ion-chip outline @click="selectValue('PROXIMITY', 'Add proximity', 'less-equals')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "PROXIMITY").fieldValue : "-" }}</ion-chip>
               </div>
             </ion-item>
             <ion-item v-else-if="item.target.endsWith('.BRK_SAFETY_STOCK')" :class="{ 'dirty-setting-row': item.dirty }">
@@ -535,11 +543,7 @@
             </ion-item>
 
             <ion-item v-else-if="item.target.endsWith('.FACILITY_ORDER_LIMIT')" :class="{ 'dirty-setting-row': item.dirty }">
-              <ion-toggle :checked="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_ORDER_LIMIT').fieldValue === 'Y'" @ionChange="updateRuleFilterValue($event, 'FACILITY_ORDER_LIMIT')">
-                <ion-label class="ion-text-wrap">
-                  {{ translate("Turn off the facility order limit check") }}
-                </ion-label>
-              </ion-toggle>
+              <ion-label class="ion-text-wrap">{{ translate("Override facility order limit") }}</ion-label>
             </ion-item>
             <ion-item v-else-if="item.target.endsWith('.SHIP_THRESHOLD')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate('Shipment threshold check') }}</ion-label>
@@ -548,6 +552,31 @@
             <ion-item v-else-if="item.target.endsWith('.WOS')" :class="{ 'dirty-setting-row': item.dirty }">
               <ion-label>{{ translate('Week of Supply') }}</ion-label>
               <ion-chip slot="end" outline @click="selectValue('WOS', 'Add week of supply')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "WOS").fieldValue : "-" }}</ion-chip>
+            </ion-item>
+            <ion-item v-else-if="item.target.endsWith('.USE_CPCM')" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-label class="ion-text-wrap">{{ translate("Use carrier postal code mapping") }}</ion-label>
+            </ion-item>
+            <ion-item v-else-if="item.target.endsWith('.SHIPPING_ZONE')" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-label>{{ translate("Shipping zone") }}</ion-label>
+              <div>
+                <ion-chip outline @click.stop="chipClickEvent(shippingZoneOperatorRef)">
+                  <ion-select @click.stop ref="shippingZoneOperatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'SHIPPING_ZONE').operator" @ionChange="updateOperator($event, 'SHIPPING_ZONE')">
+                    <ion-select-option v-for="operator in cpcmFilterOperators" :key="operator.value" :value="operator.value">{{ translate(operator.label) }}</ion-select-option>
+                  </ion-select>
+                </ion-chip>
+                <ion-chip outline @click="selectValue('SHIPPING_ZONE', 'Add shipping zone', 'equals')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIPPING_ZONE").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIPPING_ZONE").fieldValue == 0 ? getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "SHIPPING_ZONE").fieldValue : "-" }}</ion-chip>
+              </div>
+            </ion-item>
+            <ion-item v-else-if="item.target.endsWith('.GROUND_TRANSIT_TIME')" :class="{ 'dirty-setting-row': item.dirty }">
+              <ion-label>{{ translate("Ground transit time") }}</ion-label>
+              <div>
+                <ion-chip outline @click.stop="chipClickEvent(groundTransitTimeOperatorRef)">
+                  <ion-select @click.stop ref="groundTransitTimeOperatorRef" :placeholder="translate('operator')" aria-label="operator" interface="popover" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'GROUND_TRANSIT_TIME').operator" @ionChange="updateOperator($event, 'GROUND_TRANSIT_TIME')">
+                    <ion-select-option v-for="operator in cpcmFilterOperators" :key="operator.value" :value="operator.value">{{ translate(operator.label) }}</ion-select-option>
+                  </ion-select>
+                </ion-chip>
+                <ion-chip outline @click="selectValue('GROUND_TRANSIT_TIME', 'Add ground transit time (days)', 'less-equals')">{{ getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "GROUND_TRANSIT_TIME").fieldValue || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "GROUND_TRANSIT_TIME").fieldValue == 0 ? `${getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, "GROUND_TRANSIT_TIME").fieldValue} ${translate("days")}` : "-" }}</ion-chip>
+              </div>
             </ion-item>
             </template>
           </RoutingConfigSectionCard>
@@ -735,7 +764,8 @@ import {
   addOutline,
   listOutline,
   speedometerOutline,
-  gitCompareOutline
+  gitCompareOutline,
+  warningOutline
 } from 'ionicons/icons';
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useCircuitStore } from '@/store/circuit';
@@ -796,7 +826,8 @@ import {
   settleRoutingEditorDiscard,
   serializeRoutingWorkingCopy,
   serializeRuleWorkingCopy,
-  updateRoutingFilterCondition
+  updateRoutingFilterCondition,
+  updateRuleFilterCondition
 } from "@/utils/routingWorkingCopy";
 import {
   buildVariationConfigDiff,
@@ -804,6 +835,7 @@ import {
   restoreVariationToBaseline,
   type VariationDiffTarget
 } from "@/utils/variationConfigDiff";
+import Actions from "@/authorization/actions";
 
 const props = defineProps({
   routingGroupId: {
@@ -917,7 +949,11 @@ const ruleFiltersSectionCard = computed<RoutingConfigSection>(() => ({
     (code, parameter) => isRuleConditionCodeDirty("ENTCT_FILTER", code)
       || isRuleConditionDirty("ENTCT_FILTER", parameter)
       || (parameter === "PROXIMITY" && isRuleConditionDirty("ENTCT_FILTER", "MEASUREMENT_SYSTEM"))
-  ).filter((item) => !item.target.endsWith(".SPLIT_ITEM_GROUP") && !item.target.endsWith(".MEASUREMENT_SYSTEM"))
+  ).filter((item) => (
+    !item.target.endsWith(".SPLIT_ITEM_GROUP")
+    && !item.target.endsWith(".MEASUREMENT_SYSTEM")
+    && (!item.target.endsWith(".FACILITY_ORDER_LIMIT") || [true, "Y", "true"].includes(getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "FACILITY_ORDER_LIMIT")?.fieldValue))
+  ))
 }));
 const ruleSortSectionCard = computed<RoutingConfigSection>(() => ({
   key: "canvas:rule:sort",
@@ -1045,6 +1081,15 @@ const userProfile = computed(() => userStore.getUserProfile)
 
 const operatorRef = ref()
 const measurementRef = ref()
+const shippingZoneOperatorRef = ref()
+const groundTransitTimeOperatorRef = ref()
+const cpcmFilterOperators = [
+  { value: "equals", label: "equals" },
+  { value: "less-equals", label: "less than or equal to" },
+  { value: "less", label: "less" },
+  { value: "greater-equals", label: "greater than or equal to" },
+  { value: "greater", label: "greater" }
+]
 
 const currentRoutingGroup: any = computed(() => routingStore.getCurrentRoutingGroup)
 
@@ -1421,7 +1466,7 @@ async function buildCircuitDraftManifest() {
     assistantContext: isSandbox.value
       ? {
           mode: "variation",
-          variationId: String(group.value.variationGroupId || sim.tree?.variationGroupId || sim.working?.variationGroupId || ""),
+          variationId: String(group.value.variationGroupId || sim.working?.variationGroupId || ""),
           routingGroupId: String(group.value.routingGroupId || routingGroupId.value || "")
         }
       : {
@@ -1506,7 +1551,7 @@ function conditionContextValue(
   if (parameter === "MEASUREMENT_SYSTEM") {
     return value === "IMPERIAL" ? translate("miles") : value === "METRIC" ? translate("kms") : String(value ?? "");
   }
-  if (value === true || value === "Y") return translate("Enabled");
+  if (value === true || value === "Y" || value === "true") return translate("Enabled");
   if (value === false || value === "N") return translate("Disabled");
   if (value === undefined || value === null || value === "") return "";
   try {
@@ -2881,29 +2926,18 @@ async function cloneRule(rule: any) {
 
 
 function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
-  const filters = JSON.parse(JSON.stringify(inventoryRuleFilterOptions.value))
-  const filter = filters[conditionFilterEnums[fieldName].code]
-  const fieldValue = event.detail.value
-
-  if (filter) {
-    filter.fieldValue = fieldValue
-    if (operator) filter.operator = operator
-  } else {
-    filters[conditionFilterEnums[fieldName].code] = {
-      conditionTypeEnumId: "ENTCT_FILTER",
-      fieldName: conditionFilterEnums[fieldName].code,
-      fieldValue,
-      operator: operator || "equals",
-      sequenceNum: Object.keys(filters).length + 1
-    }
-  }
-  inventoryRuleFilterOptions.value = filters
+  inventoryRuleFilterOptions.value = updateRuleFilterCondition(
+    inventoryRuleFilterOptions.value,
+    conditionFilterEnums[fieldName].code,
+    event.detail.value,
+    operator
+  )
   hasUnsavedChanges.value = true
 }
 
-function updateOperator(event: any) {
+function updateOperator(event: any, parameter = "BRK_SAFETY_STOCK") {
   const filters = JSON.parse(JSON.stringify(inventoryRuleFilterOptions.value))
-  const filter = filters[conditionFilterEnums["BRK_SAFETY_STOCK"].code]
+  const filter = filters[conditionFilterEnums[parameter].code]
 
   if (filter) {
     filter.operator = event.detail.value
@@ -3047,7 +3081,8 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
       parentEnumId,
       conditionTypeEnumId,
       label,
-      filterOptions: inventoryRuleFilterOptions.value
+      filterOptions: inventoryRuleFilterOptions.value,
+      sortOptions: inventoryRuleSortOptions.value
     }
   });
 
@@ -3055,6 +3090,8 @@ async function addInventoryFilterOptions(parentEnumId: string, conditionTypeEnum
     if (result.role === "save") {
       if (conditionTypeEnumId === "ENTCT_FILTER") {
         inventoryRuleFilterOptions.value = result.data.filters
+        // CPCM sorts are only valid along with the useCpcm filter, and the backend enables the mapping join for them, so drop them too
+        if (!isCpcmEnabled()) removeCpcmSortOptions()
       } else {
         inventoryRuleSortOptions.value = result.data.filters
       }
@@ -3264,6 +3301,26 @@ function initializeOrderRoutingOptions() {
 
   orderRoutingFilterOptions.value = orderRouteFilters["ENTCT_FILTER"] ? orderRouteFilters["ENTCT_FILTER"] : {}
   orderRoutingSortOptions.value = orderRouteFilters["ENTCT_SORT_BY"] ? orderRouteFilters["ENTCT_SORT_BY"] : {}
+}
+
+function isCpcmEnabled() {
+  return [true, "Y", "true"].includes(getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "USE_CPCM")?.fieldValue)
+}
+
+function removeCpcmSortOptions() {
+  const cpcmSortCodes = ["SHIPPING_ZONE", "GROUND_TRANSIT_TIME"].map((parameter) => conditionSortEnums[parameter]?.code).filter(Boolean)
+  if (!cpcmSortCodes.some((code) => inventoryRuleSortOptions.value?.[code])) return
+  const sortOptions = { ...inventoryRuleSortOptions.value }
+  cpcmSortCodes.forEach((code) => delete sortOptions[code])
+  inventoryRuleSortOptions.value = sortOptions
+}
+
+// A rule should select facilities either by distance or by carrier postal code mapping, flag the rules mixing both
+function isCpcmMixedWithDistance() {
+  const usesCpcm = isCpcmEnabled()
+    || ["SHIPPING_ZONE", "GROUND_TRANSIT_TIME"].some((parameter) => getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, parameter) || getFilterValue(inventoryRuleSortOptions.value, conditionSortEnums, parameter))
+  const usesDistance = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, "PROXIMITY") || getFilterValue(inventoryRuleSortOptions.value, conditionSortEnums, "PROXIMITY")
+  return Boolean(usesCpcm && usesDistance)
 }
 
 function getFilterValue(options: any, enums: any, parameter: string) {

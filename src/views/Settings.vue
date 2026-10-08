@@ -23,7 +23,7 @@
             </ion-card-header>
           </ion-item>
           <ion-button color="danger" @click="logout()">{{ translate("Logout") }}</ion-button>
-          <ion-button :standalone-hidden="!userStore.hasPermission('COMMON_ADMIN')" fill="outline" @click="goToLaunchpad()">
+          <ion-button :standalone-hidden="!userStore.hasPermission(Actions.APP_PWA_STANDALONE_ACCESS)" fill="outline" @click="goToLaunchpad()">
             {{ translate("Go to Launchpad") }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -122,7 +122,6 @@ import { IonAvatar, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSu
 import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
-import { useAtpProductStore } from "@/store/atpProductStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
@@ -131,6 +130,7 @@ import { useAuth } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";
 import { usePreferencesStore } from "@/store/preferences";
+import Actions from "@/authorization/actions";
 
 const userStore = useUserStore()
 const preferencesStore = usePreferencesStore()
@@ -166,14 +166,11 @@ const props = defineProps({
   }
 })
 
-function setEComStore(event: CustomEvent) {
+async function setEComStore(event: CustomEvent) {
   if(ecomStores.value.length) {
-    productStore().setEcomStore({
+    await productStore().setEcomStore({
       "productStoreId": event.detail.value
     })
-    const atpProductStore = useAtpProductStore();
-    const store = atpProductStore.productStores.find((s: any) => s.productStoreId === event.detail.value);
-    atpProductStore.setCurrentProductStore(store || { productStoreId: event.detail.value });
     emitter.emit("productStoreOrConfigChanged");
   }
 }

@@ -58,6 +58,19 @@
             </ion-item>
           </template>
 
+          <template v-if="calendarDateConditions.length">
+            <ion-item-divider color="light">
+              <ion-label>{{ translate("Product calendar") }}</ion-label>
+            </ion-item-divider>
+            <ion-item v-for="condition in calendarDateConditions" :key="condition.conditionSeqId || productStoreProductDateConditionKey(condition)" lines="full">
+              <ion-icon slot="start" :icon="calendarOutline" />
+              <ion-label class="ion-text-wrap">
+                {{ productStoreProductDateFieldLabel(condition.fieldName) }}
+                <p>{{ productStoreProductDateConditionLabel(condition) }} {{ condition.fieldValue }} {{ translate("days") }}</p>
+              </ion-label>
+            </ion-item>
+          </template>
+
           <template v-if="areProductFiltersSelected()">
             <ion-item-divider color="light" v-if="isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'contains') || isRuleConditionAvailable('ENTCT_ATP_FILTER', 'tags', 'not-contains')">
               <ion-label>{{ translate("Product tags") }}</ion-label>
@@ -123,23 +136,24 @@
 <script setup lang="ts">
 import { IonAccordion, IonAccordionGroup, IonButton, IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonItemDivider, IonLabel, IonReorder, IonToggle, alertController } from '@ionic/vue';
 import { computed, onMounted, ref } from 'vue';
-import { archiveOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
+import { archiveOutline, calendarOutline, checkmarkDoneCircleOutline, closeCircleOutline, globeOutline, pulseOutline, sendOutline, shirtOutline, storefrontOutline } from 'ionicons/icons';
 import router from '@/router';
 import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil } from '@common';
+import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel, productStoreProductDateFieldLabel } from '@/utils/productCalendarDateConditions';
 
 const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
 
 const props = defineProps(["rule", "ruleIndex"])
-const currentProductStore = computed(() => productStore.getCurrentProductStore)
 const total = computed(() => ruleStore.getTotalRulesCount)
 const configFacilities = computed(() => productStore.getConfigFacilities)
 const facilityGroups = computed(() => productStore.getFacilityGroups)
 const isReorderActive = computed(() => ruleStore.isReorderActive);
 const selectedSegment = computed(() => productStore.getSelectedSegment)
+const calendarDateConditions = computed(() => (props.rule.ruleConditions || []).filter(isProductStoreProductDateCondition));
 
 const selectedPage = ref({
   path: '',
@@ -189,7 +203,7 @@ async function editThreshold() {
           rule.ruleActions = [{
             "ruleId": props.rule.ruleId,
             "actionTypeEnumId": "ATP_SAFETY_STOCK",
-            "fieldName": "facility-safety-stock",
+            "fieldName": "minimum-stock",
             "fieldValue": data.threshold
           }]
         } else {
@@ -251,7 +265,7 @@ async function editSafetyStock() {
           rule.ruleActions = [{
             "ruleId": props.rule.ruleId,
             "actionTypeEnumId": "ATP_SAFETY_STOCK",
-            "fieldName": "facility-safety-stock",
+            "fieldName": "minimum-stock",
             "fieldValue": data.safetyStock
           }]
         } else {

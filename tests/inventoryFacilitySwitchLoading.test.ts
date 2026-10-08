@@ -149,6 +149,7 @@ describe("Inventory facility switch loading state", () => {
       IonInput: defineComponent({ name: "IonInput", template: "<input />" }),
       IonItem: defineComponent({ name: "IonItem", template: "<div><slot /></div>" }),
       IonLabel: defineComponent({ name: "IonLabel", template: "<label><slot /></label>" }),
+      IonMenuButton: defineComponent({ name: "IonMenuButton", template: "<button />" }),
       IonNote: defineComponent({ name: "IonNote", template: "<span><slot /></span>" }),
       IonPage: defineComponent({ name: "IonPage", template: "<section><slot /></section>" }),
       IonSearchbar: defineComponent({ name: "IonSearchbar", template: "<input />" }),

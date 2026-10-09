@@ -24,6 +24,13 @@ export interface PersistedSimulation {
     attemptedItemCount?: number;
     brokeredItemCount?: number;
     queuedItemCount?: number;
+    outcomeMetricsVersion?: number;
+    splitOrderCount?: number;
+    storeFulfillmentCount?: number;
+    unfillableOrderCount?: number;
+    fulfillmentShipmentCount?: number;
+    distanceMeasuredShipmentCount?: number;
+    averageShippingDistanceKm?: number | null;
   }>;
 }
 

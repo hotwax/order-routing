@@ -19,26 +19,7 @@
         <ion-badge v-else slot="end" :color="isFailed ? 'danger' : 'success'">{{ statusLabel }}</ion-badge>
       </ion-item>
 
-      <ion-list v-if="displayRun.variants?.length">
-        <ion-item v-for="variant in displayRun.variants" :key="variant.variantSeqId">
-          <ion-label class="ion-text-wrap">
-            <h2>{{ variant.isBaseline === 'Y' ? translate('Baseline') : (variant.label || translate('Variation')) }}</h2>
-            <p v-if="variant.failureReason" class="failure">{{ variant.failureReason }}</p>
-            <p>{{ translate('Attempted') }}: {{ count(variant.attemptedItemCount) }} ·
-              {{ translate('Brokered') }}: {{ count(variant.brokeredItemCount) }} ·
-              {{ translate('Queued') }}: {{ count(variant.queuedItemCount) }}</p>
-            <p v-if="canCompare(variant)" class="comparison">
-              {{ translate('Compared with baseline') }} ·
-              {{ translate('Brokered') }}: {{ difference(variant.brokeredItemCount, baselineVariant?.brokeredItemCount) }} ·
-              {{ translate('Queued') }}: {{ difference(variant.queuedItemCount, baselineVariant?.queuedItemCount) }}
-            </p>
-          </ion-label>
-          <ion-badge v-if="variant.failed === 'Y'" slot="end" color="danger">{{ translate('Failed') }}</ion-badge>
-        </ion-item>
-      </ion-list>
-      <ion-note v-else class="ion-padding-horizontal" color="medium">
-        {{ isRunning ? translate('Waiting for the first result…') : translate('No variant results were recorded.') }}
-      </ion-note>
+
 
       <ion-note v-if="displayRun.simulation.statusId === 'BRSIM_COMPLETE' && displayRun.simulation.attemptedItemCount != null && Number(displayRun.simulation.attemptedItemCount) === 0"
         color="warning" class="ion-padding-horizontal empty-run-note">
@@ -46,7 +27,7 @@
       </ion-note>
 
       <section v-if="hasPersistedOutcomes && displayRun.variants?.length" class="item-outcomes">
-        <h2>{{ translate('Simulation details') }}</h2>
+        <h2>{{ translate('Outcome summary') }}</h2>
         <ion-note v-if="isFailed" color="medium" class="ion-padding-horizontal">
           {{ translate('This run failed. Any outcomes below were recorded before the failure and may be incomplete.') }}
         </ion-note>
@@ -57,6 +38,60 @@
             </ion-select-option>
           </ion-select>
         </ion-item>
+        <ion-item v-if="!hasOutcomeMetrics(selectedVariant)" lines="none">
+          <ion-label class="ion-text-wrap" color="medium">
+            {{ translate('These measures were not captured for this simulation.') }}
+          </ion-label>
+        </ion-item>
+        <ion-item v-if="showCohortWarning" lines="none">
+          <ion-label class="ion-text-wrap" color="warning">
+            {{ translate('Baseline and variation attempted different numbers of items. Check their filters before interpreting the comparison.') }}
+          </ion-label>
+        </ion-item>
+        <ion-list aria-label="Outcome summary">
+          <ion-item v-for="metric in outcomeMetrics" :key="metric.key">
+            <ion-label class="ion-text-wrap">
+              <h3>{{ translate(metric.label) }}</h3>
+              <p>{{ translate(metric.description) }}</p>
+            </ion-label>
+            <ion-label slot="end" class="ion-text-end ion-text-wrap">
+              <h3>{{ metricValue(selectedVariant, metric.key) }}</h3>
+              <template v-if="selectedVariant?.isBaseline !== 'Y' && baselineVariant">
+                <p>{{ translate('Baseline') }}: {{ metricValue(baselineVariant, metric.key) }}</p>
+                <p v-if="canCompareOutcome(metric.key)">{{ metricDifference(metric.key) }} {{ translate('from baseline') }}</p>
+              </template>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+        <ion-note v-if="hasOutcomeMetrics(selectedVariant)" color="medium">
+          {{ translate('Shipping distance measured for') }} {{ count(selectedVariant?.distanceMeasuredShipmentCount) }} /
+          {{ count(selectedVariant?.fulfillmentShipmentCount) }} {{ translate('fulfillment shipments') }}.
+        </ion-note>
+      </section>
+
+      <ion-list v-if="displayRun.variants?.length">
+        <ion-item v-for="variant in displayRun.variants" :key="variant.variantSeqId">
+          <ion-label class="ion-text-wrap">
+            <h2>{{ variant.isBaseline === 'Y' ? translate('Baseline') : (variant.label || translate('Variation')) }}</h2>
+            <p v-if="variant.failureReason" class="failure">{{ variant.failureReason }}</p>
+            <p>{{ translate('Attempted') }}: {{ count(variant.attemptedItemCount) }},
+              {{ translate('Brokered') }}: {{ count(variant.brokeredItemCount) }},
+              {{ translate('Queued') }}: {{ count(variant.queuedItemCount) }}</p>
+            <p v-if="canCompare(variant)" class="comparison">
+              {{ translate('Compared with baseline') }},
+              {{ translate('Brokered') }}: {{ difference(variant.brokeredItemCount, baselineVariant?.brokeredItemCount) }},
+              {{ translate('Queued') }}: {{ difference(variant.queuedItemCount, baselineVariant?.queuedItemCount) }}
+            </p>
+          </ion-label>
+          <ion-badge v-if="variant.failed === 'Y'" slot="end" color="danger">{{ translate('Failed') }}</ion-badge>
+        </ion-item>
+      </ion-list>
+      <ion-note v-else class="ion-padding-horizontal" color="medium">
+        {{ isRunning ? translate('Waiting for the first result…') : translate('No variant results were recorded.') }}
+      </ion-note>
+
+      <section v-if="hasPersistedOutcomes && displayRun.variants?.length" class="item-outcomes">
+        <h2>{{ translate('Simulation details') }}</h2>
         <h2>{{ translate('Routing outcomes') }}</h2>
         <ion-item v-if="rulesLoading" lines="none">
           <ion-label>{{ translate('Loading routing outcomes…') }}</ion-label>
@@ -147,12 +182,44 @@ const difference = (value?: number, baseline?: number) => {
 function canCompare(variant: PersistedSimulation["variants"][number]) {
   const baseline = baselineVariant.value;
   return displayRun.value?.simulation?.statusId === "BRSIM_COMPLETE" && variant.isBaseline !== "Y" &&
-    variant.failed !== "Y" && baseline?.brokeredItemCount != null && baseline.queuedItemCount != null &&
+    variant.failed !== "Y" && baseline?.failed !== "Y" && baseline?.brokeredItemCount != null && baseline.queuedItemCount != null &&
     variant.brokeredItemCount != null && variant.queuedItemCount != null &&
-    (Number(baseline.attemptedItemCount) > 0 || Number(variant.attemptedItemCount) > 0);
+    Number(baseline.attemptedItemCount) > 0 && Number(variant.attemptedItemCount) > 0;
 }
 const pageSize = 25;
 const selectedVariantSeqId = ref<number | null>(null);
+type Variant = PersistedSimulation["variants"][number];
+type OutcomeMetric = "splitOrderCount" | "storeFulfillmentCount" | "unfillableOrderCount" | "averageShippingDistanceKm";
+const selectedVariant = computed(() => displayRun.value?.variants?.find((variant) => variant.variantSeqId === selectedVariantSeqId.value));
+const outcomeMetrics: Array<{ key: OutcomeMetric; label: string; description: string }> = [
+  { key: "splitOrderCount", label: "Split shipments", description: "Orders receiving more than one simulated fulfillment shipment" },
+  { key: "storeFulfillmentCount", label: "Store fulfillments", description: "Simulated fulfillment shipments assigned to stores" },
+  { key: "unfillableOrderCount", label: "Unfillables", description: "Orders with an item whose final routing outcome was unfillable" },
+  { key: "averageShippingDistanceKm", label: "Average shipping distance", description: "Straight-line distance per measured fulfillment shipment, in kilometers" },
+];
+const hasOutcomeMetrics = (variant?: Variant) => Number(variant?.outcomeMetricsVersion) >= 1 && variant?.failed !== "Y";
+function metricValue(variant: Variant | undefined, key: OutcomeMetric) {
+  const value = variant?.[key];
+  if (!hasOutcomeMetrics(variant) || value == null || !Number.isFinite(Number(value))) return translate("Not recorded");
+  return key === "averageShippingDistanceKm"
+    ? `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} km`
+    : count(value);
+}
+const showCohortWarning = computed(() => selectedVariant.value?.isBaseline !== "Y" && baselineVariant.value &&
+  Number(selectedVariant.value?.attemptedItemCount) !== Number(baselineVariant.value?.attemptedItemCount));
+function canCompareOutcome(key: OutcomeMetric) {
+  const variant = selectedVariant.value;
+  const baseline = baselineVariant.value;
+  return displayRun.value?.simulation?.statusId === "BRSIM_COMPLETE" && variant?.isBaseline !== "Y" &&
+    hasOutcomeMetrics(variant) && hasOutcomeMetrics(baseline) && variant?.[key] != null && baseline?.[key] != null &&
+    Number(variant?.attemptedItemCount) > 0 && Number(baseline?.attemptedItemCount) > 0;
+}
+function metricDifference(key: OutcomeMetric) {
+  const change = Number(selectedVariant.value?.[key]) - Number(baselineVariant.value?.[key]);
+  const roundedChange = key === "averageShippingDistanceKm" ? Math.round(change * 10) / 10 : change;
+  const formatted = roundedChange.toLocaleString(undefined, { maximumFractionDigits: key === "averageShippingDistanceKm" ? 1 : 0 });
+  return `${roundedChange > 0 ? "+" : ""}${formatted}${key === "averageShippingDistanceKm" ? " km" : ""}`;
+}
 const pageIndex = ref(0);
 const items = ref<SimulationItem[]>([]);
 const itemsTotal = ref(0);
@@ -171,7 +238,10 @@ const completedRunKey = computed(() => hasPersistedOutcomes.value
   ? `${displayRun.value?.simulation?.simulationId}:${displayRun.value?.variants?.map((variant) => variant.variantSeqId).join(',')}`
   : "");
 watch(completedRunKey, () => {
-  selectedVariantSeqId.value = displayRun.value?.variants?.[0]?.variantSeqId ?? null;
+  const variants = displayRun.value?.variants;
+  const comparisonVariant = displayRun.value?.simulation?.statusId === "BRSIM_COMPLETE"
+    ? variants?.find((variant) => variant.isBaseline !== "Y" && variant.failed !== "Y") : null;
+  selectedVariantSeqId.value = comparisonVariant?.variantSeqId ?? variants?.[0]?.variantSeqId ?? null;
   pageIndex.value = 0;
   rulePageIndex.value = 0;
 }, { immediate: true });

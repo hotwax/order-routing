@@ -13,6 +13,7 @@ vi.mock("@/services/SimulationService", () => ({
 }));
 
 import SimulationResults from "../src/components/simulation/SimulationResults.vue";
+import type { PersistedSimulation } from "../src/services/SimulationService";
 
 const element = (name: string, tag = "div") => ({ name, template: `<${tag}><slot /></${tag}>` });
 const stubs = {
@@ -27,7 +28,7 @@ const stubs = {
   IonSpinner: element("IonSpinner"),
 };
 
-function completeRun() {
+function completeRun(): PersistedSimulation {
   return {
     simulation: { simulationId: "S1", statusId: "BRSIM_COMPLETE", routingGroupId: "G1", attemptedItemCount: 2 },
     variants: [
@@ -50,7 +51,7 @@ describe("persisted simulation results", () => {
     const wrapper = mount(SimulationResults, { props: { run: completeRun() }, global: { stubs } });
     await flushPromises();
 
-    expect(mocks.rules).toHaveBeenCalledWith("S1", 1, 0, 25);
+    expect(mocks.rules).toHaveBeenCalledWith("S1", 2, 0, 25);
     expect(wrapper.text()).toContain("Routing R1");
     expect(wrapper.text()).toContain("Eligible: 4");
     expect(wrapper.text()).toContain("Attempted: 3");
@@ -75,7 +76,7 @@ describe("persisted simulation results", () => {
     const wrapper = mount(SimulationResults, { props: { run: completeRun() }, global: { stubs } });
     await flushPromises();
 
-    expect(mocks.items).toHaveBeenCalledWith("S1", 1, 0, 25);
+    expect(mocks.items).toHaveBeenCalledWith("S1", 2, 0, 25);
     expect(wrapper.text()).toContain("Faster");
     expect(wrapper.text()).toContain("Order O1 · Item 01");
     expect(wrapper.text()).toContain("Product P1 · Facility F1");
@@ -133,13 +134,65 @@ describe("persisted simulation results", () => {
     const wrapper = mount(SimulationResults, { props: { run: completeRun() }, global: { stubs } });
     await flushPromises();
 
-    wrapper.findComponent({ name: "IonSelect" }).vm.$emit("update:modelValue", 2);
+    wrapper.findComponent({ name: "IonSelect" }).vm.$emit("update:modelValue", 1);
     await flushPromises();
-    expect(mocks.items).toHaveBeenLastCalledWith("S1", 2, 0, 25);
+    expect(mocks.items).toHaveBeenLastCalledWith("S1", 1, 0, 25);
 
     const next = wrapper.findAllComponents({ name: "IonButton" }).find((button) => button.text() === "Next");
     await next?.trigger("click");
     await flushPromises();
-    expect(mocks.items).toHaveBeenLastCalledWith("S1", 2, 1, 25);
+    expect(mocks.items).toHaveBeenLastCalledWith("S1", 1, 1, 25);
+  });
+
+  it("shows all four shipment measures beside their baseline and signed differences", async () => {
+    mocks.items.mockReset().mockResolvedValue({ itemList: [], totalCount: 0 });
+    const run = completeRun();
+    Object.assign(run.variants[0], { outcomeMetricsVersion: 1, splitOrderCount: 4, storeFulfillmentCount: 8,
+      unfillableOrderCount: 3, averageShippingDistanceKm: 25, distanceMeasuredShipmentCount: 10, fulfillmentShipmentCount: 12 });
+    Object.assign(run.variants[1], { outcomeMetricsVersion: 1, splitOrderCount: 2, storeFulfillmentCount: 10,
+      unfillableOrderCount: 0, averageShippingDistanceKm: 20.5, distanceMeasuredShipmentCount: 11, fulfillmentShipmentCount: 13 });
+    const wrapper = mount(SimulationResults, { props: { run }, global: { stubs } });
+    await flushPromises();
+
+    const summary = wrapper.get('[aria-label="Outcome summary"]').text();
+    expect(summary).toContain("Split shipments");
+    expect(summary).toContain("Store fulfillments");
+    expect(summary).toContain("Unfillables");
+    expect(summary).toContain("Average shipping distance");
+    expect(summary).toContain("Baseline: 4");
+    expect(summary).toContain("-2 from baseline");
+    expect(summary).toContain("+2 from baseline");
+    expect(summary).toContain("-3 from baseline");
+    expect(summary).toContain("Baseline: 25 km");
+    expect(summary).toContain("-4.5 km from baseline");
+    expect(wrapper.text()).toContain("Shipping distance measured for 11 / 13 fulfillment shipments");
+  });
+
+  it("distinguishes missing metrics and unmeasured distance from measured zero", async () => {
+    mocks.items.mockReset().mockResolvedValue({ itemList: [], totalCount: 0 });
+    const run = completeRun();
+    Object.assign(run.variants[1], { outcomeMetricsVersion: 1, splitOrderCount: 0, storeFulfillmentCount: 0,
+      unfillableOrderCount: 0, averageShippingDistanceKm: null });
+    const wrapper = mount(SimulationResults, { props: { run }, global: { stubs } });
+    await flushPromises();
+
+    const rows = wrapper.get('[aria-label="Outcome summary"]').findAllComponents({ name: "IonItem" });
+    expect(rows[0].text()).toContain("0");
+    expect(rows[0].text()).toContain("Baseline: Not recorded");
+    expect(rows[3].text()).toContain("Not recorded");
+    expect(rows[3].text()).not.toContain("0 km");
+    expect(wrapper.text()).not.toContain("from baseline");
+  });
+
+  it("warns about different cohorts and suppresses differences against an empty baseline", async () => {
+    mocks.items.mockReset().mockResolvedValue({ itemList: [], totalCount: 0 });
+    const run = completeRun();
+    Object.assign(run.variants[0], { attemptedItemCount: 0, outcomeMetricsVersion: 1, splitOrderCount: 0 });
+    Object.assign(run.variants[1], { outcomeMetricsVersion: 1, splitOrderCount: 3 });
+    const wrapper = mount(SimulationResults, { props: { run }, global: { stubs } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("Baseline and variation attempted different numbers of items");
+    expect(wrapper.text()).not.toContain("Compared with baseline");
+    expect(wrapper.text()).not.toContain("from baseline");
   });
 });

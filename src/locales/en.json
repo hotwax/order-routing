@@ -1526,5 +1526,11 @@
   "No units are held back at stores": "No units are held back at stores",
   "{count} orders allocated to stores": "{count} orders allocated to stores",
   "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.": "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.",
-  "Orders brokered, distinct": "Orders brokered, distinct"
+  "Orders brokered, distinct": "Orders brokered, distinct",
+  "{from} to {to}": "{from} to {to}",
+  "Units held by rule": "Units held by rule",
+  "Safety stock at stores, by the rule that set it": "Safety stock at stores, by the rule that set it",
+  "{share} of safety stock": "{share} of safety stock",
+  "Stores holding the most": "Stores holding the most",
+  "See every store and the weekly trend on the dashboard": "See every store and the weekly trend on the dashboard"
 }

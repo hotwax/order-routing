@@ -356,13 +356,13 @@ import SectionState from "@/components/diagnostics/SectionState.vue";
 import StackedBarList from "@/components/diagnostics/StackedBarList.vue";
 import WeeklyBarChart from "@/components/diagnostics/WeeklyBarChart.vue";
 import WeeklyLineChart from "@/components/diagnostics/WeeklyLineChart.vue";
+import { useSafetyStockSummary } from "@/composables/useSafetyStockSummary";
 import router from "@/router";
 import { useRoutingDiagnosticsStore } from "@/store/routingDiagnosticsStore";
-import { type RuleSeries, SHIPPING_REASON, UNATTRIBUTED_REASON, shareOf, totalHolds } from "@/utils/routingDiagnostics";
+import { type RuleSeries, shareOf, totalHolds } from "@/utils/routingDiagnostics";
 
 const WEEK_OPTIONS = [4, 6, 12];
 const TONES = ["primary", "secondary", "tertiary", "success", "warning", "danger", "dark", "medium"];
-const RULE_TONES = ["primary", "secondary", "tertiary", "success", "dark"];
 
 const diagnostics = useRoutingDiagnosticsStore();
 
@@ -403,17 +403,8 @@ const topShippingStores = computed(() => [...shipped.value.stores]
   .sort((a, b) => (b.units[selected.value] || 0) - (a.units[selected.value] || 0))
   .slice(0, 8));
 
-const storeHolds = computed(() => holds.value.filter((hold) => hold.facilityTypeId === "RETAIL_STORE"));
-const storeHoldTotals = computed(() => totalHolds(storeHolds.value));
 const allHoldTotals = computed(() => totalHolds(holds.value));
-
-// Exported weekly snapshots followed by today's live numbers.
-const historyPoints = computed(() => [
-  ...shareHistory.value.map((point) => point.byStore),
-  Object.fromEntries(storeHolds.value.map((hold) => [hold.facilityId, { available: hold.available, held: hold.safetyStockHeld }]))
-]);
-const historyLabels = computed(() => [...shareHistory.value.map((point) => point.label), translate("Now")]);
-const shareTrend = computed(() => historyPoints.value.map((byStore) => shareOf(byStore)));
+const { storeHolds, storeHoldTotals, historyPoints, historyLabels, shareTrend, reasonLegend } = useSafetyStockSummary();
 
 watch(historyLabels, (labels) => { historySelected.value = Math.max(0, labels.length - 1); }, { immediate: true });
 
@@ -438,22 +429,6 @@ const historySeries = computed(() => {
     emphasis: focusedStore.value === store.facilityId,
     muted: !!focusedStore.value && focusedStore.value !== store.facilityId
   }));
-});
-
-const reasonLegend = computed(() => {
-  const { reasons, totals } = diagnostics.safetyByReason;
-  let ruleIndex = 0;
-
-  return reasons.map((reason) => {
-    if(reason === UNATTRIBUTED_REASON) {
-      return { key: reason, tone: "medium", total: totals[reason] || 0, ruleId: "", description: translate("Minimum stock no current rule explains") };
-    }
-    if(reason === SHIPPING_REASON) {
-      return { key: reason, tone: "danger", total: totals[reason] || 0, ruleId: "", description: translate("Extra units at locations not allowed to ship the product") };
-    }
-
-    return { key: reason, tone: RULE_TONES[ruleIndex++ % RULE_TONES.length], total: totals[reason] || 0, ruleId: diagnostics.safetyRuleIds[reason] || "", description: translate("Safety stock rule") };
-  });
 });
 
 const reasonRows = computed(() => diagnostics.safetyByReason.stores.map((store) => ({

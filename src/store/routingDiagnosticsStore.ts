@@ -155,6 +155,14 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
       ]);
       this.loadedAt = Date.now();
     },
+    // The Safety stock page needs only the inventory sections, not the weekly routing queries.
+    async loadSafetyStock() {
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+      if(!productStoreId) {return;}
+      this.status = { ...this.status, inventory: "loading", reasons: "loading", history: "loading" };
+      await this.loadFacilities(productStoreId);
+      await Promise.allSettled([this.loadInventory(productStoreId), this.loadShareHistory()]);
+    },
     async loadFacilities(productStoreId: string) {
       const facilities: Record<string, FacilityInfo> = {};
       try {

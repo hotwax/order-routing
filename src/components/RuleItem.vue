@@ -193,7 +193,7 @@ async function editThreshold() {
           return false;
         }
 
-        if(data.threshold === props.rule.ruleActions[0].fieldValue) return;
+        if(data.threshold === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 
@@ -255,7 +255,7 @@ async function editSafetyStock() {
           return false;
         }
 
-        if(data.safetyStock === props.rule.ruleActions[0].fieldValue) return;
+        if(data.safetyStock === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 

@@ -1,7 +1,7 @@
 import { translate } from "@common";
 import { computed } from "vue";
 import { useRoutingDiagnosticsStore } from "@/store/routingDiagnosticsStore";
-import { SHIPPING_REASON, UNATTRIBUTED_REASON, shareOf, totalHolds } from "@/utils/routingDiagnostics";
+import { SHIPPING_REASON, UNATTRIBUTED_REASON, totalHolds } from "@/utils/routingDiagnostics";
 
 const RULE_TONES = ["primary", "secondary", "tertiary", "success", "dark"];
 
@@ -12,14 +12,6 @@ export function useSafetyStockSummary() {
 
   const storeHolds = computed(() => diagnostics.holds.filter((hold) => hold.facilityTypeId === "RETAIL_STORE"));
   const storeHoldTotals = computed(() => totalHolds(storeHolds.value));
-
-  // Exported weekly snapshots followed by today's live numbers.
-  const historyPoints = computed(() => [
-    ...diagnostics.shareHistory.map((point) => point.byStore),
-    Object.fromEntries(storeHolds.value.map((hold) => [hold.facilityId, { available: hold.available, held: hold.safetyStockHeld }]))
-  ]);
-  const historyLabels = computed(() => [...diagnostics.shareHistory.map((point) => point.label), translate("Now")]);
-  const shareTrend = computed(() => historyPoints.value.map((byStore) => shareOf(byStore)));
 
   const reasonLegend = computed(() => {
     const { reasons, totals } = diagnostics.safetyByReason;
@@ -37,5 +29,5 @@ export function useSafetyStockSummary() {
     });
   });
 
-  return { storeHolds, storeHoldTotals, historyPoints, historyLabels, shareTrend, reasonLegend };
+  return { storeHolds, storeHoldTotals, reasonLegend };
 }

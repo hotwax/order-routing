@@ -7,15 +7,11 @@ import {
   buildSafetyByReason,
   buildStoreShipped,
   lastCompleteWeeks,
-  parseCsv,
   ruleLabel,
-  shareOf,
-  summarizeSnapshot,
   thresholdSummary,
   toSafetyRule,
   totalHolds,
-  weekOverWeek,
-  weeklySnapshotPoints
+  weekOverWeek
 } from "@/utils/routingDiagnostics";
 
 const facilities = {
@@ -174,35 +170,6 @@ describe("buildSafetyByReason", () => {
     expect(store.units).toEqual({ "New Arrivals": 1, Winter: 1, [UNATTRIBUTED_REASON]: 1, [SHIPPING_REASON]: 9 });
     expect(result.reasons).toEqual(["Winter", "New Arrivals", UNATTRIBUTED_REASON, SHIPPING_REASON]);
     expect(result.totals[SHIPPING_REASON]).toBe(9);
-  });
-});
-
-describe("safety-stock history", () => {
-  it("rebuilds available and held units from a snapshot of SKU counts", () => {
-    const byStore = summarizeSnapshot([
-      { facilityId: "S1", lastInventoryCount: 1, minimumStock: 1, skuCount: "10" },
-      { facilityId: "S1", lastInventoryCount: 3, minimumStock: 1, skuCount: "5" },
-      { facilityId: "S1", lastInventoryCount: 2, minimumStock: "", skuCount: "4" },
-      { facilityId: "W1", lastInventoryCount: 9, minimumStock: 1, skuCount: "100" }
-    ], facilities);
-    expect(byStore).toEqual({ S1: { available: 33, held: 15 } });
-    expect(shareOf(byStore)).toBeCloseTo(15 / 33);
-  });
-
-  it("labels each export with the week it closes and keeps the latest per week", () => {
-    const points = weeklySnapshotPoints([
-      { takenAt: Date.UTC(2026, 9, 12, 0, 5), byStore: { S1: { available: 10, held: 1 } } },
-      { takenAt: Date.UTC(2026, 9, 12, 6), byStore: { S1: { available: 10, held: 2 } } },
-      { takenAt: Date.UTC(2026, 9, 5, 0, 5), byStore: { S1: { available: 10, held: 3 } } }
-    ], 12);
-    expect(points.map((point) => [point.label, point.byStore.S1.held])).toEqual([["Sep 28", 3], ["Oct 5", 2]]);
-  });
-
-  it("parses the export CSV, including quoted values", () => {
-    expect(parseCsv("facilityId,skuCount\r\n100001,\"1,034\"\r\n100002,7\r\n")).toEqual([
-      { facilityId: "100001", skuCount: "1,034" },
-      { facilityId: "100002", skuCount: "7" }
-    ]);
   });
 });
 

@@ -143,7 +143,7 @@ function niceCeiling(value: number) {
 // Past eight weeks the labels no longer fit on one line, so every other one is shown,
 // counting back from the latest week. The selected week is named in the card subtitle.
 function showWeekLabel(index: number) {
-  return props.weeks.length <= 8 || (props.weeks.length - 1 - index) % 2 === 0;
+  return (props.weeks.length - 1 - index) % Math.max(1, Math.ceil(props.weeks.length / 8)) === 0;
 }
 
 function formatNumber(value: number) {

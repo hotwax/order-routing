@@ -37,7 +37,7 @@
     </svg>
     <div class="axis-weeks">
       <ion-note v-for="(week, index) in weeks" :key="week" :color="index === selectedIndex ? 'dark' : 'medium'">
-        {{ weeks.length <= 8 || (weeks.length - 1 - index) % 2 === 0 ? week : "" }}
+        {{ (weeks.length - 1 - index) % labelStep === 0 ? week : "" }}
       </ion-note>
     </div>
   </div>
@@ -54,10 +54,13 @@ const props = withDefaults(defineProps<{
   label: string;
   tone?: string;
   height?: number;
-}>(), { tone: "primary", height: 140 });
+  // Most week labels that fit under the chart; past it, labels are thinned from the latest week back.
+  maxLabels?: number;
+}>(), { tone: "primary", height: 140, maxLabels: 8 });
 
 const emit = defineEmits<{ (e: "select", index: number): void }>();
 
+const labelStep = computed(() => Math.max(1, Math.ceil(props.weeks.length / props.maxLabels)));
 const maxValue = computed(() => Math.max(0, ...props.values));
 const slotWidth = computed(() => (props.values.length ? 100 / props.values.length : 100));
 

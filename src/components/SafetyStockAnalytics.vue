@@ -5,10 +5,6 @@
       <template #subtitle>
         <ion-note>{{ translate("{held} of {available} units, right now", { held: formatNumber(storeHoldTotals.safetyStockHeld), available: formatNumber(storeHoldTotals.available) }) }}</ion-note>
       </template>
-      <template v-if="shareTrend.length > 1">
-        <Sparkline :points="shareTrend.map((share) => share ?? 0)" color="warning" :label="translate('Safety-stock share by week')" />
-        <ion-note>{{ translate("{from} to {to}", { from: historyLabels[0], to: historyLabels[historyLabels.length - 1] }) }}</ion-note>
-      </template>
     </StatCard>
 
     <ion-card>
@@ -17,24 +13,9 @@
         <ion-card-subtitle>{{ translate("Safety stock at stores, by the rule that set it") }}</ion-card-subtitle>
       </ion-card-header>
       <SectionState :status="status.reasons" :empty="!safetyReasons.length" :empty-message="translate('No units are held back at stores')">
-        <ion-list lines="full">
-          <ion-item
-            v-for="reason in safetyReasons"
-            :key="reason.key"
-            :button="!!reason.ruleId"
-            :detail="!!reason.ruleId"
-            :router-link="reason.ruleId ? `/update-safety-stock/${reason.ruleId}` : undefined"
-          >
-            <ion-icon slot="start" :icon="ellipse" :color="reason.tone" />
-            <ion-label class="ion-text-wrap">
-              {{ reason.key }}
-              <p>{{ translate("{share} of safety stock", { share: formatPercent(safetyTotal ? reason.total / safetyTotal : null) }) }}</p>
-            </ion-label>
-            <ion-note slot="end">
-              {{ formatNumber(reason.total) }}
-            </ion-note>
-          </ion-item>
-        </ion-list>
+        <ion-card-content>
+          <SafetyReasonChips :reasons="safetyReasons" />
+        </ion-card-content>
       </SectionState>
     </ion-card>
 
@@ -56,7 +37,7 @@
             </ion-note>
           </ion-item>
           <ion-item router-link="/dashboard" button lines="none">
-            <ion-label>{{ translate("See every store and the weekly trend on the dashboard") }}</ion-label>
+            <ion-label>{{ translate("See every store on the dashboard") }}</ion-label>
           </ion-item>
         </ion-list>
       </SectionState>
@@ -65,10 +46,10 @@
 </template>
 
 <script setup lang="ts">
-import { Sparkline, StatCard, translate } from "@common";
-import { IonCard, IonCardHeader, IonCardSubtitle, IonCardTitle, IonIcon, IonItem, IonLabel, IonList, IonNote, IonProgressBar } from "@ionic/vue";
-import { ellipse } from "ionicons/icons";
+import { StatCard, translate } from "@common";
+import { IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonItem, IonLabel, IonList, IonNote, IonProgressBar } from "@ionic/vue";
 import { computed } from "vue";
+import SafetyReasonChips from "@/components/diagnostics/SafetyReasonChips.vue";
 import SectionState from "@/components/diagnostics/SectionState.vue";
 import { useSafetyStockSummary } from "@/composables/useSafetyStockSummary";
 import { useRoutingDiagnosticsStore } from "@/store/routingDiagnosticsStore";
@@ -77,12 +58,11 @@ import { SHIPPING_REASON } from "@/utils/routingDiagnostics";
 const TOP_STORE_COUNT = 5;
 
 const diagnostics = useRoutingDiagnosticsStore();
-const { storeHolds, storeHoldTotals, historyLabels, shareTrend, reasonLegend } = useSafetyStockSummary();
+const { storeHolds, storeHoldTotals, reasonLegend } = useSafetyStockSummary();
 
 const status = computed(() => diagnostics.status);
 // This page is about safety stock, so units held only because shipping is off are left out.
 const safetyReasons = computed(() => reasonLegend.value.filter((reason) => reason.key !== SHIPPING_REASON));
-const safetyTotal = computed(() => safetyReasons.value.reduce((sum, reason) => sum + reason.total, 0));
 const topStores = computed(() => storeHolds.value.slice(0, TOP_STORE_COUNT));
 
 function formatNumber(value: number) {

@@ -8,18 +8,14 @@ import {
   type FacilityHold,
   type FacilityInfo,
   type RuleSeries,
-  type SnapshotPoint,
   type Week,
   buildFacilityHolds,
   buildRuleSeries,
   buildSafetyByReason,
   buildStoreShipped,
   lastCompleteWeeks,
-  parseCsv,
-  summarizeSnapshot,
   thresholdSummary,
-  toSafetyRule,
-  weeklySnapshotPoints
+  toSafetyRule
 } from "@/utils/routingDiagnostics";
 
 // DataDocuments the dashboard reads through oms/dataDocumentView. Most are aggregate views,
@@ -31,9 +27,7 @@ export const DIAGNOSTIC_DOCUMENTS = {
   safetyCapped: "RoutingDashInvSafetyCapped",
   safetyShort: "RoutingDashInvSafetyShort",
   safetySku: "RoutingDashSafetySku",
-  variantTags: "RoutingDashVariantTags",
-  // Exported weekly by a scheduled job; each export is one point of safety-stock history.
-  inventorySnapshot: "RoutingDashInvHistogram"
+  variantTags: "RoutingDashVariantTags"
 };
 
 type SectionStatus = "idle" | "loading" | "ready" | "error";
@@ -51,8 +45,7 @@ export interface RoutingDiagnosticsState {
   safetyByReason: ReturnType<typeof buildSafetyByReason>;
   safetyRuleIds: Record<string, string>;
   threshold: { activeRules: number; maxThreshold: number };
-  shareHistory: SnapshotPoint[];
-  status: { routing: SectionStatus; shipping: SectionStatus; inventory: SectionStatus; reasons: SectionStatus; history: SectionStatus };
+  status: { routing: SectionStatus; shipping: SectionStatus; inventory: SectionStatus; reasons: SectionStatus };
   loadedAt: number | null;
 }
 
@@ -135,8 +128,7 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
     safetyByReason: emptyReasons(),
     safetyRuleIds: {},
     threshold: { activeRules: 0, maxThreshold: 0 },
-    shareHistory: [],
-    status: { routing: "idle", shipping: "idle", inventory: "idle", reasons: "idle", history: "idle" },
+    status: { routing: "idle", shipping: "idle", inventory: "idle", reasons: "idle" },
     loadedAt: null
   }),
   actions: {
@@ -145,13 +137,12 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
       if(!productStoreId) {return;}
       if(weekCount) {this.weekCount = weekCount;}
       this.weeks = lastCompleteWeeks(this.weekCount);
-      this.status = { routing: "loading", shipping: "loading", inventory: "loading", reasons: "loading", history: "loading" };
+      this.status = { routing: "loading", shipping: "loading", inventory: "loading", reasons: "loading" };
       await this.loadFacilities(productStoreId);
       await Promise.allSettled([
         this.loadRouting(productStoreId),
         this.loadShipping(productStoreId),
-        this.loadInventory(productStoreId),
-        this.loadShareHistory()
+        this.loadInventory(productStoreId)
       ]);
       this.loadedAt = Date.now();
     },
@@ -159,9 +150,9 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
     async loadSafetyStock() {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
       if(!productStoreId) {return;}
-      this.status = { ...this.status, inventory: "loading", reasons: "loading", history: "loading" };
+      this.status = { ...this.status, inventory: "loading", reasons: "loading" };
       await this.loadFacilities(productStoreId);
-      await Promise.allSettled([this.loadInventory(productStoreId), this.loadShareHistory()]);
+      await this.loadInventory(productStoreId);
     },
     async loadFacilities(productStoreId: string) {
       const facilities: Record<string, FacilityInfo> = {};
@@ -286,32 +277,6 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
         logger.error("routing diagnostics: failed to load safety stock by reason", err);
         this.safetyByReason = emptyReasons();
         this.status.reasons = "error";
-      }
-    },
-    // History comes from the weekly exports of the snapshot document; the current week is added
-    // from the live inventory numbers by the view.
-    async loadShareHistory() {
-      try {
-        const resp = await api({
-          url: "admin/systemMessages",
-          method: "GET",
-          params: { systemMessageTypeId: "ExportDocumentData", statusId: "SmsgSent", pageSize: 500 }
-        }) as any;
-        const exports = (resp.data?.systemMessages || [])
-          .filter((message: any) => String(message.messageText || "").includes(`${DIAGNOSTIC_DOCUMENTS.inventorySnapshot}_`))
-          .sort((a: any, b: any) => Number(b.initDate) - Number(a.initDate))
-          .slice(0, 16);
-        const snapshots = await inBatches(exports, async (message: any) => {
-          const csv = await api({ url: `admin/dataDocuments/export/${message.systemMessageId}`, method: "GET" }) as any;
-
-          return { takenAt: Number(message.initDate), byStore: summarizeSnapshot(parseCsv(csv.data?.csvData || ""), this.facilities) };
-        });
-        this.shareHistory = weeklySnapshotPoints(snapshots, 12);
-        this.status.history = "ready";
-      } catch (err) {
-        logger.error("routing diagnostics: failed to load safety-stock history", err);
-        this.shareHistory = [];
-        this.status.history = "error";
       }
     }
   }

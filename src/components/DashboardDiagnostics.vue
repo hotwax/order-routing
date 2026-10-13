@@ -37,154 +37,145 @@
         <template #subtitle>
           <ion-note>{{ translate("{held} of {available} units, right now", { held: formatNumber(storeHoldTotals.safetyStockHeld), available: formatNumber(storeHoldTotals.available) }) }}</ion-note>
         </template>
-        <Sparkline :points="shareTrend.map((point) => point ?? 0)" color="warning" :label="translate('Safety-stock share by week')" />
       </StatCard>
     </section>
 
-    <!-- Orders routed by rule -->
-    <ion-card class="wide">
-      <ion-card-header>
-        <div class="card-head">
-          <div>
-            <ion-card-title>{{ translate("Orders routed by rule") }}</ion-card-title>
-            <ion-card-subtitle>{{ translate("Orders each rule allocated in the week of {week}. A split order counts under every rule it used.", { week: weekLabels[selected] }) }}</ion-card-subtitle>
+    <!-- Orders routed by rule, with store-shipped units beside it -->
+    <section class="routing-row">
+      <ion-card>
+        <ion-card-header>
+          <div class="card-head">
+            <div>
+              <ion-card-title>{{ translate("Orders routed by rule") }}</ion-card-title>
+              <ion-card-subtitle>{{ translate("Orders each rule allocated in the week of {week}. A split order counts under every rule it used.", { week: weekLabels[selected] }) }}</ion-card-subtitle>
+            </div>
+            <div class="head-chips">
+              <ion-chip :outline="ruleView !== 'chart'" :color="ruleView === 'chart' ? 'primary' : undefined" @click="ruleView = 'chart'">
+                <ion-icon :icon="analyticsOutline" />
+                <ion-label>{{ translate("Chart") }}</ion-label>
+              </ion-chip>
+              <ion-chip :outline="ruleView !== 'table'" :color="ruleView === 'table' ? 'primary' : undefined" @click="ruleView = 'table'">
+                <ion-icon :icon="gridOutline" />
+                <ion-label>{{ translate("Table") }}</ion-label>
+              </ion-chip>
+            </div>
           </div>
-          <div class="head-chips">
-            <ion-chip :outline="ruleView !== 'chart'" :color="ruleView === 'chart' ? 'primary' : undefined" @click="ruleView = 'chart'">
-              <ion-icon :icon="analyticsOutline" />
-              <ion-label>{{ translate("Chart") }}</ion-label>
-            </ion-chip>
-            <ion-chip :outline="ruleView !== 'table'" :color="ruleView === 'table' ? 'primary' : undefined" @click="ruleView = 'table'">
-              <ion-icon :icon="gridOutline" />
-              <ion-label>{{ translate("Table") }}</ion-label>
-            </ion-chip>
-          </div>
-        </div>
-      </ion-card-header>
-      <SectionState :status="status.routing" :empty="!ruleSeries.length" :empty-message="translate('No brokered orders in these weeks')">
-        <template v-if="ruleView === 'chart'">
+        </ion-card-header>
+        <SectionState :status="status.routing" :empty="!ruleSeries.length" :empty-message="translate('No brokered orders in these weeks')">
+          <template v-if="ruleView === 'chart'">
+            <ion-card-content>
+              <WeeklyLineChart
+                :weeks="weekLabels"
+                :series="chartSeries"
+                :selected-index="selected"
+                :label="translate('Orders routed by rule each week')"
+                @select="selectWeek"
+              />
+            </ion-card-content>
+            <ion-list lines="full">
+              <ion-item v-for="rule in rulesWithTone" :key="rule.ruleKey" :button="!!rule.routingGroupId" :detail="!!rule.routingGroupId" @click="openRule(rule)">
+                <ion-button
+                  slot="start"
+                  fill="clear"
+                  :aria-label="translate('Highlight {rule} in the chart', { rule: rule.label })"
+                  @click.stop="toggleFocus(rule.ruleKey)"
+                >
+                  <ion-icon slot="icon-only" :icon="focusedRule && focusedRule !== rule.ruleKey ? ellipseOutline : ellipse" :color="rule.tone" />
+                </ion-button>
+                <ion-label class="ion-text-wrap">
+                  {{ rule.label }}
+                  <p>{{ rule.facilityTypeId === "RETAIL_STORE" ? translate("Store fulfillment") : translate("Warehouse fulfillment") }}</p>
+                </ion-label>
+                <ion-label slot="end" class="ion-text-end">
+                  {{ formatNumber(rule.counts[selected] ?? 0) }}
+                  <p>{{ formatPercent(brokeredByWeek[selected] ? (rule.counts[selected] ?? 0) / brokeredByWeek[selected] : null) }}</p>
+                </ion-label>
+              </ion-item>
+            </ion-list>
+          </template>
+          <ion-card-content v-else class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    {{ translate("Rule") }}
+                  </th>
+                  <th v-for="(week, index) in weekLabels" :key="week" scope="col" @click="selectWeek(index)">
+                    <ion-text :color="index === selected ? 'primary' : undefined">
+                      {{ week }}
+                    </ion-text>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="rule in rulesWithTone" :key="rule.ruleKey">
+                  <th scope="row">
+                    <a v-if="rule.routingGroupId" href="#" @click.prevent="openRule(rule)">{{ rule.label }}</a>
+                    <template v-else>
+                      {{ rule.label }}
+                    </template>
+                  </th>
+                  <td v-for="(count, index) in rule.counts" :key="index">
+                    <ion-text :color="index === selected ? 'primary' : undefined">
+                      {{ formatNumber(count) }}
+                    </ion-text>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    {{ translate("Orders brokered, distinct") }}
+                  </th>
+                  <td v-for="(total, index) in brokeredByWeek" :key="index">
+                    <ion-text :color="index === selected ? 'primary' : undefined">
+                      <strong>{{ formatNumber(total) }}</strong>
+                    </ion-text>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </ion-card-content>
+        </SectionState>
+      </ion-card>
+
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>{{ translate("Store-shipped units") }}</ion-card-title>
+          <ion-card-subtitle>{{ translate("Units shipped from retail stores, pickup excluded") }}</ion-card-subtitle>
+        </ion-card-header>
+        <SectionState :status="status.shipping" :empty="!shipped.weeklyUnits.some(Boolean)" :empty-message="translate('No store shipments in these weeks')">
           <ion-card-content>
-            <WeeklyLineChart
+            <WeeklyBarChart
               :weeks="weekLabels"
-              :series="chartSeries"
+              :values="shipped.weeklyUnits"
               :selected-index="selected"
-              :label="translate('Orders routed by rule each week')"
+              tone="tertiary"
+              :max-labels="3"
+              :label="translate('Store-shipped units by week')"
               @select="selectWeek"
             />
           </ion-card-content>
           <ion-list lines="full">
-            <ion-item v-for="rule in rulesWithTone" :key="rule.ruleKey" :button="!!rule.routingGroupId" :detail="!!rule.routingGroupId" @click="openRule(rule)">
-              <ion-button
-                slot="start"
-                fill="clear"
-                :aria-label="translate('Highlight {rule} in the chart', { rule: rule.label })"
-                @click.stop="toggleFocus(rule.ruleKey)"
-              >
-                <ion-icon slot="icon-only" :icon="focusedRule && focusedRule !== rule.ruleKey ? ellipseOutline : ellipse" :color="rule.tone" />
-              </ion-button>
-              <ion-label class="ion-text-wrap">
-                {{ rule.label }}
-                <p>{{ rule.facilityTypeId === "RETAIL_STORE" ? translate("Store fulfillment") : translate("Warehouse fulfillment") }}</p>
-              </ion-label>
-              <ion-label slot="end" class="ion-text-end">
-                {{ formatNumber(rule.counts[selected] ?? 0) }}
-                <p>{{ formatPercent(brokeredByWeek[selected] ? (rule.counts[selected] ?? 0) / brokeredByWeek[selected] : null) }}</p>
+            <ion-list-header>
+              <ion-label>{{ translate("Top shipping stores, week of {week}", { week: weekLabels[selected] }) }}</ion-label>
+            </ion-list-header>
+            <ion-item v-for="store in visible(shippingStores, 'shipping')" :key="store.facilityId">
+              <ion-label>{{ store.facilityName }}</ion-label>
+              <div slot="end" class="trend">
+                <Sparkline :points="store.units" color="tertiary" :height="24" :label="translate('{store} units by week', { store: store.facilityName })" />
+              </div>
+              <ion-note slot="end">
+                {{ formatNumber(store.units[selected] ?? 0) }}
+              </ion-note>
+            </ion-item>
+            <ion-item v-if="shippingStores.length > TOP_COUNT" button :detail="false" lines="none" @click="toggleExpanded('shipping')">
+              <ion-label color="primary">
+                {{ expanded.shipping ? translate("Show top {count}", { count: TOP_COUNT }) : translate("Show all {count} stores", { count: shippingStores.length }) }}
               </ion-label>
             </ion-item>
           </ion-list>
-        </template>
-        <ion-card-content v-else class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">
-                  {{ translate("Rule") }}
-                </th>
-                <th v-for="(week, index) in weekLabels" :key="week" scope="col" @click="selectWeek(index)">
-                  <ion-text :color="index === selected ? 'primary' : undefined">
-                    {{ week }}
-                  </ion-text>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="rule in rulesWithTone" :key="rule.ruleKey">
-                <th scope="row">
-                  <a v-if="rule.routingGroupId" href="#" @click.prevent="openRule(rule)">{{ rule.label }}</a>
-                  <template v-else>
-                    {{ rule.label }}
-                  </template>
-                </th>
-                <td v-for="(count, index) in rule.counts" :key="index">
-                  <ion-text :color="index === selected ? 'primary' : undefined">
-                    {{ formatNumber(count) }}
-                  </ion-text>
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">
-                  {{ translate("Orders brokered, distinct") }}
-                </th>
-                <td v-for="(total, index) in brokeredByWeek" :key="index">
-                  <ion-text :color="index === selected ? 'primary' : undefined">
-                    <strong>{{ formatNumber(total) }}</strong>
-                  </ion-text>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </ion-card-content>
-      </SectionState>
-    </ion-card>
-
-    <!-- Safety stock over time -->
-    <ion-card class="wide">
-      <ion-card-header>
-        <div class="card-head">
-          <div>
-            <ion-card-title>{{ translate("Safety stock over time") }}</ion-card-title>
-            <ion-card-subtitle>{{ translate("Share of store inventory held as safety stock at the end of each week") }}</ion-card-subtitle>
-          </div>
-          <div class="head-chips">
-            <ion-chip :outline="historyView !== 'combined'" :color="historyView === 'combined' ? 'primary' : undefined" @click="historyView = 'combined'">
-              <ion-label>{{ translate("All stores") }}</ion-label>
-            </ion-chip>
-            <ion-chip :outline="historyView !== 'stores'" :color="historyView === 'stores' ? 'primary' : undefined" @click="historyView = 'stores'">
-              <ion-label>{{ translate("By store") }}</ion-label>
-            </ion-chip>
-          </div>
-        </div>
-      </ion-card-header>
-      <SectionState :status="status.inventory" :empty="!storeHolds.length" :empty-message="translate('No store inventory found')">
-        <ion-card-content>
-          <WeeklyLineChart
-            :weeks="historyLabels"
-            :series="historySeries"
-            :selected-index="historySelected"
-            :format-value="formatPercent"
-            :label="translate('Safety-stock share by week')"
-            @select="historySelected = $event"
-          />
-          <ion-note class="history-note">
-            {{ shareHistory.length
-              ? translate("{count} weekly snapshots plus today. A new snapshot is added after each week closes.", { count: shareHistory.length })
-              : translate("Only today is shown: no weekly snapshots have been exported yet. Once the weekly snapshot export runs, each closed week is added here.") }}
-          </ion-note>
-        </ion-card-content>
-        <ion-list v-if="historyView === 'stores'" lines="full">
-          <ion-list-header>
-            <ion-label>{{ translate("Stores, {point}", { point: historyLabels[historySelected] }) }}</ion-label>
-          </ion-list-header>
-          <ion-item v-for="store in historyStores" :key="store.facilityId" button :detail="false" @click="toggleHistoryFocus(store.facilityId)">
-            <ion-icon slot="start" :icon="focusedStore && focusedStore !== store.facilityId ? ellipseOutline : ellipse" :color="store.tone" />
-            <ion-label>{{ store.facilityName }}</ion-label>
-            <ion-note slot="end">
-              {{ formatPercent(store.shares[historySelected]) }}
-            </ion-note>
-          </ion-item>
-        </ion-list>
-      </SectionState>
-    </ion-card>
+        </SectionState>
+      </ion-card>
+    </section>
 
     <!-- Safety stock by reason -->
     <ion-card class="wide">
@@ -193,57 +184,15 @@
         <ion-card-subtitle>{{ translate("Units held at each store, by the rule that set them, right now") }}</ion-card-subtitle>
       </ion-card-header>
       <SectionState :status="status.reasons" :empty="!reasonRows.length" :empty-message="translate('No units are held back at stores')">
-        <ion-list lines="full">
-          <ion-item
-            v-for="reason in reasonLegend"
-            :key="reason.key"
-            :button="!!reason.ruleId"
-            :detail="!!reason.ruleId"
-            :router-link="reason.ruleId ? `/update-safety-stock/${reason.ruleId}` : undefined"
-          >
-            <ion-icon slot="start" :icon="ellipse" :color="reason.tone" />
-            <ion-label class="ion-text-wrap">
-              {{ reason.key }}
-              <p>{{ reason.description }}</p>
-            </ion-label>
-            <ion-note slot="end">
-              {{ formatNumber(reason.total) }}
-            </ion-note>
-          </ion-item>
-        </ion-list>
-        <StackedBarList :rows="reasonRows" :segments="reasonLegend" />
-      </SectionState>
-    </ion-card>
-
-    <!-- Store-shipped units -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>{{ translate("Store-shipped units") }}</ion-card-title>
-        <ion-card-subtitle>{{ translate("Units shipped from retail stores, pickup excluded") }}</ion-card-subtitle>
-      </ion-card-header>
-      <SectionState :status="status.shipping" :empty="!shipped.weeklyUnits.some(Boolean)" :empty-message="translate('No store shipments in these weeks')">
         <ion-card-content>
-          <WeeklyBarChart
-            :weeks="weekLabels"
-            :values="shipped.weeklyUnits"
-            :selected-index="selected"
-            tone="tertiary"
-            :label="translate('Store-shipped units by week')"
-            @select="selectWeek"
-          />
+          <SafetyReasonChips :reasons="reasonLegend" />
         </ion-card-content>
-        <ion-list lines="full">
-          <ion-list-header>
-            <ion-label>{{ translate("Top shipping stores, week of {week}", { week: weekLabels[selected] }) }}</ion-label>
-          </ion-list-header>
-          <ion-item v-for="store in topShippingStores" :key="store.facilityId">
-            <ion-label>{{ store.facilityName }}</ion-label>
-            <div slot="end" class="trend">
-              <Sparkline :points="store.units" color="tertiary" :height="24" :label="translate('{store} units by week', { store: store.facilityName })" />
-            </div>
-            <ion-note slot="end">
-              {{ formatNumber(store.units[selected] ?? 0) }}
-            </ion-note>
+        <StackedBarList :rows="visible(reasonRows, 'reasons')" :segments="reasonLegend" />
+        <ion-list v-if="reasonRows.length > TOP_COUNT" lines="none">
+          <ion-item button :detail="false" @click="toggleExpanded('reasons')">
+            <ion-label color="primary">
+              {{ expanded.reasons ? translate("Show top {count}", { count: TOP_COUNT }) : translate("Show all {count} stores", { count: reasonRows.length }) }}
+            </ion-label>
           </ion-item>
         </ion-list>
       </SectionState>
@@ -326,7 +275,7 @@
       </ion-card-header>
       <SectionState :status="status.inventory" :empty="!storeHolds.length" :empty-message="translate('No store inventory found')">
         <ion-list lines="full">
-          <ion-item v-for="hold in storeHolds" :key="hold.facilityId">
+          <ion-item v-for="hold in visible(storeHolds, 'share')" :key="hold.facilityId">
             <ion-label>
               {{ hold.facilityName }}
               <p>{{ translate("{held} of {available} units", { held: formatNumber(hold.safetyStockHeld), available: formatNumber(hold.available) }) }}</p>
@@ -335,6 +284,11 @@
             <ion-note slot="end">
               {{ formatPercent(hold.safetyStockShare) }}
             </ion-note>
+          </ion-item>
+          <ion-item v-if="storeHolds.length > TOP_COUNT" button :detail="false" lines="none" @click="toggleExpanded('share')">
+            <ion-label color="primary">
+              {{ expanded.share ? translate("Show top {count}", { count: TOP_COUNT }) : translate("Show all {count} stores", { count: storeHolds.length }) }}
+            </ion-label>
           </ion-item>
         </ion-list>
       </SectionState>
@@ -350,8 +304,9 @@
 import { Sparkline, StatCard, translate } from "@common";
 import { IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonChip, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonNote, IonProgressBar, IonText } from "@ionic/vue";
 import { analyticsOutline, ellipse, ellipseOutline, gridOutline } from "ionicons/icons";
-import { computed, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import DeltaNote from "@/components/diagnostics/DeltaNote.vue";
+import SafetyReasonChips from "@/components/diagnostics/SafetyReasonChips.vue";
 import SectionState from "@/components/diagnostics/SectionState.vue";
 import StackedBarList from "@/components/diagnostics/StackedBarList.vue";
 import WeeklyBarChart from "@/components/diagnostics/WeeklyBarChart.vue";
@@ -359,7 +314,7 @@ import WeeklyLineChart from "@/components/diagnostics/WeeklyLineChart.vue";
 import { useSafetyStockSummary } from "@/composables/useSafetyStockSummary";
 import router from "@/router";
 import { useRoutingDiagnosticsStore } from "@/store/routingDiagnosticsStore";
-import { type RuleSeries, shareOf, totalHolds } from "@/utils/routingDiagnostics";
+import { type RuleSeries, totalHolds } from "@/utils/routingDiagnostics";
 
 const WEEK_OPTIONS = [4, 6, 12];
 const TONES = ["primary", "secondary", "tertiary", "success", "warning", "danger", "dark", "medium"];
@@ -367,11 +322,11 @@ const TONES = ["primary", "secondary", "tertiary", "success", "warning", "danger
 const diagnostics = useRoutingDiagnosticsStore();
 
 const ruleView = ref("chart");
-const historyView = ref("combined");
 const focusedRule = ref<string | null>(null);
-const focusedStore = ref<string | null>(null);
 const selected = ref(0);
-const historySelected = ref(0);
+// Store lists show the top few until the user asks for every store.
+const TOP_COUNT = 5;
+const expanded = reactive({ shipping: false, reasons: false, share: false });
 
 const weekCount = computed(() => diagnostics.weekCount);
 const status = computed(() => diagnostics.status);
@@ -380,7 +335,6 @@ const ruleSeries = computed(() => diagnostics.ruleSeries);
 const shipped = computed(() => diagnostics.storeShipped);
 const holds = computed(() => diagnostics.holds);
 const threshold = computed(() => diagnostics.threshold);
-const shareHistory = computed(() => diagnostics.shareHistory);
 
 // Default to the latest complete week whenever the week range changes.
 watch(weekLabels, (labels) => { selected.value = Math.max(0, labels.length - 1); }, { immediate: true });
@@ -399,37 +353,11 @@ const brokeredByWeek = computed(() => weekLabels.value.map((_, index) => diagnos
 const storeOrdersByWeek = computed(() => weekLabels.value.map((_, index) => diagnostics.storeOrders[index] || 0));
 const storeShareByWeek = computed(() => brokeredByWeek.value.map((total, index) => (total ? storeOrdersByWeek.value[index] / total : null)));
 
-const topShippingStores = computed(() => [...shipped.value.stores]
-  .sort((a, b) => (b.units[selected.value] || 0) - (a.units[selected.value] || 0))
-  .slice(0, 8));
+const shippingStores = computed(() => [...shipped.value.stores]
+  .sort((a, b) => (b.units[selected.value] || 0) - (a.units[selected.value] || 0)));
 
 const allHoldTotals = computed(() => totalHolds(holds.value));
-const { storeHolds, storeHoldTotals, historyPoints, historyLabels, shareTrend, reasonLegend } = useSafetyStockSummary();
-
-watch(historyLabels, (labels) => { historySelected.value = Math.max(0, labels.length - 1); }, { immediate: true });
-
-const historyStores = computed(() => storeHolds.value
-  .map((hold, index) => ({
-    facilityId: hold.facilityId,
-    facilityName: hold.facilityName,
-    tone: TONES[index % TONES.length],
-    shares: historyPoints.value.map((byStore) => shareOf(byStore, [hold.facilityId]))
-  }))
-  .sort((a, b) => (b.shares[historySelected.value] ?? 0) - (a.shares[historySelected.value] ?? 0)));
-
-const historySeries = computed(() => {
-  if(historyView.value === "combined") {
-    return [{ key: "all", values: shareTrend.value.map((share) => share ?? 0), tone: "warning", emphasis: true }];
-  }
-
-  return historyStores.value.map((store) => ({
-    key: store.facilityId,
-    values: store.shares.map((share) => share ?? 0),
-    tone: store.tone,
-    emphasis: focusedStore.value === store.facilityId,
-    muted: !!focusedStore.value && focusedStore.value !== store.facilityId
-  }));
-});
+const { storeHolds, storeHoldTotals, reasonLegend } = useSafetyStockSummary();
 
 const reasonRows = computed(() => diagnostics.safetyByReason.stores.map((store) => ({
   key: store.facilityId,
@@ -450,9 +378,14 @@ function toggleFocus(ruleKey: string) {
   focusedRule.value = focusedRule.value === ruleKey ? null : ruleKey;
 }
 
-function toggleHistoryFocus(facilityId: string) {
-  focusedStore.value = focusedStore.value === facilityId ? null : facilityId;
+function visible<T>(list: T[], key: keyof typeof expanded) {
+  return expanded[key] ? list : list.slice(0, TOP_COUNT);
 }
+
+function toggleExpanded(key: keyof typeof expanded) {
+  expanded[key] = !expanded[key];
+}
+
 
 function openRule(rule: RuleSeries) {
   if(!rule.routingGroupId) {return;}
@@ -481,10 +414,26 @@ function formatPercent(value: number | null | undefined) {
 
 .range,
 .kpis,
+.routing-row,
 .wide,
 .footnote {
   grid-column: 1 / -1;
 }
+
+/* Rule breakdown with store-shipped units to its right; stacked when the page is narrow. */
+.routing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--spacer-sm);
+  align-items: start;
+}
+
+@media (max-width: 991px) {
+  .routing-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 
 .range {
   display: flex;
@@ -519,11 +468,6 @@ ion-card {
 
 .trend {
   width: 80px;
-}
-
-.history-note {
-  display: block;
-  margin-top: var(--spacer-xs);
 }
 
 .table-scroll {

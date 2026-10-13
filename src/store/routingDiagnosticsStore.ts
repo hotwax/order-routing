@@ -1,0 +1,275 @@
+import { api, commonUtil, logger } from "@common";
+import { defineStore } from "pinia";
+import { useAtpProductStore } from "@/store/atpProductStore";
+import {
+  type FacilityHold,
+  type FacilityInfo,
+  type RuleSeries,
+  type SnapshotPoint,
+  type Week,
+  buildFacilityHolds,
+  buildRuleSeries,
+  buildSafetyByReason,
+  buildStoreShipped,
+  lastCompleteWeeks,
+  parseCsv,
+  summarizeSnapshot,
+  thresholdSummary,
+  toSafetyRule,
+  weeklySnapshotPoints
+} from "@/utils/routingDiagnostics";
+
+// DataDocuments the dashboard reads through oms/dataDocumentView. Most are aggregate views,
+// so the OMS returns a handful of grouped rows rather than raw records.
+export const DIAGNOSTIC_DOCUMENTS = {
+  ruleOrders: "RoutingDashRuleOrders",
+  storeShipped: "RoutingDashStoreShipped",
+  inventoryAvailable: "RoutingDashInvAvailable",
+  safetyCapped: "RoutingDashInvSafetyCapped",
+  safetyShort: "RoutingDashInvSafetyShort",
+  safetySku: "RoutingDashSafetySku",
+  variantTags: "RoutingDashVariantTags",
+  // Exported weekly by a scheduled job; each export is one point of safety-stock history.
+  inventorySnapshot: "RoutingDashInvHistogram"
+};
+
+type SectionStatus = "idle" | "loading" | "ready" | "error";
+
+export interface RoutingDiagnosticsState {
+  weekCount: number;
+  weeks: Week[];
+  facilities: Record<string, FacilityInfo>;
+  ruleSeries: RuleSeries[];
+  storeShipped: { weeklyUnits: number[]; weeklyOrders: number[]; stores: { facilityId: string; facilityName: string; units: number[] }[] };
+  holds: FacilityHold[];
+  safetyByReason: ReturnType<typeof buildSafetyByReason>;
+  safetyRuleIds: Record<string, string>;
+  threshold: { activeRules: number; maxThreshold: number };
+  shareHistory: SnapshotPoint[];
+  status: { routing: SectionStatus; shipping: SectionStatus; inventory: SectionStatus; reasons: SectionStatus; history: SectionStatus };
+  loadedAt: number | null;
+}
+
+async function queryDocument(dataDocumentId: string, fieldsToSelect: string[], customParametersMap: Record<string, any>, options: { pageSize?: number; pageIndex?: number; distinct?: boolean } = {}) {
+  const resp = await api({
+    url: "oms/dataDocumentView",
+    method: "POST",
+    data: { dataDocumentId, pageSize: options.pageSize || 1000, pageIndex: options.pageIndex || 0, distinct: !!options.distinct, fieldsToSelect: fieldsToSelect.join(","), customParametersMap }
+  }) as any;
+  if(commonUtil.hasError(resp)) {throw resp.data;}
+
+  return (resp.data?.entityValueList || []) as any[];
+}
+
+// Pages through a row-level document until a short page comes back.
+async function queryAllPages(dataDocumentId: string, fieldsToSelect: string[], customParametersMap: Record<string, any>, pageSize = 5000) {
+  const rows: any[] = [];
+  for(let pageIndex = 0; ; pageIndex++) {
+    const page = await queryDocument(dataDocumentId, fieldsToSelect, customParametersMap, { pageSize, pageIndex });
+    rows.push(...page);
+    if(page.length < pageSize) {return rows;}
+  }
+}
+
+// Runs requests a few at a time; these are aggregate queries against the live OMS.
+async function inBatches<T, R>(items: T[], fn: (item: T) => Promise<R>, size = 3) {
+  const results: R[] = [];
+  for(let i = 0; i < items.length; i += size) {
+    results.push(...await Promise.all(items.slice(i, i + size).map(fn)));
+  }
+
+  return results;
+}
+
+async function fetchActiveRules(productStoreId: string, groupTypeEnumId: string) {
+  const groupsResp = await api({
+    url: "available-to-promise/ruleGroups",
+    method: "GET",
+    params: { productStoreId, groupTypeEnumId, statusId: "ATP_RG_ACTIVE", pageSize: 100 }
+  }) as any;
+  const groups = (Array.isArray(groupsResp.data) ? groupsResp.data : groupsResp.data?.ruleGroups || [])
+    .filter((group: any) => group.groupTypeEnumId === groupTypeEnumId);
+  const rules = await inBatches(groups, async (group: any) => {
+    const resp = await api({
+      url: "available-to-promise/decisionRules",
+      method: "GET",
+      params: { ruleGroupId: group.ruleGroupId, statusId: "ATP_RULE_ACTIVE", pageSize: 200 }
+    }) as any;
+
+    return (Array.isArray(resp.data) ? resp.data : resp.data?.decisionRules || []) as any[];
+  });
+
+  return rules.flat().filter((rule: any) => rule.statusId === "ATP_RULE_ACTIVE");
+}
+
+const emptyReasons = () => ({ reasons: [] as string[], stores: [] as any[], totals: {} as Record<string, number> });
+
+export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
+  state: (): RoutingDiagnosticsState => ({
+    weekCount: 6,
+    weeks: [],
+    facilities: {},
+    ruleSeries: [],
+    storeShipped: { weeklyUnits: [], weeklyOrders: [], stores: [] },
+    holds: [],
+    safetyByReason: emptyReasons(),
+    safetyRuleIds: {},
+    threshold: { activeRules: 0, maxThreshold: 0 },
+    shareHistory: [],
+    status: { routing: "idle", shipping: "idle", inventory: "idle", reasons: "idle", history: "idle" },
+    loadedAt: null
+  }),
+  actions: {
+    async load(weekCount?: number) {
+      const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
+      if(!productStoreId) {return;}
+      if(weekCount) {this.weekCount = weekCount;}
+      this.weeks = lastCompleteWeeks(this.weekCount);
+      this.status = { routing: "loading", shipping: "loading", inventory: "loading", reasons: "loading", history: "loading" };
+      await this.loadFacilities(productStoreId);
+      await Promise.allSettled([
+        this.loadRouting(productStoreId),
+        this.loadShipping(productStoreId),
+        this.loadInventory(productStoreId),
+        this.loadShareHistory()
+      ]);
+      this.loadedAt = Date.now();
+    },
+    async loadFacilities(productStoreId: string) {
+      const facilities: Record<string, FacilityInfo> = {};
+      try {
+        const resp = await api({
+          url: `admin/productStores/${productStoreId}/facilities`,
+          method: "GET",
+          params: { facilityTypeId: "VIRTUAL_FACILITY", facilityTypeId_not: "Y", pageSize: 250 }
+        }) as any;
+        for(const facility of resp.data || []) {
+          facilities[facility.facilityId] = {
+            facilityId: facility.facilityId,
+            facilityName: facility.facilityName || facility.facilityId,
+            facilityTypeId: facility.facilityTypeId
+          };
+        }
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load product store facilities", err);
+      }
+      this.facilities = facilities;
+    },
+    async loadRouting(productStoreId: string) {
+      try {
+        const rowsByWeek = await inBatches(this.weeks, (week) => queryDocument(
+          DIAGNOSTIC_DOCUMENTS.ruleOrders,
+          ["routingRule", "routingRuleId", "routingGroupId", "orderRoutingId", "orderCount", "salesChannelEnumId", "shipmentMethodTypeId", "facilityTypeId"],
+          { productStoreId, changeDatetime_from: week.start, changeDatetime_thru: week.end }
+        ));
+        this.ruleSeries = buildRuleSeries(rowsByWeek);
+        this.status.routing = "ready";
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load orders by rule", err);
+        this.ruleSeries = [];
+        this.status.routing = "error";
+      }
+    },
+    async loadShipping(productStoreId: string) {
+      try {
+        const rowsByWeek = await inBatches(this.weeks, (week) => queryDocument(
+          DIAGNOSTIC_DOCUMENTS.storeShipped,
+          ["facilityId", "shipmentMethodTypeId", "salesChannelEnumId", "shippedUnits", "shippedOrders"],
+          { productStoreId, statusDate_from: week.start, statusDate_thru: week.end }
+        ));
+        this.storeShipped = buildStoreShipped(rowsByWeek, this.facilities);
+        this.status.shipping = "ready";
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load store-shipped units", err);
+        this.storeShipped = { weeklyUnits: [], weeklyOrders: [], stores: [] };
+        this.status.shipping = "error";
+      }
+    },
+    async loadInventory(productStoreId: string) {
+      const facilityIds = Object.keys(this.facilities);
+      try {
+        const scope = { facilityId: facilityIds.join(","), facilityId_op: "in" };
+        const [available, safetyCapped, safetyShort, thresholdRules] = await Promise.all([
+          facilityIds.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.inventoryAvailable, ["facilityId", "allowBrokering", "availableUnits"], scope) : [],
+          facilityIds.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.safetyCapped, ["facilityId", "allowBrokering", "heldUnits"], scope) : [],
+          facilityIds.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.safetyShort, ["facilityId", "allowBrokering", "heldUnits"], scope) : [],
+          fetchActiveRules(productStoreId, "RG_THRESHOLD")
+        ]);
+        this.holds = buildFacilityHolds(available, safetyCapped, safetyShort, this.facilities);
+        this.threshold = thresholdSummary(thresholdRules);
+        this.status.inventory = "ready";
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load inventory held back", err);
+        this.holds = [];
+        this.status.inventory = "error";
+        this.status.reasons = "error";
+
+        return;
+      }
+      await this.loadSafetyReasons(productStoreId);
+    },
+    // Needs the live holds for the store list and the shipping-only units, so it runs after them.
+    async loadSafetyReasons(productStoreId: string) {
+      const storeIds = this.holds.filter((hold) => hold.facilityTypeId === "RETAIL_STORE").map((hold) => hold.facilityId);
+      if(!storeIds.length) {
+        this.safetyByReason = emptyReasons();
+        this.status.reasons = "ready";
+
+        return;
+      }
+      try {
+        const rules = (await fetchActiveRules(productStoreId, "RG_SAFETY_STOCK")).map(toSafetyRule);
+        const tags = [...new Set(rules.flatMap((rule) => [...rule.includeTags, ...rule.excludeTags]))];
+        const groupIds = [...new Set(rules.flatMap((rule) => rule.facilityGroupIds))];
+        const [skuRows, tagRows, groupMembers] = await Promise.all([
+          queryAllPages(
+            DIAGNOSTIC_DOCUMENTS.safetySku, ["productId", "facilityId", "minimumStock", "lastInventoryCount"],
+            { facilityId: storeIds.join(","), facilityId_op: "in", lastInventoryCount_from: 1 }
+          ),
+          tags.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.variantTags, ["productId", "tag"], { tag: tags.join(","), tag_op: "in" }, { pageSize: 20000, distinct: true }) : [],
+          inBatches(groupIds, async (facilityGroupId) => {
+            const resp = await api({ url: "oms/groupFacilities", method: "GET", params: { facilityGroupId, pageSize: 500 } }) as any;
+
+            return [facilityGroupId, (resp.data || []).map((facility: any) => facility.facilityId)] as [string, string[]];
+          })
+        ]);
+        const tagsByProduct: Record<string, string[]> = {};
+        for(const row of tagRows) {(tagsByProduct[row.productId] = tagsByProduct[row.productId] || []).push(row.tag);}
+        const storeHolds = this.holds.filter((hold) => storeIds.includes(hold.facilityId));
+        this.safetyByReason = buildSafetyByReason(skuRows, tagsByProduct, rules, Object.fromEntries(groupMembers), storeHolds);
+        this.safetyRuleIds = Object.fromEntries(rules.map((rule) => [rule.ruleName, rule.ruleId]));
+        this.status.reasons = "ready";
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load safety stock by reason", err);
+        this.safetyByReason = emptyReasons();
+        this.status.reasons = "error";
+      }
+    },
+    // History comes from the weekly exports of the snapshot document; the current week is added
+    // from the live inventory numbers by the view.
+    async loadShareHistory() {
+      try {
+        const resp = await api({
+          url: "admin/systemMessages",
+          method: "GET",
+          params: { systemMessageTypeId: "ExportDocumentData", statusId: "SmsgSent", pageSize: 500 }
+        }) as any;
+        const exports = (resp.data?.systemMessages || [])
+          .filter((message: any) => String(message.messageText || "").includes(`${DIAGNOSTIC_DOCUMENTS.inventorySnapshot}_`))
+          .sort((a: any, b: any) => Number(b.initDate) - Number(a.initDate))
+          .slice(0, 16);
+        const snapshots = await inBatches(exports, async (message: any) => {
+          const csv = await api({ url: `admin/dataDocuments/export/${message.systemMessageId}`, method: "GET" }) as any;
+
+          return { takenAt: Number(message.initDate), byStore: summarizeSnapshot(parseCsv(csv.data?.csvData || ""), this.facilities) };
+        });
+        this.shareHistory = weeklySnapshotPoints(snapshots, 12);
+        this.status.history = "ready";
+      } catch (err) {
+        logger.error("routing diagnostics: failed to load safety-stock history", err);
+        this.shareHistory = [];
+        this.status.history = "error";
+      }
+    }
+  }
+});

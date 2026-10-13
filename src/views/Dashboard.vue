@@ -4,6 +4,11 @@
       <ion-toolbar>
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Dashboard") }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button :disabled="!currentProductStore?.productStoreId" :aria-label="translate('Refresh')" @click="load()">
+            <ion-icon slot="icon-only" :icon="refreshOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -12,61 +17,42 @@
         v-if="!currentProductStore?.productStoreId"
         :icon="gridOutline"
         :title="translate('No product store selected')"
-        :message="translate('Choose a product store to see its routing and sourcing overview.')"
+        :message="translate('Choose a product store to see its routing and inventory diagnostics.')"
       />
-      <DashboardSummary
-        v-else
-        :routing="routing"
-        :facility-orders="facilityOrders"
-        :facility-orders-date="facilityOrdersDate"
-        :sourcing="sourcing"
-        :total-sourcing="totalSourcing"
-        @navigate="go"
-      />
+      <DashboardDiagnostics v-else />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
-import { gridOutline } from "ionicons/icons";
-import { computed } from "vue";
 import { emitter, translate } from "@common";
-import router from "@/router";
+import { IonButton, IonButtons, IonContent, IonHeader, IonIcon, IonMenuButton, IonPage, IonTitle, IonToolbar, onIonViewWillEnter, onIonViewWillLeave } from "@ionic/vue";
+import { gridOutline, refreshOutline } from "ionicons/icons";
+import { computed } from "vue";
+import DashboardDiagnostics from "@/components/DashboardDiagnostics.vue";
 import EmptyState from "@/components/EmptyState.vue";
-import DashboardSummary from "@/components/DashboardSummary.vue";
-import { useDashboardStore } from "@/store/dashboardStore";
 import { useAtpProductStore } from "@/store/atpProductStore";
+import { useRoutingDiagnosticsStore } from "@/store/routingDiagnosticsStore";
 
-const dashboardStore = useDashboardStore();
+const diagnostics = useRoutingDiagnosticsStore();
 const productStore = useAtpProductStore();
 
 const currentProductStore = computed(() => productStore.getCurrentProductStore);
-const sourcing = computed(() => dashboardStore.getSourcing);
-const routing = computed(() => dashboardStore.getRouting);
-const facilityOrders = computed(() => dashboardStore.getFacilityOrders);
-const facilityOrdersDate = computed(() => dashboardStore.getFacilityOrdersDate);
-const totalSourcing = computed(() => dashboardStore.totalSourcingRules);
 
 onIonViewWillEnter(() => {
   load();
-  emitter.on("productStoreOrConfigChanged", load);
+  emitter.on("productStoreOrConfigChanged", onProductStoreChanged);
 });
 
 onIonViewWillLeave(() => {
-  emitter.off("productStoreOrConfigChanged", load);
+  emitter.off("productStoreOrConfigChanged", onProductStoreChanged);
 });
 
-async function load() {
-  emitter.emit("presentLoader");
-  try {
-    await dashboardStore.loadDashboard();
-  } finally {
-    emitter.emit("dismissLoader");
-  }
+function onProductStoreChanged() {
+  load();
 }
 
-function go(path: string) {
-  router.push(path);
+function load() {
+  return diagnostics.load();
 }
 </script>

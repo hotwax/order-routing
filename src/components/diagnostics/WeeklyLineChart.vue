@@ -80,6 +80,7 @@
 <script setup lang="ts">
 import { IonNote } from "@ionic/vue";
 import { computed } from "vue";
+import { axisCeiling } from "@/utils/routingDiagnostics";
 
 export interface ChartSeries {
   key: string;
@@ -108,7 +109,7 @@ const maxValue = computed(() => {
   const scaled = highlighted.length ? highlighted : props.series;
   const max = Math.max(0, ...scaled.flatMap((item) => item.values));
 
-  return niceCeiling(max);
+  return axisCeiling(max);
 });
 
 const ticks = computed(() => [0, 0.25, 0.5, 0.75, 1].map((fraction) => maxValue.value * fraction));
@@ -125,15 +126,6 @@ function yFor(value: number) {
   const fraction = maxValue.value ? Math.min(value / maxValue.value, 1) : 0;
 
   return inset + (1 - fraction) * usable;
-}
-
-// Rounds the axis top up to 1, 2 or 5 times a power of ten so gridlines land on round numbers.
-function niceCeiling(value: number) {
-  if(value <= 0) {return 1;}
-  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
-  const step = [1, 2, 5, 10].find((multiplier) => multiplier * magnitude >= value) || 10;
-
-  return step * magnitude;
 }
 
 // Past eight weeks the labels no longer fit on one line, so every other one is shown,

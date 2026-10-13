@@ -46,6 +46,7 @@
 <script setup lang="ts">
 import { IonNote } from "@ionic/vue";
 import { computed } from "vue";
+import { axisCeiling } from "@/utils/routingDiagnostics";
 
 const props = withDefaults(defineProps<{
   weeks: string[];
@@ -61,7 +62,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ (e: "select", index: number): void }>();
 
 const labelStep = computed(() => Math.max(1, Math.ceil(props.weeks.length / props.maxLabels)));
-const maxValue = computed(() => Math.max(0, ...props.values));
+// The axis top is rounded so the label reads as a scale, not as one week's value.
+const maxValue = computed(() => axisCeiling(Math.max(0, ...props.values)));
 const slotWidth = computed(() => (props.values.length ? 100 / props.values.length : 100));
 
 function barHeight(value: number) {

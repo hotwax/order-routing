@@ -253,6 +253,15 @@ export function totalHolds(holds: FacilityHold[]) {
   return { ...total, safetyStockShare: total.available > 0 ? total.safetyStockHeld / total.available : null };
 }
 
+// Rounds a chart's axis top up to 1, 2 or 5 times a power of ten, so gridlines land on round numbers.
+export function axisCeiling(value: number) {
+  if(value <= 0) {return 1;}
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  const step = [1, 2, 5, 10].find((multiplier) => multiplier * magnitude >= value) || 10;
+
+  return step * magnitude;
+}
+
 // Week-over-week change of the last value, as a fraction; null when there is no base.
 export function weekOverWeek(values: number[]) {
   if(values.length < 2) {return null;}

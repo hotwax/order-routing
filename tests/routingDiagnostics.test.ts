@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SHIPPING_REASON,
   UNATTRIBUTED_REASON,
+  axisCeiling,
   buildFacilityHolds,
   buildRuleSeries,
   buildSafetyByReason,
@@ -124,6 +125,12 @@ describe("buildFacilityHolds", () => {
 
     const total = totalHolds(holds);
     expect(total).toMatchObject({ available: 1125, safetyStockHeld: 40, combinedHeld: 54, eligible: 1071 });
+  });
+});
+
+describe("axisCeiling", () => {
+  it("rounds the axis top up to 1, 2 or 5 times a power of ten", () => {
+    expect([311, 4689, 2, 0, 1000].map(axisCeiling)).toEqual([500, 5000, 2, 1, 1000]);
   });
 });
 

@@ -49,11 +49,11 @@ export interface RoutingDiagnosticsState {
   loadedAt: number | null;
 }
 
-async function queryDocument(dataDocumentId: string, fieldsToSelect: string[], customParametersMap: Record<string, any>, options: { pageSize?: number; pageIndex?: number; distinct?: boolean } = {}) {
+async function queryDocument(dataDocumentId: string, fieldsToSelect: string[], customParametersMap: Record<string, any>, options: { pageSize?: number; pageIndex?: number; distinct?: boolean; filterByDate?: boolean } = {}) {
   const resp = await api({
     url: "oms/dataDocumentView",
     method: "POST",
-    data: { dataDocumentId, pageSize: options.pageSize || 1000, pageIndex: options.pageIndex || 0, distinct: !!options.distinct, fieldsToSelect: fieldsToSelect.join(","), customParametersMap }
+    data: { dataDocumentId, pageSize: options.pageSize || 1000, pageIndex: options.pageIndex || 0, distinct: !!options.distinct, filterByDate: !!options.filterByDate, fieldsToSelect: fieldsToSelect.join(","), customParametersMap }
   }) as any;
   if(commonUtil.hasError(resp)) {throw resp.data;}
 
@@ -260,7 +260,8 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
             DIAGNOSTIC_DOCUMENTS.safetySku, ["productId", "facilityId", "minimumStock", "lastInventoryCount"],
             { facilityId: storeIds.join(","), facilityId_op: "in", lastInventoryCount_from: 1 }
           ),
-          tags.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.variantTags, ["productId", "tag"], { tag: tags.join(","), tag_op: "in" }, { pageSize: 20000, distinct: true }) : [],
+          // filterByDate keeps only current variant-parent associations, so a variant takes its present parent's tags.
+          tags.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.variantTags, ["productId", "tag"], { tag: tags.join(","), tag_op: "in" }, { pageSize: 20000, distinct: true, filterByDate: true }) : [],
           inBatches(groupIds, async (facilityGroupId) => {
             const resp = await api({ url: "oms/groupFacilities", method: "GET", params: { facilityGroupId, pageSize: 500 } }) as any;
 

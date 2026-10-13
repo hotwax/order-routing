@@ -25,11 +25,11 @@
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/store-pickup'">
             <ion-icon slot="start" :icon="storefrontOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y'" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/shipping'">
             <ion-icon slot="start" :icon="sendOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y'" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
 
           <template v-if="selectedPage.path === '/threshold' || selectedSegment === 'RG_PICKUP_CHANNEL' || selectedSegment === 'RG_SHIPPING_CHANNEL'">
@@ -140,6 +140,7 @@ import { archiveOutline, calendarOutline, checkmarkDoneCircleOutline, closeCircl
 import router from '@/router';
 import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';
+import { ruleUtil } from '@/utils/ruleUtil';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil } from '@common';
 import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel, productStoreProductDateFieldLabel } from '@/utils/productCalendarDateConditions';
@@ -377,9 +378,7 @@ async function updateRulePickup(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_PICKUP") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    rule.ruleActions = ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_PICKUP", isChecked, true, rule.ruleActions || [])
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule pickup updated successfully."))
@@ -399,9 +398,7 @@ async function updateRuleShipping(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_BROKERING") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    rule.ruleActions = ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_BROKERING", isChecked, true, rule.ruleActions || [])
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule shipping updated successfully."))

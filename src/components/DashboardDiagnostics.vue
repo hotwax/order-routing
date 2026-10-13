@@ -231,7 +231,7 @@
               {{ formatNumber(allHoldTotals.available) }}
             </ion-note>
           </ion-item>
-          <ion-item>
+          <ion-item button router-link="/safety-stock" :detail="true">
             <ion-label class="ion-text-wrap">
               {{ translate("Safety-stock hold") }}
               <p>{{ translate("Minimum stock kept at each location") }}</p>
@@ -240,7 +240,7 @@
               {{ formatNumber(allHoldTotals.safetyStockHeld) }}
             </ion-note>
           </ion-item>
-          <ion-item>
+          <ion-item button router-link="/shipping" :detail="true">
             <ion-label class="ion-text-wrap">
               {{ translate("Shipping exclusion") }}
               <p>{{ translate("Products a location is not allowed to ship") }}</p>

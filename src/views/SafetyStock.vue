@@ -153,6 +153,8 @@ function createRule() {
 .safety-aside {
   position: sticky;
   top: 0;
+  /* Keep the cards off the menu edge; the grid gap already separates them from the rules. */
+  padding-inline-start: var(--spacer-base);
 }
 
 .safety-layout .atp-main {
@@ -167,6 +169,8 @@ function createRule() {
 
   .safety-aside {
     position: static;
+    /* Line up with the rule cards stacked below, which keep Ionic's card margin. */
+    padding-inline: var(--spacer-xs);
   }
 }
 

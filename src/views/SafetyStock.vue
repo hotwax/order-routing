@@ -161,8 +161,9 @@ function createRule() {
   margin-top: var(--spacer-base);
 }
 
-/* Stack the analytics above the list on narrow screens. */
-@media (max-width: 991px) {
+/* Stack the analytics above the list until both columns fit: the rule cards need about 375px
+   beside the 440px analytics column, which the page has only from Ionic's xl breakpoint. */
+@media (max-width: 1199px) {
   .safety-layout {
     grid-template-columns: 1fr;
   }

@@ -56,7 +56,8 @@ export interface RuleSeries {
   routingRuleId: string;
   routingGroupId: string;
   orderRoutingId: string;
-  facilityTypeId: string;
+  // Location types the rule allocated to in these weeks, e.g. only stores or only warehouses.
+  facilityTypeIds: string[];
   counts: number[];
   total: number;
 }
@@ -120,33 +121,45 @@ export function isRoutableRow(row: { salesChannelEnumId?: string | null; shipmen
 // Rows are distinct-order counts grouped by rule, channel, method and facility type. An
 // order has one sales channel, so adding a rule's channel rows does not double count.
 export function buildRuleSeries(rowsByWeek: RuleWeekRow[][]): RuleSeries[] {
-  const series = new Map<string, RuleSeries>();
+  // Keyed by rule id, so rules with the same name in different routing groups stay apart.
+  const series = new Map<string, RuleSeries & { recordedRule: string }>();
   rowsByWeek.forEach((rows, weekIndex) => {
     for(const row of rows) {
       if(!isRoutableRow(row)) {continue;}
       if(row.facilityTypeId && !FULFILLMENT_FACILITY_TYPES.includes(row.facilityTypeId)) {continue;}
-      const label = ruleLabel(row.routingRule);
-      let entry = series.get(label);
+      const ruleKey = row.routingRuleId || String(row.routingRule || "");
+      let entry = series.get(ruleKey);
       if(!entry) {
         entry = {
-          ruleKey: label,
-          label,
+          ruleKey,
+          label: ruleLabel(row.routingRule),
+          recordedRule: String(row.routingRule || ""),
           routingRuleId: row.routingRuleId || "",
           routingGroupId: row.routingGroupId || "",
           orderRoutingId: row.orderRoutingId || "",
-          facilityTypeId: row.facilityTypeId || "",
+          facilityTypeIds: [],
           counts: rowsByWeek.map(() => 0),
           total: 0
         };
-        series.set(label, entry);
+        series.set(ruleKey, entry);
       }
+      if(row.facilityTypeId && !entry.facilityTypeIds.includes(row.facilityTypeId)) {entry.facilityTypeIds.push(row.facilityTypeId);}
       const count = toNumber(row.orderCount);
       entry.counts[weekIndex] += count;
       entry.total += count;
     }
   });
+  const entries = [...series.values()];
+  // When two rules share a routing and rule name, name their routing group too.
+  const shared = new Set(entries.map((entry) => entry.label).filter((label, index, labels) => labels.indexOf(label) !== index));
 
-  return [...series.values()].sort((a, b) => b.total - a.total);
+  return entries
+    .map((entry) => {
+      const { recordedRule, ...rule } = entry;
+
+      return shared.has(rule.label) ? { ...rule, label: recordedRule.replace(/\]+\s*$/, "").trim() || rule.label } : rule;
+    })
+    .sort((a, b) => b.total - a.total);
 }
 
 // Weekly units shipped from retail stores, plus the per-store split for the latest week.
@@ -263,7 +276,9 @@ export interface SafetyRule {
   sequenceNum: number;
   // Units the rule sets as minimum stock.
   buffer: number;
-  facilityGroupIds: string[];
+  // Facility groups the rule is limited to; empty when it applies to every group.
+  includeFacilityGroupIds: string[];
+  excludeFacilityGroupIds: string[];
   includeTags: string[];
   excludeTags: string[];
   // True when the rule has a condition this dashboard cannot evaluate, so it never claims units.
@@ -283,7 +298,11 @@ export function toSafetyRule(rule: any): SafetyRule {
   const conditions: any[] = rule.ruleConditions || [];
   const action = (rule.ruleActions || []).find((item: any) => item.actionTypeEnumId === "ATP_SAFETY_STOCK");
   const listValue = (value: unknown) => String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
-  const facilityGroupIds = conditions.filter((item) => item.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS").flatMap((item) => listValue(item.fieldValue));
+  const groupConditions = conditions.filter((item) => item.conditionTypeEnumId === "ENTCT_ATP_FAC_GROUPS");
+  const included = groupConditions.filter((item) => item.operator !== "not-in").flatMap((item) => listValue(item.fieldValue));
+  // ALL means every facility group, so it places no restriction.
+  const includeFacilityGroupIds = included.includes("ALL") ? [] : included;
+  const excludeFacilityGroupIds = groupConditions.filter((item) => item.operator === "not-in").flatMap((item) => listValue(item.fieldValue));
   const tagConditions = conditions.filter((item) => item.conditionTypeEnumId === "ENTCT_ATP_FILTER" && item.fieldName === "tags");
   const known = new Set(["ENTCT_ATP_FAC_GROUPS"]);
   const hasUnsupportedCondition = conditions.some((item) => !known.has(item.conditionTypeEnumId) &&
@@ -294,7 +313,8 @@ export function toSafetyRule(rule: any): SafetyRule {
     ruleName: rule.ruleName || rule.ruleId,
     sequenceNum: Number(rule.sequenceNum) || 0,
     buffer: toNumber(action?.fieldValue),
-    facilityGroupIds,
+    includeFacilityGroupIds,
+    excludeFacilityGroupIds,
     includeTags: tagConditions.filter((item) => item.operator === "contains").flatMap((item) => listValue(item.fieldValue)),
     excludeTags: tagConditions.filter((item) => item.operator === "not-contains").flatMap((item) => listValue(item.fieldValue)),
     hasUnsupportedCondition
@@ -330,7 +350,9 @@ export function buildSafetyByReason(
     const tags = new Set(tagsByProduct[row.productId || ""] || []);
     const winner = ordered.find((rule) => {
       if(rule.hasUnsupportedCondition) {return false;}
-      if(rule.facilityGroupIds.length && !rule.facilityGroupIds.some((groupId) => facilitiesByGroup[groupId]?.includes(facilityId))) {return false;}
+      const inGroup = (groupId: string) => !!facilitiesByGroup[groupId]?.includes(facilityId);
+      if(rule.includeFacilityGroupIds.length && !rule.includeFacilityGroupIds.some(inGroup)) {return false;}
+      if(rule.excludeFacilityGroupIds.some(inGroup)) {return false;}
       if(rule.includeTags.length && !rule.includeTags.some((tag) => tags.has(tag))) {return false;}
 
       return !rule.excludeTags.some((tag) => tags.has(tag));

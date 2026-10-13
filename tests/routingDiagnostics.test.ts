@@ -63,7 +63,19 @@ describe("buildRuleSeries", () => {
       ["Ship : DC", [40, 0]],
       ["Ship : Store", [12, 7]]
     ]);
-    expect(series[1].facilityTypeId).toBe("RETAIL_STORE");
+    expect(series[1].facilityTypeIds).toEqual(["RETAIL_STORE"]);
+  });
+
+  it("keeps same-named rules from different groups apart and records every location type a rule used", () => {
+    const series = buildRuleSeries([[
+      { routingRule: "East : Ship : Nearest]", routingRuleId: "10", routingGroupId: "G1", orderCount: 4, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
+      { routingRule: "West : Ship : Nearest]", routingRuleId: "20", routingGroupId: "G2", orderCount: 6, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
+      { routingRule: "West : Ship : Nearest]", routingRuleId: "20", routingGroupId: "G2", orderCount: 3, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "WAREHOUSE" }
+    ]]);
+    expect(series.map((rule) => [rule.ruleKey, rule.label, rule.routingGroupId, rule.counts[0], rule.facilityTypeIds])).toEqual([
+      ["20", "West : Ship : Nearest", "G2", 9, ["RETAIL_STORE", "WAREHOUSE"]],
+      ["10", "East : Ship : Nearest", "G1", 4, ["RETAIL_STORE"]]
+    ]);
   });
 });
 
@@ -143,7 +155,7 @@ describe("buildSafetyByReason", () => {
   ].map(toSafetyRule);
 
   it("reads facility groups, tags and the buffer from an ATP rule", () => {
-    expect(rules[1]).toMatchObject({ buffer: 1, facilityGroupIds: ["AllRetail"], includeTags: ["FALL", "FALL-2"], hasUnsupportedCondition: false });
+    expect(rules[1]).toMatchObject({ buffer: 1, includeFacilityGroupIds: ["AllRetail"], excludeFacilityGroupIds: [], includeTags: ["FALL", "FALL-2"], hasUnsupportedCondition: false });
   });
 
   it("credits the highest matching rule only when its buffer matches the record", () => {
@@ -170,6 +182,31 @@ describe("buildSafetyByReason", () => {
     expect(store.units).toEqual({ "New Arrivals": 1, Winter: 1, [UNATTRIBUTED_REASON]: 1, [SHIPPING_REASON]: 9 });
     expect(result.reasons).toEqual(["Winter", "New Arrivals", UNATTRIBUTED_REASON, SHIPPING_REASON]);
     expect(result.totals[SHIPPING_REASON]).toBe(9);
+  });
+});
+
+describe("safety stock rule facility groups", () => {
+  const rule = (ruleName: string, sequenceNum: number, groups: { operator: string; fieldValue: string }[]) => toSafetyRule({
+    ruleId: ruleName, ruleName, statusId: "ATP_RULE_ACTIVE", sequenceNum,
+    ruleActions: [{ actionTypeEnumId: "ATP_SAFETY_STOCK", fieldValue: "1" }],
+    ruleConditions: groups.map((group) => ({ conditionTypeEnumId: "ENTCT_ATP_FAC_GROUPS", fieldName: "facilityGroupId", ...group }))
+  });
+  const holds = buildFacilityHolds(
+    [{ facilityId: "S1", allowBrokering: "Y", availableUnits: 5 }, { facilityId: "S2", allowBrokering: "Y", availableUnits: 5 }],
+    [], [], facilities
+  );
+  const skus = [
+    { productId: "P", facilityId: "S1", minimumStock: 1, lastInventoryCount: 5 },
+    { productId: "P", facilityId: "S2", minimumStock: 1, lastInventoryCount: 5 }
+  ];
+  const groups = { North: ["S1"] };
+
+  it("treats ALL as every facility group and honours excluded groups", () => {
+    const rules = [rule("Everywhere but North", 2, [{ operator: "in", fieldValue: "ALL" }, { operator: "not-in", fieldValue: "North" }])];
+    expect(rules[0]).toMatchObject({ includeFacilityGroupIds: [], excludeFacilityGroupIds: ["North"] });
+    const result = buildSafetyByReason(skus, {}, rules, groups, holds);
+    const units = Object.fromEntries(result.stores.map((store) => [store.facilityId, store.units]));
+    expect(units).toEqual({ S1: { [UNATTRIBUTED_REASON]: 1 }, S2: { "Everywhere but North": 1 } });
   });
 });
 

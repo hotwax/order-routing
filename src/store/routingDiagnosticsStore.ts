@@ -113,6 +113,11 @@ const ROUTABLE_ORDER_FILTER = {
   facilityTypeId_op: "in"
 };
 
+// Each load gets a run number; a response from an older run (another product store or week
+// range, or a refresh) is dropped instead of overwriting the newer one.
+let latestRun = 0;
+const isStale = (run: number) => run !== latestRun;
+
 const emptyReasons = () => ({ reasons: [] as string[], stores: [] as any[], totals: {} as Record<string, number> });
 
 export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
@@ -136,31 +141,37 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
       if(!productStoreId) {return;}
       if(weekCount) {this.weekCount = weekCount;}
+      const run = ++latestRun;
       this.weeks = lastCompleteWeeks(this.weekCount);
       this.status = { routing: "loading", shipping: "loading", inventory: "loading", reasons: "loading" };
-      await this.loadFacilities(productStoreId);
+      await this.loadFacilities(productStoreId, run);
+      if(isStale(run)) {return;}
       await Promise.allSettled([
-        this.loadRouting(productStoreId),
-        this.loadShipping(productStoreId),
-        this.loadInventory(productStoreId)
+        this.loadRouting(productStoreId, run),
+        this.loadShipping(productStoreId, run),
+        this.loadInventory(productStoreId, run)
       ]);
+      if(isStale(run)) {return;}
       this.loadedAt = Date.now();
     },
     // The Safety stock page needs only the inventory sections, not the weekly routing queries.
     async loadSafetyStock() {
       const productStoreId = useAtpProductStore().currentProductStore?.productStoreId;
       if(!productStoreId) {return;}
+      const run = ++latestRun;
       this.status = { ...this.status, inventory: "loading", reasons: "loading" };
-      await this.loadFacilities(productStoreId);
-      await this.loadInventory(productStoreId);
+      await this.loadFacilities(productStoreId, run);
+      if(isStale(run)) {return;}
+      await this.loadInventory(productStoreId, run);
     },
-    async loadFacilities(productStoreId: string) {
+    async loadFacilities(productStoreId: string, run: number) {
       const facilities: Record<string, FacilityInfo> = {};
       try {
         const resp = await api({
           url: `admin/productStores/${productStoreId}/facilities`,
           method: "GET",
-          params: { facilityTypeId: "VIRTUAL_FACILITY", facilityTypeId_not: "Y", pageSize: 250 }
+          // Physical locations only, the same scope as the other facility lists in the app.
+          params: { parentFacilityTypeId: "VIRTUAL_FACILITY", parentFacilityTypeId_not: "Y", facilityTypeId: "VIRTUAL_FACILITY", facilityTypeId_not: "Y", pageSize: 250 }
         }) as any;
         for(const facility of resp.data || []) {
           facilities[facility.facilityId] = {
@@ -172,16 +183,16 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
       } catch (err) {
         logger.error("routing diagnostics: failed to load product store facilities", err);
       }
+      if(isStale(run)) {return;}
       this.facilities = facilities;
     },
-    async loadRouting(productStoreId: string) {
+    async loadRouting(productStoreId: string, run: number) {
       try {
         const rowsByWeek = await inBatches(this.weeks, (week) => queryDocument(
           DIAGNOSTIC_DOCUMENTS.ruleOrders,
           ["routingRule", "routingRuleId", "routingGroupId", "orderRoutingId", "orderCount", "salesChannelEnumId", "shipmentMethodTypeId", "facilityTypeId"],
           { productStoreId, changeDatetime_from: week.start, changeDatetime_thru: week.end }
         ));
-        this.ruleSeries = buildRuleSeries(rowsByWeek);
         // An order split across rules counts once under each rule, so weekly totals are
         // counted distinct on the server rather than added up from the rule rows.
         const totals = await inBatches(this.weeks, async (week) => {
@@ -193,10 +204,13 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
 
           return { all: Number(all[0]?.orderCount) || 0, stores: Number(stores[0]?.orderCount) || 0 };
         });
+        if(isStale(run)) {return;}
+        this.ruleSeries = buildRuleSeries(rowsByWeek);
         this.brokeredOrders = totals.map((week) => week.all);
         this.storeOrders = totals.map((week) => week.stores);
         this.status.routing = "ready";
       } catch (err) {
+        if(isStale(run)) {return;}
         logger.error("routing diagnostics: failed to load orders by rule", err);
         this.ruleSeries = [];
         this.brokeredOrders = [];
@@ -204,22 +218,24 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
         this.status.routing = "error";
       }
     },
-    async loadShipping(productStoreId: string) {
+    async loadShipping(productStoreId: string, run: number) {
       try {
         const rowsByWeek = await inBatches(this.weeks, (week) => queryDocument(
           DIAGNOSTIC_DOCUMENTS.storeShipped,
           ["facilityId", "shipmentMethodTypeId", "salesChannelEnumId", "shippedUnits", "shippedOrders"],
           { productStoreId, statusDate_from: week.start, statusDate_thru: week.end }
         ));
+        if(isStale(run)) {return;}
         this.storeShipped = buildStoreShipped(rowsByWeek, this.facilities);
         this.status.shipping = "ready";
       } catch (err) {
+        if(isStale(run)) {return;}
         logger.error("routing diagnostics: failed to load store-shipped units", err);
         this.storeShipped = { weeklyUnits: [], weeklyOrders: [], stores: [] };
         this.status.shipping = "error";
       }
     },
-    async loadInventory(productStoreId: string) {
+    async loadInventory(productStoreId: string, run: number) {
       const facilityIds = Object.keys(this.facilities);
       try {
         const scope = { facilityId: facilityIds.join(","), facilityId_op: "in" };
@@ -229,10 +245,12 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
           facilityIds.length ? queryDocument(DIAGNOSTIC_DOCUMENTS.safetyShort, ["facilityId", "allowBrokering", "heldUnits"], scope) : [],
           fetchActiveRules(productStoreId, "RG_THRESHOLD")
         ]);
+        if(isStale(run)) {return;}
         this.holds = buildFacilityHolds(available, safetyCapped, safetyShort, this.facilities);
         this.threshold = thresholdSummary(thresholdRules);
         this.status.inventory = "ready";
       } catch (err) {
+        if(isStale(run)) {return;}
         logger.error("routing diagnostics: failed to load inventory held back", err);
         this.holds = [];
         this.status.inventory = "error";
@@ -240,10 +258,10 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
 
         return;
       }
-      await this.loadSafetyReasons(productStoreId);
+      await this.loadSafetyReasons(productStoreId, run);
     },
     // Needs the live holds for the store list and the shipping-only units, so it runs after them.
-    async loadSafetyReasons(productStoreId: string) {
+    async loadSafetyReasons(productStoreId: string, run: number) {
       const storeIds = this.holds.filter((hold) => hold.facilityTypeId === "RETAIL_STORE").map((hold) => hold.facilityId);
       if(!storeIds.length) {
         this.safetyByReason = emptyReasons();
@@ -254,7 +272,7 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
       try {
         const rules = (await fetchActiveRules(productStoreId, "RG_SAFETY_STOCK")).map(toSafetyRule);
         const tags = [...new Set(rules.flatMap((rule) => [...rule.includeTags, ...rule.excludeTags]))];
-        const groupIds = [...new Set(rules.flatMap((rule) => rule.facilityGroupIds))];
+        const groupIds = [...new Set(rules.flatMap((rule) => [...rule.includeFacilityGroupIds, ...rule.excludeFacilityGroupIds]))];
         const [skuRows, tagRows, groupMembers] = await Promise.all([
           queryAllPages(
             DIAGNOSTIC_DOCUMENTS.safetySku, ["productId", "facilityId", "minimumStock", "lastInventoryCount"],
@@ -268,6 +286,7 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
             return [facilityGroupId, (resp.data || []).map((facility: any) => facility.facilityId)] as [string, string[]];
           })
         ]);
+        if(isStale(run)) {return;}
         const tagsByProduct: Record<string, string[]> = {};
         for(const row of tagRows) {(tagsByProduct[row.productId] = tagsByProduct[row.productId] || []).push(row.tag);}
         const storeHolds = this.holds.filter((hold) => storeIds.includes(hold.facilityId));
@@ -275,6 +294,7 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
         this.safetyRuleIds = Object.fromEntries(rules.map((rule) => [rule.ruleName, rule.ruleId]));
         this.status.reasons = "ready";
       } catch (err) {
+        if(isStale(run)) {return;}
         logger.error("routing diagnostics: failed to load safety stock by reason", err);
         this.safetyByReason = emptyReasons();
         this.status.reasons = "error";

@@ -1522,5 +1522,6 @@
   "Stores holding the most": "Stores holding the most",
   "See every store on the dashboard": "See every store on the dashboard",
   "Show top {count}": "Show top {count}",
-  "Show all {count} stores": "Show all {count} stores"
+  "Show all {count} stores": "Show all {count} stores",
+  "Store and warehouse fulfillment": "Store and warehouse fulfillment"
 }

@@ -84,7 +84,7 @@
                 </ion-button>
                 <ion-label class="ion-text-wrap">
                   {{ rule.label }}
-                  <p>{{ rule.facilityTypeId === "RETAIL_STORE" ? translate("Store fulfillment") : translate("Warehouse fulfillment") }}</p>
+                  <p>{{ fulfillmentLabel(rule.facilityTypeIds) }}</p>
                 </ion-label>
                 <ion-label slot="end" class="ion-text-end">
                   {{ formatNumber(rule.counts[selected] ?? 0) }}
@@ -386,6 +386,14 @@ function toggleExpanded(key: keyof typeof expanded) {
   expanded[key] = !expanded[key];
 }
 
+
+function fulfillmentLabel(facilityTypeIds: string[]) {
+  const stores = facilityTypeIds.includes("RETAIL_STORE");
+  const warehouses = facilityTypeIds.includes("WAREHOUSE");
+  if(stores && warehouses) {return translate("Store and warehouse fulfillment");}
+
+  return stores ? translate("Store fulfillment") : translate("Warehouse fulfillment");
+}
 
 function openRule(rule: RuleSeries) {
   if(!rule.routingGroupId) {return;}

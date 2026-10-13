@@ -24,9 +24,6 @@ export interface RuleWeekRow {
   routingGroupId?: string;
   orderRoutingId?: string;
   orderCount?: number | string;
-  salesChannelEnumId?: string;
-  shipmentMethodTypeId?: string;
-  facilityTypeId?: string;
 }
 
 export interface ShippedWeekRow {
@@ -34,7 +31,6 @@ export interface ShippedWeekRow {
   shipmentMethodTypeId?: string;
   salesChannelEnumId?: string;
   shippedUnits?: number | string;
-  shippedOrders?: number | string;
 }
 
 export interface InventoryRow {
@@ -105,7 +101,7 @@ export function lastCompleteWeeks(count: number, now = Date.now()): Week[] {
 // names a rule by its routing and rule, which is how merchants recognise it.
 export function ruleLabel(recordedRule?: string) {
   const trimmed = String(recordedRule || "").replace(/\]+\s*$/, "").trim();
-  if(!trimmed) {return "Unrecorded rule";}
+  if(!trimmed) {return "";}
   const parts = trimmed.split(" : ");
 
   return parts.slice(-2).join(" : ");
@@ -118,15 +114,19 @@ export function isRoutableRow(row: { salesChannelEnumId?: string | null; shipmen
   return true;
 }
 
-// Rows are distinct-order counts grouped by rule, channel, method and facility type. An
-// order has one sales channel, so adding a rule's channel rows does not double count.
-export function buildRuleSeries(rowsByWeek: RuleWeekRow[][]): RuleSeries[] {
+export interface RuleTypeRow {
+  routingRuleId?: string;
+  facilityTypeId?: string;
+}
+
+// rowsByWeek holds one distinct-order count per rule and week, already filtered on the server to
+// routable orders at stores and warehouses, so the counts are used as they are. typeRows lists the
+// location types each rule allocated to across the range.
+export function buildRuleSeries(rowsByWeek: RuleWeekRow[][], typeRows: RuleTypeRow[] = []): RuleSeries[] {
   // Keyed by rule id, so rules with the same name in different routing groups stay apart.
   const series = new Map<string, RuleSeries & { recordedRule: string }>();
   rowsByWeek.forEach((rows, weekIndex) => {
     for(const row of rows) {
-      if(!isRoutableRow(row)) {continue;}
-      if(row.facilityTypeId && !FULFILLMENT_FACILITY_TYPES.includes(row.facilityTypeId)) {continue;}
       const ruleKey = row.routingRuleId || String(row.routingRule || "");
       let entry = series.get(ruleKey);
       if(!entry) {
@@ -143,12 +143,15 @@ export function buildRuleSeries(rowsByWeek: RuleWeekRow[][]): RuleSeries[] {
         };
         series.set(ruleKey, entry);
       }
-      if(row.facilityTypeId && !entry.facilityTypeIds.includes(row.facilityTypeId)) {entry.facilityTypeIds.push(row.facilityTypeId);}
       const count = toNumber(row.orderCount);
       entry.counts[weekIndex] += count;
       entry.total += count;
     }
   });
+  for(const row of typeRows) {
+    const entry = series.get(row.routingRuleId || "");
+    if(entry && row.facilityTypeId && !entry.facilityTypeIds.includes(row.facilityTypeId)) {entry.facilityTypeIds.push(row.facilityTypeId);}
+  }
   const entries = [...series.values()];
   // When two rules share a routing and rule name, name their routing group too.
   const shared = new Set(entries.map((entry) => entry.label).filter((label, index, labels) => labels.indexOf(label) !== index));
@@ -162,10 +165,9 @@ export function buildRuleSeries(rowsByWeek: RuleWeekRow[][]): RuleSeries[] {
     .sort((a, b) => b.total - a.total);
 }
 
-// Weekly units shipped from retail stores, plus the per-store split for the latest week.
+// Weekly units shipped from retail stores, in total and per store.
 export function buildStoreShipped(rowsByWeek: ShippedWeekRow[][], facilities: Record<string, FacilityInfo>) {
   const weeklyUnits = rowsByWeek.map(() => 0);
-  const weeklyOrders = rowsByWeek.map(() => 0);
   const byStore = new Map<string, number[]>();
   rowsByWeek.forEach((rows, weekIndex) => {
     for(const row of rows) {
@@ -174,16 +176,14 @@ export function buildStoreShipped(rowsByWeek: ShippedWeekRow[][], facilities: Re
       if(facility?.facilityTypeId !== "RETAIL_STORE") {continue;}
       const units = toNumber(row.shippedUnits);
       weeklyUnits[weekIndex] += units;
-      weeklyOrders[weekIndex] += toNumber(row.shippedOrders);
       if(!byStore.has(facility.facilityId)) {byStore.set(facility.facilityId, rowsByWeek.map(() => 0));}
       byStore.get(facility.facilityId)![weekIndex] += units;
     }
   });
   const stores = [...byStore.entries()]
-    .map(([facilityId, units]) => ({ facilityId, facilityName: facilities[facilityId]?.facilityName || facilityId, units }))
-    .sort((a, b) => (b.units[b.units.length - 1] || 0) - (a.units[a.units.length - 1] || 0));
+    .map(([facilityId, units]) => ({ facilityId, facilityName: facilities[facilityId]?.facilityName || facilityId, units }));
 
-  return { weeklyUnits, weeklyOrders, stores };
+  return { weeklyUnits, stores };
 }
 
 function sumByFacility(rows: InventoryRow[], key: "availableUnits" | "heldUnits") {
@@ -323,8 +323,10 @@ export function toSafetyRule(rule: any): SafetyRule {
 
 // Credits each SKU's safety-stock hold to the rule that set it. The matching rule with the
 // highest sequence wins, the same precedence the ATP engine applies, and the credit only
-// stands when that rule's buffer equals the minimum stock on the record; anything else is
-// unattributed rather than guessed. Units held only because shipping is off are their own reason.
+// stands when that rule's buffer equals the minimum stock on the record. When the winning rule
+// has a condition this dashboard can't evaluate, the SKU is unattributed rather than credited to
+// a lower rule. Units held only because shipping is off are their own reason.
+// Reasons are keyed by rule id (or the two reason constants); labels holds each rule's name.
 export function buildSafetyByReason(
   skuRows: SafetySkuRow[],
   tagsByProduct: Record<string, string[]>,
@@ -348,24 +350,30 @@ export function buildSafetyByReason(
     const held = Math.min(Math.max(toNumber(row.lastInventoryCount), 0), minimumStock);
     if(!held) {continue;}
     const tags = new Set(tagsByProduct[row.productId || ""] || []);
+    const inGroup = (groupId: string) => !!facilitiesByGroup[groupId]?.includes(facilityId);
+    // The highest rule whose facility groups and tags match; an unsupported condition might also
+    // match, so such a rule still stops the search and leaves the SKU unattributed.
     const winner = ordered.find((rule) => {
-      if(rule.hasUnsupportedCondition) {return false;}
-      const inGroup = (groupId: string) => !!facilitiesByGroup[groupId]?.includes(facilityId);
       if(rule.includeFacilityGroupIds.length && !rule.includeFacilityGroupIds.some(inGroup)) {return false;}
       if(rule.excludeFacilityGroupIds.some(inGroup)) {return false;}
       if(rule.includeTags.length && !rule.includeTags.some((tag) => tags.has(tag))) {return false;}
 
       return !rule.excludeTags.some((tag) => tags.has(tag));
     });
-    add(facilityId, winner && winner.buffer === minimumStock ? winner.ruleName : UNATTRIBUTED_REASON, held);
+    const credited = winner && !winner.hasUnsupportedCondition && winner.buffer === minimumStock;
+    add(facilityId, credited ? winner.ruleId : UNATTRIBUTED_REASON, held);
   }
   for(const hold of holds) {add(hold.facilityId, SHIPPING_REASON, hold.shippingExcluded - hold.overlap);}
 
-  const reasons = [
-    ...ordered.map((rule) => rule.ruleName).filter((name) => Object.values(byFacility).some((reasonUnits) => reasonUnits[name])),
-    UNATTRIBUTED_REASON,
-    SHIPPING_REASON
-  ].filter((reason, index, list) => list.indexOf(reason) === index && Object.values(byFacility).some((reasonUnits) => reasonUnits[reason]));
+  const hasUnits = (reason: string) => Object.values(byFacility).some((reasonUnits) => reasonUnits[reason]);
+  const reasons = [...ordered.map((rule) => rule.ruleId), UNATTRIBUTED_REASON, SHIPPING_REASON]
+    .filter((reason, index, list) => list.indexOf(reason) === index && hasUnits(reason));
+  // Rules that share a name are told apart by their id.
+  const labels = Object.fromEntries(ordered.map((rule) => {
+    const sameName = ordered.filter((other) => other.ruleName === rule.ruleName).length > 1;
+
+    return [rule.ruleId, sameName ? `${rule.ruleName} (${rule.ruleId})` : rule.ruleName];
+  }));
   const stores = holds
     .filter((hold) => byFacility[hold.facilityId])
     .map((hold) => ({
@@ -377,7 +385,7 @@ export function buildSafetyByReason(
     .sort((a, b) => b.total - a.total);
   const totals = Object.fromEntries(reasons.map((reason) => [reason, stores.reduce((sum, store) => sum + (store.units[reason] || 0), 0)]));
 
-  return { reasons, stores, totals };
+  return { reasons, labels, stores, totals };
 }
 
 // ---------------------------------------------------------------------------------------

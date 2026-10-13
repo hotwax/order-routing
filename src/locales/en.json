@@ -1511,7 +1511,6 @@
   "{count} active rules keep up to {units} units of each product out of online availability; routing is not affected": "{count} active rules keep up to {units} units of each product out of online availability; routing is not affected",
   "Minimum stock no current rule explains": "Minimum stock no current rule explains",
   "Extra units at locations not allowed to ship the product": "Extra units at locations not allowed to ship the product",
-  "Safety stock rule": "Safety stock rule",
   "Highlight {rule} in the chart": "Highlight {rule} in the chart",
   "No units are held back at stores": "No units are held back at stores",
   "{count} orders allocated to stores": "{count} orders allocated to stores",
@@ -1523,5 +1522,8 @@
   "See every store on the dashboard": "See every store on the dashboard",
   "Show top {count}": "Show top {count}",
   "Show all {count} stores": "Show all {count} stores",
-  "Store and warehouse fulfillment": "Store and warehouse fulfillment"
+  "Store and warehouse fulfillment": "Store and warehouse fulfillment",
+  "Unattributed safety stock": "Unattributed safety stock",
+  "Shipping beyond safety stock": "Shipping beyond safety stock",
+  "Unrecorded rule": "Unrecorded rule"
 }

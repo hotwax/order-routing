@@ -40,7 +40,8 @@ const productStore = useAtpProductStore();
 const currentProductStore = computed(() => productStore.getCurrentProductStore);
 
 onIonViewWillEnter(() => {
-  load();
+  // Coming back within a few minutes reuses the loaded data; Refresh always reloads.
+  diagnostics.loadIfStale();
   emitter.on("productStoreOrConfigChanged", onProductStoreChanged);
 });
 

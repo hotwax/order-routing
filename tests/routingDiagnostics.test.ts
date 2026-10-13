@@ -40,41 +40,39 @@ describe("lastCompleteWeeks", () => {
 describe("ruleLabel", () => {
   it("keeps the routing and rule name from the recorded rule", () => {
     expect(ruleLabel("Primary : Standard Shipping : Priority 1 - Store Fulfillment]")).toBe("Standard Shipping : Priority 1 - Store Fulfillment");
-    expect(ruleLabel(undefined)).toBe("Unrecorded rule");
+    expect(ruleLabel(undefined)).toBe("");
   });
 });
 
 describe("buildRuleSeries", () => {
-  it("adds channel rows per rule and week, leaving out POS, pickup and non-fulfillment locations", () => {
+  it("uses each rule's server distinct counts per week and the location types from the range query", () => {
     const series = buildRuleSeries([
       [
-        { routingRule: "G : Ship : Store]", routingRuleId: "1", orderCount: "10", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-        { routingRule: "G : Ship : Store]", routingRuleId: "1", orderCount: "2", salesChannelEnumId: "CSR_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-        { routingRule: "G : Ship : Store]", routingRuleId: "1", orderCount: "5", salesChannelEnumId: "POS_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-        { routingRule: "G : Ship : DC]", routingRuleId: "2", orderCount: "40", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "WAREHOUSE" },
-        { routingRule: "G : Emp : DC]", routingRuleId: "3", orderCount: "9", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "EMPLOYEE_LOCAL_PICKUP", facilityTypeId: "WAREHOUSE" }
+        { routingRule: "G : Ship : Store]", routingRuleId: "1", routingGroupId: "G", orderCount: "12" },
+        { routingRule: "G : Ship : DC]", routingRuleId: "2", routingGroupId: "G", orderCount: "40" }
       ],
       [
-        { routingRule: "G : Ship : Store]", routingRuleId: "1", orderCount: 7, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-        { routingRule: "G : Ship : Virtual]", routingRuleId: "4", orderCount: 3, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "VIRTUAL_FACILITY" }
+        { routingRule: "G : Ship : Store]", routingRuleId: "1", routingGroupId: "G", orderCount: 7 }
       ]
+    ], [
+      { routingRuleId: "1", facilityTypeId: "RETAIL_STORE" },
+      { routingRuleId: "1", facilityTypeId: "WAREHOUSE" },
+      { routingRuleId: "2", facilityTypeId: "WAREHOUSE" }
     ]);
-    expect(series.map((rule) => [rule.label, rule.counts])).toEqual([
-      ["Ship : DC", [40, 0]],
-      ["Ship : Store", [12, 7]]
+    expect(series.map((rule) => [rule.ruleKey, rule.label, rule.counts, rule.facilityTypeIds])).toEqual([
+      ["2", "Ship : DC", [40, 0], ["WAREHOUSE"]],
+      ["1", "Ship : Store", [12, 7], ["RETAIL_STORE", "WAREHOUSE"]]
     ]);
-    expect(series[1].facilityTypeIds).toEqual(["RETAIL_STORE"]);
   });
 
-  it("keeps same-named rules from different groups apart and records every location type a rule used", () => {
+  it("keeps same-named rules from different groups apart and names their group", () => {
     const series = buildRuleSeries([[
-      { routingRule: "East : Ship : Nearest]", routingRuleId: "10", routingGroupId: "G1", orderCount: 4, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-      { routingRule: "West : Ship : Nearest]", routingRuleId: "20", routingGroupId: "G2", orderCount: 6, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "RETAIL_STORE" },
-      { routingRule: "West : Ship : Nearest]", routingRuleId: "20", routingGroupId: "G2", orderCount: 3, salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", facilityTypeId: "WAREHOUSE" }
+      { routingRule: "East : Ship : Nearest]", routingRuleId: "10", routingGroupId: "G1", orderCount: 4 },
+      { routingRule: "West : Ship : Nearest]", routingRuleId: "20", routingGroupId: "G2", orderCount: 9 }
     ]]);
-    expect(series.map((rule) => [rule.ruleKey, rule.label, rule.routingGroupId, rule.counts[0], rule.facilityTypeIds])).toEqual([
-      ["20", "West : Ship : Nearest", "G2", 9, ["RETAIL_STORE", "WAREHOUSE"]],
-      ["10", "East : Ship : Nearest", "G1", 4, ["RETAIL_STORE"]]
+    expect(series.map((rule) => [rule.ruleKey, rule.label, rule.routingGroupId, rule.counts[0]])).toEqual([
+      ["20", "West : Ship : Nearest", "G2", 9],
+      ["10", "East : Ship : Nearest", "G1", 4]
     ]);
   });
 });
@@ -83,20 +81,19 @@ describe("buildStoreShipped", () => {
   it("counts only retail-store shipments that are not POS or pickup", () => {
     const result = buildStoreShipped([
       [
-        { facilityId: "S1", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "20", shippedOrders: "18" },
-        { facilityId: "S1", salesChannelEnumId: "POS_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "4", shippedOrders: "4" },
-        { facilityId: "S2", salesChannelEnumId: "LOOP_EXCH", shipmentMethodTypeId: "STANDARD", shippedUnits: "3", shippedOrders: "3" },
-        { facilityId: "W1", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "900", shippedOrders: "700" }
+        { facilityId: "S1", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "20" },
+        { facilityId: "S1", salesChannelEnumId: "POS_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "4" },
+        { facilityId: "S2", salesChannelEnumId: "LOOP_EXCH", shipmentMethodTypeId: "STANDARD", shippedUnits: "3" },
+        { facilityId: "W1", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "900" }
       ],
       [
-        { facilityId: "S2", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "11", shippedOrders: "9" }
+        { facilityId: "S2", salesChannelEnumId: "WEB_SALES_CHANNEL", shipmentMethodTypeId: "STANDARD", shippedUnits: "11" }
       ]
     ], facilities);
     expect(result.weeklyUnits).toEqual([23, 11]);
-    expect(result.weeklyOrders).toEqual([21, 9]);
     expect(result.stores.map((store) => [store.facilityName, store.units])).toEqual([
-      ["Austin", [3, 11]],
-      ["Boston", [20, 0]]
+      ["Boston", [20, 0]],
+      ["Austin", [3, 11]]
     ]);
   });
 });
@@ -179,8 +176,9 @@ describe("buildSafetyByReason", () => {
       holds
     );
     const store = result.stores[0];
-    expect(store.units).toEqual({ "New Arrivals": 1, Winter: 1, [UNATTRIBUTED_REASON]: 1, [SHIPPING_REASON]: 9 });
-    expect(result.reasons).toEqual(["Winter", "New Arrivals", UNATTRIBUTED_REASON, SHIPPING_REASON]);
+    expect(store.units).toEqual({ 2: 1, 3: 1, [UNATTRIBUTED_REASON]: 1, [SHIPPING_REASON]: 9 });
+    expect(result.reasons).toEqual(["3", "2", UNATTRIBUTED_REASON, SHIPPING_REASON]);
+    expect(result.labels).toMatchObject({ 2: "New Arrivals", 3: "Winter" });
     expect(result.totals[SHIPPING_REASON]).toBe(9);
   });
 });
@@ -207,6 +205,22 @@ describe("safety stock rule facility groups", () => {
     const result = buildSafetyByReason(skus, {}, rules, groups, holds);
     const units = Object.fromEntries(result.stores.map((store) => [store.facilityId, store.units]));
     expect(units).toEqual({ S1: { [UNATTRIBUTED_REASON]: 1 }, S2: { "Everywhere but North": 1 } });
+  });
+
+  it("leaves a SKU unattributed when the matching rule has a condition the dashboard can't evaluate", () => {
+    const features = toSafetyRule({
+      ruleId: "F", ruleName: "Bulky", statusId: "ATP_RULE_ACTIVE", sequenceNum: 3,
+      ruleActions: [{ actionTypeEnumId: "ATP_SAFETY_STOCK", fieldValue: "1" }],
+      ruleConditions: [{ conditionTypeEnumId: "ENTCT_ATP_FILTER", fieldName: "productFeatures", operator: "contains", fieldValue: "Bulky" }]
+    });
+    const broad = rule("Everywhere", 1, [{ operator: "in", fieldValue: "ALL" }]);
+    const result = buildSafetyByReason(skus, {}, [features, broad], groups, holds);
+    expect(result.totals).toEqual({ [UNATTRIBUTED_REASON]: 2 });
+  });
+
+  it("labels same-named rules by id", () => {
+    const result = buildSafetyByReason(skus, {}, [rule("Twin", 2, [{ operator: "in", fieldValue: "North" }]), { ...rule("Twin", 1, []), ruleId: "Twin-2" }], groups, holds);
+    expect(result.labels).toEqual({ Twin: "Twin (Twin)", "Twin-2": "Twin (Twin-2)" });
   });
 });
 

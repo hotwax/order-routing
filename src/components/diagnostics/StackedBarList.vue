@@ -48,7 +48,7 @@ export interface StackedRow {
 const props = defineProps<{
   rows: StackedRow[];
   // Segment order and Ionic color per segment key.
-  segments: { key: string; tone: string }[];
+  segments: { key: string; label: string; tone: string }[];
 }>();
 
 const maxTotal = computed(() => Math.max(0, ...props.rows.map((row) => row.total)));
@@ -70,7 +70,7 @@ function segmentsFor(row: StackedRow) {
 function describe(row: StackedRow) {
   return props.segments
     .filter((segment) => row.values[segment.key])
-    .map((segment) => `${segment.key}: ${formatNumber(row.values[segment.key])}`)
+    .map((segment) => `${segment.label}: ${formatNumber(row.values[segment.key])}`)
     .join(", ");
 }
 

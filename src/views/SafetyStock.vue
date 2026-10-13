@@ -100,7 +100,7 @@ async function fetchRules() {
 
 // Not awaited by fetchRules, so the rule list never waits on the inventory queries.
 function loadAnalytics() {
-  diagnostics.loadSafetyStock();
+  diagnostics.loadSafetyStock(true);
 }
 
 function activateReordering() {

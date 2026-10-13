@@ -31,7 +31,6 @@
         <template #subtitle>
           <DeltaNote :values="shipped.weeklyUnits" :index="selected" />
         </template>
-        <Sparkline :points="shipped.weeklyUnits" color="tertiary" :label="translate('Store-shipped units by week')" />
       </StatCard>
       <StatCard :title="translate('Store stock held as safety stock')" :stat="formatPercent(storeHoldTotals.safetyStockShare)">
         <template #subtitle>
@@ -77,13 +76,13 @@
                 <ion-button
                   slot="start"
                   fill="clear"
-                  :aria-label="translate('Highlight {rule} in the chart', { rule: rule.label })"
+                  :aria-label="translate('Highlight {rule} in the chart', { rule: rule.label || translate('Unrecorded rule') })"
                   @click.stop="toggleFocus(rule.ruleKey)"
                 >
                   <ion-icon slot="icon-only" :icon="focusedRule && focusedRule !== rule.ruleKey ? ellipseOutline : ellipse" :color="rule.tone" />
                 </ion-button>
                 <ion-label class="ion-text-wrap">
-                  {{ rule.label }}
+                  {{ rule.label || translate("Unrecorded rule") }}
                   <p>{{ fulfillmentLabel(rule.facilityTypeIds) }}</p>
                 </ion-label>
                 <ion-label slot="end" class="ion-text-end">
@@ -97,24 +96,24 @@
             <table>
               <thead>
                 <tr>
-                  <th scope="col">
+                  <td role="columnheader">
                     {{ translate("Rule") }}
-                  </th>
-                  <th v-for="(week, index) in weekLabels" :key="week" scope="col" @click="selectWeek(index)">
+                  </td>
+                  <td v-for="(week, index) in weekLabels" :key="week" role="columnheader" @click="selectWeek(index)">
                     <ion-text :color="index === selected ? 'primary' : undefined">
                       {{ week }}
                     </ion-text>
-                  </th>
+                  </td>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="rule in rulesWithTone" :key="rule.ruleKey">
-                  <th scope="row">
-                    <a v-if="rule.routingGroupId" href="#" @click.prevent="openRule(rule)">{{ rule.label }}</a>
+                  <td role="rowheader" class="row-label">
+                    <a v-if="rule.routingGroupId" href="#" @click.prevent="openRule(rule)">{{ rule.label || translate("Unrecorded rule") }}</a>
                     <template v-else>
-                      {{ rule.label }}
+                      {{ rule.label || translate("Unrecorded rule") }}
                     </template>
-                  </th>
+                  </td>
                   <td v-for="(count, index) in rule.counts" :key="index">
                     <ion-text :color="index === selected ? 'primary' : undefined">
                       {{ formatNumber(count) }}
@@ -122,12 +121,12 @@
                   </td>
                 </tr>
                 <tr>
-                  <th scope="row">
+                  <td role="rowheader" class="row-label">
                     {{ translate("Orders brokered, distinct") }}
-                  </th>
+                  </td>
                   <td v-for="(total, index) in brokeredByWeek" :key="index">
                     <ion-text :color="index === selected ? 'primary' : undefined">
-                      <strong>{{ formatNumber(total) }}</strong>
+                      {{ formatNumber(total) }}
                     </ion-text>
                   </td>
                 </tr>
@@ -258,9 +257,9 @@
             </ion-note>
           </ion-item>
           <ion-item lines="none">
-            <ion-label><strong>{{ translate("Combined hold") }}</strong></ion-label>
+            <ion-label>{{ translate("Combined hold") }}</ion-label>
             <ion-note slot="end">
-              <strong>{{ formatNumber(allHoldTotals.combinedHeld) }}</strong>
+              {{ formatNumber(allHoldTotals.combinedHeld) }}
             </ion-note>
           </ion-item>
         </ion-list>
@@ -386,7 +385,6 @@ function toggleExpanded(key: keyof typeof expanded) {
   expanded[key] = !expanded[key];
 }
 
-
 function fulfillmentLabel(facilityTypeIds: string[]) {
   const stores = facilityTypeIds.includes("RETAIL_STORE");
   const warehouses = facilityTypeIds.includes("WAREHOUSE");
@@ -442,7 +440,6 @@ function formatPercent(value: number | null | undefined) {
   }
 }
 
-
 .range {
   display: flex;
   flex-wrap: wrap;
@@ -487,19 +484,18 @@ table {
   width: 100%;
 }
 
-th,
 td {
   padding: var(--spacer-xs);
   text-align: end;
   white-space: nowrap;
 }
 
-th[scope="row"] {
+.row-label {
   text-align: start;
   white-space: normal;
 }
 
-thead th {
+thead td {
   cursor: pointer;
 }
 

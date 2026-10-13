@@ -96,10 +96,7 @@ const props = withDefaults(defineProps<{
   selectedIndex: number | null;
   label: string;
   height?: number;
-  // Fixed axis top, e.g. 1 for shares; when omitted the axis fits the visible series.
-  axisMax?: number;
-  formatValue?: (value: number) => string;
-}>(), { height: 160, axisMax: undefined, formatValue: undefined });
+}>(), { height: 160 });
 
 const emit = defineEmits<{ (e: "select", index: number): void }>();
 
@@ -107,7 +104,6 @@ const inset = 8;
 
 // When a series is highlighted the axis fits it, so a small rule is not flattened by a large one.
 const maxValue = computed(() => {
-  if(props.axisMax) {return props.axisMax;}
   const highlighted = props.series.filter((item) => !item.muted);
   const scaled = highlighted.length ? highlighted : props.series;
   const max = Math.max(0, ...scaled.flatMap((item) => item.values));
@@ -147,7 +143,7 @@ function showWeekLabel(index: number) {
 }
 
 function formatNumber(value: number) {
-  return props.formatValue ? props.formatValue(value) : value.toLocaleString();
+  return value.toLocaleString();
 }
 </script>
 

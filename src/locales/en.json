@@ -1515,7 +1515,6 @@
   "No units are held back at stores": "No units are held back at stores",
   "{count} orders allocated to stores": "{count} orders allocated to stores",
   "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.": "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.",
-  "Orders brokered, distinct": "Orders brokered, distinct",
   "Units held by rule": "Units held by rule",
   "Safety stock at stores, by the rule that set it": "Safety stock at stores, by the rule that set it",
   "Stores holding the most": "Stores holding the most",
@@ -1525,5 +1524,6 @@
   "Store and warehouse fulfillment": "Store and warehouse fulfillment",
   "Unattributed safety stock": "Unattributed safety stock",
   "Shipping beyond safety stock": "Shipping beyond safety stock",
-  "Unrecorded rule": "Unrecorded rule"
+  "Unrecorded rule": "Unrecorded rule",
+  "Distinct orders, all rules": "Distinct orders, all rules"
 }

@@ -82,7 +82,8 @@
                   <ion-icon slot="icon-only" :icon="focusedRule && focusedRule !== rule.ruleKey ? ellipseOutline : ellipse" :color="rule.tone" />
                 </ion-button>
                 <ion-label class="ion-text-wrap">
-                  {{ rule.label || translate("Unrecorded rule") }}
+                  {{ ruleParts(rule).name }}
+                  <p>{{ ruleParts(rule).routing }}</p>
                   <p>{{ fulfillmentLabel(rule.facilityTypeIds) }}</p>
                 </ion-label>
                 <ion-label slot="end" class="ion-text-end">
@@ -92,47 +93,62 @@
               </ion-item>
             </ion-list>
           </template>
-          <ion-card-content v-else class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <td role="columnheader">
+          <!-- One Ionic list row per rule, with a column per week; scrolls sideways when narrow. -->
+          <div v-else class="table-scroll">
+            <ion-list lines="full" class="week-table" role="table" :style="{ '--week-count': weekLabels.length }">
+              <ion-item role="row">
+                <div class="week-row">
+                  <ion-note role="columnheader">
                     {{ translate("Rule") }}
-                  </td>
-                  <td v-for="(week, index) in weekLabels" :key="week" role="columnheader" @click="selectWeek(index)">
-                    <ion-text :color="index === selected ? 'primary' : undefined">
-                      {{ week }}
-                    </ion-text>
-                  </td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="rule in rulesWithTone" :key="rule.ruleKey">
-                  <td role="rowheader" class="row-label">
-                    <a v-if="rule.routingGroupId" href="#" @click.prevent="openRule(rule)">{{ rule.label || translate("Unrecorded rule") }}</a>
-                    <template v-else>
-                      {{ rule.label || translate("Unrecorded rule") }}
-                    </template>
-                  </td>
-                  <td v-for="(count, index) in rule.counts" :key="index">
-                    <ion-text :color="index === selected ? 'primary' : undefined">
-                      {{ formatNumber(count) }}
-                    </ion-text>
-                  </td>
-                </tr>
-                <tr>
-                  <td role="rowheader" class="row-label">
-                    {{ translate("Orders brokered, distinct") }}
-                  </td>
-                  <td v-for="(total, index) in brokeredByWeek" :key="index">
-                    <ion-text :color="index === selected ? 'primary' : undefined">
-                      {{ formatNumber(total) }}
-                    </ion-text>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </ion-card-content>
+                  </ion-note>
+                  <ion-note
+                    v-for="(week, index) in weekLabels"
+                    :key="week"
+                    role="columnheader"
+                    class="ion-text-end week-cell"
+                    :color="index === selected ? 'primary' : undefined"
+                    @click="selectWeek(index)"
+                  >
+                    {{ week }}
+                  </ion-note>
+                </div>
+              </ion-item>
+              <ion-item v-for="rule in rulesWithTone" :key="rule.ruleKey" role="row" :button="!!rule.routingGroupId" :detail="false" @click="openRule(rule)">
+                <div class="week-row">
+                  <ion-label role="rowheader" class="ion-text-wrap">
+                    {{ ruleParts(rule).name }}
+                    <p>{{ ruleParts(rule).routing }}</p>
+                  </ion-label>
+                  <ion-text
+                    v-for="(count, index) in rule.counts"
+                    :key="index"
+                    role="cell"
+                    class="ion-text-end"
+                    :color="index === selected ? 'primary' : undefined"
+                  >
+                    {{ formatNumber(count) }}
+                  </ion-text>
+                </div>
+              </ion-item>
+              <ion-item lines="none" role="row">
+                <div class="week-row">
+                  <ion-label role="rowheader" class="ion-text-wrap">
+                    {{ translate("Orders brokered") }}
+                    <p>{{ translate("Distinct orders, all rules") }}</p>
+                  </ion-label>
+                  <ion-text
+                    v-for="(total, index) in brokeredByWeek"
+                    :key="index"
+                    role="cell"
+                    class="ion-text-end"
+                    :color="index === selected ? 'primary' : undefined"
+                  >
+                    {{ formatNumber(total) }}
+                  </ion-text>
+                </div>
+              </ion-item>
+            </ion-list>
+          </div>
         </SectionState>
       </ion-card>
 
@@ -385,6 +401,15 @@ function toggleExpanded(key: keyof typeof expanded) {
   expanded[key] = !expanded[key];
 }
 
+// A rule label is "<routing> : <rule>" (with the group first when two rules share a name):
+// show the rule name on its own line and its routing below it.
+function ruleParts(rule: RuleSeries) {
+  const parts = (rule.label || "").split(" : ");
+  const name = parts.pop() || translate("Unrecorded rule");
+
+  return { name, routing: parts.join(" : ") };
+}
+
 function fulfillmentLabel(facilityTypeIds: string[]) {
   const stores = facilityTypeIds.includes("RETAIL_STORE");
   const warehouses = facilityTypeIds.includes("WAREHOUSE");
@@ -422,6 +447,80 @@ function formatPercent(value: number | null | undefined) {
 .kpis,
 .routing-row,
 .wide,
+.footnote {
+  grid-column: 1 / -1;
+}
+
+/* Rule breakdown with store-shipped units to its right; stacked when the page is narrow. */
+.routing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--spacer-sm);
+  align-items: start;
+}
+
+@media (max-width: 991px) {
+  .routing-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacer-sm);
+}
+
+ion-card {
+  margin: 0;
+}
+
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--spacer-sm);
+}
+
+.card-head > div:first-child {
+  flex: 1 1 240px;
+}
+
+.head-chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.trend {
+  width: 80px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* Wide enough for every week column; the card scrolls sideways when it is narrower. */
+.week-table {
+  min-width: max-content;
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) repeat(var(--week-count), minmax(56px, auto));
+  gap: var(--spacer-sm);
+  align-items: center;
+  width: 100%;
+}
+
+.week-cell {
+  cursor: pointer;
+}
+
 .footnote {
   grid-column: 1 / -1;
 }

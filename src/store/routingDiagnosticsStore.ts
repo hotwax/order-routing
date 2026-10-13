@@ -2,6 +2,9 @@ import { api, commonUtil, logger } from "@common";
 import { defineStore } from "pinia";
 import { useAtpProductStore } from "@/store/atpProductStore";
 import {
+  EXCLUDED_SALES_CHANNELS,
+  EXCLUDED_SHIPMENT_METHODS,
+  FULFILLMENT_FACILITY_TYPES,
   type FacilityHold,
   type FacilityInfo,
   type RuleSeries,
@@ -40,6 +43,9 @@ export interface RoutingDiagnosticsState {
   weeks: Week[];
   facilities: Record<string, FacilityInfo>;
   ruleSeries: RuleSeries[];
+  // Distinct orders brokered each week, all locations and stores only.
+  brokeredOrders: number[];
+  storeOrders: number[];
   storeShipped: { weeklyUnits: number[]; weeklyOrders: number[]; stores: { facilityId: string; facilityName: string; units: number[] }[] };
   holds: FacilityHold[];
   safetyByReason: ReturnType<typeof buildSafetyByReason>;
@@ -102,6 +108,18 @@ async function fetchActiveRules(productStoreId: string, groupTypeEnumId: string)
   return rules.flat().filter((rule: any) => rule.statusId === "ATP_RULE_ACTIVE");
 }
 
+// The same exclusions buildRuleSeries applies to rule rows, expressed as query filters.
+const ROUTABLE_ORDER_FILTER = {
+  salesChannelEnumId: EXCLUDED_SALES_CHANNELS.join(","),
+  salesChannelEnumId_op: "in",
+  salesChannelEnumId_not: "Y",
+  shipmentMethodTypeId: EXCLUDED_SHIPMENT_METHODS.join(","),
+  shipmentMethodTypeId_op: "in",
+  shipmentMethodTypeId_not: "Y",
+  facilityTypeId: FULFILLMENT_FACILITY_TYPES.join(","),
+  facilityTypeId_op: "in"
+};
+
 const emptyReasons = () => ({ reasons: [] as string[], stores: [] as any[], totals: {} as Record<string, number> });
 
 export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
@@ -110,6 +128,8 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
     weeks: [],
     facilities: {},
     ruleSeries: [],
+    brokeredOrders: [],
+    storeOrders: [],
     storeShipped: { weeklyUnits: [], weeklyOrders: [], stores: [] },
     holds: [],
     safetyByReason: emptyReasons(),
@@ -163,10 +183,25 @@ export const useRoutingDiagnosticsStore = defineStore("routingDiagnostics", {
           { productStoreId, changeDatetime_from: week.start, changeDatetime_thru: week.end }
         ));
         this.ruleSeries = buildRuleSeries(rowsByWeek);
+        // An order split across rules counts once under each rule, so weekly totals are
+        // counted distinct on the server rather than added up from the rule rows.
+        const totals = await inBatches(this.weeks, async (week) => {
+          const scope = { ...ROUTABLE_ORDER_FILTER, productStoreId, changeDatetime_from: week.start, changeDatetime_thru: week.end };
+          const [all, stores] = await Promise.all([
+            queryDocument(DIAGNOSTIC_DOCUMENTS.ruleOrders, ["orderCount"], scope),
+            queryDocument(DIAGNOSTIC_DOCUMENTS.ruleOrders, ["orderCount"], { ...scope, facilityTypeId: "RETAIL_STORE", facilityTypeId_op: "equals" })
+          ]);
+
+          return { all: Number(all[0]?.orderCount) || 0, stores: Number(stores[0]?.orderCount) || 0 };
+        });
+        this.brokeredOrders = totals.map((week) => week.all);
+        this.storeOrders = totals.map((week) => week.stores);
         this.status.routing = "ready";
       } catch (err) {
         logger.error("routing diagnostics: failed to load orders by rule", err);
         this.ruleSeries = [];
+        this.brokeredOrders = [];
+        this.storeOrders = [];
         this.status.routing = "error";
       }
     },

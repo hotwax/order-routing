@@ -23,7 +23,7 @@
       </StatCard>
       <StatCard :title="translate('Routed to stores')" :stat="formatPercent(storeShareByWeek[selected])">
         <template #subtitle>
-          <ion-note>{{ translate("{count} orders from store rules", { count: formatNumber(storeOrdersByWeek[selected] ?? 0) }) }}</ion-note>
+          <ion-note>{{ translate("{count} orders allocated to stores", { count: formatNumber(storeOrdersByWeek[selected] ?? 0) }) }}</ion-note>
         </template>
         <Sparkline :points="storeShareByWeek.map((share) => share ?? 0)" color="secondary" :label="translate('Store share of brokered orders by week')" />
       </StatCard>
@@ -47,7 +47,7 @@
         <div class="card-head">
           <div>
             <ion-card-title>{{ translate("Orders routed by rule") }}</ion-card-title>
-            <ion-card-subtitle>{{ translate("Distinct orders brokered by each rule, week of {week}", { week: weekLabels[selected] }) }}</ion-card-subtitle>
+            <ion-card-subtitle>{{ translate("Orders each rule allocated in the week of {week}. A split order counts under every rule it used.", { week: weekLabels[selected] }) }}</ion-card-subtitle>
           </div>
           <div class="head-chips">
             <ion-chip :outline="ruleView !== 'chart'" :color="ruleView === 'chart' ? 'primary' : undefined" @click="ruleView = 'chart'">
@@ -123,7 +123,7 @@
               </tr>
               <tr>
                 <th scope="row">
-                  {{ translate("All rules") }}
+                  {{ translate("Orders brokered, distinct") }}
                 </th>
                 <td v-for="(total, index) in brokeredByWeek" :key="index">
                   <ion-text :color="index === selected ? 'primary' : undefined">
@@ -395,10 +395,8 @@ const chartSeries = computed(() => rulesWithTone.value.map((rule) => ({
   muted: !!focusedRule.value && focusedRule.value !== rule.ruleKey
 })));
 
-const brokeredByWeek = computed(() => weekLabels.value.map((_, index) => ruleSeries.value.reduce((sum, rule) => sum + (rule.counts[index] || 0), 0)));
-const storeOrdersByWeek = computed(() => weekLabels.value.map((_, index) => ruleSeries.value
-  .filter((rule) => rule.facilityTypeId === "RETAIL_STORE")
-  .reduce((sum, rule) => sum + (rule.counts[index] || 0), 0)));
+const brokeredByWeek = computed(() => weekLabels.value.map((_, index) => diagnostics.brokeredOrders[index] || 0));
+const storeOrdersByWeek = computed(() => weekLabels.value.map((_, index) => diagnostics.storeOrders[index] || 0));
 const storeShareByWeek = computed(() => brokeredByWeek.value.map((total, index) => (total ? storeOrdersByWeek.value[index] / total : null)));
 
 const topShippingStores = computed(() => [...shipped.value.stores]

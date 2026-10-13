@@ -1463,14 +1463,11 @@
   "Only applicable when {label} is selected": "Only applicable when {label} is selected",
   "Not applicable when {label} is selected": "Not applicable when {label} is selected",
   "This rule uses carrier postal code mapping along with proximity. Use either proximity or carrier postal code mapping to select facilities.": "This rule uses carrier postal code mapping along with proximity. Use either proximity or carrier postal code mapping to select facilities.",
-  "{count} orders from store rules": "{count} orders from store rules",
   "{held} of {available} units, right now": "{held} of {available} units, right now",
   "Orders routed by rule": "Orders routed by rule",
-  "Distinct orders brokered by each rule, week of {week}": "Distinct orders brokered by each rule, week of {week}",
   "Store fulfillment": "Store fulfillment",
   "Warehouse fulfillment": "Warehouse fulfillment",
   "Rule": "Rule",
-  "All rules": "All rules",
   "Store-shipped units": "Store-shipped units",
   "Units shipped from retail stores, pickup excluded": "Units shipped from retail stores, pickup excluded",
   "Top shipping stores, week of {week}": "Top shipping stores, week of {week}",
@@ -1526,5 +1523,8 @@
   "Safety stock rule": "Safety stock rule",
   "Safety-stock share by week": "Safety-stock share by week",
   "Highlight {rule} in the chart": "Highlight {rule} in the chart",
-  "No units are held back at stores": "No units are held back at stores"
+  "No units are held back at stores": "No units are held back at stores",
+  "{count} orders allocated to stores": "{count} orders allocated to stores",
+  "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.": "Orders each rule allocated in the week of {week}. A split order counts under every rule it used.",
+  "Orders brokered, distinct": "Orders brokered, distinct"
 }

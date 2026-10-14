@@ -25,11 +25,11 @@
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/store-pickup'">
             <ion-icon slot="start" :icon="storefrontOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y'" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRulePickup($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
           <ion-item lines="full" v-else-if="selectedPage.path === '/shipping'">
             <ion-icon slot="start" :icon="sendOutline"/>
-            <ion-toggle :checked="props.rule.ruleActions[0].fieldValue === 'Y'" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
+            <ion-toggle :checked="props.rule.ruleActions?.[0]?.fieldValue === 'Y'" @click.prevent="updateRuleShipping($event)">{{ translate(selectedPage.name) }}</ion-toggle>
           </ion-item>
 
           <template v-if="selectedPage.path === '/threshold' || selectedSegment === 'RG_PICKUP_CHANNEL' || selectedSegment === 'RG_SHIPPING_CHANNEL'">
@@ -140,6 +140,7 @@ import { archiveOutline, calendarOutline, checkmarkDoneCircleOutline, closeCircl
 import router from '@/router';
 import { emitter, logger, translate } from '@common';
 import { useRuleStore } from '@/store/rule';
+import { ruleUtil } from '@/utils/ruleUtil';
 import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil } from '@common';
 import { isProductStoreProductDateCondition, productStoreProductDateConditionKey, productStoreProductDateConditionLabel, productStoreProductDateFieldLabel } from '@/utils/productCalendarDateConditions';
@@ -164,6 +165,18 @@ onMounted(() => {
   selectedPage.value.path = router.currentRoute.value.path
   selectedPage.value.name = router.currentRoute.value.name
 })
+
+// Read the saved rule back so the store holds server-assigned keys such as actionSeqId;
+// an action created locally would otherwise be inserted again on the next save.
+async function fetchSavedRule(rule: any) {
+  try {
+    const resp = await ruleStore.fetchRulesDirect({ ruleId: rule.ruleId }) as any
+    if(!commonUtil.hasError(resp) && resp.data?.length) return resp.data[0]
+  } catch(err) {
+    logger.error(err)
+  }
+  return rule
+}
 
 async function editThreshold() {
   const alert = await alertController.create({
@@ -193,7 +206,7 @@ async function editThreshold() {
           return false;
         }
 
-        if(data.threshold === props.rule.ruleActions[0].fieldValue) return;
+        if(data.threshold === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 
@@ -202,7 +215,7 @@ async function editThreshold() {
         if(!rule.ruleActions?.length) {
           rule.ruleActions = [{
             "ruleId": props.rule.ruleId,
-            "actionTypeEnumId": "ATP_SAFETY_STOCK",
+            "actionTypeEnumId": "ATP_THRESHOLD",
             "fieldName": "minimum-stock",
             "fieldValue": data.threshold
           }]
@@ -212,7 +225,7 @@ async function editThreshold() {
 
         try {
           await ruleStore.updateRuleApi(rule, props.rule.ruleId)
-          await ruleStore.updateRuleData({ rule })
+          await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
           commonUtil.showToast(translate("Threshold updated successfully."))
           alertController.dismiss()
         } catch(err: any) {
@@ -255,7 +268,7 @@ async function editSafetyStock() {
           return false;
         }
 
-        if(data.safetyStock === props.rule.ruleActions[0].fieldValue) return;
+        if(data.safetyStock === props.rule.ruleActions?.[0]?.fieldValue) return;
 
         emitter.emit("presentLoader");
 
@@ -274,7 +287,7 @@ async function editSafetyStock() {
 
         try {
           await ruleStore.updateRuleApi(rule, props.rule.ruleId)
-          await ruleStore.updateRuleData({ rule })
+          await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
           commonUtil.showToast(translate("Safety stock updated successfully."))
           alertController.dismiss()
         } catch(err: any) {
@@ -377,13 +390,11 @@ async function updateRulePickup(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_PICKUP") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    rule.ruleActions = ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_PICKUP", isChecked, true, rule.ruleActions || [])
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule pickup updated successfully."))
-    await ruleStore.updateRuleData({ rule })
+    await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
     event.target.checked = isChecked
   } catch(err) {
     logger.error(err)
@@ -399,13 +410,11 @@ async function updateRuleShipping(event: any) {
   emitter.emit("presentLoader");
   try {
     const rule = JSON.parse(JSON.stringify(props.rule))
-    rule.ruleActions.map((action: any) => {
-      if(action.actionTypeEnumId === "ATP_ALLOW_BROKERING") action.fieldValue = isChecked ? "Y" : "N"
-    })
+    rule.ruleActions = ruleUtil.generateRuleActions(rule.ruleId, "ATP_ALLOW_BROKERING", isChecked, true, rule.ruleActions || [])
 
     await ruleStore.updateRuleApi(rule, props.rule.ruleId)
     commonUtil.showToast(translate("Rule shipping updated successfully."))
-    await ruleStore.updateRuleData({ rule })
+    await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
     event.target.checked = isChecked
   } catch(err) {
     logger.error(err)

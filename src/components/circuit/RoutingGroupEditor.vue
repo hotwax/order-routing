@@ -2071,10 +2071,12 @@ async function fetchRoutingGroupInformation(activationVersion = visibleActivatio
         || activationVersion !== visibleActivationVersion
         || String(routingGroupId.value || "") !== requestedGroupId) return;
 
-      const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
-        || group.value.routings?.[0];
-      if (target) selectRouting(target, false);
-      else clearEditorSelection();
+      if (!applyRequestedSelection()) {
+        const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
+          || group.value.routings?.[0];
+        if (target) selectRouting(target, false);
+        else clearEditorSelection();
+      }
     }
   } catch(err) {
     logger.error(err);
@@ -2536,11 +2538,37 @@ async function initializeFromWorking() {
   // Simulation reference data is loaded exclusively from the sim instance. Catalog categories and
   // status descriptions have no sim-scoped source yet and remain explicit UI blockers above.
   await simReferences.fetchReferenceData({ productStoreId: String(group.value.productStoreId || "") });
+  if (applyRequestedSelection()) return;
   const target = group.value.routings?.find((routing: any) => routingWorkingKey(routing) === previousRoutingId)
     || group.value.routings?.[0];
   if (target) selectRouting(target, false);
   else clearEditorSelection();
 }
+
+// Other pages link to a specific routing and rule with ?orderRoutingId=&routingRuleId=. The
+// request is applied once the group has loaded and then dropped from the URL, so it never
+// overrides a selection the user makes afterwards.
+function applyRequestedSelection() {
+  const query = router.currentRoute?.value?.query || {};
+  const { orderRoutingId, routingRuleId } = query;
+  if (!orderRoutingId) return false;
+  // Pages for other groups stay mounted, so only the editor that owns the routing consumes it.
+  const routing = group.value?.routings?.find((candidate: any) => routingWorkingKey(candidate) === String(orderRoutingId));
+  if (!routing) return false;
+  const { orderRoutingId: _routing, routingRuleId: _rule, ...rest } = query;
+  router.replace({ query: rest });
+  selectRouting(routing, false);
+  const rule = routingRuleId && inventoryRules.value.find((candidate: any) => ruleWorkingKey(candidate) === String(routingRuleId));
+  if (rule) selectRule(rule, false);
+  return true;
+}
+
+// A link to another routing in the group that is already open does not re-enter the view.
+watch(() => router.currentRoute?.value?.query?.orderRoutingId, (orderRoutingId) => {
+  if (!orderRoutingId || isLoadingGroup.value || !group.value?.routings?.length) return;
+  if (String(router.currentRoute?.value?.params?.routingGroupId || "") !== String(routingGroupId.value || "")) return;
+  applyRequestedSelection();
+});
 
 function initializeInventoryRule(rule: any) {
   const projection = projectRuleForEditor(rule);

@@ -80,7 +80,7 @@ export const useUserStore = defineStore('user', {
       this.oms = oms
     },
     async fetchPermissions() {
-      const permissionId = import.meta.env.VITE_PERMISSION_ID;
+      const permissionId = import.meta.env.VITE_APP_PERMISSION_ID;
       const serverPermissions = [] as any;
 
       const viewSize = 200;

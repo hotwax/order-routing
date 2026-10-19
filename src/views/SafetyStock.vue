@@ -8,16 +8,21 @@
     </ion-header>
 
     <ion-content>
-      <main class="atp-main" v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)">
-        <ScheduleRuleItem v-if="rules.length" />
-        <ArchivedRuleItem v-if="archivedRules?.length" />
+      <div v-if="ruleGroup.ruleGroupId && (rules.length || archivedRules.length)" class="safety-layout">
+        <aside class="safety-aside">
+          <SafetyStockAnalytics />
+        </aside>
+        <main class="atp-main">
+          <ScheduleRuleItem v-if="rules.length" />
+          <ArchivedRuleItem v-if="archivedRules?.length" />
 
-        <section v-if="rules.length">
-          <ion-reorder-group :disabled="false" @ionItemReorder="updateReorderingRules($event)">
-            <RuleItem v-for="(rule, ruleIndex) in (isReorderActive ? reorderingRules : rules)" :rule="rule" :ruleIndex="ruleIndex" :key="rule.ruleId" />
-          </ion-reorder-group>
-        </section>
-      </main>
+          <section v-if="rules.length">
+            <ion-reorder-group :disabled="false" @ionItemReorder="updateReorderingRules($event)">
+              <RuleItem v-for="(rule, ruleIndex) in (isReorderActive ? reorderingRules : rules)" :rule="rule" :ruleIndex="ruleIndex" :key="rule.ruleId" />
+            </ion-reorder-group>
+          </section>
+        </main>
+      </div>
 
       <div class="empty-block" v-else>
         <EmptyState
@@ -59,9 +64,12 @@ import { useAtpProductStore } from '@/store/atpProductStore';
 import { commonUtil, emitter, translate } from '@common';
 import { ruleUtil } from '@/utils/ruleUtil';
 import ArchivedRuleItem from '@/components/ArchivedRuleItem.vue';
+import SafetyStockAnalytics from '@/components/SafetyStockAnalytics.vue';
+import { useRoutingDiagnosticsStore } from '@/store/routingDiagnosticsStore';
 
 const ruleStore = useRuleStore();
 const productStore = useAtpProductStore();
+const diagnostics = useRoutingDiagnosticsStore();
 
 const rules = computed(() => ruleStore.getRules);
 const ruleGroup = computed(() => ruleStore.getRuleGroup);
@@ -71,11 +79,14 @@ const reorderingRules = ref([]) as any;
 
 onIonViewDidEnter(async() => {
   fetchRules();
+  diagnostics.loadSafetyStock();
   emitter.on("productStoreOrConfigChanged", fetchRules);
+  emitter.on("productStoreOrConfigChanged", loadAnalytics);
 })
 
 onIonViewDidLeave(() => {
   emitter.off("productStoreOrConfigChanged", fetchRules);
+  emitter.off("productStoreOrConfigChanged", loadAnalytics);
   ruleStore.updateIsReorderActive(false)
 })
 
@@ -85,6 +96,11 @@ async function fetchRules() {
   ruleStore.updateIsReorderActive(false)
   await Promise.allSettled([ruleStore.fetchRules({ groupTypeEnumId: 'RG_SAFETY_STOCK', pageSize: 50 }), productStore.fetchConfigFacilities(), productStore.fetchFacilityGroups()]);
   emitter.emit("dismissLoader");
+}
+
+// Not awaited by fetchRules, so the rule list never waits on the inventory queries.
+function loadAnalytics() {
+  diagnostics.loadSafetyStock(true);
 }
 
 function activateReordering() {
@@ -126,6 +142,39 @@ function createRule() {
 </script>
 
 <style scoped>
+/* Analytics in a left column, the rule list on the right, as on the Store pickup page. */
+.safety-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: var(--spacer-base);
+  align-items: start;
+}
+
+.safety-aside {
+  position: sticky;
+  top: 0;
+  /* Keep the cards off the menu edge; the grid gap already separates them from the rules. */
+  padding-inline-start: var(--spacer-base);
+}
+
+.safety-layout .atp-main {
+  margin-top: var(--spacer-base);
+}
+
+/* Stack the analytics above the list until both columns fit: the rule cards need about 375px
+   beside the 440px analytics column, which the page has only from Ionic's xl breakpoint. */
+@media (max-width: 1199px) {
+  .safety-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .safety-aside {
+    position: static;
+    /* Line up with the rule cards stacked below, which keep Ionic's card margin. */
+    padding-inline: var(--spacer-xs);
+  }
+}
+
 .empty-block {
   display: flex;
   flex-direction: column;

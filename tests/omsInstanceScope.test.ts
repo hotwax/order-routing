@@ -159,7 +159,7 @@ describe("OMS instance scoping of persisted product stores", () => {
       }
       if (config.url === "admin/user/permissions") {
         const docs = config.params?.viewIndex === 0
-          ? [{ permissionId: import.meta.env.VITE_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
+          ? [{ permissionId: import.meta.env.VITE_APP_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
           : [];
         return Promise.resolve({ status: 200, data: { docs } });
       }
@@ -185,7 +185,7 @@ describe("OMS instance scoping of persisted product stores", () => {
       }
       if (config.url === "admin/user/permissions") {
         const docs = config.params?.viewIndex === 0
-          ? [{ permissionId: import.meta.env.VITE_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
+          ? [{ permissionId: import.meta.env.VITE_APP_PERMISSION_ID || "ORDER_ROUTING_VIEW" }]
           : [];
         return Promise.resolve({ status: 200, data: { docs } });
       }

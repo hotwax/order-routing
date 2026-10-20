@@ -7,6 +7,7 @@ name: Deploy to Firebase Hosting on merge
     branches:
       - main
       - demo/brokering-and-inventory
+      - codex/deploy-rule-product-selectors
 jobs:
   call-workflow-in-another-repo:
     uses: hotwax/accxui/.github/workflows/common-firebase-hosting-merge.yml@542a778bb7ceeed90d8cd9b5f9df18b9a2994c9d

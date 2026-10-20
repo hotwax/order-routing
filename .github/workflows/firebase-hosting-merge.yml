@@ -15,6 +15,7 @@ jobs:
       config-path: .github/labeler.yml
       app: hotwax/order-routing
       appDir: order-routing
+      firebaseProject: dev
       buildEnvironment: >-
         {"VITE_DRAFT_ASSISTANT_ENABLED":"true","VITE_SIMULATION_ENABLED":"true","VITE_MASTRA_URL":"https://circuit-app-dev.hotwax.io"}
     secrets:

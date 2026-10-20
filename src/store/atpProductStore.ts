@@ -286,55 +286,45 @@ export const useAtpProductStore = defineStore('atpProductStore', {
       return pickupGroupFacilities;
     },
     async fetchProductFilters(params: any) {
-      const filters = JSON.parse(JSON.stringify(this.facetOptions));
-      if (filters[params.searchfield]?.length && !params.queryString) return filters[params.searchfield];
-      let allFacets = [] as any;
-      let offset = 0;
-      let currentFacets = [];
-      const configuredMax = Number(import.meta.env.VITE_MAX_FACETS);
-      const requestedMax = Number(params.maxResults);
-      const maxResults = Number.isFinite(requestedMax) && requestedMax > 0
-        ? requestedMax
-        : Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 5000;
-      const requestedLimit = Number(params.limit);
-      const limit = Math.min(Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : 1000, maxResults);
+      const field = FILTER_FIELD_MAP[params.searchfield];
+      const productStoreId = this.currentProductStore?.productStoreId;
+      if (!field || !productStoreId) throw new Error("Select a product store before loading filters");
+      const limit = Math.min(Number(params.limit) > 0 ? Number(params.limit) : 100,
+        Number(params.maxResults) > 0 ? Number(params.maxResults) : 100);
+      const query = {
+        query: "*:*",
+        filter: ['docType:PRODUCT', `productStoreIds_s:${JSON.stringify(productStoreId)}`],
+        params: {
+          rows: 0,
+          facet: true,
+          'facet.field': field,
+          'facet.contains': (params.queryString || "").trim(),
+          'facet.contains.ignoreCase': true,
+          'facet.limit': limit,
+          'facet.offset': 0,
+          'facet.mincount': 1,
+          'facet.sort': 'index'
+        }
+      };
       try {
-        do {
-          const payload = {
-            facetToSelect: params.facetToSelect,
-            docType: 'PRODUCT',
-            coreName: 'enterpriseSearch',
-            jsonQuery: '{"query":"*:*","filter":["docType:PRODUCT"]}',
-            noConditionFind: 'Y',
-            limit,
-            offset,
-            searchfield: params.searchfield,
-            term: params.queryString || "",
-            q: params.queryString || ""
-          }
-          const resp = await api({
-            url: "admin/solrFacets",
-            method: "GET",
-            params: payload
-          }) as any;
-          if (resp && !commonUtil.hasError(resp)) {
-            currentFacets = resp.data.facetResponse ? resp.data.facetResponse.response : resp.data.response
-            allFacets = allFacets.concat(currentFacets).slice(0, maxResults)
-            offset = offset + payload.limit
-          } else {
-            throw resp.data;
-          }
-        } while (currentFacets.length === limit && allFacets.length < maxResults)
+        // api() targets Maarg even when the login OMS is OFBiz. Use its native raw-query
+        // endpoint: the autocomplete filters whole documents by prefix, so "blue" misses
+        // COLOR/Blue and can return unrelated values from the same matching document.
+        const resp = await api({ url: "admin/search/query", method: "POST", data: query }) as any;
+        if (!resp || commonUtil.hasError(resp)) throw new Error("Failed to fetch product filters");
+        const counts = resp.data?.response?.facet_counts?.facet_fields?.[field];
+        if (!Array.isArray(counts)) throw new Error("Invalid product filter search response");
+        const options = [];
+        for (let index = 0; index < counts.length && options.length < limit; index += 2) {
+          const value = String(counts[index]);
+          options.push({ id: value, label: value.trim(), value: value.trim(), count: Number(counts[index + 1]) });
+        }
+        // A bounded browse/search page is not a complete facet cache.
+        return options;
       } catch (error) {
         logger.error(error);
+        throw error;
       }
-      // Search results are intentionally not cached as the complete facet list. Otherwise a later
-      // unfiltered request could incorrectly reuse the first capped search result.
-      if (!params.queryString) {
-        filters[params.searchfield] = allFacets
-        this.facetOptions = filters;
-      }
-      return allFacets;
     },
     // Per-value product counts for a facet field (e.g. how many products carry each tag), via a Solr
     // terms facet. The admin/solrFacets options response only carries id/label/value, not counts.

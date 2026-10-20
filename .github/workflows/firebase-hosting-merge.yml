@@ -7,10 +7,9 @@ name: Deploy to Firebase Hosting on merge
     branches:
       - main
       - demo/brokering-and-inventory
-      - codex/order-routing-dev-features
 jobs:
   call-workflow-in-another-repo:
-    uses: hotwax/accxui/.github/workflows/common-firebase-hosting-merge.yml@codex/order-routing-dev-build-env
+    uses: hotwax/accxui/.github/workflows/common-firebase-hosting-merge.yml@542a778bb7ceeed90d8cd9b5f9df18b9a2994c9d
     with:
       config-path: .github/labeler.yml
       app: hotwax/order-routing

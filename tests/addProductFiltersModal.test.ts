@@ -76,7 +76,7 @@ describe("AddProductFiltersModal", () => {
     vi.useRealTimers();
   });
 
-  it("opens without prefetching facets and searches the server after typing", async () => {
+  it("loads options on opening, then searches and restores browsing when cleared", async () => {
     const { default: AddProductFiltersModal } = await import("../src/components/AddProductFiltersModal.vue");
     const wrapper = mount(AddProductFiltersModal, {
       props: {
@@ -90,16 +90,15 @@ describe("AddProductFiltersModal", () => {
     await flushPromises();
     await nextTick();
 
-    expect(fetchProductFilters).not.toHaveBeenCalled();
-    expect(fetchProductFacetCounts).not.toHaveBeenCalled();
-    expect(wrapper.text()).not.toContain("Size/L");
+    expect(fetchProductFilters).toHaveBeenCalledWith(expect.objectContaining({ queryString: "", limit: 100, maxResults: 100 }));
+    expect(wrapper.text()).toContain("Size/L");
 
     const searchbar = wrapper.find("input");
     await searchbar.setValue("Size/XL");
     await vi.advanceTimersByTimeAsync(300);
     await flushPromises();
 
-    expect(fetchProductFilters).toHaveBeenCalledTimes(1);
+    expect(fetchProductFilters).toHaveBeenCalledTimes(2);
     expect(fetchProductFilters).toHaveBeenCalledWith({
       facetToSelect: "productFeaturesFacet",
       searchfield: "productFeatures",
@@ -107,10 +106,16 @@ describe("AddProductFiltersModal", () => {
       limit: 100,
       maxResults: 100,
     });
-    expect(fetchProductFacetCounts).toHaveBeenCalledTimes(1);
+    expect(fetchProductFacetCounts).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain("Size/XL");
     expect(wrapper.text()).not.toContain("Size/L");
     expect(wrapper.text()).not.toContain("Color/Blue");
+
+    await searchbar.setValue("");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    expect(wrapper.text()).toContain("Color/Blue");
+    expect(wrapper.text()).toContain("Size/L");
   });
 
   it("discards an in-flight search response once the query changes again", async () => {
@@ -135,6 +140,9 @@ describe("AddProductFiltersModal", () => {
     await flushPromises();
     await nextTick();
 
+    pending[0].resolve(facetOptions);
+    await flushPromises();
+    pending.length = 0;
     const searchbar = wrapper.find("input");
 
     // First query reaches the server and stays in flight.

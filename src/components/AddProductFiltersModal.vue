@@ -36,6 +36,10 @@
         {{ translate("Fetching filters") }}
       </ion-item>
     </div>
+    <ion-item v-else-if="loadError" lines="none" role="alert">
+      <ion-label>{{ translate("Unable to load filters. Please try again.") }}</ion-label>
+      <ion-button slot="end" fill="clear" @click="search">{{ translate("Retry") }}</ion-button>
+    </ion-item>
     <ion-list v-else-if="filteredOptions.length">
       <ion-item v-for="option in filteredOptions" :key="option.id" :button="!isAlreadyApplied(option.id)" @click="!isAlreadyApplied(option.id) ? updateSelectedValues(option.id) : null">
         <ion-label>{{ option.label }}</ion-label>
@@ -45,7 +49,7 @@
       </ion-item>
     </ion-list>
     <div class="empty-state" v-else-if="!queryString">
-      <p>{{ translate("Search for to find results", { label }) }}</p>
+      <p>{{ translate("No available filters", { label }) }}</p>
     </div>
     <div class="empty-state" v-else>
       <p>{{ translate("No result found for", { label: queryString }) }}</p>
@@ -92,6 +96,7 @@ const filteredOptions = ref([]) as any;
 const countById = ref<Record<string, number>>({});
 
 const isLoading = ref(false);
+const loadError = ref(false);
 const matchedCount = ref(0);
 const isCountLoading = ref(false);
 let countTimer: any = null;
@@ -99,7 +104,6 @@ let searchTimer: any = null;
 let currentRequestId = 0;
 let currentSearchRequestId = 0;
 let isInitialLoad = true;
-let facetCountsRequested = false;
 
 const SEARCH_DEBOUNCE_MS = 300;
 const SEARCH_RESULT_LIMIT = 100;
@@ -113,26 +117,19 @@ const appliedFiltersOperator = computed(() => productStore.getAppliedFiltersOper
 onMounted(() => {
   selectedValues.value = JSON.parse(JSON.stringify((appliedFilters.value as any)[props.type][props.searchfield]))
   void refreshMatchedCount();
+  void search();
 })
 
 onUnmounted(() => {
   if (countTimer) clearTimeout(countTimer);
   if (searchTimer) clearTimeout(searchTimer);
+  currentSearchRequestId += 1;
+  currentRequestId += 1;
 })
 
-// Keep the modal cheap to open. Facet options are queried server-side only after the user types,
-// and a short debounce avoids issuing a request for every keystroke.
-watch(queryString, (value) => {
+// Fetch only one bounded page on open and on each debounced query, including clearing it.
+watch(queryString, () => {
   if (searchTimer) clearTimeout(searchTimer);
-
-  if (!value.trim()) {
-    currentSearchRequestId += 1;
-    facetOptions.value = [];
-    filteredOptions.value = [];
-    isLoading.value = false;
-    return;
-  }
-
   currentSearchRequestId += 1;
   isLoading.value = true;
   searchTimer = setTimeout(search, SEARCH_DEBOUNCE_MS);
@@ -182,10 +179,10 @@ function closeModal() {
 async function search() {
   if (searchTimer) clearTimeout(searchTimer);
   const searchTerm = queryString.value.trim();
-  if (!searchTerm) return;
 
   const requestId = ++currentSearchRequestId;
   isLoading.value = true;
+  loadError.value = false;
   try {
     const options = await productStore.fetchProductFilters({
       facetToSelect: props.facetToSelect,
@@ -197,19 +194,16 @@ async function search() {
     if (requestId !== currentSearchRequestId) return;
     facetOptions.value = options || [];
     filteredOptions.value = [...facetOptions.value];
-    loadFacetCounts();
+    for (const option of facetOptions.value) {
+      if (option.count != null) countById.value[option.id] = option.count;
+    }
+  } catch {
+    if (requestId === currentSearchRequestId) loadError.value = true;
   } finally {
     if (requestId === currentSearchRequestId) {
       isLoading.value = false;
     }
   }
-}
-
-function loadFacetCounts() {
-  if (facetCountsRequested) return;
-  facetCountsRequested = true;
-  productStore.fetchProductFacetCounts(props.searchfield)
-    .then((counts: Record<string, number>) => { countById.value = counts })
 }
 
 function updateSelectedValues(value: string) {

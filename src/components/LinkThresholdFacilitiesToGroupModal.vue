@@ -93,8 +93,9 @@ async function saveFacility() {
       throw resp ? resp.data : "Failed to update threshold facility.";
     }
   } catch (err: any) {
-    logger.error(err)
-    commonUtil.showToast(translate("Failed to update threshold facility."))
+    logger.error("Failed to update threshold facility", err)
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to update threshold facility.")} ${serverError}`);
   }
   await channelStore.fetchGroupFacilities(props.group.facilityGroupId);
   emitter.emit("dismissLoader");

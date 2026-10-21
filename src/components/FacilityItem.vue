@@ -99,7 +99,8 @@ async function updateFacility(maximumOrderLimit: number | string) {
       throw resp ? resp.data : "Failed to update facility"
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update facility"))
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to update facility.")} ${serverError}`);
     logger.error("Failed to update facility", err)
   }
   emitter.emit("dismissLoader");
@@ -146,8 +147,9 @@ async function updatePickupAllowed(event: Event, group: any) {
       throw resp.data;
     }
   } catch(error: any) {
-    logger.error(error);
-    commonUtil.showToast(translate("Failed to update facility association with pickup group."));
+    logger.error("Failed to update facility association with pickup group", error);
+    const serverError = commonUtil.getErrorMessage(error);
+    commonUtil.showToast(`${translate("Failed to update facility association with pickup group.")} ${serverError}`);
   }
 }
 </script>

@@ -44,9 +44,10 @@ async function openArchivedRuleModal() {
         await ruleStore.updateRuleApi(rule, rule.ruleId)
       }))
 
-      const hasFailedResponses = responses.some((response: any) => response.status !== "fulfilled")
-      if(hasFailedResponses) {
-        commonUtil.showToast(translate("Failed to unarchive some rules."))
+      const failedResponse: any = responses.find((response: any) => response.status !== "fulfilled");
+      if(failedResponse) {
+        const serverError = commonUtil.getErrorMessage(failedResponse.reason);
+        commonUtil.showToast(`${translate("Failed to unarchive some rules.")} ${serverError}`);
       }
       await ruleStore.fetchRules({ ruleGroupId: ruleGroup.value.ruleGroupId })
       emitter.emit("dismissLoader")

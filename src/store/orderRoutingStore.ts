@@ -255,8 +255,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
 
         this.groups.push(payload);
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create routing group"))
-        logger.error(err)
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to create routing group.")} ${serverError}`);
+        logger.error("Failed to create routing group", err)
       }
     },
     async saveRoutingGroupRaw(payload: any, options: SaveRoutingGroupRawOptions = {}) {
@@ -290,7 +291,8 @@ export const orderRoutingStore = defineStore('orderRouting', {
           if (schedule && options.saveSchedule) {
             const scheduleResp = await this.scheduleBrokering({ ...schedule, routingGroupId });
             if (!scheduleResp.data?.jobName) {
-              commonUtil.showToast(translate("Failed to schedule routing group."));
+              const serverError = commonUtil.getErrorMessage(scheduleResp);
+              commonUtil.showToast(`${translate("Failed to schedule routing group.")} ${serverError}`);
             }
           }
 
@@ -520,8 +522,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
         await this.setCurrentGroup(currentGroup)
         commonUtil.showToast(translate("New routing created"))
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create routing"))
-        logger.error(err)
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to create routing.")} ${serverError}`);
+        logger.error("Failed to create routing", err)
       }
       return orderRoutingId;
     },
@@ -547,8 +550,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
           commonUtil.showToast(translate("Routing cloned"))
         }
       } catch(err) {
-        commonUtil.showToast(translate("Failed to clone routing"))
-        logger.error(err)
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to clone routing.")} ${serverError}`);
+        logger.error("Failed to clone routing", err)
       }
       return orderRoutingId;
     },
@@ -662,8 +666,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
           await this.setCurrentGroup(currentGroup)
         }
       } catch(err) {
-        logger.error(err);
-        commonUtil.showToast(translate("Failed to update routing information"))
+        logger.error("Failed to update routing information", err);
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to update routing information.")} ${serverError}`);
       }
       return orderRoutingId
     },
@@ -690,8 +695,9 @@ export const orderRoutingStore = defineStore('orderRouting', {
           commonUtil.showToast(translate("Routing rule created successfully"))
         }
       } catch(err) {
-        commonUtil.showToast(translate("Failed to create routing rule"))
-        logger.error(err)
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to create routing rule.")} ${serverError}`);
+        logger.error("Failed to create routing rule", err)
       }
       return routingRuleId;
     },

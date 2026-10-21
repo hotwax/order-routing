@@ -370,8 +370,9 @@ async function createRule() {
     productStore.clearAppliedFilters()
     router.push("/shipping");
   } catch(err: any) {
-    logger.error(err);
-    commonUtil.showToast(translate("Failed to create rule."))
+    logger.error("Failed to create rule", err);
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to create rule.")} ${serverError}`);
   }
   emitter.emit("dismissLoader");
 }

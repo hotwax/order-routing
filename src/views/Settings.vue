@@ -48,7 +48,7 @@
           <ion-card-content>
             {{ translate('This is the name of the OMS you are connected to right now. Make sure that you are connected to the right instance before proceeding.') }}
           </ion-card-content>
-          <ion-button v-if="!commonUtil.isMoqui()" :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
+          <ion-button v-if="!isMoquiOmsRef" :disabled="!cookieHelper().get('token') || !cookieHelper().get('oms')" @click="commonUtil.goToOms()" fill="clear">
             {{ translate('Go to OMS') }}
             <ion-icon slot="end" :icon="openOutline" />
           </ion-button>
@@ -126,7 +126,7 @@ import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline } from "ionicons/icons"
 import { translate, commonUtil, cookieHelper, emitter } from "@common";
-import { useAuth } from "@common/composables/useAuth";
+import { useAuth, isMoquiOmsRef } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";
 import { usePreferencesStore } from "@/store/preferences";

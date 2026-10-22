@@ -64,8 +64,8 @@ async function updateGroupStatus(paused: string) {
     }
   } catch(err) {
     const serverError = commonUtil.getErrorMessage(err);
-    commonUtil.showToast(`${translate("Failed to update group status.")} ${serverError}`);
-    logger.error("Failed to update group status", err)
+    commonUtil.showToast(`${translate("Failed to update group status")}. ${serverError}`);
+    logger.error(err)
   }
 
   popoverController.dismiss({ routingGroups });
@@ -109,8 +109,8 @@ async function runNow() {
                 job.jobName = resp.data.jobName
               } catch(err) {
                 const serverError = commonUtil.getErrorMessage(err);
-                commonUtil.showToast(`${translate("Failed to schedule service.")} ${serverError}`);
-                logger.error("Failed to schedule service", err)
+                commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
+                logger.error(err)
                 return;
               }
             }
@@ -124,8 +124,8 @@ async function runNow() {
               }
             } catch(err) {
               const serverError = commonUtil.getErrorMessage(err);
-              commonUtil.showToast(`${translate("Failed to schedule service.")} ${serverError}`);
-              logger.error("Failed to schedule service", err)
+              commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
+              logger.error(err)
             }
           }
         }

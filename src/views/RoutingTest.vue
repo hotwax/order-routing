@@ -577,8 +577,8 @@ async function resetOrder() {
     }
   } catch(err) {
     const serverError = commonUtil.getErrorMessage(err);
-    commonUtil.showToast(`${translate("Unable to reset the order.")} ${serverError}`);
-    logger.error("Unable to reset the order", err)
+    commonUtil.showToast(`${translate("Unable to reset the order")}. ${serverError}`);
+    logger.error(err)
   }
 
   emitter.emit("dismissLoader")

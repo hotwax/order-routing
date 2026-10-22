@@ -93,7 +93,7 @@ async function saveFacility() {
       throw resp ? resp.data : "Failed to update threshold facility.";
     }
   } catch (err: any) {
-    logger.error("Failed to update threshold facility", err)
+    logger.error(err)
     const serverError = commonUtil.getErrorMessage(err);
     commonUtil.showToast(`${translate("Failed to update threshold facility.")} ${serverError}`);
   }

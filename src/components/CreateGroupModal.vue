@@ -135,7 +135,7 @@ async function createGroup() {
     await productStore.fetchConfigFacilities();
     modalController.dismiss();
   } catch (error: any) {
-    logger.error("Failed to create channel group", error)
+    logger.error(error)
     const serverError = commonUtil.getErrorMessage(error);
     commonUtil.showToast(`${translate("Failed to create channel group.")} ${serverError}`);
   }

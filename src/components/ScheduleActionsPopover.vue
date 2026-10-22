@@ -51,7 +51,7 @@ async function disableRuleGroup() {
   } catch(err) {
     const serverError = commonUtil.getErrorMessage(err);
     commonUtil.showToast(`${translate("Failed to disable rule group.")} ${serverError}`);
-    logger.error("Failed to disable rule group", err)
+    logger.error(err)
   }
   emitter.emit("dismissLoader");
 }
@@ -111,7 +111,7 @@ async function runNow() {
             } catch(err) {
               const serverError = commonUtil.getErrorMessage(err);
               commonUtil.showToast(`${translate("Failed to schedule service.")} ${serverError}`);
-              logger.error("Failed to schedule service", err)
+              logger.error(err)
             }
             emitter.emit("dismissLoader");
           }

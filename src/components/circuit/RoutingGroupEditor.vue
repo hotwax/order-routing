@@ -710,6 +710,7 @@
 </template>
 
 <script setup lang="ts">
+import type { AssistantProgress } from "@/utils/assistantStream";
 import { 
   IonBadge,
   IonButton,
@@ -1114,7 +1115,7 @@ type CircuitDraftProposal = DraftProposal & {
   createdAt: number;
 };
 
-async function prepareDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = []) {
+async function prepareDraftProposal(prompt: string, conversationHistory: DraftConversationMessage[] = [], onProgress?: (event: AssistantProgress) => void) {
   if (!draftAssistantEnabled) {
     return {
       proposal: null,
@@ -1140,7 +1141,7 @@ async function prepareDraftProposal(prompt: string, conversationHistory: DraftCo
     pageCapabilityManifest: manifest,
     outputContract: manifest.outputContract
   });
-  const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory });
+  const plan = await DraftAssistantService.requestBrokeringRouteDraftOperations(prompt, manifest, { conversationHistory, onProgress });
   assertCurrentProposalContext(proposalContext);
   const proposal = DraftAssistantService.createDraftProposal(plan, manifest);
   const pendingProposal: CircuitDraftProposal | null = (proposal.operations.length || proposal.newRouting)

@@ -1,5 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { ref } from "vue";
+import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -251,6 +252,7 @@ import OrderRoutingList from "../src/views/OrderRoutingList.vue";
 
 describe("draft assistant production UI gate", () => {
   beforeEach(() => {
+  setActivePinia(createPinia());
     mocks.assistantEnabled = false;
     mocks.messages = [];
     mocks.threads = [];

@@ -357,6 +357,7 @@ import {
 } from '@/utils/circuitFeedback';
 import { isFeatureEnabled } from '@/utils/simConfig';
 import { activeRoutingNavigationOperation } from '@/utils/routingWorkingCopy';
+import { useAppUpdateStore } from '@/store/appUpdate';
 import { buildCircuitProposalContextCards, selectCircuitProposalCards } from '@/utils/circuitProposalContext';
 
 const props = withDefaults(defineProps<{
@@ -366,6 +367,8 @@ const props = withDefaults(defineProps<{
   simulationEnabled: true
 });
 
+const updates = useAppUpdateStore();
+const updateBlocker = Symbol('routing-editor');
 const circuitStore = useCircuitStore();
 const preferencesStore = usePreferencesStore();
 const draftAssistantEnabled = isFeatureEnabled('draftAssistant');
@@ -618,6 +621,12 @@ const navigationLockMessage = computed(() => ({
 const hasPendingChanges = computed(() => activeVariationId.value
   ? editorDirty.value || sim.isDirty
   : editorDirty.value);
+
+// Ionic caches pages: only the visible editor may block a frontend update.
+watch(() => isPageActive.value && Boolean(hasPendingChanges.value || navigationOperationLocked.value
+  || pendingDraftProposal.value || prompt.value.trim()), blocked => updates.setBlocked(updateBlocker, blocked),
+{ immediate: true, flush: 'sync' });
+onBeforeUnmount(() => updates.setBlocked(updateBlocker, false));
 
 // A header Save (commit) or Discard (reset-to-baseline) resolves the whole working copy, which
 // subsumes any undecided Circuit proposal. Clear the host-owned proposal refs too so the Accept/Reject

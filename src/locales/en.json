@@ -1525,5 +1525,12 @@
   "Unattributed safety stock": "Unattributed safety stock",
   "Shipping beyond safety stock": "Shipping beyond safety stock",
   "Unrecorded rule": "Unrecorded rule",
-  "Distinct orders, all rules": "Distinct orders, all rules"
+  "Distinct orders, all rules": "Distinct orders, all rules",
+  "Update app?": "Update app?",
+  "Save or discard any unfinished work before updating. This reloads the current page.": "Save or discard any unfinished work before updating. This reloads the current page.",
+  "Later": "Later",
+  "Update now": "Update now",
+  "An update is available. Finish the current request and save or discard your changes before updating.": "An update is available. Finish the current request and save or discard your changes before updating.",
+  "A new version is available. Update when you are ready.": "A new version is available. Update when you are ready.",
+  "A new version is available. Finish your work, then open Settings to update.": "A new version is available. Finish your work, then open Settings to update."
 }

@@ -18,14 +18,13 @@ import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
 import { DateTime } from "luxon";
 import router from "@/router";
-import { runningAppInfo } from "@/registerServiceWorker";
 
 defineOptions({ inheritAttrs: false });
 
 const userStore = useUserStore();
 const pwaState = computed(() => userStore.getPwaState);
 
-const appInfo = runningAppInfo;
+const appInfo = (import.meta.env.VITE_APP_VERSION_INFO ? JSON.parse(import.meta.env.VITE_APP_VERSION_INFO) : {}) as any;
 const updating = ref(false);
 const appVersion = appInfo.branch ? (appInfo.branch + "-" + appInfo.revision) : appInfo.tag || "";
 

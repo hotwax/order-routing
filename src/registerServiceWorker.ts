@@ -3,9 +3,6 @@ import { markRaw } from "vue";
 import { commonUtil, translate } from "@common";
 import { useUserStore } from "@/store/userStore";
 
-// Captured by the app shell so Settings describes the running document.
-export const runningAppInfo = JSON.parse(import.meta.env.VITE_APP_VERSION_INFO || "{}");
-
 export function registerAppServiceWorker() {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
   const user = useUserStore();
@@ -16,7 +13,7 @@ export function registerAppServiceWorker() {
     user.updatePwaState({ registration, updateExists: true });
   };
   register(`${import.meta.env.BASE_URL}sw.js`, {
-    registrationOptions: { scope: import.meta.env.BASE_URL, updateViaCache: "none" },
+    registrationOptions: { updateViaCache: "none" },
     registered: value => { registration = markRaw(value); user.pwaState.registration = registration; },
     updated: notify,
   });

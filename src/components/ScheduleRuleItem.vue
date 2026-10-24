@@ -78,7 +78,8 @@ async function saveSchedule() {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to schedule service."))
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to schedule service.")} ${serverError}`);
     logger.error(err)
   }
   emitter.emit("dismissLoader");

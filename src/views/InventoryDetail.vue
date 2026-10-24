@@ -1643,8 +1643,9 @@ async function addFacilityToChannel(facilityId: string) {
     commonUtil.showToast(translate("Facility added to channel."));
     await fetchChannelInventory();
   } catch (error) {
-    logger.error("Failed to add facility to channel");
-    commonUtil.showToast(translate("Failed to add facility to channel."));
+    logger.error(error);
+    const serverError = commonUtil.getErrorMessage(error);
+    commonUtil.showToast(`${translate("Failed to add facility to channel.")} ${serverError}`);
   } finally {
     addingFacilityId.value = "";
   }
@@ -1693,7 +1694,8 @@ async function saveReplenishmentConfig(payload: { minimumStock?: number; maximum
     await refreshCurrentReplenishmentMetrics();
   } catch(error) {
     logger.error("Failed to save replenishment settings", error);
-    commonUtil.showToast(translate("Replenishment settings could not be saved"));
+    const serverError = commonUtil.getErrorMessage(error);
+    commonUtil.showToast(`${translate("Replenishment settings could not be saved")}. ${serverError}`);
   } finally {
     isReplenishmentSaving.value = false;
   }

@@ -153,7 +153,8 @@ async function save() {
     closeModal({ saved: true });
   } catch (err) {
     logger.error("Failed to save facility group", err);
-    commonUtil.showToast(translate("Failed to save facility group."));
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to save facility group.")} ${serverError}`);
   }
 }
 

@@ -1,3 +1,4 @@
+import Settings from "@/views/Settings.vue";
 import Login from "@common/components/Login.vue";
 import { isFeatureEnabled } from "@/utils/simConfig";
 import { useUserStore } from "@/store/userStore";
@@ -351,7 +352,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/settings",
     name: "Settings",
-    component: () => import("@/views/Settings.vue"),
+    component: Settings, // Keep Update reachable after another tab activates a new worker.
     beforeEnter: authGuard,
     meta: {
       title: "Settings",

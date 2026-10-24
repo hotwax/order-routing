@@ -19,6 +19,7 @@ export type DraftOperation = {
   ruleKey?: string;
   ruleName?: string;
   ruleSequence?: number;
+  sortDirection?: "asc" | "desc";
 };
 
 export type DraftConversationMessage = {

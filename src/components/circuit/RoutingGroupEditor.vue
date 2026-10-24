@@ -390,7 +390,7 @@
             </template>
             <template #item="{ item }">
               <ion-item :class="{ 'dirty-setting-row': item.dirty }">
-                <ion-label>{{ item.label }}</ion-label>
+                <ion-label>{{ item.label }}<p v-if="item.value">{{ translate(item.value) }}</p></ion-label>
                 <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
             </template>
@@ -604,7 +604,7 @@
             </template>
             <template #item="{ item }">
               <ion-item :class="{ 'dirty-setting-row': item.dirty }">
-                <ion-label>{{ item.label }}</ion-label>
+                <ion-label>{{ item.label }}<p v-if="item.value">{{ translate(item.value) }}</p></ion-label>
                 <ion-reorder @pointerdown="isReordering = true" />
               </ion-item>
             </template>
@@ -710,6 +710,7 @@
 </template>
 
 <script setup lang="ts">
+import { getRoutingSortDirection, routingSortDirectionLabel } from "@/utils/routingSort";
 import type { AssistantProgress } from "@/utils/assistantStream";
 import { 
   IonBadge,
@@ -2245,6 +2246,7 @@ function comparableCondition(condition: any) {
   if (!condition) return null;
   return {
     fieldName: condition.fieldName || "",
+    ...(condition.conditionTypeEnumId === "ENTCT_SORT_BY" ? { sortDirection: getRoutingSortDirection(condition, import.meta.env.VITE_FILTER_SORT_DESC || "") } : {}),
     fieldValue: condition.fieldValue ?? null,
     operator: condition.operator || "",
     sequenceNum: Number(condition.sequenceNum || 0)
@@ -2350,7 +2352,7 @@ function routingSectionItems(
     return {
       target: `${targetPrefix}.${parameter}`,
       label: routingConfigTargetLabel(`${targetPrefix}.${parameter}`) || getLabel(parentEnumId, code) || parameter,
-      value: kind === "sort" ? "" : conditionContextValue(options, enumerations, parameter, condition),
+      value: kind === "sort" ? routingSortDirectionLabel(getRoutingSortDirection(condition, import.meta.env.VITE_FILTER_SORT_DESC || "")) : conditionContextValue(options, enumerations, parameter, condition),
       dirty: isDirty(code, parameter)
     };
   });

@@ -1,3 +1,4 @@
+import { routingSortDirectionLabel } from "./routingSort";
 import type { DraftOperation, DraftProposal, DraftValue } from "@/types/draft";
 import type { RoutingConfigSection, RoutingConfigSectionKind } from "@/types/routingConfigSection";
 import { humanizeRoutingConfigValue, routingConfigTargetLabel } from "@/utils/routingConfigSection";
@@ -28,7 +29,7 @@ export function buildCircuitProposalContextCards(
     card.items.push({
       target: operation.target,
       label: routingConfigTargetLabel(operation.target),
-      value: proposalValueLabel(operation.value, identity.kind),
+      value: operation.sortDirection ? routingSortDirectionLabel(operation.sortDirection) : proposalValueLabel(operation.value, identity.kind),
       dirty: true
     });
     cards.set(identity.key, card);

@@ -16,11 +16,42 @@ type DraftRequestOptions = {
   onProgress?: (event: AssistantProgress) => void;
 };
 
+const sessionExpiredMessage = "Your session has changed or expired. Refresh this page and sign in again before using Circuit.";
+
+function requireCircuitSession() {
+  const token = commonUtil.getToken();
+  if (!token || !useAuth().isAuthenticated.value) throw new Error(sessionExpiredMessage);
+
+  let maarg: URL;
+  try {
+    maarg = new URL(commonUtil.getMaargURL());
+  } catch {
+    throw new Error("A valid Maarg connection is required to use Circuit. Refresh this page and sign in again.");
+  }
+  if (maarg.protocol !== "https:" || maarg.username || maarg.password || maarg.port) {
+    throw new Error("A secure Maarg connection is required to use Circuit.");
+  }
+  return {
+    omsInstance: maarg.origin,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-OMS-Instance": maarg.origin,
+    },
+  };
+}
+
+function circuitAuthError(status: number): string | undefined {
+  if (status === 401) return sessionExpiredMessage;
+  if (status === 403) return "Circuit is not available for this OMS session.";
+}
+
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
   const conversationHistory = normalizeConversationHistory(options.conversationHistory || []);
   const assistantManifest = prepareDraftAssistantManifest(manifest);
   const transportManifest = serializeDraftAssistantManifest(assistantManifest);
   const assistantUrl = requireDraftAssistantUrl();
+  const session = requireCircuitSession();
   let response: any;
   try {
     if (options.onProgress) {
@@ -29,14 +60,14 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       try {
         const streamed = await fetch(`${assistantUrl}/brokering-route-assistant`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+          headers: { ...session.headers, Accept: "text/event-stream" },
           credentials: "omit",
           signal: controller.signal,
           body: JSON.stringify({ prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract })
         });
         if (!streamed.ok) {
           const error = await streamed.json().catch(() => ({}));
-          throw new Error(error.error || `Draft assistant failed with ${streamed.status}`);
+          throw new Error(circuitAuthError(streamed.status) || error.error || `Draft assistant failed with ${streamed.status}`);
         }
         // Existing deployments can keep returning JSON during a staggered rollout.
         response = { data: streamed.headers.get("content-type")?.includes("text/event-stream")
@@ -49,13 +80,14 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       url: "/brokering-route-assistant",
       method: "POST",
       baseURL: assistantUrl,
-      // Draft/editor requests do not delegate OMS credentials. Diagnostic delegation is
-      // limited to the runs-list inquiry below; no token belongs in a request body.
+      // Session credentials authenticate Circuit at the transport boundary, never in model input.
       data: { prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract },
-      headers: { "Content-Type": "application/json" },
+      headers: session.headers,
     });
   } catch (err: any) {
     if (err.response) {
+      const authError = circuitAuthError(err.response.status);
+      if (authError) throw new Error(authError);
       const errorBody = err.response.data as { error?: string; issues?: string[] } | null;
       const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
       throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Draft assistant failed with ${err.response.status}`);
@@ -83,29 +115,16 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
 
 export async function requestBrokeringRunsListInquiry(prompt: string, manifest: PageCapabilityManifest, conversationHistory: DraftConversationMessage[] = []): Promise<BrokeringRunsListInquiryResult> {
   const assistantUrl = requireDraftAssistantUrl();
-  const maargUrl = commonUtil.getMaargURL();
-  const token = commonUtil.getToken();
-  let omsInstance: string | undefined;
-  if (maargUrl && token) {
-    try {
-      const maarg = new URL(maargUrl);
-      if (maarg.protocol === "https:" && !maarg.username && !maarg.password) omsInstance = maarg.origin;
-    } catch {
-      // Keep configuration questions available when the authenticated OMS connection is missing.
-    }
-  }
-  if (omsInstance && !useAuth().isAuthenticated.value) {
-    throw new Error("Your session has changed or expired. Refresh this page before requesting routing diagnostics.");
-  }
+  const session = requireCircuitSession();
   try {
     const response = await client({
       url: "/brokering-runs-list-inquiry",
       method: "POST",
       baseURL: assistantUrl,
-      // Circuit resolves this non-secret origin against its server-side allowlist. The bearer
-      // stays in the transport header and is used only for fixed, read-only OMS requests.
-      data: { prompt, conversationHistory, pageCapabilityManifest: manifest, ...(omsInstance ? { omsInstance } : {}) },
-      headers: { "Content-Type": "application/json", ...(omsInstance ? { Authorization: `Bearer ${token}` } : {}) },
+      // Keep the non-secret body origin during the companion backend rollout. The token
+      // stays in headers for authentication and any required, read-only OMS requests.
+      data: { prompt, conversationHistory, pageCapabilityManifest: manifest, omsInstance: session.omsInstance },
+      headers: session.headers,
     });
     const body = response.data as { schemaVersion?: string; message?: string; questions?: string[]; summary?: string };
     return {
@@ -115,6 +134,8 @@ export async function requestBrokeringRunsListInquiry(prompt: string, manifest: 
     };
   } catch (err: any) {
     if (err.response) {
+      const authError = circuitAuthError(err.response.status);
+      if (authError) throw new Error(authError);
       const errorBody = err.response.data as { error?: string; issues?: string[] } | null;
       const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
       throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Inquiry assistant failed with ${err.response.status}`);

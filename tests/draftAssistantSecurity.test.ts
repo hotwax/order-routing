@@ -34,9 +34,12 @@ describe("DraftAssistantService production trust boundary", () => {
     vi.stubEnv("VITE_MASTRA_URL", "https://circuit.example.test");
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
 
-  it("never forwards the browser's OMS URL or bearer token in route-assistant requests", async () => {
+  it("authenticates context-only route requests without placing credentials in model input", async () => {
     client.mockResolvedValue({
       data: {
         schemaVersion: "brokering-route-assistant.v1",
@@ -54,7 +57,13 @@ describe("DraftAssistantService production trust boundary", () => {
     expect(request.data).not.toHaveProperty("omsBaseUrl");
     expect(request.data.pageCapabilityManifest).not.toHaveProperty("context");
     expect(request.data.pageCapabilityManifest.visibleEntities.assistantContext).toEqual({ mode: "live" });
-    expect(Object.keys(request.headers)).toEqual(["Content-Type"]);
+    expect(request.headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "Bearer test-user-token",
+      "X-OMS-Instance": "https://maarg.example.test",
+    });
+    expect(JSON.stringify(request.data)).not.toContain("test-user-token");
+    expect(client).toHaveBeenCalledTimes(1);
   });
 
   it("moves safe variation context into the extensible visible entities and strips live group scheduling state", async () => {
@@ -114,6 +123,7 @@ describe("DraftAssistantService production trust boundary", () => {
     expect(request.baseURL).toBe("https://circuit.example.test");
     expect(request.url).toBe("/brokering-runs-list-inquiry");
     expect(request.headers.Authorization).toBe("Bearer test-user-token");
+    expect(request.headers["X-OMS-Instance"]).toBe("https://maarg.example.test");
     expect(JSON.stringify(request.data)).not.toContain("test-user-token");
     expect(request.data).not.toHaveProperty("authToken");
     expect(request.data).not.toHaveProperty("omsBaseUrl");
@@ -125,15 +135,19 @@ describe("DraftAssistantService production trust boundary", () => {
     ["not a URL", "test-user-token"],
     ["http://maarg.example.test/rest/s1/", "test-user-token"],
     ["https://user:password@maarg.example.test/rest/s1/", "test-user-token"],
-  ])("omits diagnostic credentials for an unavailable or unsafe connection (%s)", async (maarg, token) => {
+    ["https://maarg.example.test:8443/rest/s1/", "test-user-token"],
+  ])("blocks every transport for an unavailable or unsafe session (%s)", async (maarg, token) => {
     getMaargURL.mockReturnValue(maarg);
     getToken.mockReturnValue(token);
     client.mockResolvedValue({ data: { message: "", questions: [], summary: "" } });
 
-    await requestBrokeringRunsListInquiry("Explain the schedule", manifest);
-
-    expect(client.mock.calls[0][0].data).not.toHaveProperty("omsInstance");
-    expect(client.mock.calls[0][0].headers).toEqual({ "Content-Type": "application/json" });
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(requestBrokeringRunsListInquiry("Explain the schedule", manifest)).rejects.toThrow();
+    await expect(requestBrokeringRouteDraftOperations("Explain this rule", manifest)).rejects.toThrow();
+    await expect(requestBrokeringRouteDraftOperations("Explain this rule", manifest, { onProgress: vi.fn() })).rejects.toThrow();
+    expect(client).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("refuses to pair a cached manifest with a changed user or OMS session", async () => {
@@ -143,7 +157,12 @@ describe("DraftAssistantService production trust boundary", () => {
 
     await expect(requestBrokeringRunsListInquiry("Show recent runs", manifest))
       .rejects.toThrow("Refresh this page");
+    await expect(requestBrokeringRouteDraftOperations("Explain this rule", manifest)).rejects.toThrow("Refresh this page");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(requestBrokeringRouteDraftOperations("Explain this rule", manifest, { onProgress: vi.fn() })).rejects.toThrow("Refresh this page");
     expect(client).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("reads the current session on each diagnostic request", async () => {
@@ -154,6 +173,37 @@ describe("DraftAssistantService production trust boundary", () => {
     await requestBrokeringRunsListInquiry("Show recent runs", manifest);
     expect(client.mock.calls[1][0].data.omsInstance).toBe("https://second-maarg.example.test");
     expect(client.mock.calls[1][0].headers.Authorization).toBe("Bearer second-test-token");
+  });
+
+  it("authenticates streaming requests and keeps token data out of the body", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({
+      schemaVersion: "brokering-route-assistant.v1", intent: "inquiry", message: "No changes requested.", questions: [],
+    }));
+    vi.stubGlobal("fetch", fetch);
+
+    const result = await requestBrokeringRouteDraftOperations("Explain this route", manifest, { onProgress: vi.fn() });
+
+    const request = fetch.mock.calls[0][1];
+    expect(request.headers).toEqual({
+      "Content-Type": "application/json", Accept: "text/event-stream",
+      Authorization: "Bearer test-user-token", "X-OMS-Instance": "https://maarg.example.test",
+    });
+    expect(request.body).not.toContain("test-user-token");
+    expect(request.credentials).toBe("omit");
+    expect(result.summary).toBe("No changes requested.");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(client).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 403])("shows a safe authentication error for HTTP %s on every transport", async status => {
+    // Axios errors can contain credential-bearing request config. Only the safe message should escape.
+    const sensitiveError = { response: { status, data: { error: "upstream detail" } }, config: { headers: { Authorization: "Bearer test-user-token" } } };
+    client.mockRejectedValue(sensitiveError);
+    const message = status === 401 ? "Your session has changed or expired" : "Circuit is not available for this OMS session";
+    await expect(requestBrokeringRouteDraftOperations("Explain", manifest)).rejects.toThrow(message);
+    await expect(requestBrokeringRunsListInquiry("Explain", manifest)).rejects.toThrow(message);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "upstream detail" }, { status })));
+    await expect(requestBrokeringRouteDraftOperations("Explain", manifest, { onProgress: vi.fn() })).rejects.toThrow(message);
   });
 
   it("makes no request when the assistant is not explicitly enabled", async () => {

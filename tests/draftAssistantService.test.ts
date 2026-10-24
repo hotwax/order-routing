@@ -18,7 +18,8 @@ vi.mock("@common", () => ({
     }
     return { data };
   },
-  commonUtil: { getMaargURL: () => "", getOmsURL: () => "", getToken: () => "" },
+  commonUtil: { getMaargURL: () => "https://maarg.example.test/rest/s1/", getOmsURL: () => "", getToken: () => "test-user-token" },
+  useAuth: () => ({ isAuthenticated: { value: true } }),
   cookieHelper: () => ({ get: () => "" }),
 }));
 import {

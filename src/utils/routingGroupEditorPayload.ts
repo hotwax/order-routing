@@ -1,3 +1,5 @@
+import { routingSortFieldName } from "./routingSort";
+
 export type RoutingConditionMap = Record<string, any>;
 
 export interface BuildRoutingGroupEditorSavePayloadOptions {
@@ -103,29 +105,7 @@ function stripTransientFields(value: any): any {
   }, {});
 }
 
-function getDescendingSortFieldSet(descendingSortFields: string | string[] = "") {
-  let fields: unknown = descendingSortFields;
-  if (typeof fields === "string") {
-    const value = fields.trim();
-    if (!value) return new Set<string>();
-
-    try {
-      const parsed = JSON.parse(value);
-      fields = Array.isArray(parsed) ? parsed : value.split(",");
-    } catch {
-      fields = value.split(",");
-    }
-  }
-
-  return new Set(
-    (Array.isArray(fields) ? fields : [])
-      .filter((field): field is string => typeof field === "string")
-      .map((field) => field.trim().replace(/\s+desc$/i, ""))
-      .filter(Boolean)
-  );
-}
-
-function denormalizeCondition(condition: any, descendingSortFields: Set<string>) {
+function denormalizeCondition(condition: any, descendingSortFields: string | string[]) {
   const updated = clone(condition);
   const fieldName = String(updated.fieldName || "");
 
@@ -134,27 +114,24 @@ function denormalizeCondition(condition: any, descendingSortFields: Set<string>)
   }
 
   if (updated.conditionTypeEnumId === "ENTCT_SORT_BY") {
-    const cleanFieldName = String(updated.fieldName || "").replace(/\s+desc$/i, "");
-    if (descendingSortFields.has(cleanFieldName)) {
-      updated.fieldName = `${cleanFieldName} desc`;
-    }
+    updated.fieldName = routingSortFieldName(updated, descendingSortFields);
+    delete updated.sortDirection;
   }
 
   return updated;
 }
 
-function denormalizeConditions(conditions: any[] = [], descendingSortFields: Set<string>) {
+function denormalizeConditions(conditions: any[] = [], descendingSortFields: string | string[]) {
   return conditions.map((condition) => denormalizeCondition(condition, descendingSortFields));
 }
 
 export function buildRoutingGroupSavePayload(group: any, descendingSortFields: string | string[] = "") {
   const payload = stripTransientFields(clone(group));
-  const descendingSortFieldSet = getDescendingSortFieldSet(descendingSortFields);
 
   payload.routings?.forEach((routing: any) => {
-    routing.orderFilters = denormalizeConditions(routing.orderFilters || [], descendingSortFieldSet);
+    routing.orderFilters = denormalizeConditions(routing.orderFilters || [], descendingSortFields);
     routing.rules?.forEach((rule: any) => {
-      rule.inventoryFilters = denormalizeConditions(rule.inventoryFilters || [], descendingSortFieldSet);
+      rule.inventoryFilters = denormalizeConditions(rule.inventoryFilters || [], descendingSortFields);
     });
   });
 

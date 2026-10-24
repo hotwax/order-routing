@@ -859,8 +859,8 @@ for (const streaming of [false, true]) {
               { target: "selectedRule.inventoryFilters.BRK_SAFETY_STOCK", label: "Safety stock", value: 2 }
             ],
             inventorySorts: [
-              { target: "selectedRule.inventorySorts.PROXIMITY", label: "Proximity" },
-              { target: "selectedRule.inventorySorts.INV_BALANCE", label: "Inventory balance" }
+              { target: "selectedRule.inventorySorts.PROXIMITY", label: "Proximity", direction: "asc" },
+              { target: "selectedRule.inventorySorts.INV_BALANCE", label: "Inventory balance", direction: "asc" }
             ],
             unavailableItems: {
               actionTypeEnumId: "ORA_MV_TO_QUEUE",

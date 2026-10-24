@@ -2,6 +2,7 @@
 // Pure helpers for variation trees and the canvas <-> sim-routing API shape adapter.
 // Merges: variationTree.ts, variationConfigAdapter.ts
 
+import { normalizeRoutingSort, routingSortFieldName } from "./routingSort";
 import type { VariationCondition, VariationTree } from "../types/variation";
 
 // ─── variationTree ────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ function bySeq<T extends { sequenceNum?: number }>(items: T[] | undefined): T[] 
 function conditionOut(c: any) {
   return {
     conditionTypeEnumId: c.conditionTypeEnumId ?? "ENTCT_FILTER",
-    fieldName: stripExcluded(c.fieldName ?? null),
+    fieldName: c.conditionTypeEnumId === "ENTCT_SORT_BY" ? routingSortFieldName(c, import.meta.env.VITE_FILTER_SORT_DESC || "") : stripExcluded(c.fieldName ?? null),
     operator: c.operator ?? null,
     fieldValue: c.fieldValue ?? null,
     sequenceNum: c.sequenceNum ?? 0,
@@ -116,14 +117,14 @@ export function isEquivalentVariationConfig(leftGroup: any, rightGroup: any): bo
 }
 
 function conditionIn(c: any) {
-  return {
+  return normalizeRoutingSort({
     conditionSeqId: c.conditionSeqId,
     conditionTypeEnumId: c.conditionTypeEnumId ?? "ENTCT_FILTER",
     fieldName: applyExcluded(c.fieldName ?? null, c.operator ?? null),
     operator: c.operator ?? null,
     fieldValue: c.fieldValue ?? null,
     sequenceNum: c.sequenceNum ?? 0,
-  };
+  });
 }
 
 function ruleIn(r: any) {

@@ -1,3 +1,4 @@
+import { normalizeRoutingSort } from "./routingSort";
 import { commonUtil, logger, translate } from "@common";
 
 export function normalizeRoutingGroupHierarchy(group: any): any {
@@ -5,6 +6,7 @@ export function normalizeRoutingGroupHierarchy(group: any): any {
     group.routings = commonUtil.sortSequence(group.routings).map((routing: any) => {
       if (routing.orderFilters?.length) {
         routing.orderFilters = routing.orderFilters.map((filter: any) => {
+          filter = normalizeRoutingSort(filter);
           if (filter.operator === "not-equals" || filter.operator === "not-in") {
             filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded";
           }
@@ -14,11 +16,8 @@ export function normalizeRoutingGroupHierarchy(group: any): any {
       if (routing.rules?.length) {
         routing.rules = commonUtil.sortSequence(routing.rules).map((rule: any) => {
           if (rule.inventoryFilters?.length) {
-            const filterSortDesc = import.meta.env.VITE_FILTER_SORT_DESC || "";
             rule.inventoryFilters = commonUtil.sortSequence(rule.inventoryFilters).map((filter: any) => {
-              if (filterSortDesc.includes(filter.fieldName)) {
-                filter.fieldName = filter.fieldName.replace(" desc", "").replace(" DESC", "");
-              }
+              filter = normalizeRoutingSort(filter);
               if (filter.operator === "not-equals") {
                 filter.fieldName = filter.fieldName.replace("_excluded", "") + "_excluded";
               }

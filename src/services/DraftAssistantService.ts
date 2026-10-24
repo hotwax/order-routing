@@ -1,3 +1,4 @@
+import { readAssistantStream, type AssistantProgress } from "@/utils/assistantStream";
 import { client } from "@common";
 import type { DraftConversationMessage, DraftOperationSet, PageCapabilityManifest } from "@/types/draft";
 import type { BrokeringRunsListInquiryResult } from "@/types/circuit";
@@ -12,6 +13,7 @@ import { prepareDraftAssistantManifest, serializeDraftAssistantManifest } from "
 
 type DraftRequestOptions = {
   conversationHistory?: DraftConversationMessage[];
+  onProgress?: (event: AssistantProgress) => void;
 };
 
 export async function requestBrokeringRouteDraftOperations(prompt: string, manifest: PageCapabilityManifest, options: DraftRequestOptions = {}): Promise<DraftOperationSet> {
@@ -21,7 +23,29 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
   const assistantUrl = requireDraftAssistantUrl();
   let response: any;
   try {
-    response = await client({
+    if (options.onProgress) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      try {
+        const streamed = await fetch(`${assistantUrl}/brokering-route-assistant`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+          credentials: "omit",
+          signal: controller.signal,
+          body: JSON.stringify({ prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract })
+        });
+        if (!streamed.ok) {
+          const error = await streamed.json().catch(() => ({}));
+          throw new Error(error.error || `Draft assistant failed with ${streamed.status}`);
+        }
+        // Existing deployments can keep returning JSON during a staggered rollout.
+        response = { data: streamed.headers.get("content-type")?.includes("text/event-stream")
+          ? await readAssistantStream(streamed, options.onProgress)
+          : await streamed.json() };
+      } finally {
+        clearTimeout(timeout);
+      }
+    } else response = await client({
       url: "/brokering-route-assistant",
       method: "POST",
       baseURL: assistantUrl,
@@ -36,6 +60,9 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       const errorBody = err.response.data as { error?: string; issues?: string[] } | null;
       const issues = errorBody?.issues?.length ? ` ${errorBody.issues.join(" ")}` : "";
       throw new Error(errorBody?.error ? `${errorBody.error}${issues}` : `Draft assistant failed with ${err.response.status}`);
+    }
+    if (options.onProgress) {
+      throw new Error(err?.name === "AbortError" ? "Circuit timed out. Please try again." : err?.message || "Circuit could not finish this response.");
     }
     throw new Error(`Draft assistant is not reachable at ${assistantUrl}.`);
   }

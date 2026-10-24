@@ -805,6 +805,35 @@ function validate(operations: DraftOperation[]) {
   assert.deepEqual(proposal.unansweredQuestions, ["Which inventory rule should I inspect?"]);
 }
 
+// A new frontend works with either the existing JSON endpoint or SSE, without
+// issuing a second generation request or treating partial text as a proposal.
+for (const streaming of [false, true]) {
+  const originalFetch = globalThis.fetch;
+  const progress: any[] = [];
+  const final = {
+    schemaVersion: "brokering-route-assistant.v1", intent: "inquiry",
+    message: "There are five inventory rules.", questions: [], summary: "Counted rules."
+  };
+  let requests = 0;
+  globalThis.fetch = (async (_url, init) => {
+    requests++;
+    assert.equal(new Headers(init?.headers).get("Accept"), "text/event-stream");
+    assert.equal(init?.credentials, "omit");
+    return new Response(streaming
+      ? `event: text\ndata: ${JSON.stringify({ type: "text", text: "There are" })}\n\nevent: result\ndata: ${JSON.stringify(final)}\n\n`
+      : JSON.stringify(final), { headers: { "Content-Type": streaming ? "text/event-stream" : "application/json" } });
+  }) as typeof fetch;
+  try {
+    const result = await requestBrokeringRouteDraftOperations("How many rules?", manifest, { onProgress: event => progress.push(event) });
+    assert.equal(requests, 1);
+    assert.equal(result.summary, final.message);
+    assert.equal(result.operations.length, 0);
+    assert.deepEqual(progress, streaming ? [{ type: "text", text: "There are" }] : []);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 // Regression: "allow partial allocation for B bucket" — the agent returns the
 // full B Bucket rule with current values for every field plus partialAllocation
 // flipped to true. convertBrokeringRouteDraftToOperations must produce exactly

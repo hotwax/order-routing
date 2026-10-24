@@ -1525,5 +1525,11 @@
   "Unattributed safety stock": "Unattributed safety stock",
   "Shipping beyond safety stock": "Shipping beyond safety stock",
   "Unrecorded rule": "Unrecorded rule",
-  "Distinct orders, all rules": "Distinct orders, all rules"
+  "Distinct orders, all rules": "Distinct orders, all rules",
+  "Reading your request…": "Reading your request…",
+  "Writing an answer…": "Writing an answer…",
+  "Preparing a draft…": "Preparing a draft…",
+  "Checking the response…": "Checking the response…",
+  "Revising the draft…": "Revising the draft…",
+  "Reading your routing…": "Reading your routing…"
 }

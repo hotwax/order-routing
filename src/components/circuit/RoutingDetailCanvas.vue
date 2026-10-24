@@ -97,6 +97,7 @@
                     :detail="false"
                     lines="none"
                     class="recent-thread-item"
+                    :disabled="navigationOperationLocked"
                     @click="selectThread(thread.id)"
                   >
                     <ion-label class="ion-text-wrap">
@@ -175,6 +176,7 @@
               fill="clear"
               size="small"
               :aria-label="translate('New chat')"
+              :disabled="navigationOperationLocked"
               @click="createNewChat"
             >
               <ion-icon slot="start" :icon="addOutline" />
@@ -184,6 +186,7 @@
               fill="clear"
               size="small"
               :aria-label="translate('Threads')"
+              :disabled="navigationOperationLocked"
               @click="openThreadModal"
             >
               <ion-icon slot="start" :icon="chatbubblesOutline" />
@@ -262,12 +265,12 @@
       </ion-header>
       <ion-content>
         <ion-list>
-          <ion-item button v-for="thread in threads" :key="thread.id" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
+          <ion-item button v-for="thread in threads" :key="thread.id" :disabled="navigationOperationLocked" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
             <ion-label>
               {{ thread.name }}
               <p>{{ formatDate(thread.createdAt) }}</p>
             </ion-label>
-            <ion-button slot="end" fill="clear" color="danger" @click.stop="confirmDelete(thread.id)">
+            <ion-button slot="end" fill="clear" color="danger" :disabled="navigationOperationLocked" @click.stop="confirmDelete(thread.id)">
               <ion-icon slot="icon-only" :icon="trashOutline" />
             </ion-button>
           </ion-item>
@@ -626,8 +629,9 @@ function clearPendingProposalState() {
 }
 
 function rollbackPendingProposal() {
-  if (!pendingDraftProposal.value) return;
-  editorRef.value?.rejectDraftProposal?.();
+  // Rejected feedback also belongs to the conversation/context being left, even when its
+  // preview has already been rolled back. Never discard the user's earlier manual edits.
+  if (pendingDraftProposal.value) editorRef.value?.rejectDraftProposal?.();
   clearPendingProposalState();
 }
 
@@ -1012,14 +1016,16 @@ const buildConversationHistory = (): DraftConversationMessage[] => {
 }
 
 const createNewChat = async () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
+  rollbackPendingProposal();
+  prompt.value = '';
   await circuitStore.switchThread(null);
   circuitStore.setChatStarted(false);
   await focusPrompt();
 }
 
 const openThreadModal = () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
   showThreadMenu.value = true;
 }
 
@@ -1029,7 +1035,12 @@ const focusPrompt = async () => {
 }
 
 const selectThread = async (threadId: string) => {
-  await circuitStore.switchThread(threadId);
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
+  if (threadId !== currentThreadId.value) {
+    rollbackPendingProposal();
+    prompt.value = '';
+    await circuitStore.switchThread(threadId);
+  }
 
   if (showThreadMenu.value) {
     focusPromptAfterThreadDismiss = true;
@@ -1049,7 +1060,11 @@ const handleThreadModalDismiss = async () => {
 }
 
 const confirmDelete = (threadId: string) => {
-  // Simple delete for now
+  if (navigationOperationLocked.value) return;
+  if (threadId === currentThreadId.value) {
+    rollbackPendingProposal();
+    prompt.value = '';
+  }
   circuitStore.deleteThread(threadId);
 }
 

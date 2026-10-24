@@ -14,7 +14,7 @@ jobs:
       app: hotwax/order-routing
       appDir: order-routing
       firebaseProject: uat
-      accxuiVersion: 349d087ec7be8a62d0b8ee652942634b4b83d9f3
+      accxuiVersion: v1.8.0
     secrets:
       envPAT: ${{ secrets.envPAT }}
       HOTWAX_PUBLIC_SECRET: ${{ secrets.HOTWAX_PUBLIC_SECRET }}

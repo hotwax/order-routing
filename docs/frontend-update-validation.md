@@ -1,43 +1,43 @@
-# Frontend update validation — 2026-10-24
+# Service-worker update validation — 2026-10-24
 
-## Problem and behavior
+## Final implementation
 
-An already-open frontend retains its compiled backend URL after deployment. The live development
-site also served HTML/deep links with `Cache-Control: max-age=3600`. No active service worker was
-controlling the inspected Chrome tab. The existing Settings update action had no registration
-producer after the service-worker retirement.
+Order Routing uses its existing `vite-plugin-pwa` and `register-service-worker` dependencies.
+The plugin generates a normal prompt-mode worker instead of a self-unregistering worker.
+The registration library supplies the waiting-worker notification; returning to a visible tab
+requests the browser's native update check. There is no custom polling, build marker, or shared API.
 
-Order Routing now opts into AccxUI build detection. A notice appears when the hosted marker differs
-from the running build. Users finish their work and open Settings to update. The update requires
-confirmation and refuses to reload during routing edits, proposal review, pending requests, or an
-open modal/loading overlay. Other screens expose only Later. Nothing automatically reloads.
+Settings confirms updates and sends the existing `SKIP_WAITING` message. Only the consenting tab
+reloads, after checking blockers again when the worker activates. Other tabs receive a notice and
+keep their working copy. The plugin's convenience registration helper is intentionally not used:
+its controlling-event handler reloads tabs without consulting their unsaved-work state.
+Routing edits, proposal review, typed prompts, and active routing operations block updates; other
+screens direct users to Settings. Settings also checks modal/loading overlays. No automatic save.
+HTML/deep links revalidate, `sw.js` is not cached, and hashed JS/CSS remains immutable.
+The legacy `/service-worker.js` retirement endpoint remains unchanged.
 
-HTML and deep links revalidate, the build marker is not cached, and only hashed JS/CSS is immutable.
-An already-open old frontend still needs one ordinary reload to adopt this detector.
+## Validation
 
-## Verified locally
+- Typecheck and all 473 tests across 74 files passed. An earlier heavily parallel run timed out in
+  two unrelated suites; both passed individually and in the final reduced-concurrency full run.
+- Production builds succeeded for root and `/v2.5.0/`. Generated workers contain the waiting-worker
+  message handler. Root navigation fallback excludes versioned paths.
+- Chrome used two actual local builds against the real demo-oms backend. A validation-only Vite
+  transform removed the production cookie domain for localhost; it is untracked and not part of
+  the PR. Authentication and routing APIs were not mocked. No hosted deployment was performed.
+- Build A's worker controlled two authenticated tabs. In the routing editor, toggling Allow partial
+  allocation created an unsaved working copy (Changed / enabled Save). Serving build B and returning
+  to the tab showed the update notice with only Later; the edit and build A document remained.
+- The clean Settings tab displayed a visible confirmation. Later dismissed it without reloading.
+  Update now activated the worker and loaded build B. The dirty routing tab retained its changed
+  rule, checked toggle, enabled Save, and build A entry script after that other-tab update.
+- Discard restored the routing baseline: Changed disappeared, the toggle returned to false, and
+  Saved was disabled. Navigating that tab to Settings then permitted a confirmed update to build B,
+  including the case where the other tab had already activated the worker. No update notice remained.
+- No Save or Run action was invoked. The temporary working copy was discarded.
 
-- Typecheck passed; application suite: 74 files / 471 tests passed.
-- Shared detector suite: 8 tests passed. Full common suite had 488 passing tests and the same
-  pre-existing commonUtil/useProducts/useSolrSearch failures reproduced in the untouched checkout.
-- Two real production builds succeeded with different marker IDs despite identical source.
-- In regular Chrome, an isolated context loaded build A. Serving build B from the same local
-  preview caused the update notice to appear without navigation or a reload.
-- The typed OMS value remained `demo-oms`; the loaded entry script remained build A. Only Later
-  was offered on the login form. Dismissing the notice retained the input and document.
-- An ordinary reload (cache bypass disabled) loaded the build B entry script and cleared the notice.
-- Hosting configuration checked for all three targets: deep links and stable filenames are not
-  matched by the immutable asset rule; root and versioned hashed JS/CSS are matched.
+The entry scripts observed were `index-DdSvjSAO.js` (A) and `index-B95jO2ND.js` (B).
+Actual hosted cache headers and installed-device migration remain checks for an authorized future
+rollout. Existing old tabs need one ordinary reload to adopt service-worker registration.
 
-## Remaining deployment gates
-
-This change has not been merged or deployed. The authenticated production-build test on localhost
-is blocked by the existing shared cookie helper, which scopes production cookies to `hotwax.io`.
-No cookie policy was changed to bypass that restriction. A HotWax test host is still required to
-verify the actual Settings confirmation, dirty routing draft retention, and live cache headers.
-The confirmation/overlay/blocker behavior is covered by unit tests, not claimed as live UI proof.
-No routing configuration was saved or routing execution started during these checks.
-
-Merge the shared AccxUI PR before the app PR: app CI and development deployment currently check out
-AccxUI main. The tagged release workflow pins shared commit
-`349d087ec7be8a62d0b8ee652942634b4b83d9f3` so releases include the new API.
+AccxUI PR #248 was reverted and closed; there is no framework dependency or release-pin change.

@@ -10,7 +10,7 @@ afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => { reload.mockReset(); overlay.modal.mockReset(); overlay.loading.mockReset(); vi.stubGlobal("window", { location: { reload } }); setActivePinia(createPinia()); overlay.create.mockReset().mockResolvedValue({ present: overlay.present, onDidDismiss: overlay.dismissed }); overlay.dismissed.mockReset().mockResolvedValue({ role: "cancel" }); });
 describe("safe frontend update", () => {
   it("does not reload through an open editor or active loader", async () => {
-    const store = useAppUpdateStore(); store.availableBuildId = "next";
+    const store = useAppUpdateStore(); store.updateAvailable = true;
     overlay.modal.mockResolvedValue({}); await store.requestUpdate();
     expect(overlay.create).not.toHaveBeenCalled();
     overlay.modal.mockResolvedValue(undefined); overlay.loading.mockResolvedValue({});
@@ -18,20 +18,20 @@ describe("safe frontend update", () => {
     expect(reload).not.toHaveBeenCalled();
   });
   it("reloads only when the user confirms and no blocker exists", async () => {
-    const store = useAppUpdateStore(); store.availableBuildId = "next";
+    const store = useAppUpdateStore(); store.updateAvailable = true;
     overlay.dismissed.mockResolvedValue({ role: "confirm" });
     await store.requestUpdate(); expect(reload).toHaveBeenCalledOnce();
   });
   it("does not offer reload without an update or while any editor owns a blocker", async () => {
     const store = useAppUpdateStore(); await store.requestUpdate(); expect(overlay.create).not.toHaveBeenCalled();
-    store.availableBuildId = "next";
+    store.updateAvailable = true;
     const first = Symbol(), second = Symbol(); store.setBlocked(first, true); store.setBlocked(second, true);
     store.setBlocked(first, false); await store.requestUpdate(); expect(overlay.create).not.toHaveBeenCalled();
     store.setBlocked(second, false); await store.requestUpdate(); expect(overlay.create).toHaveBeenCalledOnce();
     expect(store.confirming).toBe(false); expect(reload).not.toHaveBeenCalled();
   });
   it("requires explicit confirmation and prevents concurrent confirmation dialogs", async () => {
-    const store = useAppUpdateStore(); store.availableBuildId = "next";
+    const store = useAppUpdateStore(); store.updateAvailable = true;
     let resolve: (v: any) => void = () => {};
     overlay.dismissed.mockReturnValue(new Promise(r => { resolve = r; }));
     const pending = store.requestUpdate(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
@@ -39,8 +39,33 @@ describe("safe frontend update", () => {
     resolve({ role: "cancel" }); await pending; expect(store.confirming).toBe(false); expect(reload).not.toHaveBeenCalled();
   });
   it("rechecks work started during confirmation", async () => {
-    const store = useAppUpdateStore(); store.availableBuildId = "next";
+    const store = useAppUpdateStore(); store.updateAvailable = true;
     overlay.dismissed.mockImplementation(async () => { store.setBlocked(Symbol(), true); return { role: "confirm" }; });
     await store.requestUpdate(); expect(store.blocked).toBe(true); expect(store.confirming).toBe(false); expect(reload).not.toHaveBeenCalled();
   });
+  it("waits for worker activation and preserves a draft started during activation", async () => {
+    const store = useAppUpdateStore(); store.updateAvailable = true;
+    const worker = Object.assign(new EventTarget(), { state: "installed", postMessage: vi.fn() });
+    store.registration = { waiting: worker } as any;
+    overlay.dismissed.mockResolvedValue({ role: "confirm" });
+    await store.requestUpdate();
+    expect(worker.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" });
+    expect(reload).not.toHaveBeenCalled();
+    store.setBlocked(Symbol("new draft"), true);
+    worker.state = "activated"; worker.dispatchEvent(new Event("statechange"));
+    await Promise.resolve();
+    expect(reload).not.toHaveBeenCalled();
+  });
+  it("activates the waiting worker only after confirmation and reloads the consenting clean tab", async () => {
+    const store = useAppUpdateStore(); store.updateAvailable = true;
+    const worker = Object.assign(new EventTarget(), { state: "installed", postMessage: vi.fn() });
+    store.registration = { waiting: worker } as any;
+    await store.requestUpdate(); expect(worker.postMessage).not.toHaveBeenCalled();
+    overlay.dismissed.mockResolvedValue({ role: "confirm" });
+    await store.requestUpdate(); expect(worker.postMessage).toHaveBeenCalledOnce();
+    worker.state = "activated"; worker.dispatchEvent(new Event("statechange"));
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
 });

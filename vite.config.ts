@@ -8,7 +8,6 @@ import pkg from './package.json'
 import { ideTraceVue } from 'chrome-ide-trace/vite'
 import { versionInfoUtil } from '../../common/utils/versionInfoUtil';
 import { commonEnvPlugin } from '../../common/vite/commonEnvPlugin'
-import { buildUpdatePlugin } from "../../common/vite/buildUpdatePlugin";
 import { VitePWA } from 'vite-plugin-pwa'
 import manifest from "./manifest.json"
 
@@ -24,13 +23,17 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [
     commonEnvPlugin(),
-    buildUpdatePlugin(),
     !process.env.VITEST && ideTraceVue(),
     vue(),
     legacy(),
     VitePWA({
-      registerType: "autoUpdate",
-      selfDestroying: true,
+      registerType: "prompt",
+      injectRegister: false, // AppUpdateNotice owns registration and safe, per-tab reload.
+      workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The root worker must not serve root HTML for a tenant's versioned URL.
+        navigateFallbackDenylist: appBuild ? [] : [/^\/v\d+\.\d+\.\d+\//],
+      },
       manifest: manifest as any,
     })
   ].filter(Boolean) as any,

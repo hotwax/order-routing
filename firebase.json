@@ -43,7 +43,7 @@
         "regex": "^/(?:v[0-9]+\\.[0-9]+\\.[0-9]+/)?assets/[^/]+-[A-Za-z0-9_-]{8,}\\.(?:js|css)$",
         "headers": [{ "key": "Cache-Control", "value": "public,max-age=31536000,immutable" }]
       }, {
-        "source": "**/app-build.json",
+        "source": "**/sw.js",
         "headers": [{ "key": "Cache-Control", "value": "no-store" }]
       }]
     },
@@ -90,7 +90,7 @@
         "regex": "^/(?:v[0-9]+\\.[0-9]+\\.[0-9]+/)?assets/[^/]+-[A-Za-z0-9_-]{8,}\\.(?:js|css)$",
         "headers": [{ "key": "Cache-Control", "value": "public,max-age=31536000,immutable" }]
       }, {
-        "source": "**/app-build.json",
+        "source": "**/sw.js",
         "headers": [{ "key": "Cache-Control", "value": "no-store" }]
       }]
     },
@@ -137,7 +137,7 @@
         "regex": "^/(?:v[0-9]+\\.[0-9]+\\.[0-9]+/)?assets/[^/]+-[A-Za-z0-9_-]{8,}\\.(?:js|css)$",
         "headers": [{ "key": "Cache-Control", "value": "public,max-age=31536000,immutable" }]
       }, {
-        "source": "**/app-build.json",
+        "source": "**/sw.js",
         "headers": [{ "key": "Cache-Control", "value": "no-store" }]
       }]
     }

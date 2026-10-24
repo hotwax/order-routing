@@ -4,9 +4,9 @@
 **Date:** 2026-05-18
 **Owners:** Order Routing PWA — Brokering Runs List assistant
 
-> Security amendment (2026-07-16): this historical design predates the production trust review.
-> The PWA must not send an OMS base URL or bearer token to Circuit. Any OMS-backed prefetch/tool
-> execution requires reviewed server-side authentication. See `docs/simulation-login-technical.md`.
+> Security amendment (2026-10-24): this historical design predates the current trust contract.
+> Diagnostics now use header-only delegated authentication and a server-allowlisted Maarg origin;
+> tokens and arbitrary REST URLs must not appear in the body. See `docs/simulation-login-technical.md`.
 
 ---
 

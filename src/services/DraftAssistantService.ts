@@ -1,5 +1,5 @@
 import { readAssistantStream, type AssistantProgress } from "@/utils/assistantStream";
-import { client } from "@common";
+import { client, commonUtil, useAuth } from "@common";
 import type { DraftConversationMessage, DraftOperationSet, PageCapabilityManifest } from "@/types/draft";
 import type { BrokeringRunsListInquiryResult } from "@/types/circuit";
 import {
@@ -49,9 +49,8 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
       url: "/brokering-route-assistant",
       method: "POST",
       baseURL: assistantUrl,
-      // Never serialize the browser's OMS URL or bearer token into a request body. A deployed
-      // assistant that needs OMS tools must authenticate server-to-server; that trust contract is
-      // intentionally not manufactured by this PWA.
+      // Draft/editor requests do not delegate OMS credentials. Diagnostic delegation is
+      // limited to the runs-list inquiry below; no token belongs in a request body.
       data: { prompt, conversationHistory, pageCapabilityManifest: transportManifest, outputContract: transportManifest.outputContract },
       headers: { "Content-Type": "application/json" },
     });
@@ -84,13 +83,29 @@ export async function requestBrokeringRouteDraftOperations(prompt: string, manif
 
 export async function requestBrokeringRunsListInquiry(prompt: string, manifest: PageCapabilityManifest, conversationHistory: DraftConversationMessage[] = []): Promise<BrokeringRunsListInquiryResult> {
   const assistantUrl = requireDraftAssistantUrl();
+  const maargUrl = commonUtil.getMaargURL();
+  const token = commonUtil.getToken();
+  let omsInstance: string | undefined;
+  if (maargUrl && token) {
+    try {
+      const maarg = new URL(maargUrl);
+      if (maarg.protocol === "https:" && !maarg.username && !maarg.password) omsInstance = maarg.origin;
+    } catch {
+      // Keep configuration questions available when the authenticated OMS connection is missing.
+    }
+  }
+  if (omsInstance && !useAuth().isAuthenticated.value) {
+    throw new Error("Your session has changed or expired. Refresh this page before requesting routing diagnostics.");
+  }
   try {
     const response = await client({
       url: "/brokering-runs-list-inquiry",
       method: "POST",
       baseURL: assistantUrl,
-      data: { prompt, conversationHistory, pageCapabilityManifest: manifest },
-      headers: { "Content-Type": "application/json" },
+      // Circuit resolves this non-secret origin against its server-side allowlist. The bearer
+      // stays in the transport header and is used only for fixed, read-only OMS requests.
+      data: { prompt, conversationHistory, pageCapabilityManifest: manifest, ...(omsInstance ? { omsInstance } : {}) },
+      headers: { "Content-Type": "application/json", ...(omsInstance ? { Authorization: `Bearer ${token}` } : {}) },
     });
     const body = response.data as { schemaVersion?: string; message?: string; questions?: string[]; summary?: string };
     return {

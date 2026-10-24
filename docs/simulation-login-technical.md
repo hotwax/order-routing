@@ -57,21 +57,33 @@ Before setting it, verify all of the following against the target environment:
 Until those checks are complete, leave all three simulation settings at their defaults. The tab and
 direct routes stay unavailable and service calls fail before sending a bearer token anywhere.
 
-## Circuit assistant authentication: what is proven
+## Circuit diagnostic authentication
 
-The PWA can prove only the HTTP request/response shapes for the configured Mastra endpoints. The
-Mastra implementation, its deployment identity, and a server-to-server OMS authorization contract
-are not present in this checkout.
+The editor/draft assistant remains credential-free. The runs-list inquiry endpoint delegates
+read-only OMS requests using the signed-in user's bearer in the `Authorization` header. It sends
+only the active **Maarg origin** as `omsInstance`; neither the token nor a caller-selected REST
+URL appears in the JSON body. A missing token or invalid HTTPS Maarg connection leaves the
+request credential-free so configuration-only questions can still be answered. Before delegating,
+the existing shared authentication guard checks that the tab still matches the signed-in user and
+OMS session. A mismatch stops the request and asks the user to refresh; it does not log them out.
 
-Older client code copied both the active OMS base URL and raw bearer token into each Mastra request
-body. That delegated the user's full OMS credential to a cross-origin service with no contract this
-repository could verify. The production client no longer sends either field.
+This requires the companion Circuit change in hotwax/circuit#39. Release that backend before
+this client: its request schema must accept `omsInstance`, and its server-only
+`MASTRA_OMS_ALLOWED_ORIGINS` setting must contain the exact permitted HTTPS Maarg origins,
+comma-separated. For example, the paired demo-oms login uses `https://demo-maarg.hotwax.io` for
+Moqui REST; replacing `/api` on the OFBiz host would select the wrong server. Do not put tokens
+in any `VITE_*` setting.
 
-Requests now contain only the prompt, normalized conversation history, and capability manifest.
-If the assistant must query OMS data, the Circuit backend must gain a reviewed server-side
-integration (for example, a service identity or a narrowly scoped token exchange) and enforce the
-same tenant/product-store/permission scope as the signed-in user. Do not restore browser bearer
-forwarding to make a missing backend contract appear functional.
+Circuit checks the origin against that allowlist, performs fixed GETs under the user's existing
+OMS permissions, and reports missing/invalid evidence without diagnosing from guesses. It must
+not follow redirects or pass credentials into model prompts, tool arguments or diagnostic dumps.
+This does not add stronger per-store authorization than the OMS already enforces. The configured
+`VITE_MASTRA_URL` is therefore a trusted recipient of the user's diagnostic authorization header;
+keep it explicitly enabled and validated by `requireDraftAssistantUrl`.
+
+No deployment setting is changed by this code. Live verification on 2026-10-24 found execution
+history available on demo-maarg; the four aggregate diagnostic endpoints returned 404. A release
+must preserve that distinction instead of treating the missing endpoints as empty results.
 
 ## No production mock fallback
 
@@ -84,6 +96,6 @@ fallback was removed so a failed or incomplete backend cannot look healthy by re
 - `src/services/SimApiService.ts`: isolated bearer attachment and simulation-origin confinement.
 - `src/services/SimulationService.ts`: simulation jobs, scoped group reads, and persisted-run reads.
 - `src/services/VariationService.ts`: variation CRUD and execution requests.
-- `src/services/DraftAssistantService.ts`: assistant request shapes; deliberately no OMS credential
-  forwarding.
+- `src/services/DraftAssistantService.ts`: credential-free editor requests and header-only delegated
+  authentication for runs-list diagnostics.
 - `tests/manual-simulator-test.sh`: credential-safe, read-only API/security preflight.

@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
     legacy(),
     VitePWA({
       registerType: "prompt",
-      injectRegister: false, // AppUpdateNotice owns registration and safe, per-tab reload.
+      injectRegister: false, // The app registers the worker and reloads only from Settings.
       workbox: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // The root worker must not serve root HTML for a tenant's versioned URL.

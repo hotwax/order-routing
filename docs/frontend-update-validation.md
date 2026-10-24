@@ -1,43 +1,40 @@
 # Service-worker update validation — 2026-10-24
 
-## Final implementation
+Order Routing reuses its existing PWA state and Settings Update button. The button is
+small, dark outlined, and right aligned beside the App/version information, matching
+the existing app design. There is no additional update store, blocker registry,
+banner component, polling timer, build-marker endpoint, or shared framework change.
 
-Order Routing uses its existing `vite-plugin-pwa` and `register-service-worker` dependencies.
-The plugin generates a normal prompt-mode worker instead of a self-unregistering worker.
-The registration library supplies the waiting-worker notification; returning to a visible tab
-requests the browser's native update check. There is no custom polling, build marker, or shared API.
+The existing PWA plugin generates a prompt-mode worker. Its waiting-worker notification
+updates userStore.pwaState and shows the standard toast. Returning to a visible tab
+requests a native worker update check. Only clicking Update in Settings reloads that
+tab; activation in another tab only notifies. The existing routing leave guard resolves
+unsaved work before Settings can be entered. Update also checks the current route and
+modal/loading overlays when clicked and when worker activation finishes.
 
-Settings confirms updates and sends the existing `SKIP_WAITING` message. Only the consenting tab
-reloads, after checking blockers again when the worker activates. Other tabs receive a notice and
-keep their working copy. The plugin's convenience registration helper is intentionally not used:
-its controlling-event handler reloads tabs without consulting their unsaved-work state.
-Routing edits, proposal review, typed prompts, and active routing operations block updates; other
-screens direct users to Settings. Settings also checks modal/loading overlays. No automatic save.
-HTML/deep links revalidate, `sw.js` is not cached, and hashed JS/CSS remains immutable.
-The legacy `/service-worker.js` retirement endpoint remains unchanged.
+Settings is eagerly imported so the old document can still reach Update after another
+tab activates a new worker and the host removes old asset files. Browser registrations
+are excluded from persisted user state. HTML/deep links revalidate, sw.js uses no-store,
+and hashed JS/CSS remains immutable. The legacy worker retirement endpoint is unchanged.
 
-## Validation
+Validation:
+- Typecheck and all 472 tests across 74 files passed.
+- The unmodified production build passed. Earlier root and versioned worker builds
+  also passed; root navigation fallback excludes versioned URLs.
+- Chrome verified the dark outlined, small Update button at the right edge of App details.
+- Build A controlled two tabs. An unsaved Allow partial allocation edit survived update
+  detection and activation of build B in the clean Settings tab. Stay in the existing
+  leave confirmation kept the draft and the old document intact.
+- Discard restored the original toggle and disabled Saved state. After navigation and
+  overlay dismissal completed, the original tab's Update button loaded build B too.
+  The test recorded zero routing/brokering mutation requests and closed its browser.
+- The test replaced the complete hosted directory, removing all old asset files. This
+  also verified that the eager Settings screen remains reachable from the old document.
+- Local Chrome validation uses two production-mode builds and the real demo-oms backend.
+  An untracked test-only transform removes the production cookie domain for localhost;
+  authentication and routing APIs are not mocked. The release build keeps normal cookies.
 
-- Typecheck and all 473 tests across 74 files passed. An earlier heavily parallel run timed out in
-  two unrelated suites; both passed individually and in the final reduced-concurrency full run.
-- Production builds succeeded for root and `/v2.5.0/`. Generated workers contain the waiting-worker
-  message handler. Root navigation fallback excludes versioned paths.
-- Chrome used two actual local builds against the real demo-oms backend. A validation-only Vite
-  transform removed the production cookie domain for localhost; it is untracked and not part of
-  the PR. Authentication and routing APIs were not mocked. No hosted deployment was performed.
-- Build A's worker controlled two authenticated tabs. In the routing editor, toggling Allow partial
-  allocation created an unsaved working copy (Changed / enabled Save). Serving build B and returning
-  to the tab showed the update notice with only Later; the edit and build A document remained.
-- The clean Settings tab displayed a visible confirmation. Later dismissed it without reloading.
-  Update now activated the worker and loaded build B. The dirty routing tab retained its changed
-  rule, checked toggle, enabled Save, and build A entry script after that other-tab update.
-- Discard restored the routing baseline: Changed disappeared, the toggle returned to false, and
-  Saved was disabled. Navigating that tab to Settings then permitted a confirmed update to build B,
-  including the case where the other tab had already activated the worker. No update notice remained.
-- No Save or Run action was invoked. The temporary working copy was discarded.
-
-The entry scripts observed were `index-DdSvjSAO.js` (A) and `index-B95jO2ND.js` (B).
-Actual hosted cache headers and installed-device migration remain checks for an authorized future
-rollout. Existing old tabs need one ordinary reload to adopt service-worker registration.
-
-AccxUI PR #248 was reverted and closed; there is no framework dependency or release-pin change.
+No merge, hosted deployment, routing Save, or Run action is authorized for this change.
+Hosted cache headers and installed-device migration remain future rollout checks.
+Old tabs need one ordinary reload to adopt service-worker registration.
+AccxUI PR #248 was reverted and closed; no release pin change is needed.

@@ -87,7 +87,6 @@
       </ion-menu>
       <ion-router-outlet id="main-content" />
     </ion-split-pane>
-    <AppUpdateNotice />
     <!-- Fast Travel: Cmd/Ctrl+K app switcher + deep-link router across the HotWax suite -->
     <FastTravel v-if="useAuth().isAuthenticated" current-app="order-routing" />
   </ion-app>
@@ -287,7 +286,7 @@ import { isFeatureEnabled } from "@/utils/simConfig";
 import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
 import router from "@/router";
 import { useUtilStore } from "./store/utilStore";
-import AppUpdateNotice from "@/components/AppUpdateNotice.vue";
+import { registerAppServiceWorker } from "@/registerServiceWorker";
 
 const userStore = useUserStore();
 const utilStore = useUtilStore();
@@ -398,6 +397,7 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
+  registerAppServiceWorker();
   if (userProfile.value && userProfile.value.timeZone) {
     Settings.defaultZone = userProfile.value.timeZone;
   }

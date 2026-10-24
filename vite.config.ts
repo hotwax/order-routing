@@ -27,8 +27,13 @@ export default defineConfig(({ mode }) => {
     vue(),
     legacy(),
     VitePWA({
-      registerType: "autoUpdate",
-      selfDestroying: true,
+      registerType: "prompt",
+      injectRegister: false, // The app registers the worker and reloads only from Settings.
+      workbox: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The root worker must not serve root HTML for a tenant's versioned URL.
+        navigateFallbackDenylist: appBuild ? [] : [/^\/v\d+\.\d+\.\d+\//],
+      },
       manifest: manifest as any,
     })
   ].filter(Boolean) as any,

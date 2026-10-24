@@ -259,5 +259,6 @@ export const useUserStore = defineStore('user', {
       this.pwaState.updateExists = payload.updateExists;
     }
   },
-  persist: true
+  // A browser registration is transient, not JSON session data.
+  persist: { omit: ["pwaState"] }
 })

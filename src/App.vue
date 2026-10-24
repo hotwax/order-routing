@@ -286,6 +286,7 @@ import { isFeatureEnabled } from "@/utils/simConfig";
 import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
 import router from "@/router";
 import { useUtilStore } from "./store/utilStore";
+import { registerAppServiceWorker } from "@/registerServiceWorker";
 
 const userStore = useUserStore();
 const utilStore = useUtilStore();
@@ -396,6 +397,7 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
+  registerAppServiceWorker();
   if (userProfile.value && userProfile.value.timeZone) {
     Settings.defaultZone = userProfile.value.timeZone;
   }

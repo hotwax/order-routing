@@ -327,7 +327,7 @@ async function save() {
   } catch (error) {
     logger.error("inventory updates: failed to save schedule", error);
     const serverError = commonUtil.getErrorMessage(error);
-    commonUtil.showToast(`${translate("Something went wrong.")} ${serverError}`);
+    commonUtil.showToast(`${translate("Failed to save inventory update schedule")}. ${serverError}`);
   } finally {
     saving.value = false;
   }
@@ -364,7 +364,7 @@ async function confirmRunNow() {
   } catch (error) {
     logger.error("inventory updates: failed to run schedule", error);
     const serverError = commonUtil.getErrorMessage(error);
-    commonUtil.showToast(`${translate("Something went wrong.")} ${serverError}`);
+    commonUtil.showToast(`${translate("Failed to queue job")}. ${serverError}`);
   } finally {
     running.value = false;
   }

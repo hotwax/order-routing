@@ -1,4 +1,5 @@
 import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
+import { logger } from '@common';
 
 const DB_NAME = 'CircuitDB';
 const DB_VERSION = 2;
@@ -45,7 +46,7 @@ const initDB = (): Promise<IDBDatabase> => {
     };
 
     request.onerror = (event: any) => {
-      console.error('IndexedDB open error', event.target.error);
+      logger.error('IndexedDB open error', event.target.error);
       dbPromise = null;
       reject(event.target.error);
     };

@@ -128,7 +128,7 @@ import {
   IonThumbnail
 } from "@ionic/vue";
 import { arrowForwardOutline, caretBackOutline, caretForwardOutline, cubeOutline, optionsOutline, pricetagOutline } from 'ionicons/icons';
-import { DxpShopifyImg, translate, api, commonUtil } from '@common';
+import { DxpShopifyImg, translate, api, commonUtil, logger } from '@common';
 import { useAtpProductStore } from "@/store/atpProductStore";
 import { productStore as useProductStore } from "@/store/productStore";
 import { getPrimaryProductIdentifier, getSecondaryProductIdentifier } from "@/utils/productIdentifier";
@@ -288,7 +288,7 @@ async function fetchInventoryConfigs() {
             configs[product.productId] = rows[0];
           }
         } catch (err) {
-          console.error("Failed to fetch config for product", product.productId, err);
+          logger.error("Failed to fetch config for product", product.productId, err);
         }
       })
     );

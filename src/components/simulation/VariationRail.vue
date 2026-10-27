@@ -222,7 +222,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { commonUtil, translate } from "@common";
+import { commonUtil, logger, translate } from "@common";
 import { alertController, IonButton, IonButtons, IonChip, IonContent, IonFabButton, IonHeader, IonIcon, IonInput, IonItem, IonLabel, IonList, IonModal, IonNote, IonRadio, IonRadioGroup, IonSpinner, IonTitle, IonToolbar } from "@ionic/vue";
 import { addCircleOutline, barChartOutline, chevronDownOutline, chevronUpOutline, gitBranchOutline, playOutline, refreshOutline, saveOutline, trashOutline } from "ionicons/icons";
 import { simulationStore } from "@/store/simulationStore";
@@ -391,8 +391,14 @@ async function saveAsNew() {
   isSaving.value = true;
   try {
     const isSaved = await sim.saveAsVariation(newVariationName.value.trim());
-    commonUtil.showToast(isSaved ? translate("Variation saved") : (sim.loadError || translate("Failed to save variation")));
-    if (isSaved) newVariationName.value = "";
+    if (isSaved) {
+      commonUtil.showToast(translate("Variation saved"));
+      newVariationName.value = "";
+    } else {
+      const serverError = commonUtil.getErrorMessage(sim.loadError);
+      logger.error("Failed to save variation:", sim.loadError);
+      commonUtil.showToast(`${translate("Failed to save variation")}. ${serverError}`);
+    }
   } finally {
     isSaving.value = false;
   }
@@ -404,7 +410,13 @@ async function updateActive() {
   isSaving.value = true;
   try {
     const isUpdated = await sim.updateVariation(sim.activeVariationId);
-    commonUtil.showToast(isUpdated ? translate("Variation updated") : (sim.loadError || translate("Failed to update variation")));
+    if (isUpdated) {
+      commonUtil.showToast(translate("Variation updated"));
+    } else {
+      const serverError = commonUtil.getErrorMessage(sim.loadError);
+      logger.error("Failed to update variation:", sim.loadError);
+      commonUtil.showToast(`${translate("Failed to update variation")}. ${serverError}`);
+    }
   } finally {
     isSaving.value = false;
   }
@@ -428,7 +440,13 @@ async function discardActive() {
   isSaving.value = true;
   try {
     const discarded = await sim.discardVariation(variationId);
-    commonUtil.showToast(discarded ? translate("Variation deleted") : (sim.loadError || translate("Failed to delete variation")));
+    if (discarded) {
+      commonUtil.showToast(translate("Variation deleted"));
+    } else {
+      const serverError = commonUtil.getErrorMessage(sim.loadError);
+      logger.error("Failed to discard variation:", sim.loadError);
+      commonUtil.showToast(`${translate("Failed to discard variation")}. ${serverError}`);
+    }
   } finally {
     isSaving.value = false;
   }

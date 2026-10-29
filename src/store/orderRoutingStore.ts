@@ -318,10 +318,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
             await this.setCurrentGroup(normalizeRoutingGroupHierarchy(savedGroup), false);
             return this.currentGroup;
           } else {
-            throw "Error getting saved routing group";
+            throw getResp;
           }
         } else {
-          throw "Error saving routing group"
+          throw resp;
         }
       } catch (err) {
         logger.error(err);

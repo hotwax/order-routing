@@ -129,7 +129,7 @@ export const useUserStore = defineStore('user', {
           method: "GET",
           baseURL: commonUtil.getMaargURL(),
         });
-        if(commonUtil.hasError(resp)) throw "Error getting user profile";
+        if(commonUtil.hasError(resp)) throw resp;
 
         this.current = resp.data;
 

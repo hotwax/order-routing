@@ -2703,9 +2703,8 @@ async function cloneGroup() {
     commonUtil.showToast(translate("Routing group cloned"));
     await router.push(canonicalRoutingEditorRoute(clonedGroupId));
   } catch (err) {
-    const serverError = commonUtil.getErrorMessage(err);
     logger.error(err);
-    commonUtil.showToast(`${translate("Failed to clone routing group")}. ${serverError}`);
+    commonUtil.showToast(translate("Failed to clone routing group"));
   }
 }
 

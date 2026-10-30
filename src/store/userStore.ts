@@ -233,7 +233,7 @@ export const useUserStore = defineStore('user', {
             method: "post",
             data: { userId: current.userId, timeZone: current.timeZone }
           });
-          commonUtil.showToast(translate("Time zone updated successfully."));
+          commonUtil.showToast(translate("Time zone updated successfully"));
         } catch(err) {
           logger.error('Error setting timezone', err);
           const serverError = commonUtil.getErrorMessage(err);

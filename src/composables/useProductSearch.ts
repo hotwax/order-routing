@@ -104,7 +104,7 @@ export function useProductSearch() {
         });
       } catch (err) {
         // A failed enrichment must not blank the list — rows still render from their entity data.
-        logger.error("Failed to enrich products from Solr");
+        logger.error("Failed to enrich products from Solr", err);
       }
     }
 
@@ -137,7 +137,7 @@ export function useProductSearch() {
 
         return { styles: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
       } catch (err) {
-        logger.error("Failed to list product styles");
+        logger.error("Failed to list product styles", err);
         throw err;
       }
     }
@@ -182,7 +182,7 @@ export function useProductSearch() {
         total: grouped.ngroups
       };
     } catch (err) {
-      logger.error("Failed to search product styles");
+      logger.error("Failed to search product styles", err);
       throw err;
     }
   }
@@ -199,7 +199,7 @@ export function useProductSearch() {
 
       return { variants: docsOf(resp).map(toSummary), total: numFoundOf(resp) };
     } catch (err) {
-      logger.error("Failed to fetch product variants");
+      logger.error("Failed to fetch product variants", err);
       throw err;
     }
   }

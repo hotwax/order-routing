@@ -278,7 +278,8 @@ export const productStore = defineStore('productStore', {
           throw resp
         }
       } catch(err) {
-        commonUtil.showToast(translate("Failed to update Product Store setting."))
+        const serverError = commonUtil.getErrorMessage(err);
+        commonUtil.showToast(`${translate("Failed to update Product Store setting.")} ${serverError}`);
         logger.error(err)
       }
     },

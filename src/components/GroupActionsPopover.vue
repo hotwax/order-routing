@@ -63,7 +63,8 @@ async function updateGroupStatus(paused: string) {
       throw resp.data
     }
   } catch(err) {
-    commonUtil.showToast(translate("Failed to update group status"))
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to update group status")}. ${serverError}`);
     logger.error(err)
   }
 
@@ -107,7 +108,8 @@ async function runNow() {
                 // Updating jobName as if the user again clicks the runNow button then in that we don't want to call the scheduleBrokering service
                 job.jobName = resp.data.jobName
               } catch(err) {
-                commonUtil.showToast(translate("Failed to schedule service"))
+                const serverError = commonUtil.getErrorMessage(err);
+                commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
                 logger.error(err)
                 return;
               }
@@ -121,7 +123,8 @@ async function runNow() {
                 throw resp.data
               }
             } catch(err) {
-              commonUtil.showToast(translate("Failed to schedule service"))
+              const serverError = commonUtil.getErrorMessage(err);
+              commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
               logger.error(err)
             }
           }

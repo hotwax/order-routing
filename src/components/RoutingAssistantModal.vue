@@ -89,7 +89,7 @@ import {
 } from "@ionic/vue";
 import { sendOutline, trashOutline } from "ionicons/icons";
 import { computed, ref, watch } from "vue";
-import { translate, commonUtil } from "@common";
+import { commonUtil, logger, translate } from "@common";
 import { orderRoutingStore } from "@/store/orderRoutingStore";
 import { productStore } from "@/store/productStore";
 import { useUtilStore } from "@/store/utilStore";
@@ -155,8 +155,9 @@ async function loadContext() {
     cachedManifest.value = buildManifest();
     routingGroupCount.value = (cachedManifest.value.visibleEntities as any)?.brokeringRuns?.length || 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : translate("Failed to load routing group details");
-    commonUtil.showToast(message);
+    logger.error("Failed to load routing group details", error);
+    const serverError = commonUtil.getErrorMessage(error);
+    commonUtil.showToast(`${translate("Failed to load routing group details")}. ${serverError}`);
   } finally {
     isLoadingContext.value = false;
   }

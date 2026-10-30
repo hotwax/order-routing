@@ -2768,7 +2768,8 @@ async function saveSchedule(nextCronExpression = job.value.cronExpression) {
   } catch (err) {
     if (groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) {
       job.value = previousJob;
-      commonUtil.showToast(translate("Failed to update job"))
+      const serverError = commonUtil.getErrorMessage(err);
+      commonUtil.showToast(`${translate("Failed to update job")}. ${serverError}`);
     }
     logger.error(err)
     return false;
@@ -2810,7 +2811,8 @@ async function updateGroupStatus(event: CustomEvent) {
     // rejects the immediate action.
     if (groupOperationGuard.isCurrent(operationToken, liveGroupOperationIdentity())) {
       job.value = previousJob;
-      commonUtil.showToast(translate("Failed to update group status"))
+      const serverError = commonUtil.getErrorMessage(err);
+      commonUtil.showToast(`${translate("Failed to update group status")}. ${serverError}`);
     }
     logger.error(err)
     return false;
@@ -2841,7 +2843,8 @@ async function runNow() {
               }
               job.value.jobName = resp.data.jobName
             } catch (err) {
-              commonUtil.showToast(translate("Failed to schedule service"))
+              const serverError = commonUtil.getErrorMessage(err);
+              commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
               logger.error(err)
               return;
             }
@@ -2851,7 +2854,8 @@ async function runNow() {
             const resp = await routingStore.runNow(routingGroupId.value || "")
             if (!commonUtil.hasError(resp)) commonUtil.showToast(translate("Service has been scheduled"))
           } catch (err) {
-            commonUtil.showToast(translate("Failed to schedule service"))
+            const serverError = commonUtil.getErrorMessage(err);
+            commonUtil.showToast(`${translate("Failed to schedule service")}. ${serverError}`);
             logger.error(err)
           }
         }
@@ -3253,8 +3257,9 @@ async function save() {
     commonUtil.showToast(translate("Changes saved successfully"));
     return true;
   } catch (err) {
+    const serverError = commonUtil.getErrorMessage(err);
     logger.error(err);
-    commonUtil.showToast(translate("Failed to save changes"));
+    commonUtil.showToast(`${translate("Failed to save changes")}. ${serverError}`);
     return false;
   } finally {
     emitter.emit("dismissLoader");

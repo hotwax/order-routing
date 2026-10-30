@@ -1,3 +1,4 @@
+import { getRoutingSortDirection, normalizeRoutingSort, routingSortDirectionLabel } from "./routingSort";
 export type VariationDiffKind = "added" | "removed" | "changed" | "reordered";
 
 export type VariationDiffSectionKind =
@@ -77,10 +78,11 @@ function displayValue(value: any): string {
 }
 
 function conditionKey(condition: any): string {
-  return String(condition?.fieldName || "").replace(/_excluded$/i, "");
+  return String(normalizeRoutingSort(condition)?.fieldName || "").replace(/_excluded$/i, "");
 }
 
 function conditionText(condition: any): string {
+  if (condition?.conditionTypeEnumId === "ENTCT_SORT_BY") return routingSortDirectionLabel(getRoutingSortDirection(condition, import.meta.env.VITE_FILTER_SORT_DESC || ""));
   const value = displayValue(condition?.fieldValue);
   const operator = condition?.operator ? `, ${humanize(condition.operator)}` : "";
   return `${value}${operator}`;
@@ -229,7 +231,7 @@ export function buildVariationConfigDiff(baselineGroup: any, variationGroup: any
     });
     addSection(sections, routingName, "Routing", { ...targetBase, kind: "routing" }, routingRows);
 
-    const conditionLabel = (condition: any) => humanize(condition?.fieldName);
+    const conditionLabel = (condition: any) => humanize(normalizeRoutingSort(condition)?.fieldName);
     addSection(sections, routingName, "Order filters", { ...targetBase, kind: "orderFilters" }, collectionRows(
       filterByType(baselineRouting.orderFilters, "ENTCT_FILTER"),
       filterByType(variationRouting.orderFilters, "ENTCT_FILTER"),

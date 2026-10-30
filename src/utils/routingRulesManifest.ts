@@ -1,3 +1,4 @@
+import { getRoutingSortDirection, routingSortDirectionLabel } from "./routingSort";
 import {
   buildDraftTarget,
   createDraftOutputContract,
@@ -224,10 +225,10 @@ export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityM
     targets.push(buildDraftTarget({
       target: `route.orderSorts.${definition.key}`,
       label: definition.label,
-      description: `Adds or removes the ${definition.label.toLowerCase()} on the route draft.`,
+      description: `Adds or removes the ${definition.label.toLowerCase()} on the route draft. Current direction: ${routingSortDirectionLabel(getRoutingSortDirection(input.orderRoutingSortOptions[input.ruleEnums[definition.key]?.code], import.meta.env.VITE_FILTER_SORT_DESC || ""))}.`,
       entity: "route",
       valueType: "boolean",
-      currentValue: Boolean(getConditionValue(input.orderRoutingSortOptions, input.ruleEnums, definition.key)),
+      currentValue: Boolean(input.orderRoutingSortOptions[input.ruleEnums[definition.key]?.code]),
       staticDisabled: input.isTestEnabled,
       disabledReason: input.isTestEnabled ? "Test mode is active." : ""
     }));
@@ -253,10 +254,10 @@ export function buildRoutingRulesManifest(input: ManifestInput): PageCapabilityM
     targets.push(buildDraftTarget({
       target: `selectedRule.inventorySorts.${definition.key}`,
       label: definition.label,
-      description: `Adds or removes the ${definition.label.toLowerCase()} on the selected rule draft.`,
+      description: `Adds or removes the ${definition.label.toLowerCase()} on the selected rule draft. Current direction: ${routingSortDirectionLabel(getRoutingSortDirection(input.inventoryRuleSortOptions[input.conditionSortEnums[definition.key]?.code], import.meta.env.VITE_FILTER_SORT_DESC || ""))}.`,
       entity: "selectedRule",
       valueType: "boolean",
-      currentValue: Boolean(getConditionValue(input.inventoryRuleSortOptions, input.conditionSortEnums, definition.key)),
+      currentValue: Boolean(input.inventoryRuleSortOptions[input.conditionSortEnums[definition.key]?.code]),
       staticDisabled: Boolean(selectedRuleDisabledReason),
       disabled: Boolean(selectedRuleDisabledReason) || isCustomerSequenceDisabled,
       disabledReason: selectedRuleDisabledReason || (isCustomerSequenceDisabled ? "Customer sequence sorting is only available when an inventory facility group filter is selected." : ""),
@@ -492,7 +493,7 @@ function applyActiveRuleOperation(operation: DraftOperation, draft: RoutingRules
 
   const routeSortKey = getTargetKey(operation.target, "route.orderSorts.");
   if (routeSortKey) {
-    setSortOption(draft.orderRoutingSortOptions.value, draft.ruleEnums, routeSortKey, Boolean(operation.value), draft.orderRoutingId, "orderRoutingId");
+    setSortOption(draft.orderRoutingSortOptions.value, draft.ruleEnums, routeSortKey, Boolean(operation.value), draft.orderRoutingId, "orderRoutingId", operation.sortDirection);
     return true;
   }
 
@@ -512,7 +513,7 @@ function applyActiveRuleOperation(operation: DraftOperation, draft: RoutingRules
 
   const inventorySortKey = getTargetKey(operation.target, "selectedRule.inventorySorts.");
   if (inventorySortKey) {
-    setSortOption(draft.inventoryRuleSortOptions.value, draft.conditionSortEnums, inventorySortKey, Boolean(operation.value), draft.selectedRoutingRule.value.routingRuleId, "routingRuleId");
+    setSortOption(draft.inventoryRuleSortOptions.value, draft.conditionSortEnums, inventorySortKey, Boolean(operation.value), draft.selectedRoutingRule.value.routingRuleId, "routingRuleId", operation.sortDirection);
     updateCurrentRuleDraft(draft);
     return true;
   }
@@ -648,7 +649,7 @@ function getTargetKey(target: string, prefix: string) {
   return target.startsWith(prefix) ? target.slice(prefix.length) : "";
 }
 
-function setSortOption(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, key: string, enabled: boolean, ownerId: string, ownerIdField: "orderRoutingId" | "routingRuleId") {
+function setSortOption(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, key: string, enabled: boolean, ownerId: string, ownerIdField: "orderRoutingId" | "routingRuleId", direction?: "asc" | "desc") {
   const enumInfo = enums[key];
   if (!enumInfo?.code) {
     throw new Error(`Unsupported draft key: ${key}`);
@@ -660,6 +661,7 @@ function setSortOption(options: Record<string, ConditionOption>, enums: Record<s
   }
 
   setConditionOption(options, enums, key, "", "ENTCT_SORT_BY", ownerId, ownerIdField);
+  if (direction) options[enumInfo.code].sortDirection = direction;
 }
 
 function setConditionOption(options: Record<string, ConditionOption>, enums: Record<string, EnumInfo>, key: string, value: DraftValue, conditionTypeEnumId: "ENTCT_FILTER" | "ENTCT_SORT_BY", ownerId: string, ownerIdField: "orderRoutingId" | "routingRuleId", operator?: string) {
@@ -749,7 +751,7 @@ function setPartialAllocation(enabled: boolean, draft: RoutingRulesDraftRefs) {
     }
   });
 
-  setGroupedItemPartialAllocation(enabled, draft);
+  if (!enabled) setGroupedItemPartialAllocation(false, draft);
   updateCurrentRuleDraft(draft);
 }
 
@@ -982,6 +984,7 @@ function summarizeSortValues(
       return {
         target: `${targetPrefix}.${key}`,
         label: definition.label,
+        direction: getRoutingSortDirection(condition, import.meta.env.VITE_FILTER_SORT_DESC || ""),
         sequenceNum: condition.sequenceNum
       };
     })

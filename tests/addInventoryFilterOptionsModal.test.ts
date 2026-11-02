@@ -17,6 +17,11 @@ vi.mock("@/store/utilStore", () => ({
           enumCode: "ignoreFacilityOrderLimit",
           description: "Override facility order limit",
         },
+        IFP_CHECK_FUTURE_INV: {
+          enumId: "IFP_CHECK_FUTURE_INV",
+          enumCode: "checkFutureInventory",
+          description: "Check Future Inventory",
+        },
       },
     },
   }),
@@ -75,6 +80,34 @@ describe("AddInventoryFilterOptionsModal", () => {
           conditionTypeEnumId: "ENTCT_FILTER",
           fieldName: "ignoreFacilityOrderLimit",
           fieldValue: "Y",
+          operator: "equals",
+        }),
+      },
+    }, "save");
+  });
+
+  it("stores check future inventory as a fixed true condition", async () => {
+    const wrapper = mount(AddInventoryFilterOptionsModal, {
+      props: {
+        routingRuleId: "RULE-1",
+        ruleConditions: {},
+        parentEnumId: "INV_FILTER_PRM_TYPE",
+        conditionTypeEnumId: "ENTCT_FILTER",
+        label: "Filters",
+        filterOptions: {},
+      },
+    });
+    await flushPromises();
+
+    await wrapper.findAll("button.condition")[1].trigger("click");
+    await wrapper.get("button.save").trigger("click");
+
+    expect(mocks.dismiss).toHaveBeenCalledWith({
+      dismissed: true,
+      filters: {
+        checkFutureInventory: expect.objectContaining({
+          fieldName: "checkFutureInventory",
+          fieldValue: "true",
           operator: "equals",
         }),
       },

@@ -6,7 +6,7 @@ vi.mock("@common", () => ({
   commonUtil: { getMaargURL: () => "", getOmsURL: () => "" },
   cookieHelper: () => ({ get: () => "" }),
 }));
-import { applyDraftOperations } from "../src/utils/draftUtils";
+import { applyDraftOperations, convertBrokeringRouteDraftToOperations, createDraftProposal } from "../src/utils/draftUtils";
 import type { DraftOperation } from "../src/types/draft";
 import {
   buildRoutingRulesBindings,
@@ -121,6 +121,59 @@ function createFixture(overrides: any = {}) {
   });
 
   return { draft, manifest };
+}
+
+// Exercise the model draft -> proposal -> real editor bindings, not just operation shape.
+function assistantDraft(partialOrderAllocation: boolean, sorts: any[] = [], orderSorts: any[] = []) {
+  const selection = () => ({ include: [], exclude: [] });
+  return {
+    schemaVersion: "brokering-route-draft.v1", applyMode: "merge", questions: [], summary: "Update routing",
+    route: {
+      statusId: "ROUTING_DRAFT",
+      orderSelection: { filters: { queues: selection(), shippingMethods: selection(), priorities: selection(), promiseDateDays: { max: null, excludeMax: null }, salesChannels: selection(), originFacilityGroups: selection() }, sorts: orderSorts },
+      inventoryRules: [{ ruleKey: "rule-1", name: "Primary rule", statusId: "RULE_DRAFT", sequence: 0,
+        inventorySelection: { filters: { facilityGroups: selection(), proximity: { maxDistance: null, unit: null }, safetyStock: { minimum: null }, facilityOrderLimit: "unchanged", shipmentThreshold: null }, sorts },
+        allocation: { partialOrderAllocation, partialGroupedItemAllocation: false },
+        unavailableItems: { action: "nextRule", queueId: null, autoCancel: { mode: "none", days: null } }
+      }]
+    }
+  } as any;
+}
+
+{
+  const { draft, manifest } = createFixture({
+    selectedRoutingRule: { assignmentEnumId: "ORA_MULTI" },
+    inventoryRuleFilterOptions: { splitOrderItemGroup: { fieldName: "splitOrderItemGroup", fieldValue: "Y", conditionTypeEnumId: "ENTCT_FILTER" } },
+    rulesInformation: { "rule-1": { assignmentEnumId: "ORA_MULTI", inventoryFilters: { ENTCT_FILTER: { splitOrderItemGroup: { fieldName: "splitOrderItemGroup", fieldValue: "Y", conditionTypeEnumId: "ENTCT_FILTER" } }, ENTCT_SORT_BY: {} }, actions: {} } }
+  });
+  const proposal = createDraftProposal(convertBrokeringRouteDraftToOperations(assistantDraft(false), manifest), manifest);
+  assert.ok(proposal.operations.some(op => op.target === "selectedRule.partialAllocation" && op.value === false), "disabling allocation must reach the preview");
+  assert.deepEqual(proposal.unansweredQuestions, []);
+  applyDraftOperations(proposal.operations, manifest, buildRoutingRulesBindings(draft));
+  assert.equal(draft.selectedRoutingRule.value.assignmentEnumId, "ORA_SINGLE");
+  assert.equal(draft.inventoryRuleFilterOptions.value.splitOrderItemGroup.fieldValue, "N");
+}
+
+for (const direction of ["asc", "desc"] as const) {
+  const previousDirection = direction === "asc" ? "desc" : "asc";
+  const condition = { conditionSeqId: "sort-1", fieldName: "distance", fieldValue: "", conditionTypeEnumId: "ENTCT_SORT_BY", sequenceNum: 7, sortDirection: previousDirection };
+  const orderCondition = { ...condition, fieldName: "orderDate", conditionSeqId: "order-sort-1" };
+  const { draft, manifest } = createFixture({
+    inventoryRuleSortOptions: { distance: condition },
+    orderRoutingSortOptions: { orderDate: orderCondition },
+    rulesInformation: { "rule-1": { assignmentEnumId: "ORA_SINGLE", inventoryFilters: { ENTCT_FILTER: {}, ENTCT_SORT_BY: { distance: condition } }, actions: {} } }
+  });
+  const modelDraft = assistantDraft(false, [{ field: "proximity", direction }], [{ field: "orderDate", direction }]);
+  const proposal = createDraftProposal(convertBrokeringRouteDraftToOperations(modelDraft, manifest), manifest);
+  assert.equal(proposal.operations.filter(op => op.target.includes("Sorts.")).length, 2, "direction-only changes must survive unchanged filtering");
+  assert.deepEqual(proposal.unansweredQuestions, []);
+  applyDraftOperations(proposal.operations, manifest, buildRoutingRulesBindings(draft));
+  assert.equal(draft.inventoryRuleSortOptions.value.distance.sortDirection, direction);
+  assert.equal(draft.orderRoutingSortOptions.value.orderDate.sortDirection, direction);
+  assert.equal(draft.inventoryRuleSortOptions.value.distance.conditionSeqId, "sort-1");
+  assert.equal(draft.inventoryRuleSortOptions.value.distance.sequenceNum, 7);
+  const same = createDraftProposal(convertBrokeringRouteDraftToOperations(assistantDraft(false, [{ field: "proximity", direction: previousDirection }], [{ field: "orderDate", direction: previousDirection }]), manifest), manifest);
+  assert.equal(same.operations.filter(op => op.target.includes("Sorts.")).length, 0, "unchanged directions must not create a preview");
 }
 
 {
@@ -280,6 +333,7 @@ const queueFacilities = {
   assert.deepEqual(routeEntity.currentOrderSorts, [{
     target: "route.orderSorts.ORDER_DATE",
     label: "Order date sort",
+    direction: "asc",
     sequenceNum: 0
   }]);
 }
@@ -396,6 +450,7 @@ const queueFacilities = {
   assert.deepEqual(firstRule.currentValues.inventorySorts, [{
     target: "selectedRule.inventorySorts.PROXIMITY",
     label: "Inventory proximity sort",
+    direction: "asc",
     sequenceNum: 0
   }]);
   assert.equal(firstRule.currentValues.unavailableItems.actionTypeEnumId, "ORA_NEXT_RULE");
@@ -427,7 +482,7 @@ const queueFacilities = {
   const { draft, result } = apply([{ op: "set", target: "selectedRule.partialAllocation", value: true }]);
   assert.equal(result.appliedCount, 1);
   assert.equal(draft.selectedRoutingRule.value.assignmentEnumId, "ORA_MULTI");
-  assert.equal(draft.inventoryRuleFilterOptions.value.splitOrderItemGroup.fieldValue, "Y");
+  assert.notEqual(draft.inventoryRuleFilterOptions.value.splitOrderItemGroup?.fieldValue, "Y", "enabling partial allocation must not implicitly enable grouped allocation");
 }
 
 {

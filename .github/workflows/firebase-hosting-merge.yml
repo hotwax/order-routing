@@ -16,7 +16,7 @@ jobs:
       appDir: order-routing
       firebaseProject: dev
       buildEnvironment: >-
-        {"VITE_DRAFT_ASSISTANT_ENABLED":"true","VITE_SIMULATION_ENABLED":"true","VITE_MASTRA_URL":"https://circuit-app-dev.hotwax.io"}
+        {"VITE_DRAFT_ASSISTANT_ENABLED":"true","VITE_SIMULATION_ENABLED":"true","VITE_MASTRA_URL":"https://circuit-dev.server.mastra.cloud"}
     secrets:
       envPAT: ${{ secrets.envPAT }}
       HOTWAX_PUBLIC_SECRET: ${{ secrets.HOTWAX_PUBLIC_SECRET }}

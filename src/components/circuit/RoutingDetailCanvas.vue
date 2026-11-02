@@ -97,6 +97,7 @@
                     :detail="false"
                     lines="none"
                     class="recent-thread-item"
+                    :disabled="navigationOperationLocked"
                     @click="selectThread(thread.id)"
                   >
                     <ion-label class="ion-text-wrap">
@@ -121,7 +122,8 @@
             <ion-spinner name="dots" />
             <ion-label>
               <p class="overline">{{ translate("Circuit") }}</p>
-              <p class="message-content">{{ circuitLoadingMessage }}</p>
+              <p class="message-content">{{ streamedAnswer || circuitLoadingMessage }}</p>
+              <p v-if="streamedAnswer" class="overline">{{ circuitLoadingMessage }}</p>
             </ion-label>
           </div>
 
@@ -175,6 +177,7 @@
               fill="clear"
               size="small"
               :aria-label="translate('New chat')"
+              :disabled="navigationOperationLocked"
               @click="createNewChat"
             >
               <ion-icon slot="start" :icon="addOutline" />
@@ -184,6 +187,7 @@
               fill="clear"
               size="small"
               :aria-label="translate('Threads')"
+              :disabled="navigationOperationLocked"
               @click="openThreadModal"
             >
               <ion-icon slot="start" :icon="chatbubblesOutline" />
@@ -262,12 +266,12 @@
       </ion-header>
       <ion-content>
         <ion-list>
-          <ion-item button v-for="thread in threads" :key="thread.id" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
+          <ion-item button v-for="thread in threads" :key="thread.id" :disabled="navigationOperationLocked" @click="selectThread(thread.id)" :detail="false" :class="{ 'selected-thread': thread.id === currentThreadId }">
             <ion-label>
               {{ thread.name }}
               <p>{{ formatDate(thread.createdAt) }}</p>
             </ion-label>
-            <ion-button slot="end" fill="clear" color="danger" @click.stop="confirmDelete(thread.id)">
+            <ion-button slot="end" fill="clear" color="danger" :disabled="navigationOperationLocked" @click.stop="confirmDelete(thread.id)">
               <ion-icon slot="icon-only" :icon="trashOutline" />
             </ion-button>
           </ion-item>
@@ -294,6 +298,7 @@
 </template>
 
 <script setup lang="ts">
+import type { AssistantProgress } from "@/utils/assistantStream";
 import {
   alertController,
   IonBackButton,
@@ -404,7 +409,7 @@ type CircuitDraftProposal = DraftProposal & {
 };
 
 const editorRef = ref<{
-  prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[]) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
+  prepareDraftProposal: (prompt: string, conversationHistory?: DraftConversationMessage[], onProgress?: (event: AssistantProgress) => void) => Promise<{ proposal: CircuitDraftProposal | null; message: string; intent?: 'edit' | 'inquiry' }>;
   previewDraftProposal: (proposal: CircuitDraftProposal) => Promise<{ appliedCount: number; message: string }>;
   acceptDraftProposal: () => void;
   rejectDraftProposal: () => void;
@@ -593,9 +598,22 @@ watch(() => pendingDraftProposal.value?.id, () => {
   );
 }, { flush: 'sync' });
 
-const circuitLoadingMessage = computed(() => pendingDraftProposal.value
-  ? translate("Circuit is applying your decision…")
-  : translate("Circuit is preparing a response…"));
+const streamedAnswer = ref('');
+const responsePhase = ref<Extract<AssistantProgress, { type: 'status' }>['phase'] | null>(null);
+const reportAssistantProgress = (event: AssistantProgress) => {
+  if (event.type === 'text') streamedAnswer.value = event.text;
+  else responsePhase.value = event.phase;
+};
+const circuitLoadingMessage = computed(() => {
+  switch (responsePhase.value) {
+    case 'classifying': return translate('Reading your request…');
+    case 'answering': return translate('Writing an answer…');
+    case 'drafting': return translate('Preparing a draft…');
+    case 'validating': return translate('Checking the response…');
+    case 'retrying': return translate('Revising the draft…');
+    default: return translate('Reading your routing…');
+  }
+});
 // Leaving mid-save or mid-draft would strand a half-applied mutation with no owner to reconcile it,
 // so Back and route changes are refused (not confirmed) until the operation settles. An undecided
 // proposal preview is excluded: leaving rolls it back, which is a safe, designed path.
@@ -626,8 +644,9 @@ function clearPendingProposalState() {
 }
 
 function rollbackPendingProposal() {
-  if (!pendingDraftProposal.value) return;
-  editorRef.value?.rejectDraftProposal?.();
+  // Rejected feedback also belongs to the conversation/context being left, even when its
+  // preview has already been rolled back. Never discard the user's earlier manual edits.
+  if (pendingDraftProposal.value) editorRef.value?.rejectDraftProposal?.();
   clearPendingProposalState();
 }
 
@@ -785,7 +804,7 @@ const onSend = async () => {
         const currentProposal = pendingDraftProposal.value;
         editorRef.value.rejectDraftProposal();
         try {
-          const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
+          const result = await editorRef.value.prepareDraftProposal(message, conversationHistory, reportAssistantProgress);
           assertCurrentCircuitContext(circuitContext);
           if (result.intent !== 'inquiry') {
             await saveDraftFeedbackForProposal('revision_requested', message, currentProposal);
@@ -806,7 +825,7 @@ const onSend = async () => {
         return;
       }
 
-      const result = await editorRef.value.prepareDraftProposal(message, conversationHistory);
+      const result = await editorRef.value.prepareDraftProposal(message, conversationHistory, reportAssistantProgress);
       assertCurrentCircuitContext(circuitContext);
       await showProposalLive(result.proposal, circuitContext);
       pendingDraftProposal.value = result.proposal;
@@ -821,6 +840,8 @@ const onSend = async () => {
     await addCircuitMessage(errorMessage);
   } finally {
     isApplyingDraft.value = false;
+    streamedAnswer.value = '';
+    responsePhase.value = null;
   }
 }
 
@@ -874,6 +895,8 @@ async function setProposalCardDecision(cardKey: string, value: unknown) {
     }
   } finally {
     isApplyingDraft.value = false;
+    streamedAnswer.value = '';
+    responsePhase.value = null;
   }
 }
 
@@ -893,6 +916,8 @@ const acceptPendingProposal = async () => {
     await addCircuitMessage(errorMessage);
   } finally {
     isApplyingDraft.value = false;
+    streamedAnswer.value = '';
+    responsePhase.value = null;
   }
 }
 
@@ -914,6 +939,8 @@ const rejectPendingProposal = async () => {
     pendingDraftProposal.value = null;
   } finally {
     isApplyingDraft.value = false;
+    streamedAnswer.value = '';
+    responsePhase.value = null;
   }
 }
 
@@ -961,7 +988,7 @@ async function reviseDiscardedProposal(
   }
 
   const revisionPrompt = buildFeedbackRevisionPrompt(proposal.sourcePrompt, feedback, proposal);
-  const result = await editorRef.value.prepareDraftProposal(revisionPrompt, conversationHistory);
+  const result = await editorRef.value.prepareDraftProposal(revisionPrompt, conversationHistory, reportAssistantProgress);
   assertCurrentCircuitContext(circuitContext);
   if (result.proposal) {
     result.proposal.sourcePrompt = proposal.sourcePrompt;
@@ -1012,14 +1039,16 @@ const buildConversationHistory = (): DraftConversationMessage[] => {
 }
 
 const createNewChat = async () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
+  rollbackPendingProposal();
+  prompt.value = '';
   await circuitStore.switchThread(null);
   circuitStore.setChatStarted(false);
   await focusPrompt();
 }
 
 const openThreadModal = () => {
-  if (!draftAssistantEnabled) return;
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
   showThreadMenu.value = true;
 }
 
@@ -1029,7 +1058,12 @@ const focusPrompt = async () => {
 }
 
 const selectThread = async (threadId: string) => {
-  await circuitStore.switchThread(threadId);
+  if (!draftAssistantEnabled || navigationOperationLocked.value) return;
+  if (threadId !== currentThreadId.value) {
+    rollbackPendingProposal();
+    prompt.value = '';
+    await circuitStore.switchThread(threadId);
+  }
 
   if (showThreadMenu.value) {
     focusPromptAfterThreadDismiss = true;
@@ -1049,7 +1083,11 @@ const handleThreadModalDismiss = async () => {
 }
 
 const confirmDelete = (threadId: string) => {
-  // Simple delete for now
+  if (navigationOperationLocked.value) return;
+  if (threadId === currentThreadId.value) {
+    rollbackPendingProposal();
+    prompt.value = '';
+  }
   circuitStore.deleteThread(threadId);
 }
 

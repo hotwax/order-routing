@@ -9,6 +9,7 @@ import type {
   PageCapabilityManifest, DraftValidationResult, DraftApplyResult,
   DraftTargetBinding, DraftTargetBindings, ApplyDraftProposalContext,
 } from "@/types/draft";
+import { routingSortDirectionLabel } from "./routingSort";
 import { isVariationForbiddenTarget, isVariationManifest } from "./draftAssistantContext";
 
 type ValueValidationResult =
@@ -25,6 +26,7 @@ type OperationCandidateOptions = {
   ruleKey?: string;
   ruleName?: string;
   ruleSequence?: number;
+  sortDirection?: "asc" | "desc";
 };
 
 
@@ -118,7 +120,7 @@ export function convertBrokeringRouteDraftToOperations(draft: BrokeringRouteDraf
   addOperation(operations, manifest, "route.orderFilters.PROMISE_DATE_EXCLUDED", draft.route.orderSelection.filters.promiseDateDays.excludeMax, { skipEmpty: true, skipUnchanged: true });
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.salesChannels, orderFilterTargets.salesChannels);
   addOptionSelectionOperations(operations, manifest, draft.route.orderSelection.filters.originFacilityGroups, orderFilterTargets.originFacilityGroups);
-  draft.route.orderSelection.sorts.forEach((sort) => addOperation(operations, manifest, orderSortTargets[sort.field], true, { skipUnchanged: true }));
+  draft.route.orderSelection.sorts.forEach((sort) => addOperation(operations, manifest, orderSortTargets[sort.field], true, { skipUnchanged: true, sortDirection: sort.direction }));
 
   draft.route.inventoryRules.forEach((rule) => addSelectedRuleOperations(operations, manifest, rule));
 
@@ -171,6 +173,7 @@ export function createDraftProposal(plan: DraftOperationSet, manifest: PageCapab
 function filterUnchangedOperations(operations: DraftOperation[], manifest: PageCapabilityManifest) {
   const targets = new Map(manifest.editableTargets.map((target) => [target.target, target]));
   const latestValues = new Map<string, DraftValue | undefined>();
+  const latestDirections = new Map<string, string | undefined>();
 
   return operations.filter((operation) => {
     const target = targets.get(operation.target);
@@ -184,8 +187,13 @@ function filterUnchangedOperations(operations: DraftOperation[], manifest: PageC
     }
 
     const currentValue = latestValues.get(valueKey);
+    const currentDirection = latestDirections.has(valueKey)
+      ? latestDirections.get(valueKey)
+      : getCurrentSortDirection(manifest, operation.target, operation.ruleKey);
     latestValues.set(valueKey, operation.value);
-    return currentValue === undefined || !valuesEqual(operation.value, currentValue);
+    if (operation.sortDirection) latestDirections.set(valueKey, operation.sortDirection);
+    return currentValue === undefined || !valuesEqual(operation.value, currentValue)
+      || Boolean(operation.sortDirection && operation.sortDirection !== currentDirection);
   });
 }
 
@@ -448,12 +456,11 @@ function addSelectedRuleOperations(operations: DraftOperation[], manifest: PageC
   }
   addFacilityOrderLimitOperation(operations, manifest, rule.inventorySelection.filters.facilityOrderLimit, ruleMetadata);
   addOperation(operations, manifest, "selectedRule.inventoryFilters.SHIP_THRESHOLD", rule.inventorySelection.filters.shipmentThreshold, { skipEmpty: true, skipUnchanged: true, ...ruleMetadata });
-  rule.inventorySelection.sorts.forEach((sort) => addOperation(operations, manifest, inventorySortTargets[sort.field], true, { skipUnchanged: true, ...ruleMetadata }));
+  rule.inventorySelection.sorts.forEach((sort) => addOperation(operations, manifest, inventorySortTargets[sort.field], true, { skipUnchanged: true, sortDirection: sort.direction, ...ruleMetadata }));
+  addOperation(operations, manifest, "selectedRule.partialAllocation", rule.allocation.partialOrderAllocation, { skipUnchanged: true, ...ruleMetadata });
+  // Turning partial allocation off also clears grouped allocation in the existing binding.
   if (rule.allocation.partialOrderAllocation) {
-    addOperation(operations, manifest, "selectedRule.partialAllocation", true, { skipUnchanged: true, ...ruleMetadata });
-  }
-  if (rule.allocation.partialGroupedItemAllocation) {
-    addOperation(operations, manifest, "selectedRule.partialGroupItemsAllocation", true, { skipUnchanged: true, ...ruleMetadata });
+    addOperation(operations, manifest, "selectedRule.partialGroupItemsAllocation", rule.allocation.partialGroupedItemAllocation, { skipUnchanged: true, ...ruleMetadata });
   }
   addUnavailableItemOperations(operations, manifest, rule.unavailableItems, ruleMetadata);
 }
@@ -540,7 +547,8 @@ function addOperation(
     const currentValue = options.ruleKey
       ? getRuleCurrentValue(manifest, options.ruleKey, targetName)
       : target.currentValue;
-    if (currentValue !== undefined && valuesEqual(operationValue, currentValue)) {
+    if (currentValue !== undefined && valuesEqual(operationValue, currentValue)
+      && (!options.sortDirection || options.sortDirection === getCurrentSortDirection(manifest, targetName, options.ruleKey))) {
       return;
     }
   }
@@ -562,6 +570,7 @@ function addOperation(
 function getRuleCurrentValue(manifest: PageCapabilityManifest, ruleKey: string, target: string): DraftValue | undefined {
   const defaultValue = target === "selectedRule.inventoryFilters.FACILITY_ORDER_LIMIT" ? false : undefined;
   if (ruleKey.startsWith("new:")) {
+    if (target === "selectedRule.partialAllocation" || target === "selectedRule.partialGroupItemsAllocation") return false;
     return defaultValue;
   }
 
@@ -615,8 +624,20 @@ function getRuleCurrentValue(manifest: PageCapabilityManifest, ruleKey: string, 
   return undefined;
 }
 
+function getCurrentSortDirection(manifest: PageCapabilityManifest, target: string, ruleKey?: string) {
+  const entities = manifest.visibleEntities as any;
+  const rule = ruleKey
+    ? entities.route?.availableInventoryRules?.find((candidate: any) => candidate.routingRuleId === ruleKey)
+    : entities.selectedRule;
+  const sorts = target.startsWith("route.orderSorts.")
+    ? entities.route?.currentOrderSorts
+    : rule?.currentValues?.inventorySorts;
+  return sorts?.find((sort: any) => sort.target === target)?.direction;
+}
+
 function buildOperationMetadata(options: OperationCandidateOptions) {
   return {
+    ...(options.sortDirection ? { sortDirection: options.sortDirection } : {}),
     ...(options.ruleKey ? { ruleKey: options.ruleKey } : {}),
     ...(options.ruleName ? { ruleName: options.ruleName } : {}),
     ...(options.ruleSequence !== undefined ? { ruleSequence: options.ruleSequence } : {})
@@ -648,10 +669,12 @@ export function normalizeConversationHistory(history: DraftConversationMessage[]
 export function validateDraftOperations(operations: DraftOperation[], manifest: PageCapabilityManifest): DraftValidationResult {
   const targetCapabilities = new Map(manifest.editableTargets.map((target) => [target.target, target]));
   const supportedOperations = new Set(manifest.outputContract.operations);
-  const currentValues = manifest.editableTargets.reduce((values: Record<string, DraftValue | undefined>, target) => {
+  const initialValues = manifest.editableTargets.reduce((values: Record<string, DraftValue | undefined>, target) => {
     values[target.target] = target.currentValue;
     return values;
   }, {});
+
+  const scopedValues = new Map<string, Record<string, DraftValue | undefined>>();
 
   return operations.reduce((result: DraftValidationResult, operation) => {
     if (!operation || !supportedOperations.has(operation.op)) {
@@ -675,9 +698,28 @@ export function validateDraftOperations(operations: DraftOperation[], manifest: 
       return result;
     }
 
+    const scope = operation.ruleKey || "selected";
+    if (!scopedValues.has(scope)) {
+      scopedValues.set(scope, Object.fromEntries(manifest.editableTargets.map(capability => [
+        capability.target,
+        operation.ruleKey && capability.target.startsWith("selectedRule.")
+          ? getRuleCurrentValue(manifest, operation.ruleKey, capability.target) ?? initialValues[capability.target]
+          : initialValues[capability.target]
+      ])));
+    }
+    const currentValues = operation.target.startsWith("route.") ? initialValues : scopedValues.get(scope)!;
     const disabledReason = getDisabledReason(target, currentValues);
     if (disabledReason) {
       result.unansweredQuestions.push(`${target.label} cannot be changed. ${disabledReason}`);
+      return result;
+    }
+
+    if (operation.sortDirection !== undefined && (
+      !["asc", "desc"].includes(operation.sortDirection)
+      || operation.value !== true
+      || ![...Object.values(orderSortTargets), ...Object.values(inventorySortTargets)].some(name => name === operation.target)
+    )) {
+      result.unansweredQuestions.push(`${target.label} has an invalid sort direction.`);
       return result;
     }
 
@@ -691,6 +733,9 @@ export function validateDraftOperations(operations: DraftOperation[], manifest: 
       };
       result.operations.push(normalizedOperation);
       currentValues[operation.target] = normalizedOperation.value;
+      if (operation.target.startsWith("route.")) {
+        scopedValues.forEach(values => { values[operation.target] = normalizedOperation.value; });
+      }
       return result;
     }
 
@@ -770,7 +815,7 @@ export function summarizeDraftOperations(operations: DraftOperation[], manifest:
         return "";
       }
 
-      const valueLabel = summarizeDraftValue(operation.value, target);
+      const valueLabel = operation.sortDirection ? routingSortDirectionLabel(operation.sortDirection) : summarizeDraftValue(operation.value, target);
       return valueLabel ? `${target.label}: ${valueLabel}` : target.label;
     })
     .filter(Boolean)
@@ -829,7 +874,7 @@ export function formatDraftProposalSections(
 }
 
 function formatDraftOperationLine(operation: DraftOperation, target: DraftTargetCapability) {
-  const valueLabel = summarizeDraftValue(operation.value, target);
+  const valueLabel = operation.sortDirection ? routingSortDirectionLabel(operation.sortDirection) : summarizeDraftValue(operation.value, target);
   return valueLabel ? `- ${target.label}: ${valueLabel}` : `- ${target.label}`;
 }
 

@@ -9,10 +9,11 @@ simulation address, and confirm that the address is trusted to receive the OMS l
 setting is absent or unsafe, the tab stays hidden and the app refuses the request before sending
 anything.
 
-The Circuit assistant is separate. The app can send it a prompt and a description of the editable
-page only after it is explicitly enabled. It never sends the user's raw OMS login pass or OMS URL.
-If Circuit needs to look up OMS data, its server must receive a reviewed server-to-server
-authentication design first.
+The Circuit assistant is separate. Drafting changes sends only the prompt and page description.
+For routing diagnostics, the enabled Circuit service receives the current session token in an
+authorization header so it can read the same OMS data as the user. Circuit accepts only Maarg
+servers on its configured allowlist. If a read is unavailable, the answer must say what is missing.
+See the technical contract below for the required companion backend release and configuration.
 
 For the exact deployment checklist, see
 [`simulation-production-readiness.md`](./simulation-production-readiness.md). The technical trust

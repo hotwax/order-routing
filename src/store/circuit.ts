@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { CircuitStorageService } from '@/services/CircuitStorageService';
 import type { ChatThread, ChatMessage, DraftFeedbackRecord } from '@/types/circuit';
+import { logger } from '@common';
 
 export interface CircuitState {
   isChatStarted: boolean;
@@ -47,7 +48,7 @@ export const useCircuitStore = defineStore('circuit', {
           this.messages = messages;
         }
       } catch (error) {
-        console.error('Failed to load threads', error);
+        logger.error('Failed to load threads', error);
       }
     },
     async createThread(name = 'New Chat'): Promise<string | undefined> {
@@ -62,7 +63,7 @@ export const useCircuitStore = defineStore('circuit', {
         await this.loadAllThreads();
         return thread.id;
       } catch (error) {
-        console.error('Failed to create thread', error);
+        logger.error('Failed to create thread', error);
       }
     },
     // Routing-group context (activeContext) is derived from the page route, not from the thread,
@@ -78,7 +79,7 @@ export const useCircuitStore = defineStore('circuit', {
         const messages = await CircuitStorageService.getMessages(threadId);
         this.messages = messages;
       } catch (error) {
-        console.error('Failed to load messages', error);
+        logger.error('Failed to load messages', error);
       }
     },
     async deleteThread(threadId: string) {
@@ -91,7 +92,7 @@ export const useCircuitStore = defineStore('circuit', {
         }
         this.loadAllThreads();
       } catch (error) {
-        console.error('Failed to delete thread', error);
+        logger.error('Failed to delete thread', error);
       }
     },
     async addLocalMessage(payload: { role: 'user' | 'circuit'; content: string; threadName?: string }) {
@@ -147,7 +148,7 @@ export const useCircuitStore = defineStore('circuit', {
       try {
         await CircuitStorageService.saveDraftFeedback(record);
       } catch (error) {
-        console.error('Failed to save draft feedback', error);
+        logger.error('Failed to save draft feedback', error);
       }
     },
     async sendAgentMessage(payload: string) {

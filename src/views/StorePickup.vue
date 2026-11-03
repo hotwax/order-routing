@@ -340,9 +340,10 @@ async function saveReorder() {
     await ruleStore.updateRuleApi(rule, rule.ruleId)
   }))
 
-  const isFailedToUpdateSomeRule = responses.some((response: any) => response.status === 'rejected')
-  if(isFailedToUpdateSomeRule) {
-    commonUtil.showToast(translate("Failed to update sequence for some rules."))
+  const failedResponse: any = responses.find((response: any) => response.status === 'rejected');
+  if(failedResponse) {
+    const serverError = commonUtil.getErrorMessage(failedResponse.reason);
+    commonUtil.showToast(`${translate("Failed to update sequence for some rules.")} ${serverError}`);
   } else {
     commonUtil.showToast(translate("Sequence for rules updated successfully."))
   }

@@ -229,8 +229,9 @@ async function editThreshold() {
           commonUtil.showToast(translate("Threshold updated successfully."))
           alertController.dismiss()
         } catch(err: any) {
-          commonUtil.showToast(translate("Failed to update threshold."))
+          const serverError = commonUtil.getErrorMessage(err);
           logger.error(err);
+          commonUtil.showToast(`${translate("Failed to update threshold.")} ${serverError}`);
         }
         emitter.emit("dismissLoader");
       }
@@ -291,8 +292,9 @@ async function editSafetyStock() {
           commonUtil.showToast(translate("Safety stock updated successfully."))
           alertController.dismiss()
         } catch(err: any) {
-          commonUtil.showToast(translate("Failed to update safety stock."))
+          const serverError = commonUtil.getErrorMessage(err);
           logger.error(err);
+          commonUtil.showToast(`${translate("Failed to update safety stock.")} ${serverError}`);
         }
         emitter.emit("dismissLoader");
       }
@@ -364,8 +366,9 @@ async function archiveRule() {
             commonUtil.showToast(translate("Rule archived successfully."))
             alertController.dismiss()
           } catch(err: any) {
-            commonUtil.showToast(translate("Failed to archive rule."))
+            const serverError = commonUtil.getErrorMessage(err);
             logger.error(err);
+            commonUtil.showToast(`${translate("Failed to archive rule.")} ${serverError}`);
           }
           emitter.emit("dismissLoader");
         }
@@ -397,8 +400,9 @@ async function updateRulePickup(event: any) {
     await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
     event.target.checked = isChecked
   } catch(err) {
-    logger.error(err)
-    commonUtil.showToast(translate("Failed to update rule pickup."))
+    const serverError = commonUtil.getErrorMessage(err);
+    logger.error(err);
+    commonUtil.showToast(`${translate("Failed to update rule pickup.")} ${serverError}`);
   }
   emitter.emit("dismissLoader");
 }
@@ -417,8 +421,9 @@ async function updateRuleShipping(event: any) {
     await ruleStore.updateRuleData({ rule: await fetchSavedRule(rule) })
     event.target.checked = isChecked
   } catch(err) {
-    logger.error(err)
-    commonUtil.showToast(translate("Failed to update rule brokering."))
+    const serverError = commonUtil.getErrorMessage(err);
+    logger.error(err);
+    commonUtil.showToast(`${translate("Failed to update rule brokering.")} ${serverError}`);
   }
   emitter.emit("dismissLoader");
 }

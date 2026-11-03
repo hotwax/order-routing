@@ -87,7 +87,7 @@ import {
 } from "@ionic/vue";
 import { closeOutline, saveOutline } from 'ionicons/icons';
 import { useAtpProductStore } from "@/store/atpProductStore";
-import { translate } from '@common';
+import { logger, translate } from '@common';
 
 const facetOptions = ref([]) as any;
 const queryString = ref('');
@@ -164,7 +164,7 @@ async function refreshMatchedCount() {
     if (requestId !== currentRequestId) return;
     matchedCount.value = total;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   } finally {
     if (requestId === currentRequestId) {
       isCountLoading.value = false;

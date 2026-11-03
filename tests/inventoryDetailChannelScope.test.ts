@@ -79,7 +79,7 @@ describe("InventoryDetail Channel scope", () => {
     }));
     vi.doMock("@common", () => ({
       api: vi.fn(),
-      commonUtil: { getOmsURL: vi.fn(), hasError: vi.fn(() => false), showToast },
+      commonUtil: { getOmsURL: vi.fn(), hasError: vi.fn(() => false), showToast, getErrorMessage: vi.fn(() => "") },
       cookieHelper: () => ({ get: () => "" }),
       DxpShopifyImg: passthrough("DxpShopifyImg"),
       emitter: { on: vi.fn(), off: vi.fn() },
@@ -275,7 +275,7 @@ describe("InventoryDetail Channel scope", () => {
     await wrapper.find('[data-testid="save-replenishment"]').trigger("click");
     await flushPromises();
 
-    expect(showToast).toHaveBeenCalledWith("Replenishment settings could not be saved");
+    expect(showToast).toHaveBeenCalledWith("Replenishment settings could not be saved. ");
     expect(fetchProductFacility).toHaveBeenCalledTimes(1);
   });
 

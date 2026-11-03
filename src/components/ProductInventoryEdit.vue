@@ -112,8 +112,9 @@ async function updateInventory() {
     commonUtil.showToast(translate("Variance logged successfully."));
     modalController.dismiss({ updated: true })
   } catch (error) {
-    commonUtil.showToast(translate("Failed to log variance. Please try again."));
+    const serverError = commonUtil.getErrorMessage(error);
     logger.error("Error logging variance:", error);
+    commonUtil.showToast(`${translate("Failed to log variance. Please try again.")} ${serverError}`);
   }
 }
 </script>

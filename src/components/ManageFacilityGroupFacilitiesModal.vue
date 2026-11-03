@@ -162,7 +162,8 @@ async function save() {
     modalController.dismiss({ saved: true });
   } catch (err) {
     logger.error("Failed to save facility memberships", err);
-    commonUtil.showToast(translate("Failed to save facility memberships."));
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to save facility memberships.")} ${serverError}`);
   } finally {
     emitter.emit("dismissLoader");
     isSaving.value = false;

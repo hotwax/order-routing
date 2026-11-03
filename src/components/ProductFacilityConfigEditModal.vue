@@ -131,7 +131,9 @@ async function updateConfig() {
     modalController.dismiss({ updated: true });
     commonUtil.showToast(translate("Inventory config update for selected products"))
   } catch (err) {
-    logger.error("Failed to update inventory config for product facilities");
+    logger.error("Failed to update inventory config for product facilities", err);
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to update inventory config for product facilities")}. ${serverError}`);
   }
 }
 </script>

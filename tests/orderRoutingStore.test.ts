@@ -13,7 +13,8 @@ vi.mock("@common", () => ({
     hasError: vi.fn((response: any) => Boolean(response?.error || response?.data?._ERROR_MESSAGE_)),
     sortSequence: vi.fn((items: any[] = []) => [...items].sort((a, b) => Number(a?.sequenceNum ?? 0) - Number(b?.sequenceNum ?? 0))),
     showToast: vi.fn(),
-    getOmsURL: vi.fn(() => "https://oms.example/")
+    getOmsURL: vi.fn(() => "https://oms.example/"),
+    getErrorMessage: vi.fn(() => "")
   },
   logger: { error: vi.fn(), warn: vi.fn() },
   translate: (value: string) => value

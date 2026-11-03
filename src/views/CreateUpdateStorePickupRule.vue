@@ -383,7 +383,8 @@ async function createRule() {
     router.push("/store-pickup");
   } catch(err: any) {
     logger.error(err);
-    commonUtil.showToast(translate("Failed to create rule."))
+    const serverError = commonUtil.getErrorMessage(err);
+    commonUtil.showToast(`${translate("Failed to create rule.")} ${serverError}`);
   }
   emitter.emit("dismissLoader");
 }

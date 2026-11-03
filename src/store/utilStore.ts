@@ -210,7 +210,7 @@ export const useUtilStore = defineStore('util', {
           }, {})
         }
       } catch(err) {
-        logger.error("Failed to fetch the status information")
+        logger.error("Failed to fetch the status information", err)
       }
       this.statuses = statuses;
     },
@@ -322,7 +322,7 @@ export const useUtilStore = defineStore('util', {
         });
         this.systemInformation = resp.data
       } catch(error: any) {
-        logger.error("Failed to fetch system information");
+        logger.error("Failed to fetch system information", error);
       }
     }
   },

@@ -139,12 +139,14 @@ async function linkSelected() {
   );
   isLinking.value = false;
 
-  const failed = responses.filter((r) => r.status === "rejected").length;
-  if (failed) {
-    logger.error(`Failed to link ${failed} group(s)`);
-    commonUtil.showToast(translate("Failed to link group."));
+  const failed = responses.filter((r) => r.status === "rejected");
+  if (failed.length) {
+    logger.error(`Failed to link ${failed.length} group(s)`, failed);
+    const firstReason = (failed[0] as PromiseRejectedResult).reason;
+    const serverError = commonUtil.getErrorMessage(firstReason);
+    commonUtil.showToast(`${translate("Failed to link group.")} ${serverError}`);
   }
-  const linkedCount = ids.length - failed;
+  const linkedCount = ids.length - failed.length;
   if (linkedCount) {
     commonUtil.showToast(translate(linkedCount === 1 ? "Group linked." : "Groups linked."));
     closeModal({ linked: true });

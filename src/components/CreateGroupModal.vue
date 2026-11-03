@@ -136,7 +136,8 @@ async function createGroup() {
     modalController.dismiss();
   } catch (error: any) {
     logger.error(error)
-    commonUtil.showToast(error.response?.data?.errors ? error.response.data.errors : translate("Failed to create channel group."))
+    const serverError = commonUtil.getErrorMessage(error);
+    commonUtil.showToast(`${translate("Failed to create channel group.")} ${serverError}`);
   }
   modalController.dismiss()
   emitter.emit("dismissLoader");

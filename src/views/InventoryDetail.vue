@@ -2005,6 +2005,9 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: var(--spacer-base, 16px);
+  /* Lets the header respond to the width the page actually gets (the split-pane menu takes space
+     the viewport width does not reflect) instead of the viewport. */
+  container-type: inline-size;
 }
 
 .header {
@@ -2060,6 +2063,18 @@ ion-content {
 
 .reconciliation-skeleton ion-skeleton-text {
   height: 72px;
+}
+
+/* Too narrow for image, product info and the facility card side by side: keep image and product info
+   in the first row and give the card its own full-width row so its label and button never get squeezed. */
+@container (max-width: 767px) {
+  .header {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .header > ion-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 991px) {

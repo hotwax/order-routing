@@ -11,6 +11,7 @@ import {
   documentsOutline,
   flaskOutline,
   globeOutline,
+  mapOutline,
   pulseOutline,
   sendOutline,
   settingsOutline,
@@ -98,7 +99,8 @@ const routingTestDriveGuard = (to: any, from: any, next: any) =>
   });
 
 const routes: Array<RouteRecordRaw> = [
-  { path: "/", redirect: "/dashboard" },
+  { path: '/zone-mappings', component: () => import('@/views/ZoneMappings.vue'), beforeEnter: (to, from, next) => isFeatureEnabled('zoneMappings') ? authGuard(to, from, next) : next('/order-routing'), meta: { title: 'Zone mappings', icon: mapOutline, section: 'routing', menuIndex: 12, featureFlag: 'zoneMappings' } },
+  { path: "/", redirect: import.meta.env.DEV && import.meta.env.MODE === "mock" ? "/order-routing" : "/dashboard" },
 
   {
     path: "/dashboard",

@@ -2,14 +2,15 @@
   "name": "order-routing",
   "version": "2.5.0",
   "private": true,
-  "description": "Order Routing Rules + Available to Promise (Sourcing) — unified app",
+  "description": "Order Routing Rules + Available to Promise (Sourcing) \u2014 unified app",
   "scripts": {
     "dev": "vite",
     "build": "pnpm typecheck && pnpm test:unit && vite build",
     "preview": "vite preview",
     "test:unit": "vitest run",
     "typecheck": "vue-tsc --noEmit --pretty false",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix"
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix",
+    "dev:mock": "vite --mode mock --host 127.0.0.1"
   },
   "dependencies": {
     "@capacitor/android": "catalog:",

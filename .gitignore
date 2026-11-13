@@ -43,3 +43,6 @@ npm-debug.log*
 .gstack/
 # Vite PWA dev output
 /dev-dist
+
+# Public development fixtures only; contains no credentials.
+!.env.mock

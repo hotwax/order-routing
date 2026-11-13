@@ -367,6 +367,7 @@
             </ion-item>
             </template>
           </RoutingConfigSectionCard>
+          <OrderAttributeConditions v-if="localUiMock && activeRoutingId" :routing-id="activeRoutingId" />
           <RoutingConfigSectionCard
             :card="routeSortSectionCard"
             :dirty="isOrderConditionCardDirty('ENTCT_SORT_BY')"
@@ -504,12 +505,12 @@
             </template>
             <template #item="{ item }">
             <ion-item v-if="item.target.endsWith('.FACILITY_GROUP')" :class="{ 'dirty-setting-row': item.dirty }">
-              <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
+              <ion-select :placeholder="translate('facility group')" interface="popover" :label="translate('Group')" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" :multiple="localUiMock" :value="localUiMock ? (getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue || '').split(',').filter(Boolean) : getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP')">
                 <ion-select-option v-for="(facilityGroup, facilityGroupId) in brokeringFacilityGroups" :key="facilityGroupId" :value="facilityGroupId" :disabled="isFacilityGroupSelected(facilityGroupId, 'included')">{{ facilityGroup.facilityGroupName || facilityGroupId }}</ion-select-option>
               </ion-select>
             </ion-item>
             <ion-item v-else-if="item.target.endsWith('.FACILITY_GROUP_EXCLUDED')" :class="{ 'dirty-setting-row': item.dirty }">
-              <ion-select :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" :value="getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
+              <ion-select :placeholder="translate('facility group')" interface="popover" :selected-text="getSelectedValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED') || getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" :multiple="localUiMock" :value="localUiMock ? (getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue || '').split(',').filter(Boolean) : getFilterValue(inventoryRuleFilterOptions, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED').fieldValue" @ionChange="updateRuleFilterValue($event, 'FACILITY_GROUP_EXCLUDED')">
                 <div slot="label">
                   <ion-label>{{ translate("Group") }}</ion-label>
                   <ion-note color="danger">{{ translate("Excluded") }}</ion-note>
@@ -710,6 +711,10 @@
 </template>
 
 <script setup lang="ts">
+import OrderAttributeConditions from "./OrderAttributeConditions.vue";
+import { useOrderAttributeConditionsStore } from '@/store/orderAttributeConditions';
+const localUiMock = import.meta.env.DEV && import.meta.env.MODE === "mock";
+const attributeConditionsStore = localUiMock ? useOrderAttributeConditionsStore() : null;
 import { getRoutingSortDirection, routingSortDirectionLabel } from "@/utils/routingSort";
 import type { AssistantProgress } from "@/utils/assistantStream";
 import { 
@@ -1005,6 +1010,7 @@ const isSandbox = computed(() => props.sandbox);
 
 const routingGroupId = computed(() => props.routingGroupId || null);
 const group = ref({}) as any;
+const attributeRoutingIds = computed<string[]>(() => (group.value.routings || []).map((routing:any) => routingWorkingKey(routing)));
 const activeRoutingId = ref('');
 const activeRuleId = ref('');
 const activeRouting = ref(null) as any;
@@ -1701,6 +1707,7 @@ async function discardChanges(options: { navigate?: boolean } = {}) {
   const wasNew = Boolean(group.value?.isNew);
   // Do not clear any local/proposal state unless the store proves that a compatible baseline exists.
   if (!routingStore.discardChanges()) return false;
+  if (localUiMock) attributeConditionsStore?.discard(attributeRoutingIds.value);
   proposalSnapshot.value = null;
   if (wasNew) {
     group.value = {};
@@ -1777,9 +1784,9 @@ function isFacilityGroupSelected(facilityGroupId: string | number, type: string)
   const facilityGroupExcluded = getFilterValue(inventoryRuleFilterOptions.value, conditionFilterEnums, 'FACILITY_GROUP_EXCLUDED')?.fieldValue;
 
   if (type === 'included') {
-    return String(facilityGroupExcluded || "") === String(facilityGroupId);
+    return String(facilityGroupExcluded || "").split(",").includes(String(facilityGroupId));
   } else {
-    return String(facilityGroupIncluded || "") === String(facilityGroupId);
+    return String(facilityGroupIncluded || "").split(",").includes(String(facilityGroupId));
   }
 }
 
@@ -1858,6 +1865,7 @@ async function selectPromiseFilterValue(ev: CustomEvent, type = "included") {
 
 const isRuleNameUpdating = ref(false)
 const hasUnsavedChanges = ref(false)
+watch(() => attributeConditionsStore?.dirtyFor(attributeRoutingIds.value), dirty => { if(localUiMock && dirty) hasUnsavedChanges.value = true; });
 const liveActionsBlocked = computed(() => Boolean(group.value?.isNew || hasUnsavedChanges.value));
 function guardLiveGroupAction(): boolean {
   if (!liveActionsBlocked.value) return false;
@@ -2961,10 +2969,15 @@ async function cloneRule(rule: any) {
 
 
 function updateRuleFilterValue(event: any, fieldName: string, operator = "") {
+  if(localUiMock && Array.isArray(event.detail.value)) {
+    inventoryRuleFilterOptions.value = updateRoutingFilterCondition(inventoryRuleFilterOptions.value, conditionFilterEnums, fieldName, event.detail.value, true);
+    hasUnsavedChanges.value = true;
+    return;
+  }
   inventoryRuleFilterOptions.value = updateRuleFilterCondition(
     inventoryRuleFilterOptions.value,
     conditionFilterEnums[fieldName].code,
-    event.detail.value,
+    Array.isArray(event.detail.value) ? event.detail.value.join(",") : event.detail.value,
     operator
   )
   hasUnsavedChanges.value = true
@@ -3216,6 +3229,7 @@ async function openArchivedRuleModal() {
 
 
 async function save() {
+  if(localUiMock && attributeConditionsStore?.validationError(attributeRoutingIds.value)) { commonUtil.showToast(translate('Complete the order attribute conditions before saving.')); return false; }
   flushEditorDraft();
   if (isSandbox.value) {
     return false;
@@ -3227,11 +3241,19 @@ async function save() {
 
   const previousRoutingId = activeRoutingId.value;
   const previousGroupId = group.value.routingGroupId;
+  const attributeDraftIds = [...attributeRoutingIds.value];
   emitter.emit("presentLoader", { message: translate("Updating routing rules and filters"), backdropDismiss: false });
   try {
     // saveRoutingGroupRaw owns payload sanitization and performs the sole whole-group write.
     // Empty groups are valid: there is intentionally no active-routing dereference here.
     const savedGroup = await routingStore.saveRoutingGroupRaw(cloneSnapshotValue(group.value));
+    if(localUiMock && attributeConditionsStore) {
+      // The local fixture preserves route order and assigns IDs to new routes.
+      // Keep attribute drafts attached when the native Save readback replaces temp IDs.
+      const savedRoutingIds = (savedGroup?.routings || []).map((routing:any) => routingWorkingKey(routing));
+      attributeDraftIds.forEach((id,index) => attributeConditionsStore.rekey(id, savedRoutingIds[index] || id));
+      attributeConditionsStore.commit(savedRoutingIds);
+    }
 
     proposalSnapshot.value = null;
     const savedGroupId = (savedGroup || currentRoutingGroup.value)?.routingGroupId || "";
@@ -3493,9 +3515,10 @@ async function addOrderRouteFilterOptions(parentEnumId: string, conditionTypeEnu
     componentProps: { 
       orderRoutingFilters: conditionTypeEnumId === "ENTCT_FILTER" ? orderRoutingFilterOptions.value : orderRoutingSortOptions.value, 
       orderRoutingId: activeRouting.value.orderRoutingId, 
-      parentEnumId, 
-      conditionTypeEnumId, 
-      label 
+      parentEnumId,
+      conditionTypeEnumId,
+      label,
+      attributeRoutingId: localUiMock ? activeRoutingId.value : undefined
     }
   })
 

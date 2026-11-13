@@ -22,6 +22,16 @@
         <p>{{ translate("Failed to fetch {label} options", { label: $props.label?.toLowerCase() }) }}</p>
       </div>
       <ion-list v-else>
+        <div v-if="showAttributeOption">
+          <ion-item>
+            <ion-checkbox :checked="attributesEnabled" @ionChange="toggleAttributeOption">
+              <ion-label>
+                {{ translate("Order attributes") }}
+                <p>{{ translate("Match orders on any order or line attribute") }}</p>
+              </ion-label>
+            </ion-checkbox>
+          </ion-item>
+        </div>
         <div v-for="sort in (getOptions() as any[])" :key="sort.enumId">
           <ion-item>
             <ion-checkbox :checked="isSortOptionSelected(sort.enumCode)" @ionChange="addSortOption(sort)">{{ sort.description || sort.enumCode }}</ion-checkbox>
@@ -41,6 +51,7 @@
 <script setup lang="ts">
 import { IonButton, IonButtons, IonCheckbox, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonItem, IonLabel, IonList, IonPage, IonSegment, IonSegmentButton, IonTitle, IonToolbar, modalController } from "@ionic/vue";
 import { useUtilStore } from "@/store/utilStore";
+import { useOrderAttributeConditionsStore } from "@/store/orderAttributeConditions";
 import { computed, onMounted, ref } from "vue";
 import { saveOutline } from "ionicons/icons";
 import { DateTime } from "luxon";
@@ -68,8 +79,23 @@ const props = defineProps({
   },
   label: {
     type: String
+  },
+  attributeRoutingId: {
+    type: String
   }
 })
+
+// Order attribute conditions are a local-mock proposal and are held outside the
+// API filter payload, so they are offered here as an opt-in rather than as an enum.
+const localUiMock = import.meta.env.DEV && import.meta.env.MODE === "mock";
+const attributeConditionsStore = localUiMock ? useOrderAttributeConditionsStore() : null;
+const showAttributeOption = computed(() => !!localUiMock && props.conditionTypeEnumId === "ENTCT_FILTER" && segmentSelected.value === "included" && !!props.attributeRoutingId);
+const attributesEnabled = computed(() => !!props.attributeRoutingId && !!attributeConditionsStore?.isEnabledFor(props.attributeRoutingId));
+
+function toggleAttributeOption(event: any) {
+  if (!props.attributeRoutingId) return;
+  attributeConditionsStore?.setEnabled(props.attributeRoutingId, !!event.detail.checked);
+}
 let routingFilters = ref({}) as any
 let areFiltersUpdated = ref(false)
 let segmentSelected = ref("included")

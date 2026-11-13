@@ -287,6 +287,7 @@ import { isRoutingRecordRoute } from "@/utils/routingWorkingCopy";
 import router from "@/router";
 import { useUtilStore } from "./store/utilStore";
 
+const localUiFixtures = import.meta.env.DEV && import.meta.env.MODE === "mock";
 const userStore = useUserStore();
 const utilStore = useUtilStore();
 const productStoreState = productStore();

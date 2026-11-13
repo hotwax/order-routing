@@ -5,7 +5,7 @@
         <ion-menu-button slot="start" />
         <ion-title>{{ translate("Settings") }}</ion-title>
         <ion-buttons slot="end">
-          <ion-button fill="clear" @click="openLogs()">
+          <ion-button fill="clear" v-if="DxpLogsModal" @click="openLogs()">
             <ion-icon slot="start" :icon="documentTextOutline" />
             {{ translate("View logs") }}
           </ion-button>
@@ -124,6 +124,8 @@
 </template>
 
 <script setup lang="ts">
+import * as sharedComponents from "@common";
+const DxpLogsModal = (sharedComponents as any).DxpLogsModal;
 import { IonAvatar, IonButtons, IonButton, IonCard, IonCardContent, IonCardHeader, IonCardSubtitle, IonCardTitle, IonContent, IonHeader, IonIcon, IonItem, IonLabel, IonMenuButton, IonPage, IonSelect, IonSelectOption, IonTitle, IonToggle, IonToolbar, modalController } from "@ionic/vue";
 import { computed, ref } from "vue";
 import { useUserStore } from "@/store/userStore";
@@ -131,7 +133,7 @@ import { productStore } from "@/store/productStore";
 import TimeZoneModal from "@/components/TimezoneModal.vue";
 import Image from "@/components/Image.vue"
 import { openOutline, documentTextOutline } from "ionicons/icons"
-import { translate, commonUtil, cookieHelper, emitter, DxpLogsModal } from "@common";
+import { translate, commonUtil, cookieHelper, emitter } from "@common";
 import { useAuth, isMoquiOmsRef } from "@common/composables/useAuth";
 import DxpAppVersionInfo from "@/components/DxpAppVersionInfo.vue";
 import DxpProductIdentifier from "@/components/DxpProductIdentifier.vue";

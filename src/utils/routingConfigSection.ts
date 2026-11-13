@@ -10,7 +10,7 @@ const targetLabels: Record<string, string> = {
   "selectedRule.autoCancelDays": "Auto cancel days"
 };
 
-const settingLabels: Record<string, string> = {
+export const settingLabels: Record<string, string> = {
   FACILITY_GROUP: "Group",
   FACILITY_GROUP_EXCLUDED: "Excluded group",
   PROXIMITY: "Proximity",

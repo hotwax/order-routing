@@ -88,6 +88,7 @@ export function isSimulationEnabled(env: Env = import.meta.env): boolean {
 /** Map a route's `meta.featureFlag` name to its enablement. Unknown flags fail closed. */
 export function isFeatureEnabled(flag: string, env: Env = import.meta.env): boolean {
   switch (flag) {
+    case "zoneMappings": return env.DEV === true && env.MODE === "mock";
     case "simulation": return isSimulationEnabled(env);
     case "draftAssistant": return isDraftAssistantEnabled(env);
     case "testDrive": return isTestDriveEnabled(env);

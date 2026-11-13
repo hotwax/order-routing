@@ -28,7 +28,7 @@ import "./theme/variables.css";
 
 import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { logger, createDxpI18n, faroUtil, initialiseConfig } from "@common";
+import { logger, createDxpI18n, initialiseConfig } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import localeMessages from "./locales"
 import { useUserStore } from "@/store/userStore";
@@ -36,7 +36,7 @@ import { initialize } from "@/services/appInitializer";
 
 const i18n = createDxpI18n(localeMessages)
 const pinia = createPinia().use(piniaPluginPersistedstate);
-faroUtil.initialiseFaro()
+
 
 const app = createApp(App)
   .use(IonicVue, {
@@ -44,9 +44,8 @@ const app = createApp(App)
   })
   .use(logger, {
     level: import.meta.env.VITE_DEFAULT_LOG_LEVEL,
-    afterHooks: [faroUtil.faroLoggerHook]
+
   })
-  .use(router)
   .use(i18n)
   .use(pinia)
 
@@ -61,6 +60,11 @@ initialiseConfig({
   set current(val) { useUserStore().current = val },
   router: router
 })
+
+if (import.meta.env.DEV && import.meta.env.MODE === 'mock') {
+  await (await import('./mocks/bootstrap')).installFixtures();
+}
+app.use(router)
 
 router.isReady().then(async () => {
   try {

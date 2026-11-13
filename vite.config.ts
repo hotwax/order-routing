@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 
+import { localMockPlugin } from '../../common/vite/localMockPlugin'
 import legacy from '@vitejs/plugin-legacy'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
@@ -12,7 +13,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import manifest from "./manifest.json"
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
+  if (mode === 'mock' && command !== 'serve') throw new Error('Mock mode is local development only.');
   const env = loadEnv(mode, process.cwd(), '')
   const appBuild = JSON.parse(env.VITE_APP_VERSION_CONFIG).buildVersion
   return {
@@ -22,7 +24,7 @@ export default defineConfig(({ mode }) => {
     outDir: appBuild ? `dist/${appBuild}` : 'dist'
   },
   plugins: [
-    commonEnvPlugin(),
+    ...(command === 'serve' && mode === 'mock' ? [localMockPlugin(__dirname)] : [commonEnvPlugin()]),
     !process.env.VITEST && ideTraceVue(),
     vue(),
     legacy(),
@@ -33,6 +35,7 @@ export default defineConfig(({ mode }) => {
     })
   ].filter(Boolean) as any,
   optimizeDeps: {
+    entries: ['index.html'],
     // The workspace carries multiple peer-variant copies of vue in the pnpm store. Pre-bundling
     // vue lets esbuild wrap the runtime in lazy CJS-interop (__esm) blocks, and vue-router's
     // module-scope defineComponent() call then runs before @vue/shared is initialized

@@ -1,0 +1,17 @@
+{
+  "available": true,
+  "target": {
+    "project": "digital-commerce-71eb8",
+    "site": "hotwax-order-routing",
+    "environment": "prod",
+    "origin": "https://hotwax-order-routing.web.app"
+  },
+  "versions": [],
+  "defaultVersion": "v2.5.0",
+  "configuredEnvironment": "AppEnvDev",
+  "defaultSource": "Compiled build metadata",
+  "checkedAt": "2026-11-15T14:29:27.234Z",
+  "deployedAt": "2026-10-08T12:51:06.111Z",
+  "release": "sites/hotwax-order-routing/channels/live/releases/1791463866111000",
+  "fileCount": 154
+}

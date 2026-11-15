@@ -6,8 +6,100 @@
   "action": "replace",
   "version": "v2.6.0,v2.5.0",
   "actor": "dt2patel",
-  "status": "running",
+  "status": "completed",
   "createdAt": "2026-11-15T14:29:21.368Z",
   "steps": [],
-  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/43724587493"
+  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/43724587493",
+  "plan": {
+    "schemaVersion": 1,
+    "id": "e4bd3c42-7c3d-4ad9-999c-9378d9f29370",
+    "repo": "hotwax/order-routing",
+    "actor": "dt2patel",
+    "toolsSha": "aa65bf41f5162d77eb2783f507315d59d080638f",
+    "action": "replace",
+    "environment": "prod",
+    "version": "v2.6.0,v2.5.0",
+    "targetDefault": "v2.6.0",
+    "build": [
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "added": [
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "replaced": [],
+    "removed": [],
+    "retained": [
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "previousDefault": "v2.5.0",
+    "nextDefault": "v2.6.0",
+    "rootChanges": true,
+    "confirmation": "PUBLISH TO PRODUCTION",
+    "app": {
+      "id": "order-routing",
+      "repo": "hotwax/order-routing",
+      "name": "order-routing"
+    },
+    "target": {
+      "project": "digital-commerce-71eb8",
+      "site": "hotwax-order-routing",
+      "environment": "prod",
+      "origin": "https://hotwax-order-routing.web.app"
+    },
+    "baseFingerprint": "e8348f58a1b1d4ba3b50a58b1a9df94a25cb4ee8f4d8c34cc630f32365e143d6",
+    "baseRelease": "sites/hotwax-order-routing/channels/live/releases/1791463866111000",
+    "sources": [
+      {
+        "version": "v2.6.0",
+        "appCommit": "839c99e2067803462ba9c84c6b8f7eec5ac4b681",
+        "frameworkCommit": "2d81ce390bc5d45bf926fcea3a4ff5acbdd1254e",
+        "frameworkPin": "v1.13.3",
+        "appId": "ORDER_ROUTING",
+        "config": {
+          "appId": "ORDER_ROUTING",
+          "environmentTypeId": "AppEnvDev",
+          "buildVersion": ""
+        }
+      },
+      {
+        "version": "v2.5.0",
+        "appCommit": "4d4293ffe75c008d0ca7678fc0f0ba55530ec0f9",
+        "frameworkCommit": "2e4a524fca7bf4c913e43124b5a76bff5c6ecb98",
+        "frameworkPin": "v1.8.0",
+        "appId": "ORDER_ROUTING",
+        "config": {
+          "appId": "ORDER_ROUTING",
+          "environmentTypeId": "AppEnvDev",
+          "buildVersion": ""
+        }
+      }
+    ],
+    "sourceCommits": [
+      {
+        "version": "v2.6.0",
+        "appCommit": "839c99e2067803462ba9c84c6b8f7eec5ac4b681",
+        "frameworkCommit": "2d81ce390bc5d45bf926fcea3a4ff5acbdd1254e",
+        "frameworkPin": "v1.13.3",
+        "appId": "ORDER_ROUTING"
+      },
+      {
+        "version": "v2.5.0",
+        "appCommit": "4d4293ffe75c008d0ca7678fc0f0ba55530ec0f9",
+        "frameworkCommit": "2e4a524fca7bf4c913e43124b5a76bff5c6ecb98",
+        "frameworkPin": "v1.8.0",
+        "appId": "ORDER_ROUTING"
+      }
+    ],
+    "createdAt": "2026-11-15T14:29:29.800Z",
+    "expiresAt": "2026-11-15T15:29:29.800Z",
+    "writable": true,
+    "warnings": [
+      "Users of the main URL receive v2.6.0. The site afterwards serves only v2.6.0, v2.5.0."
+    ],
+    "planSha": "f440786aceb335e04adba6d7aca9be16111a0334"
+  },
+  "finishedAt": "2026-11-15T14:29:32.471Z"
 }

@@ -6,12 +6,15 @@
     "environment": "prod",
     "origin": "https://hotwax-order-routing.web.app"
   },
-  "versions": [],
-  "defaultVersion": "v2.5.0",
-  "configuredEnvironment": "AppEnvDev",
-  "defaultSource": "Compiled build metadata",
-  "checkedAt": "2026-11-15T14:29:27.234Z",
-  "deployedAt": "2026-10-08T12:51:06.111Z",
-  "release": "sites/hotwax-order-routing/channels/live/releases/1791463866111000",
-  "fileCount": 154
+  "versions": [
+    "v2.6.0",
+    "v2.5.0"
+  ],
+  "defaultVersion": "v2.6.0",
+  "configuredEnvironment": "AppEnvProd",
+  "defaultSource": "Hosting manifest",
+  "checkedAt": "2026-11-15T14:40:23.684Z",
+  "deployedAt": "2026-11-15T14:40:21.607Z",
+  "release": "sites/hotwax-order-routing/channels/live/releases/1794753621607000",
+  "fileCount": 590
 }

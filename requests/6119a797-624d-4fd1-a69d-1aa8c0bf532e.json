@@ -6,8 +6,80 @@
   "action": "replace",
   "version": "v2.6.0,v2.5.0",
   "actor": "dt2patel",
-  "status": "running",
+  "status": "completed",
   "createdAt": "2026-11-15T14:31:58.569Z",
-  "steps": [],
-  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/43724817465"
+  "steps": [
+    {
+      "message": "Checking out v2.6.0",
+      "at": "2026-11-15T14:32:06.244Z"
+    },
+    {
+      "message": "Installing pinned dependencies for v2.6.0",
+      "at": "2026-11-15T14:32:08.544Z"
+    },
+    {
+      "message": "Building v2.6.0 version URL",
+      "at": "2026-11-15T14:32:16.163Z"
+    },
+    {
+      "message": "Checking out v2.5.0",
+      "at": "2026-11-15T14:33:39.812Z"
+    },
+    {
+      "message": "Installing pinned dependencies for v2.5.0",
+      "at": "2026-11-15T14:33:42.088Z"
+    },
+    {
+      "message": "Building v2.5.0 version URL",
+      "at": "2026-11-15T14:33:45.861Z"
+    },
+    {
+      "message": "Checking out v2.6.0 as Default",
+      "at": "2026-11-15T14:35:03.421Z"
+    },
+    {
+      "message": "Installing pinned dependencies for v2.6.0",
+      "at": "2026-11-15T14:35:05.846Z"
+    },
+    {
+      "message": "Building v2.6.0 Default",
+      "at": "2026-11-15T14:35:09.322Z"
+    },
+    {
+      "message": "Uploading 477 built files",
+      "at": "2026-11-15T14:36:33.975Z"
+    },
+    {
+      "message": "Publishing verified Firebase deployment",
+      "at": "2026-11-15T14:40:21.912Z"
+    }
+  ],
+  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/43724817465",
+  "deployment": {
+    "release": "sites/hotwax-order-routing/channels/live/releases/1794753621607000",
+    "version": "sites/hotwax-order-routing/versions/2a209012375d1287",
+    "previousVersion": "sites/hotwax-order-routing/versions/5268cc4f1380974c",
+    "files": 590
+  },
+  "hosting": {
+    "available": true,
+    "target": {
+      "project": "digital-commerce-71eb8",
+      "site": "hotwax-order-routing",
+      "environment": "prod",
+      "origin": "https://hotwax-order-routing.web.app"
+    },
+    "versions": [
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "defaultVersion": "v2.6.0",
+    "configuredEnvironment": "AppEnvProd",
+    "defaultSource": "Hosting manifest",
+    "checkedAt": "2026-11-15T14:40:23.684Z",
+    "deployedAt": "2026-11-15T14:40:21.607Z",
+    "release": "sites/hotwax-order-routing/channels/live/releases/1794753621607000",
+    "fileCount": 590
+  },
+  "finishedAt": "2026-11-15T14:40:25.199Z"
 }

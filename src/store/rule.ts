@@ -39,7 +39,10 @@ export const useRuleStore = defineStore('rule', {
           method: "GET",
           params: { ...payload, productStoreId: productStore.currentProductStore.productStoreId, statusId: "ATP_RG_ACTIVE" }
         }) as any;
-        if (resp && !commonUtil.hasError(resp) && resp.data.length) {
+        if (!resp || commonUtil.hasError(resp)) {
+          throw resp?.data;
+        }
+        if (resp.data.length) {
           ruleGroup = resp.data[0]
           const scheduleResp = await api({
             url: `available-to-promise/ruleGroups/${ruleGroup.ruleGroupId}/schedule`,
@@ -48,8 +51,6 @@ export const useRuleStore = defineStore('rule', {
           if (scheduleResp && !commonUtil.hasError(scheduleResp) && scheduleResp.data?.schedule) {
             ruleGroup.schedule = scheduleResp.data.schedule
           }
-        } else {
-          throw resp.data;
         }
       } catch (err: any) {
         logger.error("No rule group found");

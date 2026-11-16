@@ -62,6 +62,17 @@ initialiseConfig({
   router: router
 })
 
+// Unregister any legacy service workers left behind from older PWA builds
+if (typeof window !== "undefined" && "serviceWorker" in navigator && typeof navigator.serviceWorker.getRegistrations === "function") {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(() => {
+    // Ignore background unregistration failures
+  });
+}
+
 router.isReady().then(async () => {
   try {
     await initialize()

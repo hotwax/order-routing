@@ -8,6 +8,7 @@ import pkg from './package.json'
 import { ideTraceVue } from 'chrome-ide-trace/vite'
 import { versionInfoUtil } from '../../common/utils/versionInfoUtil';
 import { commonEnvPlugin } from '../../common/vite/commonEnvPlugin'
+import { appUpdatePwaOptions } from '../../common/vite/appUpdatePwa'
 import { VitePWA } from 'vite-plugin-pwa'
 import manifest from "./manifest.json"
 
@@ -26,11 +27,8 @@ export default defineConfig(({ mode }) => {
     !process.env.VITEST && ideTraceVue(),
     vue(),
     legacy(),
-    VitePWA({
-      registerType: "autoUpdate",
-      selfDestroying: true,
-      manifest: manifest as any,
-    })
+    // The framework's detect-only update worker: no caching; useAppUpdate (App.vue) registers it.
+    VitePWA(appUpdatePwaOptions({ manifest }))
   ].filter(Boolean) as any,
   optimizeDeps: {
     // The workspace carries multiple peer-variant copies of vue in the pnpm store. Pre-bundling

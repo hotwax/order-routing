@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
     VitePWA({
       registerType: "autoUpdate",
       selfDestroying: true,
+      injectRegister: false,
       manifest: manifest as any,
     })
   ].filter(Boolean) as any,

@@ -1,12 +1,14 @@
 <template>
   <div class="section-header">
-    <h1>
-      {{ translate("App") }}
+    <div>
+      <h1>{{ translate("App") }}</h1>
       <p class="overline" v-if="appVersion">{{ translate("Version:", { appVersion }) }}</p>
-    </h1>
-    <p class="overline" v-if="appInfo.builtTime">{{ translate("Built:", { builtDateTime: getDateTime(appInfo.builtTime) }) }}</p>
+    </div>
+    <div class="ion-text-end">
+      <p class="overline" v-if="appInfo.builtTime">{{ translate("Built:", { builtDateTime: getDateTime(appInfo.builtTime) }) }}</p>
+      <ion-button v-if="pwaState.updateExists" @click="refreshApp" fill="outline" color="dark" size="small">{{ translate("Update") }}</ion-button>
+    </div>
   </div>
-  <ion-button v-if="pwaState.updateExists" @click="refreshApp">{{ translate("Update") }}</ion-button>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +31,8 @@ function refreshApp() {
   if (registration && registration.waiting) {
     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
   }
+  userStore.updatePwaState({ registration: pwaState.value.registration, updateExists: false });
+  window.location.reload();
 }
 
 function getDateTime(time: any) {

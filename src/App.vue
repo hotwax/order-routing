@@ -278,7 +278,7 @@ import {
 import { computed, onBeforeMount, onMounted, onUnmounted } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
-import { commonUtil, DxpOmsInstanceFooter, emitter, FastTravel, translate } from "@common";
+import { commonUtil, DxpOmsInstanceFooter, emitter, FastTravel, translate, useAppUpdate } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
@@ -395,10 +395,14 @@ onBeforeMount(() => {
   emitter.on("dismissLoader", dismissLoader as any);
 });
 
+// Shows the framework's update toast; it never reloads on its own, so an open draft is safe.
+const { startAppUpdateWatch } = useAppUpdate();
+
 onMounted(() => {
   if (userProfile.value && userProfile.value.timeZone) {
     Settings.defaultZone = userProfile.value.timeZone;
   }
+  void startAppUpdateWatch();
 });
 
 onUnmounted(() => {

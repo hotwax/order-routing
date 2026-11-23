@@ -1055,7 +1055,10 @@ export const orderRoutingStore = defineStore('orderRouting', {
       try {
         const resp = await useSolrSearch().runSolrQuery(payload);
 
-        if(!commonUtil.hasError(resp) && resp.data.grouped?.orderId?.groups.length) {
+        if(commonUtil.hasError(resp)) {
+          throw resp
+        }
+        if(resp.data.grouped?.orderId?.groups.length) {
           const productIds: Array<string> = [];
           orders = resp.data.grouped?.orderId?.groups.map((group: any) => {
             const groups = group.doclist.docs.reduce((shipGroups: any, item: any) => {
@@ -1079,7 +1082,7 @@ export const orderRoutingStore = defineStore('orderRouting', {
             await useProduct().fetchProducts( productIds)
           }
         } else {
-          throw resp
+          errorMessage = "Unable to find order"
         }
       } catch(error) {
         logger.error(error)

@@ -1549,5 +1549,10 @@
   "Preparing a draft…": "Preparing a draft…",
   "Checking the response…": "Checking the response…",
   "Revising the draft…": "Revising the draft…",
-  "Reading your routing…": "Reading your routing…"
+  "Reading your routing…": "Reading your routing…",
+  "Reload": "Reload",
+  "Session changed": "Session changed",
+  "Signed in to another instance": "Signed in to another instance",
+  "This browser is now signed in to a different session from another tab or app. Reload to continue.": "This browser is now signed in to a different session from another tab or app. Reload to continue.",
+  "This browser is now signed in to {instance} from another tab or app. Reload to continue.": "This browser is now signed in to {instance} from another tab or app. Reload to continue."
 }

@@ -22,6 +22,11 @@ vi.mock("@/store/utilStore", () => ({
           enumCode: "checkFutureInventory",
           description: "Check Future Inventory",
         },
+        IFP_ALL_ITEM_AVAIL_COND: {
+          enumId: "IFP_ALL_ITEM_AVAIL_COND",
+          enumCode: "brokerIfAllItemsAvailable",
+          description: "All items available anywhere",
+        },
       },
     },
   }),
@@ -112,6 +117,65 @@ describe("AddInventoryFilterOptionsModal", () => {
         }),
       },
     }, "save");
+  });
+
+  it("stores all items available anywhere as a fixed true condition", async () => {
+    const wrapper = mount(AddInventoryFilterOptionsModal, {
+      props: {
+        routingRuleId: "RULE-1",
+        ruleConditions: {},
+        parentEnumId: "INV_FILTER_PRM_TYPE",
+        conditionTypeEnumId: "ENTCT_FILTER",
+        label: "Filters",
+        filterOptions: {},
+      },
+    });
+    await flushPromises();
+
+    await wrapper.findAll("button.condition")[2].trigger("click");
+    await wrapper.get("button.save").trigger("click");
+
+    expect(mocks.dismiss).toHaveBeenCalledWith({
+      dismissed: true,
+      filters: {
+        brokerIfAllItemsAvailable: expect.objectContaining({
+          fieldName: "brokerIfAllItemsAvailable",
+          fieldValue: "true",
+          operator: "equals",
+        }),
+      },
+    }, "save");
+  });
+
+  it("repairs a previously saved null all-items row when it is selected again", async () => {
+    const wrapper = mount(AddInventoryFilterOptionsModal, {
+      props: {
+        routingRuleId: "RULE-1",
+        ruleConditions: {
+          brokerIfAllItemsAvailable: {
+            routingRuleId: "RULE-1",
+            conditionTypeEnumId: "ENTCT_FILTER",
+            fieldName: "brokerIfAllItemsAvailable",
+            fieldValue: null,
+            operator: "",
+          },
+        },
+        parentEnumId: "INV_FILTER_PRM_TYPE",
+        conditionTypeEnumId: "ENTCT_FILTER",
+        label: "Filters",
+        filterOptions: {},
+      },
+    });
+    await flushPromises();
+
+    await wrapper.findAll("button.condition")[2].trigger("click");
+    await wrapper.get("button.save").trigger("click");
+
+    expect(mocks.dismiss).toHaveBeenCalledWith(expect.objectContaining({
+      filters: {
+        brokerIfAllItemsAvailable: expect.objectContaining({ fieldValue: "true" }),
+      },
+    }), "save");
   });
 
   it("normalizes a legacy false row to the presence-based override when selected", async () => {

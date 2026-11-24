@@ -25,11 +25,7 @@ export const useUserStore = defineStore('user', {
       timeZones: [] as any[],
       // The app version this deployment is pinned to. undefined = not resolved yet, "" = no version
       // configured, "vX.Y.Z" = pinned. Resolved from the OMS by useAuth().fetchAppVersion() on Login.
-      appVersion: undefined as string | undefined,
-      pwaState: {
-        updateExists: false as boolean,
-        registration: null as any
-      }
+      appVersion: undefined as string | undefined
     }
   },
   getters: {
@@ -47,9 +43,6 @@ export const useUserStore = defineStore('user', {
     },
     getTimeZones(state) {
       return state.timeZones;
-    },
-    getPwaState(state) {
-      return state.pwaState;
     },
     getCurrentTimeZone(state): string | undefined {
       return state.current?.timeZone
@@ -255,10 +248,6 @@ export const useUserStore = defineStore('user', {
       } catch (err) {
         logger.error('Error fetching timezones', err);
       }
-    },
-    updatePwaState(payload: any) {
-      this.pwaState.registration = payload.registration;
-      this.pwaState.updateExists = payload.updateExists;
     }
   },
   persist: true

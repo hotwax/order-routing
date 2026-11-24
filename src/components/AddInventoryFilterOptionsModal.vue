@@ -109,7 +109,7 @@ const associatedOptions = { IIP_PROXIMITY: { enum: "IIP_MSMNT_SYSTEM", defaultVa
 // Removing the condition restores the normal limit check.
 // useCpcm is also presence-based, the backend only enables the mapping when the value is "true".
 // checkFutureInventory is presence-based too: routing counts future inventory only when the value is "true".
-const fixedConditionValues = { IFP_IGNORE_ORD_FAC_LIMIT: "Y", IFP_USE_CPCM: "true", IFP_CHECK_FUTURE_INV: "true" } as Record<string, string>
+const fixedConditionValues = { IFP_IGNORE_ORD_FAC_LIMIT: "Y", IFP_USE_CPCM: "true", IFP_CHECK_FUTURE_INV: "true", IFP_ALL_ITEM_AVAIL_COND: "true" } as Record<string, string>
 // Operator to preselect when adding a new comparison condition
 const defaultOperators = { IFP_SHIPPING_ZONE: "equals", IFP_GROUND_TRANSIT_TIME: "less-equals" } as Record<string, string>
 

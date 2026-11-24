@@ -278,7 +278,7 @@ import {
 import { computed, onBeforeMount, onMounted, onUnmounted } from "vue";
 import { gridOutline } from "ionicons/icons";
 import { Settings } from "luxon";
-import { commonUtil, DxpOmsInstanceFooter, emitter, FastTravel, translate } from "@common";
+import { commonUtil, DxpOmsInstanceFooter, emitter, FastTravel, translate, useSessionChangeAlert } from "@common";
 import { useAuth } from "@common/composables/useAuth";
 import { useUserStore } from "@/store/userStore";
 import { productStore } from "@/store/productStore";
@@ -289,6 +289,9 @@ import { useUtilStore } from "./store/utilStore";
 
 const userStore = useUserStore();
 const utilStore = useUtilStore();
+
+// A login in another tab or app replaced the shared session cookies: ask the user to reload.
+useSessionChangeAlert();
 const productStoreState = productStore();
 const loaderLifecycle = createGlobalLoaderLifecycle(
   (options) => loadingController.create(options),

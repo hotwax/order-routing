@@ -32,6 +32,6 @@ export function buildRoutingAgentSnapshot(refData?: {
     shippingMethods: product.getShippingMethods,
     salesChannels: utilStore.getEnums["ORDER_SALES_CHANNEL"] || {},
     facilityGroups: product.getFacilityGroups,
-    brokeringFacilityGroups: product.getFacilityGroups
+    brokeringFacilityGroups: product.getBrokeringFacilityGroups
   };
 }

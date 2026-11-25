@@ -1077,7 +1077,13 @@ const enums = computed(() => isSandbox.value
   : utilStore.getEnums);
 const shippingMethods = computed(() => editorReferenceMaps.value.shippingMethods);
 const facilityGroups = computed(() => editorReferenceMaps.value.facilityGroups);
-const brokeringFacilityGroups = computed(() => editorReferenceMaps.value.facilityGroups);
+const brokeringFacilityGroups = computed(() => Object.values(editorReferenceMaps.value.facilityGroups || {}).reduce((groups: Record<string, any>, group: any) => {
+  if(group.facilityGroupTypeId === "BROKERING_GROUP") {
+    groups[group.facilityGroupId] = group
+  }
+
+  return groups
+}, {}));
 const routingHistory = computed(() => routingStore.getRoutingHistory)
 const userProfile = computed(() => userStore.getUserProfile)
 
@@ -1504,7 +1510,8 @@ async function buildCircuitDraftManifest() {
     conditionFilterEnums,
     conditionSortEnums,
     actionEnums,
-    ...buildRoutingAgentSnapshot(editorReferenceMaps.value)
+    ...buildRoutingAgentSnapshot(editorReferenceMaps.value),
+    brokeringFacilityGroups: brokeringFacilityGroups.value
   });
 }
 

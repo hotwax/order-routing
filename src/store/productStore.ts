@@ -72,8 +72,8 @@ export const productStore = defineStore('productStore', {
     getCarriers(state) {
       return state.carriers
     },
-    getBrokeringFacilityGroups(state) {
-      return Object.values(state.facilityGroups).reduce((result: any, group: any) => {
+    getBrokeringFacilityGroups(state): Record<string, any> {
+      return Object.values(state.facilityGroups).reduce((result: Record<string, any>, group: any) => {
         if (group.facilityGroupTypeId === "BROKERING_GROUP") {
           result[group.facilityGroupId] = group
         }

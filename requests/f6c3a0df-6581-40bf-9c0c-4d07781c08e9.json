@@ -6,8 +6,78 @@
   "action": "default",
   "version": "v2.6.1",
   "actor": "ymaheshwari1",
-  "status": "running",
+  "status": "completed",
   "createdAt": "2026-11-26T14:04:46.737Z",
   "steps": [],
-  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45835311172"
+  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45835311172",
+  "plan": {
+    "schemaVersion": 1,
+    "id": "f6c3a0df-6581-40bf-9c0c-4d07781c08e9",
+    "repo": "hotwax/order-routing",
+    "actor": "ymaheshwari1",
+    "toolsSha": "ec2e10970b12f022aa8e840ebb98a13b35f23bca",
+    "action": "default",
+    "environment": "prod",
+    "version": "v2.6.1",
+    "targetDefault": null,
+    "build": [
+      "v2.6.1"
+    ],
+    "added": [],
+    "replaced": [],
+    "removed": [],
+    "retained": [
+      "v2.6.1",
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "previousDefault": "v2.6.0",
+    "nextDefault": "v2.6.1",
+    "rootChanges": true,
+    "confirmation": "PUBLISH TO PRODUCTION",
+    "app": {
+      "id": "order-routing",
+      "repo": "hotwax/order-routing",
+      "name": "order-routing"
+    },
+    "target": {
+      "project": "digital-commerce-71eb8",
+      "site": "hotwax-order-routing",
+      "environment": "prod",
+      "origin": "https://hotwax-order-routing.web.app"
+    },
+    "baseFingerprint": "b208c8d83a08c433eab1139a2364a33570ddc325d4545300984d93975389d486",
+    "baseRelease": "sites/hotwax-order-routing/channels/live/releases/1795701659396000",
+    "sources": [
+      {
+        "version": "v2.6.1",
+        "appCommit": "babd780de15dc9c56144f2cd0ae0b5232d51624e",
+        "frameworkCommit": "2d81ce390bc5d45bf926fcea3a4ff5acbdd1254e",
+        "frameworkPin": "v1.13.3",
+        "appId": "ORDER_ROUTING",
+        "config": {
+          "appId": "ORDER_ROUTING",
+          "environmentTypeId": "AppEnvDev",
+          "buildVersion": ""
+        }
+      }
+    ],
+    "sourceCommits": [
+      {
+        "version": "v2.6.1",
+        "appCommit": "babd780de15dc9c56144f2cd0ae0b5232d51624e",
+        "frameworkCommit": "2d81ce390bc5d45bf926fcea3a4ff5acbdd1254e",
+        "frameworkPin": "v1.13.3",
+        "appId": "ORDER_ROUTING"
+      }
+    ],
+    "createdAt": "2026-11-26T14:04:51.975Z",
+    "expiresAt": "2026-11-26T15:04:51.975Z",
+    "writable": true,
+    "warnings": [
+      "Users of the main URL receive this rebuilt Default. Pinned releases remain hosted."
+    ],
+    "planSha": "c4fe1be65f7d7c0942b81456a4ce0ea77dc8f8b9"
+  },
+  "finishedAt": "2026-11-26T14:04:54.997Z"
 }

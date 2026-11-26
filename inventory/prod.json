@@ -13,7 +13,7 @@
   "defaultVersion": "v2.6.0",
   "configuredEnvironment": "AppEnvProd",
   "defaultSource": "Hosting manifest",
-  "checkedAt": "2026-11-26T11:28:18.866Z",
+  "checkedAt": "2026-11-26T13:56:22.376Z",
   "deployedAt": "2026-11-15T14:40:21.607Z",
   "release": "sites/hotwax-order-routing/channels/live/releases/1794753621607000",
   "fileCount": 590

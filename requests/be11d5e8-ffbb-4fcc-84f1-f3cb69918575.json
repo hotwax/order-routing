@@ -6,8 +6,57 @@
   "action": "default",
   "version": "v2.6.1",
   "actor": "ymaheshwari1",
-  "status": "running",
+  "status": "completed",
   "createdAt": "2026-11-26T14:06:59.296Z",
-  "steps": [],
-  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45835678711"
+  "steps": [
+    {
+      "message": "Checking out v2.6.1 as Default",
+      "at": "2026-11-26T14:07:05.115Z"
+    },
+    {
+      "message": "Installing pinned dependencies for v2.6.1",
+      "at": "2026-11-26T14:07:06.730Z"
+    },
+    {
+      "message": "Building v2.6.1 Default",
+      "at": "2026-11-26T14:07:14.572Z"
+    },
+    {
+      "message": "Uploading 163 built files",
+      "at": "2026-11-26T14:08:50.952Z"
+    },
+    {
+      "message": "Publishing verified Firebase deployment",
+      "at": "2026-11-26T14:09:41.435Z"
+    }
+  ],
+  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45835678711",
+  "deployment": {
+    "release": "sites/hotwax-order-routing/channels/live/releases/1795702181275000",
+    "version": "sites/hotwax-order-routing/versions/ace9dc27e749bcdf",
+    "previousVersion": "sites/hotwax-order-routing/versions/73cf213fe99dd197",
+    "files": 848
+  },
+  "hosting": {
+    "available": true,
+    "target": {
+      "project": "digital-commerce-71eb8",
+      "site": "hotwax-order-routing",
+      "environment": "prod",
+      "origin": "https://hotwax-order-routing.web.app"
+    },
+    "versions": [
+      "v2.6.1",
+      "v2.6.0",
+      "v2.5.0"
+    ],
+    "defaultVersion": "v2.6.1",
+    "configuredEnvironment": "AppEnvProd",
+    "defaultSource": "Hosting manifest",
+    "checkedAt": "2026-11-26T14:09:44.078Z",
+    "deployedAt": "2026-11-26T14:09:41.275Z",
+    "release": "sites/hotwax-order-routing/channels/live/releases/1795702181275000",
+    "fileCount": 848
+  },
+  "finishedAt": "2026-11-26T14:09:46.017Z"
 }

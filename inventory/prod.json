@@ -7,14 +7,15 @@
     "origin": "https://hotwax-order-routing.web.app"
   },
   "versions": [
+    "v2.6.1",
     "v2.6.0",
     "v2.5.0"
   ],
   "defaultVersion": "v2.6.0",
   "configuredEnvironment": "AppEnvProd",
   "defaultSource": "Hosting manifest",
-  "checkedAt": "2026-11-26T13:56:22.376Z",
-  "deployedAt": "2026-11-15T14:40:21.607Z",
-  "release": "sites/hotwax-order-routing/channels/live/releases/1794753621607000",
-  "fileCount": 590
+  "checkedAt": "2026-11-26T14:01:02.981Z",
+  "deployedAt": "2026-11-26T14:00:59.396Z",
+  "release": "sites/hotwax-order-routing/channels/live/releases/1795701659396000",
+  "fileCount": 751
 }

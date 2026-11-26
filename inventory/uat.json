@@ -7,14 +7,14 @@
     "origin": "https://hotwax-order-routing-uat.web.app"
   },
   "versions": [
-    "v2.6.0",
+    "v2.6.1",
     "v2.5.0"
   ],
-  "defaultVersion": "v2.6.0",
+  "defaultVersion": "v2.6.1",
   "configuredEnvironment": "AppEnvUAT",
   "defaultSource": "Compiled build metadata",
-  "checkedAt": "2026-11-16T11:16:34.268Z",
-  "deployedAt": "2026-11-15T14:26:57.357Z",
-  "release": "sites/hotwax-order-routing-uat/channels/live/releases/1794752817357000",
+  "checkedAt": "2026-11-26T11:26:08.845Z",
+  "deployedAt": "2026-11-25T13:57:49.955Z",
+  "release": "sites/hotwax-order-routing-uat/channels/live/releases/1795615069955000",
   "fileCount": 477
 }

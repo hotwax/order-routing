@@ -6,8 +6,29 @@
   "action": "",
   "version": null,
   "actor": "ymaheshwari1",
-  "status": "running",
+  "status": "completed",
   "createdAt": "2026-11-26T11:27:03.798Z",
   "steps": [],
-  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45810634032"
+  "runUrl": "https://github.com/hotwax/order-routing/actions/runs/45810634032",
+  "hosting": {
+    "available": true,
+    "target": {
+      "project": "hotwax-digital-commerce-uat",
+      "site": "hotwax-order-routing-uat",
+      "environment": "uat",
+      "origin": "https://hotwax-order-routing-uat.web.app"
+    },
+    "versions": [
+      "v2.6.1",
+      "v2.5.0"
+    ],
+    "defaultVersion": "v2.6.1",
+    "configuredEnvironment": "AppEnvUAT",
+    "defaultSource": "Compiled build metadata",
+    "checkedAt": "2026-11-26T11:27:07.904Z",
+    "deployedAt": "2026-11-25T13:57:49.955Z",
+    "release": "sites/hotwax-order-routing-uat/channels/live/releases/1795615069955000",
+    "fileCount": 477
+  },
+  "finishedAt": "2026-11-26T11:27:09.280Z"
 }

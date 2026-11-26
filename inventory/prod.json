@@ -11,11 +11,11 @@
     "v2.6.0",
     "v2.5.0"
   ],
-  "defaultVersion": "v2.6.0",
+  "defaultVersion": "v2.6.1",
   "configuredEnvironment": "AppEnvProd",
   "defaultSource": "Hosting manifest",
-  "checkedAt": "2026-11-26T14:04:50.042Z",
-  "deployedAt": "2026-11-26T14:00:59.396Z",
-  "release": "sites/hotwax-order-routing/channels/live/releases/1795701659396000",
-  "fileCount": 751
+  "checkedAt": "2026-11-26T14:09:44.078Z",
+  "deployedAt": "2026-11-26T14:09:41.275Z",
+  "release": "sites/hotwax-order-routing/channels/live/releases/1795702181275000",
+  "fileCount": 848
 }
